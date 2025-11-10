@@ -1,13 +1,37 @@
+# === Android Studio & Gradle ===
 *.iml
 .gradle
 .gradle-cache
 /local.properties
 /.idea
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
-/misc/
+/build/
+app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+misc/
+
+# === Release outputs ===
+app/release/
+*.apk
+*.aab
+*.apks
+*.dm
+output-metadata.json
+
+# === OS / Tooling ===
+*.log
+*.tmp
+*.swp
+*.bak
+
+# === Keystores & credentials ===
+*.jks
+*.keystore
+*.pem
+*.asc
+*.gpg
+
+# === Misc ===
 AGENTS.md
