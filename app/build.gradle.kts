@@ -92,8 +92,9 @@ dependencies {
     implementation(libs.androidx.security.crypto)
 
     implementation(libs.bdk.android)
-    implementation(libs.tor.android)
-    implementation(libs.jtorctl)
+    implementation(libs.tor.android) {
+        exclude(group = "info.guardianproject", module = "jtorctl")
+    }
     implementation(libs.slf4j.api)
     implementation(libs.slf4j.android)
     implementation(libs.androidx.datastore.preferences)

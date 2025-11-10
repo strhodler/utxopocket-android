@@ -25,3 +25,7 @@
 -dontwarn org.bitcoindevkit.**
 -keep class org.torproject.** { *; }
 -dontwarn org.torproject.**
+-keep class net.sqlcipher.** { *; }
+-dontwarn net.sqlcipher.**
+-keep class com.sun.jna.** { *; }
+-dontwarn com.sun.jna.**
