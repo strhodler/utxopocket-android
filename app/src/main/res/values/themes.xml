@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.UtxoPocket" parent="Theme.Material3.DayNight.NoActionBar" />
+
+    <style name="Theme.UtxoPocket.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/splash_icon_background</item>
+        <item name="colorPrimary">@color/splash_icon_primary</item>
+        <item name="postSplashScreenTheme">@style/Theme.UtxoPocket</item>
+    </style>
+</resources>

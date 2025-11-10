@@ -1,0 +1,17 @@
+UtxoPocket
+Copyright (c) 2025 Strhodler
+
+This product bundles third-party components:
+
+- AndroidX, Jetpack Compose, Material, Hilt (Apache License 2.0)
+- Kotlin Coroutines (Apache License 2.0)
+- Room, Paging, DataStore, Security Crypto (Apache License 2.0)
+- BDK / bdk-android (MIT License)
+- Tor Android / Tor binaries (BSD 3-Clause)
+- SQLCipher (GPLv3/commercial dual-license; used under GPLv3 terms)
+- ZXing (Apache License 2.0)
+- SLF4J (MIT License)
+- Vico charts (Apache License 2.0)
+- Encode Sans & Encode Sans Expanded (SIL Open Font License 1.1)
+
+Each library retains its original copyright and license.

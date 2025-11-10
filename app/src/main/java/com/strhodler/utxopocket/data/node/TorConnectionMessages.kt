@@ -1,0 +1,27 @@
+package com.strhodler.utxopocket.data.node
+
+import org.bitcoindevkit.ElectrumException
+import javax.net.ssl.SSLHandshakeException
+
+private fun Throwable.rootCause(): Throwable {
+    var current: Throwable = this
+    while (current.cause != null && current.cause !== current) {
+        current = current.cause!!
+    }
+    return current
+}
+
+private fun Throwable.torAwareHint(): String? = when (rootCause()) {
+    is ElectrumException.AllAttemptsErrored -> "The selected node appears to reject Tor connections. Choose another endpoint that supports Tor."
+    is SSLHandshakeException -> "TLS handshake failed while connecting through Tor. Verify the node's certificate or try a different endpoint."
+    else -> null
+}
+
+fun Throwable.toTorAwareMessage(defaultMessage: String, endpoint: String? = null): String {
+    val base = torAwareHint() ?: defaultMessage
+    return if (endpoint != null) {
+        "$base (endpoint: $endpoint)"
+    } else {
+        base
+    }
+}

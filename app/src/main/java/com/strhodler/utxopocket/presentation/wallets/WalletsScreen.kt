@@ -1,0 +1,747 @@
+package com.strhodler.utxopocket.presentation.wallets
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.domain.model.BalanceUnit
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.DescriptorType
+import com.strhodler.utxopocket.domain.model.NodeStatus
+import com.strhodler.utxopocket.domain.model.WalletSummary
+import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
+import com.strhodler.utxopocket.presentation.common.applyScreenPadding
+import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
+import com.strhodler.utxopocket.presentation.components.RefreshableContent
+import com.strhodler.utxopocket.presentation.components.RollingBalanceText
+import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
+import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
+import com.strhodler.utxopocket.presentation.wallets.components.onGradient
+import com.strhodler.utxopocket.presentation.wallets.components.toTheme
+import com.strhodler.utxopocket.presentation.wallets.components.walletCardBackground
+import com.strhodler.utxopocket.presentation.wallets.components.walletShimmer
+import com.strhodler.utxopocket.presentation.wiki.WikiContent
+
+private const val TestnetFaucetsTopicId = "testnet-faucets"
+private const val DefaultBalanceAnimationDuration = 220
+
+@Composable
+fun WalletsRoute(
+    onAddWallet: () -> Unit,
+    onOpenWiki: () -> Unit,
+    onOpenWikiTopic: (String) -> Unit,
+    onNetworkClick: () -> Unit,
+    onSelectNode: () -> Unit,
+    onWalletSelected: (Long, String) -> Unit,
+    snackbarMessage: String? = null,
+    onSnackbarConsumed: () -> Unit = {},
+    viewModel: WalletsViewModel = hiltViewModel()
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    SetPrimaryTopBar()
+    WalletsScreen(
+        state = state,
+        onRefreshRequested = viewModel::refresh,
+        onAddWallet = onAddWallet,
+        onOpenWiki = onOpenWiki,
+        onOpenWikiTopic = onOpenWikiTopic,
+        onNetworkClick = onNetworkClick,
+        onSelectNode = onSelectNode,
+        onWalletSelected = onWalletSelected,
+        snackbarMessage = snackbarMessage,
+        onSnackbarConsumed = onSnackbarConsumed
+    )
+}
+
+@Composable
+fun WalletsScreen(
+    state: WalletsUiState,
+    onRefreshRequested: () -> Unit,
+    onAddWallet: () -> Unit,
+    onOpenWiki: () -> Unit,
+    onOpenWikiTopic: (String) -> Unit,
+    onNetworkClick: () -> Unit,
+    onSelectNode: () -> Unit,
+    onWalletSelected: (Long, String) -> Unit,
+    snackbarMessage: String? = null,
+    onSnackbarConsumed: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(snackbarMessage) {
+        val message = snackbarMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(
+            message = message,
+            duration = SnackbarDuration.Long,
+            withDismissAction = true
+        )
+        onSnackbarConsumed()
+    }
+
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
+        contentWindowInsets = ScreenScaffoldInsets
+    ) { innerPadding ->
+        WalletsContent(
+            state = state,
+            onRefreshRequested = onRefreshRequested,
+            onOpenWiki = onOpenWiki,
+            onOpenWikiTopic = onOpenWikiTopic,
+            onNetworkClick = onNetworkClick,
+            onSelectNode = onSelectNode,
+            onWalletSelected = onWalletSelected,
+            onAddWallet = onAddWallet,
+            modifier = Modifier
+                .fillMaxSize()
+                .applyScreenPadding(innerPadding)
+        )
+    }
+}
+
+@Composable
+private fun WalletsContent(
+    state: WalletsUiState,
+    onRefreshRequested: () -> Unit,
+    onOpenWiki: () -> Unit,
+    onOpenWikiTopic: (String) -> Unit,
+    onNetworkClick: () -> Unit,
+    onSelectNode: () -> Unit,
+    onWalletSelected: (Long, String) -> Unit,
+    onAddWallet: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val pullToRefreshState = rememberPullToRefreshState()
+    val shouldShowPullToRefreshIndicator = !(state.isRefreshing && state.nodeStatus is NodeStatus.Connecting)
+    val canAddWallet = state.nodeStatus is NodeStatus.Synced
+    val showNodePrompt = state.wallets.isEmpty() && !state.hasActiveNodeSelection
+
+    val hasWalletErrors = state.wallets.any { it.lastSyncStatus is NodeStatus.Error }
+    val globalErrorMessage = state.errorMessage.takeUnless { hasWalletErrors }
+
+    RefreshableContent(
+        isRefreshing = state.isRefreshing,
+        onRefresh = {
+            if (!state.isRefreshing) {
+                onRefreshRequested()
+            }
+        },
+        modifier = modifier,
+        state = pullToRefreshState,
+        indicator = {
+            if (shouldShowPullToRefreshIndicator) {
+                PullToRefreshDefaults.Indicator(
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    isRefreshing = state.isRefreshing,
+                    state = pullToRefreshState
+                )
+            }
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            WalletsList(
+                wallets = state.wallets,
+                network = state.selectedNetwork,
+                onOpenWiki = onOpenWiki,
+                onOpenWikiTopic = onOpenWikiTopic,
+                balanceUnit = state.balanceUnit,
+                totalBalanceSats = state.totalBalanceSats,
+                onNetworkClick = onNetworkClick,
+                onSelectNode = onSelectNode,
+                onWalletSelected = onWalletSelected,
+                onAddWallet = onAddWallet,
+                canAddWallet = canAddWallet,
+                showNodePrompt = showNodePrompt,
+                isRefreshing = state.isRefreshing,
+                walletAnimationsEnabled = state.walletAnimationsEnabled,
+                modifier = Modifier.weight(1f, fill = true)
+            )
+            globalErrorMessage?.let { error ->
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WalletsList(
+    wallets: List<WalletSummary>,
+    network: BitcoinNetwork,
+    onOpenWiki: () -> Unit,
+    onOpenWikiTopic: (String) -> Unit,
+    balanceUnit: BalanceUnit,
+    totalBalanceSats: Long,
+    onNetworkClick: () -> Unit,
+    onSelectNode: () -> Unit,
+    onWalletSelected: (Long, String) -> Unit,
+    onAddWallet: () -> Unit,
+    canAddWallet: Boolean,
+    showNodePrompt: Boolean,
+    isRefreshing: Boolean,
+    walletAnimationsEnabled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if (wallets.isEmpty()) {
+        // Non-scrollable layout when empty; content centered.
+        Box(modifier = modifier.fillMaxWidth()) {
+            // Show network status + selector even when there are no wallets
+            NetworkStatusCard(
+                network = network,
+                onClick = onNetworkClick,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(horizontal = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING)
+                    .fillMaxWidth()
+            )
+            val centerModifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING)
+
+            if (showNodePrompt) {
+                NodeSelectionPrompt(
+                    onSelectNode = onSelectNode,
+                    onOpenWiki = { onOpenWikiTopic(WikiContent.NodeConnectivityTopicId) },
+                    modifier = centerModifier
+                )
+            } else {
+                EmptyState(
+                    onOpenWiki = onOpenWiki,
+                    onAddWallet = onAddWallet,
+                    canAddWallet = canAddWallet,
+                    modifier = centerModifier
+                )
+            }
+        }
+    } else {
+        val listState = rememberLazyListState()
+        LazyColumn(
+            state = listState,
+            modifier = modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(
+                top = BalanceHeaderMetrics.CONTENT_TOP_PADDING,
+                bottom = BalanceHeaderMetrics.CONTENT_BOTTOM_PADDING,
+                start = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING,
+                end = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING
+            )
+        ) {
+            item(key = "wallets-balance-header") {
+                WalletsBalanceHeader(
+                    totalBalanceSats = totalBalanceSats,
+                    balanceUnit = balanceUnit,
+                    network = network,
+                    onNetworkClick = onNetworkClick,
+                    animationsEnabled = walletAnimationsEnabled
+                )
+            }
+            items(wallets, key = { it.id }) { wallet ->
+                WalletCard(
+                    wallet = wallet,
+                    balanceUnit = balanceUnit,
+                    onClick = { onWalletSelected(wallet.id, wallet.name) },
+                    modifier = Modifier.fillMaxWidth(),
+                    animationsEnabled = walletAnimationsEnabled
+                )
+            }
+            item(key = "wallets-add-descriptor") {
+                AddDescriptorCtaButton(
+                    enabled = canAddWallet,
+                    onClick = onAddWallet
+                )
+                if (!canAddWallet) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(id = R.string.wallets_add_wallet_disabled_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+}
+
+// Testnet faucet banner and dialog removed from Home; faucet access moved to "More".
+
+private object BalanceHeaderMetrics {
+    val CONTENT_HORIZONTAL_PADDING = 16.dp
+    val CONTENT_TOP_PADDING = 8.dp
+    val CONTENT_BOTTOM_PADDING = 24.dp
+}
+
+private val AddDescriptorCtaMinHeight = 56.dp
+private val AddDescriptorCtaContentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp)
+
+@Composable
+private fun AddDescriptorCtaButton(
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier.fillMaxWidth()
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.heightIn(min = AddDescriptorCtaMinHeight),
+        contentPadding = AddDescriptorCtaContentPadding
+    ) {
+        Icon(imageVector = Icons.Outlined.Add, contentDescription = null)
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = stringResource(id = R.string.wallets_add_wallet_action),
+            style = MaterialTheme.typography.titleSmall
+        )
+    }
+}
+
+private val WalletCardCornerRadius = 12.dp
+
+@Composable
+private fun WalletCard(
+    wallet: WalletSummary,
+    balanceUnit: BalanceUnit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    animationsEnabled: Boolean
+) {
+    val syncStatus = wallet.lastSyncStatus
+    val statusLabel = nodeStatusLabel(syncStatus)
+    val theme = remember(wallet.color) { wallet.color.toTheme() }
+    val shimmerPhase = if (animationsEnabled) rememberWalletShimmerPhase() else 0f
+    val contentColor = theme.onGradient
+    val secondaryTextColor = contentColor.copy(alpha = 0.85f)
+    val errorIndicatorColor = MaterialTheme.colorScheme.error
+    Card(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(WalletCardCornerRadius),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .walletCardBackground(theme, WalletCardCornerRadius)
+                .let { base ->
+                    if (animationsEnabled) {
+                        base.walletShimmer(
+                            phase = shimmerPhase,
+                            cornerRadius = WalletCardCornerRadius,
+                            highlightColor = contentColor
+                        )
+                    } else {
+                        base
+                    }
+                }
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = wallet.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = contentColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        WalletInfoChip(
+                            text = walletDescriptorTypeLabel(wallet.descriptorType),
+                            contentColor = contentColor
+                        )
+                    }
+                }
+                if (syncStatus is NodeStatus.Connecting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = contentColor.copy(alpha = 0.9f)
+                    )
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                RollingBalanceText(
+                    balanceSats = wallet.balanceSats,
+                    unit = balanceUnit,
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = contentColor
+                    ),
+                    monospaced = true,
+                    animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(
+                        id = R.string.wallets_transactions,
+                        wallet.transactionCount
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = secondaryTextColor
+                )
+                Text(
+                    text = statusLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = when (syncStatus) {
+                        NodeStatus.Synced -> contentColor
+                        is NodeStatus.Error -> contentColor
+                        else -> secondaryTextColor
+                    }
+                )
+            }
+            if (syncStatus is NodeStatus.Error) {
+                val errorText = remember(syncStatus.message) {
+                    sanitizeWalletErrorMessage(syncStatus.message)
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Warning,
+                        contentDescription = stringResource(id = R.string.wallets_sync_error_icon_description),
+                        tint = errorIndicatorColor
+                    )
+                    Text(
+                        text = errorText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = contentColor,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WalletsBalanceHeader(
+    totalBalanceSats: Long,
+    balanceUnit: BalanceUnit,
+    network: BitcoinNetwork,
+    onNetworkClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    animationsEnabled: Boolean
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth(),
+        color = Color.Transparent,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            NetworkStatusCard(
+                network = network,
+                onClick = onNetworkClick,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 48.dp, bottom = 30.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = stringResource(id = R.string.wallets_total_balance_label),
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center
+                )
+                RollingBalanceText(
+                    balanceSats = totalBalanceSats,
+                    unit = balanceUnit,
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontWeight = FontWeight.Medium
+                    ),
+                    monospaced = true,
+                    animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0
+                )
+            }
+
+        }
+    }
+}
+
+@Composable
+private fun NetworkStatusCard(
+    network: BitcoinNetwork,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val networkLabel = stringResource(
+        id = when (network) {
+            BitcoinNetwork.MAINNET -> R.string.network_mainnet
+            BitcoinNetwork.TESTNET -> R.string.network_testnet
+            BitcoinNetwork.TESTNET4 -> R.string.network_testnet4
+            BitcoinNetwork.SIGNET -> R.string.network_signet
+        }
+    )
+    Card(
+        onClick = onClick,
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(WalletCardCornerRadius)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = networkLabel,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f, fill = true)
+            )
+            Icon(
+                imageVector = Icons.Outlined.ExpandMore,
+                contentDescription = stringResource(
+                    id = R.string.wallets_network_selector_expand_content_description
+                ),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun NodeSelectionPrompt(
+    onSelectNode: () -> Unit,
+    onOpenWiki: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = stringResource(id = R.string.wallets_node_prompt_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = stringResource(id = R.string.wallets_node_prompt_description),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onSelectNode,
+                modifier = Modifier
+                    .widthIn(max = 360.dp)
+                    .fillMaxWidth()
+            ) {
+                Text(text = stringResource(id = R.string.wallets_node_prompt_action))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            TextButton(onClick = onOpenWiki) {
+                Text(
+                    text = stringResource(id = R.string.wallets_node_prompt_wiki_cta),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyState(
+    onOpenWiki: () -> Unit,
+    onAddWallet: () -> Unit,
+    canAddWallet: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(id = R.string.wallets_empty_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = stringResource(id = R.string.wallets_empty_description),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            AddDescriptorCtaButton(
+                enabled = canAddWallet,
+                onClick = onAddWallet,
+                modifier = Modifier
+                    .widthIn(max = 360.dp)
+                    .fillMaxWidth()
+            )
+            if (!canAddWallet) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(id = R.string.wallets_add_wallet_disabled_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            TextButton(onClick = onOpenWiki) {
+                Text(
+                    text = stringResource(id = R.string.wallets_empty_wiki_cta),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+// Removed LoadingState to avoid duplicate loaders; rely on pull-to-refresh indicator.
+
+@Composable
+private fun networkChipLabel(network: BitcoinNetwork): String = when (network) {
+    BitcoinNetwork.MAINNET -> stringResource(id = R.string.network_mainnet)
+    BitcoinNetwork.TESTNET -> stringResource(id = R.string.network_testnet)
+    BitcoinNetwork.TESTNET4 -> stringResource(id = R.string.network_testnet4)
+    BitcoinNetwork.SIGNET -> stringResource(id = R.string.network_signet)
+}
+
+@Composable
+private fun walletDescriptorTypeLabel(type: DescriptorType): String = when (type) {
+    DescriptorType.P2PKH -> stringResource(id = R.string.wallet_detail_descriptor_type_legacy)
+    DescriptorType.P2WPKH -> stringResource(id = R.string.wallet_detail_descriptor_type_segwit)
+    DescriptorType.P2SH -> stringResource(id = R.string.wallet_detail_descriptor_type_p2sh)
+    DescriptorType.P2WSH -> stringResource(id = R.string.wallet_detail_descriptor_type_segwit_p2wsh)
+    DescriptorType.TAPROOT -> stringResource(id = R.string.wallet_detail_descriptor_type_taproot)
+    DescriptorType.MULTISIG -> stringResource(id = R.string.wallet_detail_descriptor_type_multisig)
+    DescriptorType.COMBO -> stringResource(id = R.string.wallet_detail_descriptor_type_combo)
+    DescriptorType.RAW -> stringResource(id = R.string.wallet_detail_descriptor_type_raw)
+    DescriptorType.ADDRESS -> stringResource(id = R.string.wallet_detail_descriptor_type_address)
+    DescriptorType.OTHER -> stringResource(id = R.string.wallet_detail_descriptor_type_other)
+}
+
+@Composable
+private fun WalletInfoChip(
+    text: String,
+    contentColor: Color
+) {
+    Surface(
+        color = contentColor.copy(alpha = 0.2f),
+        contentColor = contentColor,
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun nodeStatusLabel(status: NodeStatus): String = when (status) {
+    NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
+    NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
+    NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
+    is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
+}
