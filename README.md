@@ -4,6 +4,12 @@ UtxoPocket is an open-source Android app for monitoring multiple Bitcoin wallets
 
 ---
 
+## Installation
+- Recommended: Install via [Obtainium](https://github.com/ImranR98/Obtainium) so updates track every tagged GitHub release. In Obtainium, add `https://github.com/strhodler/utxopocket-android`, pick the stable channel, and enable automatic download/notification to stay current.
+- Manual: Download the latest `.apk` plus the matching `.sha256`/`.sha512` files from `app/release/` (or the GitHub Releases page), verify the checksum, then sideload with `adb install` or your device’s package installer.
+
+---
+
 ## Value proposition
 - **Privacy by default**: embedded Tor, zero telemetry, no clearnet fallbacks.
 - **Complete visibility**: clear dashboards plus wallet-level warnings whenever a sync misbehaves.
