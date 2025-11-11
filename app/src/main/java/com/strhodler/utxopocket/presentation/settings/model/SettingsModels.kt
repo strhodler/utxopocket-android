@@ -19,7 +19,7 @@ data class SettingsUiState(
     val appLanguage: AppLanguage = AppLanguage.EN,
     val preferredUnit: BalanceUnit = BalanceUnit.DEFAULT,
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
-    val listDisplayMode: ListDisplayMode = ListDisplayMode.Compact,
+    val listDisplayMode: ListDisplayMode = ListDisplayMode.Cards,
     val walletAnimationsEnabled: Boolean = true,
     val advancedMode: Boolean = false,
     val transactionAnalysisEnabled: Boolean = true,

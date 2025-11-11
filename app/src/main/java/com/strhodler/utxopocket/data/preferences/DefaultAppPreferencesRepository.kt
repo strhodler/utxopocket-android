@@ -94,7 +94,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         dataStore.data.map { prefs ->
             prefs[Keys.LIST_DISPLAY_MODE]?.let { value ->
                 runCatching { ListDisplayMode.valueOf(value) }.getOrNull()
-            } ?: ListDisplayMode.Compact
+            } ?: ListDisplayMode.Cards
         }
 
     override val walletAnimationsEnabled: Flow<Boolean> =

@@ -329,7 +329,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val _themePreference = MutableStateFlow(ThemePreference.SYSTEM)
     private val _appLanguage = MutableStateFlow(AppLanguage.EN)
     private val _balanceUnit = MutableStateFlow(BalanceUnit.SATS)
-    private val _listDisplayMode = MutableStateFlow(ListDisplayMode.Compact)
+    private val _listDisplayMode = MutableStateFlow(ListDisplayMode.Cards)
     private val _walletBalanceRange = MutableStateFlow(BalanceRange.LastYear)
     private val _walletAnimationsEnabled = MutableStateFlow(true)
     private val _advancedMode = MutableStateFlow(false)

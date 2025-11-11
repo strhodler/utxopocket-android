@@ -593,7 +593,7 @@ data class WalletDetailUiState(
     val descriptor: String? = null,
     val changeDescriptor: String? = null,
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
-    val listDisplayMode: ListDisplayMode = ListDisplayMode.Compact,
+    val listDisplayMode: ListDisplayMode = ListDisplayMode.Cards,
     val advancedMode: Boolean = false,
     val nodeStatus: NodeStatus = NodeStatus.Idle,
     val torStatus: TorStatus = TorStatus.Stopped,

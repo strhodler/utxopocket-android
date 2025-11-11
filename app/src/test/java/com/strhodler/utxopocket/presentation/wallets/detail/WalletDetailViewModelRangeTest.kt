@@ -327,7 +327,7 @@ class WalletDetailViewModelRangeTest {
         private val themePreferenceState = MutableStateFlow(ThemePreference.SYSTEM)
         private val appLanguageState = MutableStateFlow(AppLanguage.EN)
         private val balanceUnitState = MutableStateFlow(BalanceUnit.DEFAULT)
-        private val listDisplayModeState = MutableStateFlow(ListDisplayMode.Compact)
+        private val listDisplayModeState = MutableStateFlow(ListDisplayMode.Cards)
         private val walletAnimationsEnabledState = MutableStateFlow(true)
         private val balanceRangeState = MutableStateFlow(BalanceRange.LastYear)
         private val advancedModeState = MutableStateFlow(false)
