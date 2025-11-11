@@ -1,5 +1,335 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- App navigation -->
+    <string name="app_name">UtxoPocket</string>
+    <string name="nav_wallets">Billeteras</string>
+    <string name="nav_settings">Ajustes</string>
+    <string name="nav_wiki">Wiki</string>
+    <string name="nav_more">Más</string>
+
+    <!-- More/about & documents -->
+    <string name="more_section_documents">Bitcoin</string>
+    <string name="more_section_others">Otros</string>
+    <string name="more_section_about">Acerca de</string>
+    <string name="more_item_about">Acerca de</string>
+    <string name="more_item_about_supporting">Quién construye UtxoPocket y cómo apoyar el proyecto.</string>
+    <string name="more_item_bitcoin_pdf">Whitepaper de Bitcoin (PDF)</string>
+    <string name="pdf_viewer_title">Lee y descarga el Whitepaper de Bitcoin</string>
+    <string name="pdf_viewer_loading">Cargando documento…</string>
+    <string name="pdf_viewer_error">No se pudo cargar el PDF.</string>
+    <string name="pdf_viewer_page_description">Página %1$d del PDF de Bitcoin</string>
+    <string name="pdf_download_action">Abrir con</string>
+    <string name="pdf_download_filename">bitcoin_whitepaper.pdf</string>
+    <string name="pdf_download_saved">Guardado en %1$s</string>
+    <string name="about_sheet_link_repository">Repositorio</string>
+    <string name="about_sheet_link_nostr">Nostr</string>
+    <string name="about_sheet_link_lightning">LNURL</string>
+    <string name="about_sheet_qr_caption">Invítame un café vía Lightning</string>
+    <string name="about_sheet_qr_error">No se pudo generar el código QR.</string>
+    <string name="about_sheet_copy_toast">Copiado al portapapeles</string>
+
+    <!-- Wallets list -->
+    <string name="wallets_refresh">Actualizar</string>
+    <string name="wallets_empty_title">Aún no hay billeteras</string>
+    <string name="wallets_empty_description">Añade tu primera billetera para empezar a seguir los balances.</string>
+    <string name="wallets_empty_wiki_cta">Visita la Wiki para saber más sobre Bitcoin.</string>
+    <string name="wallets_add_wallet_action">Añadir descriptor</string>
+    <string name="wallets_add_wallet_secondary">Añadir billetera ₿</string>
+    <string name="wallets_empty_add_action">Añadir billetera ₿</string>
+    <string name="wallets_total_balance_label">Balance total</string>
+    <string name="wallets_balance">Balance: %1$s %2$s</string>
+    <string name="wallets_transactions">Transacciones: %1$d</string>
+    <string name="wallets_status">Estado: %1$s</string>
+    <string name="wallets_state_idle">Inactivo</string>
+    <string name="wallets_state_connecting">Conectando</string>
+    <string name="wallets_state_synced">Sincronizado</string>
+    <string name="wallets_state_error">Error</string>
+    <string name="wallets_network_selector_expand_content_description">Seleccionar red</string>
+    <string name="wallets_last_sync">Última sincronización: %1$s</string>
+    <string name="wallets_sync_error_icon_description">Advertencia de sincronización</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title">Bienvenido a UtxoPocket</string>
+    <string name="onboarding_subtitle">Replica tus hardware wallets, monitorea salud y navega tras Tor sin exponer llaves privadas.</string>
+    <string name="onboarding_get_started">Comenzar</string>
+    <string name="onboarding_skip">Omitir</string>
+    <string name="onboarding_back">Atrás</string>
+    <string name="onboarding_next">Siguiente</string>
+    <string name="onboarding_initial_setup_title">Configuración inicial</string>
+    <string name="onboarding_select_network_label">Elige tu red predeterminada</string>
+    <string name="onboarding_node_type_label">Fuente del nodo</string>
+    <string name="onboarding_node_public">Nodos públicos</string>
+    <string name="onboarding_node_custom">Nodo personalizado</string>
+    <string name="onboarding_tor_reminder">Todas las conexiones se enrutan por Tor de forma predeterminada.</string>
+    <string name="onboarding_connection_standard">Host + Puerto</string>
+    <string name="onboarding_connection_onion">Dirección .onion</string>
+    <string name="onboarding_host_label">Host</string>
+    <string name="onboarding_port_label">Puerto</string>
+    <string name="onboarding_onion_label">Endpoint onion</string>
+    <string name="onboarding_onion_hint">Incluye el puerto tras la dirección .onion (ej. nodo.onion:50001).</string>
+    <string name="onboarding_later">Más tarde</string>
+    <string name="onboarding_complete_setup">Completar configuración</string>
+
+    <!-- Networks -->
+    <string name="navigation_back_action">Atrás</string>
+    <string name="network_mainnet">Mainnet</string>
+    <string name="network_testnet">Testnet3</string>
+    <string name="network_testnet4">Testnet4</string>
+    <string name="network_signet">Signet</string>
+    <string name="network_select_title">Seleccionar red de Bitcoin</string>
+    <string name="network_select_description">Elige qué red de Bitcoin usar.</string>
+    <string name="network_switching_title">Cambiando a…</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Ajustes</string>
+    <string name="settings_section_security">Seguridad</string>
+    <string name="settings_section_privacy_analysis">Privacidad y análisis</string>
+    <string name="settings_section_units">Unidades</string>
+    <string name="settings_section_utxo_management">Gestión de UTXO</string>
+    <string name="settings_section_appearance">Apariencia</string>
+    <string name="settings_section_interface">Interfaz</string>
+    <string name="settings_unit_btc">BTC</string>
+    <string name="settings_unit_sats">sats</string>
+    <string name="settings_display_unit_label">Unidades de visualización</string>
+    <string name="settings_display_mode_label">Modo de lista</string>
+    <string name="settings_theme_label">Tema</string>
+    <string name="settings_display_density_description">Elige cómo muestran las listas UTXOs y transacciones.</string>
+    <string name="settings_display_density_compact">Compacto</string>
+    <string name="settings_display_density_cards">Tarjetas</string>
+    <string name="settings_display_density_hint">Compacto mantiene listas rápidas; tarjetas muestran IDs, direcciones y alertas.</string>
+    <string name="settings_pin_title">PIN de la app</string>
+    <string name="settings_pin_subtitle">Solicita un PIN de 6 dígitos al abrir la app.</string>
+    <string name="settings_active_network">Red activa: %1$s</string>
+    <string name="settings_node_source">Elegir origen del nodo</string>
+    <string name="settings_theme_system">Sistema (%1$s)</string>
+    <string name="settings_theme_value_light">Claro</string>
+    <string name="settings_theme_value_dark">Oscuro</string>
+    <string name="settings_section_network_connection">Red y conexión</string>
+    <string name="settings_section_node">Ajustes globales del nodo</string>
+    <string name="settings_section_tor">Conectividad Tor</string>
+
+    <!-- Node configuration (additional) -->
+    <string name="node_active_indicator">Nodo activo</string>
+    <string name="node_connected_badge">Conectado</string>
+    <string name="node_configuration_back_action">Atrás</string>
+    <string name="node_delete_content_description">Eliminar nodo personalizado</string>
+    <string name="node_custom_add_open_button">Añadir nodo personalizado</string>
+    <string name="node_custom_add_title">Añadir nodo personalizado</string>
+    <string name="node_custom_testing">Probando conexión…</string>
+    <string name="node_custom_success">Nodo añadido y verificado</string>
+    <string name="node_public_empty_hint">No hay nodos públicos disponibles para esta red.</string>
+    <string name="node_section_public_title">Nodos públicos</string>
+    <string name="node_section_public_description">Elige entre servidores Electrum auditados en privacidad.</string>
+    <string name="node_section_custom_title">Tus nodos personalizados</string>
+    <string name="node_section_custom_description">Nodos guardados a los que puedes cambiar al instante.</string>
+
+    <!-- Status bar labels -->
+    <string name="status_tor">Tor</string>
+    <string name="status_node">Nodo</string>
+    <string name="status_block_height_short">Bloque %1$s</string>
+    <string name="status_fee_rate_short">%1$s sat/vB</string>
+    <string name="status_node_block_height_label">Altura de bloque</string>
+    <string name="status_node_last_sync_label">Última sincronización</string>
+    <string name="status_node_endpoint_label">Endpoint</string>
+    <string name="status_node_server_version_label">Versión del servidor</string>
+    <string name="status_node_protocol_label">Protocolo</string>
+    <string name="status_node_protocol_range_value">%1$s - %2$s</string>
+    <string name="status_node_hash_function_label">Función hash</string>
+    <string name="status_node_genesis_hash_label">Hash génesis</string>
+    <string name="status_node_pruning_label">Pruning</string>
+    <string name="status_node_pruning_value">Altura %1$s</string>
+    <string name="status_node_pruning_unknown">No reportado</string>
+    <string name="status_node_unknown_value">Desconocido</string>
+    <string name="status_node_retry_action">Reconectar</string>
+
+    <!-- Wallet detail -->
+    <string name="wallet_detail_title">Detalles de la billetera</string>
+    <string name="wallet_detail_not_found">No se encontró la billetera.</string>
+    <string name="wallet_detail_transactions_tab">Transacciones</string>
+    <string name="wallet_detail_transactions_tab_count">Transacciones (%1$d)</string>
+    <string name="wallet_detail_utxos_tab">UTXOs</string>
+    <string name="wallet_detail_utxos_tab_count">UTXOs (%1$d)</string>
+    <string name="wallet_detail_receive_addresses_tab">Recibir</string>
+    <string name="wallet_detail_change_addresses_tab">Cambio</string>
+    <string name="wallet_detail_empty_transactions">Aún no hay transacciones.</string>
+    <string name="wallet_detail_transactions_sort_label">Ordenar por</string>
+    <string name="wallet_detail_transactions_sort_expand_content_description">Mostrar opciones de orden</string>
+    <string name="wallet_detail_transactions_sort_newest_first">Más recientes primero</string>
+    <string name="wallet_detail_transactions_sort_oldest_first">Más antiguas primero</string>
+    <string name="wallet_detail_transactions_sort_highest_amount">Monto mayor</string>
+    <string name="wallet_detail_transactions_sort_lowest_amount">Monto menor</string>
+    <string name="wallet_detail_transactions_sort_best_health">Mejor salud primero</string>
+    <string name="wallet_detail_transactions_sort_worst_health">Peor salud primero</string>
+    <string name="wallet_detail_utxos_sort_label">Orden de UTXOs</string>
+    <string name="wallet_detail_utxos_filter_label">Filtro</string>
+    <string name="wallet_detail_utxos_filter_expand_content_description">Mostrar opciones de filtro</string>
+    <string name="wallet_detail_utxos_filter_labeled">UTXOs etiquetados</string>
+    <string name="wallet_detail_utxos_filter_unlabeled">UTXOs sin etiqueta</string>
+    <string name="wallet_detail_utxos_filter_summary_all">Todos los UTXOs</string>
+    <string name="wallet_detail_utxos_filter_summary_labeled">Sólo etiquetados</string>
+    <string name="wallet_detail_utxos_filter_summary_unlabeled">Sólo sin etiqueta</string>
+    <string name="wallet_detail_utxos_filter_summary_none">Sin UTXOs seleccionados</string>
+    <string name="wallet_detail_empty_utxos">No hay UTXOs disponibles.</string>
+    <string name="wallet_detail_receive_addresses_empty">No hay direcciones de recepción disponibles.</string>
+    <string name="wallet_detail_change_addresses_empty">No hay direcciones de cambio disponibles.</string>
+    <string name="wallet_detail_balance_history_title">Historial de balance</string>
+    <string name="wallet_detail_addresses_copy">Copiar dirección</string>
+    <string name="wallet_detail_addresses_qr">Mostrar QR de la dirección</string>
+    <string name="wallet_detail_address_copy_toast">Dirección copiada al portapapeles</string>
+    <string name="wallet_detail_address_derivation_index">Índice %1$d</string>
+    <string name="wallet_detail_address_reuse_icon_description">Alerta de reutilización de dirección</string>
+    <string name="wallet_detail_change_utxo_warning">Salida de cambio (sólo uso interno)</string>
+    <string name="wallet_detail_dust_utxo_warning">Salida dust (&lt;= %1$s)</string>
+    <string name="wallet_detail_transaction_id_label">ID de transacción</string>
+    <string name="wallet_detail_address_unknown">Dirección no disponible</string>
+
+    <!-- Address detail -->
+    <string name="address_detail_title">Detalles de la dirección</string>
+    <string name="address_detail_not_found">Los detalles de la dirección no están disponibles.</string>
+    <string name="address_detail_qr_content_description">Código QR de la dirección</string>
+    <string name="address_detail_qr_error_placeholder">QR no disponible</string>
+    <string name="address_detail_change_warning">Advertencia: esta es una dirección de cambio. Evita compartirla públicamente.</string>
+    <string name="address_detail_used_warning_once">Advertencia: esta dirección ya se utilizó.</string>
+    <string name="address_detail_used_warning_multiple">Advertencia: esta dirección se reutilizó %1$d veces.</string>
+    <string name="address_detail_copy_toast">Copiado al portapapeles</string>
+    <string name="address_detail_usage_never">Nunca usada</string>
+    <string name="address_detail_usage_once">Usada una vez</string>
+    <string name="address_detail_usage_multiple">Reutilizada %1$d veces</string>
+    <string name="address_detail_section_overview">Resumen</string>
+    <string name="address_detail_address_label">Dirección</string>
+    <string name="address_detail_copy_address">Copiar dirección</string>
+    <string name="address_detail_path_label">Ruta de derivación</string>
+    <string name="address_detail_index_label">Índice de derivación</string>
+    <string name="address_detail_usage_label">Uso</string>
+    <string name="address_detail_section_scripts">Script y descriptor</string>
+    <string name="address_detail_script_label">Script (hex)</string>
+    <string name="address_detail_copy_script">Copiar script</string>
+    <string name="address_detail_descriptor_label">Descriptor</string>
+    <string name="address_detail_copy_descriptor">Copiar descriptor</string>
+    <string name="address_detail_copy_action_label">Copiar</string>
+
+    <!-- Transaction detail -->
+    <string name="transaction_detail_title">Detalles de la transacción</string>
+    <string name="transaction_detail_not_found">No se encontró la transacción.</string>
+    <string name="transaction_detail_copy_toast">Copiado al portapapeles</string>
+    <string name="transaction_detail_section_flow">Gráfico de transacción</string>
+    <string name="transaction_detail_flow_inputs">Entradas</string>
+    <string name="transaction_detail_flow_outputs">Salidas</string>
+    <string name="transaction_detail_flow_unknown_output">Salida #%1$d</string>
+    <string name="transaction_detail_flow_wallet_badge">Billetera</string>
+    <string name="transaction_detail_flow_external_badge">Externa</string>
+    <string name="transaction_detail_flow_change_badge">Cambio</string>
+    <string name="transaction_detail_flow_derivation">Ruta %1$s</string>
+    <string name="transaction_detail_flow_empty">No disponible</string>
+    <string name="transaction_detail_section_overview">Resumen</string>
+    <string name="transaction_detail_direction">Dirección</string>
+    <string name="transaction_detail_received">Recibida</string>
+    <string name="transaction_detail_sent">Enviada</string>
+    <string name="transaction_detail_amount">Monto</string>
+    <string name="transaction_detail_status">Estado</string>
+    <string name="transaction_detail_status_confirmed">Confirmada</string>
+    <string name="transaction_detail_status_pending">Pendiente</string>
+    <string name="transaction_detail_pending_confirmation">Pendiente</string>
+    <string name="transaction_detail_single_confirmation">1 confirmación</string>
+    <string name="transaction_detail_confirmations">%1$d confirmaciones</string>
+    <string name="transaction_detail_confirmations_label">Confirmaciones</string>
+    <string name="transaction_detail_fee">Tarifa</string>
+    <string name="transaction_detail_fee_rate">Tarifa por vB</string>
+    <string name="transaction_detail_block_height">Altura de bloque</string>
+    <string name="transaction_detail_block_hash">Hash de bloque</string>
+    <string name="transaction_detail_section_status">Confirmación y estado</string>
+    <string name="transaction_detail_section_size">Tamaño y codificación</string>
+    <string name="transaction_detail_size_bytes">Bytes</string>
+    <string name="transaction_detail_vbytes">Tamaño virtual</string>
+    <string name="transaction_detail_version">Versión</string>
+    <string name="transaction_detail_structure">Estructura</string>
+    <string name="transaction_detail_unknown">Desconocido</string>
+    <string name="transaction_detail_pending_block">Pendiente (sin confirmar)</string>
+    <string name="transaction_detail_date">Hora de emisión</string>
+    <string name="transaction_detail_broadcast_info">Emitida el %1$s</string>
+    <string name="transaction_detail_unknown_date">No disponible</string>
+    <string name="transaction_detail_network">Red</string>
+    <string name="transaction_detail_id_label">ID de transacción</string>
+    <string name="transaction_detail_copy_id">Copiar ID de transacción</string>
+    <string name="transaction_detail_copy_block_hash">Copiar hash del bloque</string>
+    <string name="transaction_detail_copy_raw_hex">Copiar hex bruto</string>
+    <string name="transaction_detail_raw_hex">Transacción cruda (hex)</string>
+
+    <!-- UTXO detail (complementing existing) -->
+    <string name="utxo_detail_title">Detalles del UTXO</string>
+    <string name="utxo_detail_not_found">No se encontró el UTXO.</string>
+    <string name="utxo_detail_copy_toast">Copiado al portapapeles</string>
+    <string name="utxo_detail_section_overview">Resumen</string>
+    <string name="utxo_detail_value">Valor</string>
+    <string name="utxo_detail_status">Estado</string>
+    <string name="utxo_detail_status_confirmed">Confirmado</string>
+    <string name="utxo_detail_status_pending">Pendiente</string>
+    <string name="utxo_detail_deposit_info">Depositado el %1$s</string>
+    <string name="utxo_detail_confirmations">Confirmaciones</string>
+    <string name="utxo_detail_section_metadata">Metadatos</string>
+    <string name="utxo_detail_txid">ID de transacción</string>
+    <string name="utxo_detail_copy_txid">Copiar ID de transacción</string>
+    <string name="utxo_detail_vout">Índice de salida</string>
+    <string name="utxo_detail_label">Etiqueta</string>
+    <string name="utxo_detail_label_placeholder">Sin etiqueta</string>
+    <string name="utxo_detail_label_placeholder_short">Etiqueta del UTXO</string>
+    <string name="utxo_detail_label_add_action">+ Añadir etiqueta</string>
+    <string name="utxo_detail_label_edit_action">Editar etiqueta</string>
+    <string name="utxo_detail_label_add_title">Añadir etiqueta al UTXO</string>
+    <string name="utxo_detail_label_edit_title">Editar etiqueta del UTXO</string>
+    <string name="utxo_detail_label_field_label">Etiqueta</string>
+    <string name="utxo_detail_label_hint">Déjalo vacío para eliminar la etiqueta.</string>
+    <string name="utxo_detail_label_support">Caracteres restantes: %1$d</string>
+    <string name="utxo_detail_label_save_action">Guardar</string>
+    <string name="utxo_detail_label_cancel_action">Cancelar</string>
+    <string name="utxo_detail_label_success">Etiqueta guardada</string>
+    <string name="utxo_detail_label_error">No se pudo actualizar la etiqueta</string>
+    <string name="utxo_detail_network">Red</string>
+    <string name="utxo_detail_outpoint_label">Salida</string>
+    <string name="utxo_detail_address">Dirección</string>
+    <string name="utxo_detail_copy_address">Copiar dirección</string>
+    <string name="utxo_detail_copy_outpoint">Copiar salida</string>
+    <string name="utxo_detail_derivation_path">Ruta de derivación</string>
+    <string name="utxo_detail_keychain">Cadena de claves</string>
+    <string name="utxo_detail_keychain_external">Externa</string>
+    <string name="utxo_detail_keychain_change">Cambio</string>
+    <string name="utxo_detail_section_health">Salud del UTXO</string>
+    <string name="utxo_detail_health_reuse_label">Reutilización de direcciones</string>
+    <string name="utxo_detail_health_change_label">Salida de cambio</string>
+    <string name="utxo_detail_health_dust_label">Umbral de dust</string>
+    <string name="utxo_detail_health_missing_label">Etiqueta faltante</string>
+    <string name="utxo_detail_health_long_inactive">Inactivo por largo tiempo sin etiqueta</string>
+    <string name="utxo_detail_health_well_documented">UTXO de alto valor documentado</string>
+    <string name="utxo_detail_health_section_title">Salud del UTXO</string>
+    <string name="utxo_detail_health_indicator_count">%1$d indicadores</string>
+    <string name="utxo_detail_health_badges_title">Insignias</string>
+    <string name="utxo_detail_health_indicator_none">No se activó ninguna heurística.</string>
+    <string name="utxo_detail_health_indicator_value">%1$s pts · %2$s</string>
+
+    <!-- PIN flows -->
+    <string name="pin_setup_title">Configura tu PIN</string>
+    <string name="pin_setup_description">Introduce un PIN de 6 dígitos y confírmalo para proteger UtxoPocket.</string>
+    <string name="pin_setup_step_enter_description">Introduce un PIN de 6 dígitos. Lo confirmarás a continuación.</string>
+    <string name="pin_setup_step_confirm_title">Confirmar PIN</string>
+    <string name="pin_setup_step_confirm_description">Introduce el mismo PIN para confirmarlo.</string>
+    <string name="pin_setup_confirm">Guardar PIN</string>
+    <string name="pin_setup_cancel">Cancelar</string>
+    <string name="pin_setup_error_generic">No se pudo guardar el PIN. Inténtalo de nuevo.</string>
+    <string name="pin_disable_title">Desactivar PIN</string>
+    <string name="pin_disable_description">Introduce tu PIN actual para desactivar el bloqueo.</string>
+    <string name="pin_disable_confirm">Desactivar PIN</string>
+    <string name="pin_error_incorrect">El PIN no coincide. Inténtalo de nuevo.</string>
+    <string name="pin_error_length">El PIN debe tener exactamente 6 dígitos.</string>
+    <string name="pin_error_mismatch">Los PIN introducidos no coinciden.</string>
+    <string name="pin_error_incorrect_backoff">PIN incorrecto. Espera %1$s antes de volver a intentarlo.</string>
+    <string name="pin_error_locked">Demasiados intentos fallidos. Intenta de nuevo en %1$s.</string>
+    <string name="pin_error_not_configured">No hay un PIN configurado.</string>
+    <string name="pin_field_new">Introduce PIN</string>
+    <string name="pin_field_confirm">Confirma PIN</string>
+    <string name="pin_field_enter">Introduce tu PIN</string>
+    <string name="pin_unlock_title">Desbloquear UtxoPocket</string>
+    <string name="pin_unlock_description">Introduce tu PIN de 6 dígitos para continuar.</string>
+    <string name="pin_unlock_confirm">Desbloquear</string>
     <string name="utxo_detail_deposit_date">Fecha de depósito</string>
     <string name="transaction_detail_broadcast_info">Emitida el %1$s</string>
     <string name="health_more_info">Más información</string>
@@ -48,6 +378,9 @@
     <string name="node_custom_name_placeholder">Mi servidor Electrum</string>
     <string name="settings_option_enabled">Activado</string>
     <string name="settings_option_disabled">Desactivado</string>
+    <string name="settings_language_label">Idioma</string>
+    <string name="settings_language_value_en">Inglés</string>
+    <string name="settings_language_value_es">Español</string>
     <string name="settings_wallet_animations_title">Animaciones de wallets</string>
     <string name="settings_wallet_animations_description">Controla el brillo y el balance animado en la lista de wallets.</string>
     <string name="status_tor_action_description">Mostrar el estado de Tor</string>
@@ -55,7 +388,7 @@
     <string name="tor_overview_title">Conectividad de Tor</string>
     <string name="tor_overview_details_title">Detalles de conexión</string>
     <string name="tor_overview_status_label">Estado</string>
-    <string name="tor_overview_proxy_label">Punto final del proxy</string>
+    <string name="tor_overview_proxy_label">Endpoint del proxy</string>
     <string name="tor_overview_proxy_value">%1$s:%2$d</string>
     <string name="tor_overview_proxy_unavailable">No disponible hasta que Tor se conecte.</string>
     <string name="tor_overview_bootstrap_label">Progreso de arranque</string>
@@ -85,4 +418,355 @@
     <string name="node_section_available_empty">Añade tu primer nodo para empezar.</string>
     <string name="node_item_type_public">Nodo público</string>
     <string name="node_item_type_custom">Nodo personalizado</string>
+    <!-- Add wallet -->
+    <string name="add_wallet_title">Añadir billetera ₿</string>
+    <string name="add_wallet_title_with_network">Añadir billetera %1$s</string>
+    <string name="add_wallet_descriptor_label">Descriptor de la billetera</string>
+    <string name="add_wallet_descriptor_placeholder">wpkh([fingerprint/84'/0'/0']xpub…/0/*)#checksum</string>
+    <string name="add_wallet_descriptor_helper">Plantillas compatibles: wpkh(), wsh(), sh(), tr(), pkh(), combo(), (sorted)multi().</string>
+    <string name="add_wallet_advanced_show">Mostrar opciones avanzadas</string>
+    <string name="add_wallet_advanced_hide">Ocultar opciones avanzadas</string>
+    <string name="add_wallet_change_descriptor_label">Descriptor de cambio (opcional)</string>
+    <string name="add_wallet_change_descriptor_placeholder">wpkh([fingerprint/84'/0'/0']xpub…/1/*)#checksum</string>
+    <string name="add_wallet_network_label">Red</string>
+    <string name="add_wallet_network_hint">Usando la red de la aplicación: %1$s</string>
+    <string name="add_wallet_name_label">Nombre de la billetera</string>
+    <string name="add_wallet_name_placeholder">Mi billetera Bitcoin</string>
+    <string name="add_wallet_validation_loading">Validando descriptor…</string>
+    <string name="add_wallet_descriptor_detected">Tipo de descriptor detectado: %1$s</string>
+    <string name="add_wallet_descriptor_wildcard_yes">Se detectó derivación con comodín (*)</string>
+    <string name="add_wallet_descriptor_wildcard_no">No se detectó comodín; sólo se seguirá una dirección.</string>
+    <string name="add_wallet_validation_warnings_title">Advertencias</string>
+    <string name="add_wallet_warning_missing_wildcard">El descriptor no incluye el comodín "*"; sólo se seguirá una dirección.</string>
+    <string name="add_wallet_warning_missing_change">No se proporcionó descriptor de cambio. Las direcciones de cambio reutilizarán la rama externa.</string>
+    <string name="add_wallet_warning_change_not_derivable">El descriptor de cambio no incluye el comodín "*"; no se pueden derivar direcciones de cambio.</string>
+    <string name="add_wallet_warning_change_mismatch">El descriptor de cambio debe usar la rama /1/* para evitar reutilización de direcciones.</string>
+    <string name="add_wallet_network_mismatch_title">Red no coincide</string>
+    <string name="add_wallet_network_mismatch_message">Este descriptor parece pertenecer a %1$s, pero actualmente está seleccionada %2$s. ¿Cambiar de red antes de continuar?</string>
+    <string name="add_wallet_network_mismatch_switch">Cambiar a %1$s</string>
+    <string name="add_wallet_network_mismatch_keep">Mantener %1$s</string>
+    <string name="add_wallet_cancel">Cancelar</string>
+    <string name="add_wallet_submit">Añadir billetera ₿</string>
+    <string name="add_wallet_success_message">Billetera añadida.</string>
+    <string name="add_wallet_scan_descriptor">Escanear descriptor</string>
+    <string name="add_wallet_scan_permission_denied">Se requiere la cámara para escanear descriptores.</string>
+    <string name="add_wallet_scan_invalid">No encontramos un descriptor en ese código QR.</string>
+    <string name="add_wallet_shared_descriptors_label">Descriptores usados en otros dispositivos</string>
+    <string name="add_wallet_shared_descriptors_helper">Mantén esto activado si también monitoreas esta billetera con otras apps o hardware. UtxoPocket programará reescaneos completos para descubrir direcciones reveladas en otros lugares.</string>
+
+    <!-- Dialogs & common -->
+    <string name="dialog_close">Cerrar</string>
+    <string name="qr_scan_success">Código QR escaneado correctamente.</string>
+
+    <!-- More shortcuts (glossary/wiki labels only) -->
+    <string name="more_item_glossary">Glosario de Bitcoin</string>
+    <string name="more_item_glossary_supporting">Consulta definiciones rápidas de conceptos de Bitcoin.</string>
+    <string name="more_item_wiki">Wiki de Bitcoin</string>
+    <string name="more_item_wiki_supporting">Explora temas educativos de Bitcoin y UtxoPocket incluidos offline.</string>
+
+    <!-- Node & reconnect -->
+    <string name="node_custom_saved_title">Nodos personalizados guardados</string>
+    <string name="node_custom_empty_hint">Aún no hay nodos personalizados. Añade uno abajo.</string>
+    <string name="node_custom_add_button">Probar y añadir nodo</string>
+    <string name="node_reconnect_tor_required">Conecta Tor antes de reconectar con tu nodo.</string>
+    <string name="node_reconnect_waiting_for_tor">Esperando a que Tor termine de conectarse…</string>
+    <string name="node_scan_qr_content_description">Escanear QR del nodo</string>
+    <string name="node_scan_error_permission">La cámara es necesaria para escanear códigos QR.</string>
+    <string name="node_scan_error_invalid">No se detectó un endpoint de nodo válido en el código QR.</string>
+
+    <!-- Onboarding slides -->
+    <string name="onboarding_slide_watch_title">Inteligencia watch-only</string>
+    <string name="onboarding_slide_watch_description">Sigue saldos, salud de transacciones, escaneos de UTXO y etiquetas personalizadas mientras tus dispositivos de firma permanecen offline.</string>
+    <string name="onboarding_slide_descriptors_title">Diseñado para descriptores</string>
+    <string name="onboarding_slide_descriptors_description">Pega descriptores externos/cambio o exportaciones BIP-389 para recrear exactamente tu mapa de billeteras y alinear direcciones y etiquetas con tu hardware.</string>
+    <string name="onboarding_slide_bips_title">Compatible con los BIPs de Bitcoin</string>
+    <string name="onboarding_slide_bips_description">Entiende semillas BIP‑32/39, derivaciones BIP‑84/86 y políticas de descriptores para que las configuraciones multisig encajen sin fricción.</string>
+    <string name="onboarding_slide_privacy_title">Privacidad primero</string>
+    <string name="onboarding_slide_privacy_description">Cada sincronización viaja por Tor; usa presets curados o tu endpoint onion para custodiar los metadatos.</string>
+    <string name="onboarding_slide_trust_title">No confíes, verifica</string>
+    <string name="onboarding_slide_trust_description">Apunta UtxoPocket a tu propio nodo o a un peer onion para mantener a terceros fuera de tu validación.</string>
+
+    <!-- Settings: advanced + dust -->
+    <string name="settings_advanced_mode">Modo avanzado</string>
+    <string name="settings_advanced_description">Muestra datos técnicos crudos en toda la app.</string>
+    <string name="settings_dust_threshold_description">Marca automáticamente salidas pequeñas para revisarlas antes de gastar.</string>
+    <string name="settings_dust_threshold_label">Umbral de dust</string>
+    <string name="settings_dust_threshold_placeholder">Introduce sats</string>
+    <string name="settings_dust_threshold_hint">Pon 0 para desactivar las alertas de dust.</string>
+
+    <!-- Settings: health parameters -->
+    <string name="settings_health_parameters_cta">Ajustes avanzados de salud</string>
+    <string name="settings_health_parameters_description">Ajusta umbrales de puntuación para transacciones y UTXOs.</string>
+    <string name="settings_health_parameters_transactions">Umbrales de transacciones</string>
+    <string name="settings_health_parameters_utxos">Umbrales de UTXO</string>
+    <string name="settings_health_parameters_ratio_hint">Valor entre 0 y 1.</string>
+    <string name="settings_health_parameters_apply">Aplicar cambios</string>
+    <string name="settings_health_parameters_restore">Restaurar valores predeterminados</string>
+    <string name="settings_health_parameters_saved">Parámetros avanzados de salud guardados.</string>
+    <string name="settings_health_parameters_restored">Parámetros de salud restablecidos.</string>
+
+    <!-- Settings: node section extras -->
+    <string name="settings_node_configure_button">Configurar nodos</string>
+    <string name="settings_node_configure_title">Configuración del nodo</string>
+    <string name="settings_node_connected_title">Conectado a…</string>
+    <string name="settings_node_connection_public_hint">Servidor público curado, enrutable por Tor.</string>
+    <string name="settings_node_connection_custom_host_hint">Host + puerto personalizados a través de tu proxy Tor.</string>
+    <string name="settings_node_connection_custom_onion_hint">Endpoint .onion personalizado mediante servicio oculto de Tor.</string>
+    <string name="settings_node_no_selection">Aún no se ha seleccionado un nodo.</string>
+    <string name="settings_node_selected_label">Nodo seleccionado: %1$s</string>
+    <string name="settings_node_selection_feedback">Cambiando conexión a %1$s</string>
+    <string name="settings_node_source_summary">Modo de conexión: %1$s</string>
+
+    <!-- Settings: panic wipe -->
+    <string name="settings_danger_zone_title">Zona de peligro</string>
+    <string name="settings_panic_description">Borra todas las billeteras, transacciones, UTXOs y registros de salud almacenados en este dispositivo.</string>
+    <string name="settings_panic_action">Borrar todos los datos de billeteras</string>
+    <string name="settings_panic_confirm_title">¿Borrar todos los datos de billeteras?</string>
+    <string name="settings_panic_confirm_message">Esto eliminará permanentemente cada billetera, el estado de sincronización en caché y los reportes de salud almacenados localmente.</string>
+    <string name="settings_panic_confirm_continue">Continuar</string>
+    <string name="settings_panic_confirm_action">Borrar todo</string>
+    <string name="settings_panic_cancel">Cancelar</string>
+    <string name="settings_panic_final_title">Esto no se puede deshacer</string>
+    <string name="settings_panic_final_message">Confirma una vez más para borrar todos los datos. Necesitarás reimportar descriptores para seguir usando la app.</string>
+    <string name="settings_panic_wiping">Borrando…</string>
+    <string name="settings_panic_success_message">Todos los datos de billeteras se han borrado.</string>
+    <string name="settings_panic_failure_message">No se pudieron borrar los datos de la billetera. Intenta nuevamente.</string>
+
+    <!-- Settings: wallet health gating -->
+    <string name="settings_privacy_analysis_help_content_description">Abrir ayuda de salud de la billetera</string>
+    <string name="settings_wallet_health_dependencies">Activa el análisis de transacciones y UTXO para habilitar Salud de la billetera.</string>
+    <string name="settings_wallet_health_disable_title">¿Desactivar Salud de la billetera?</string>
+    <string name="settings_wallet_health_disable_message_transaction">Al desactivar el análisis de transacciones también se desactivará Salud de la billetera.</string>
+    <string name="settings_wallet_health_disable_message_utxo">Al desactivar el análisis de UTXO también se desactivará Salud de la billetera.</string>
+    <string name="settings_wallet_health_disable_confirm">Desactivar</string>
+    <string name="settings_wallet_health_disable_cancel">Mantener activado</string>
+    <string name="settings_wallet_health_enable_title">Activar Salud de la billetera</string>
+    <string name="settings_wallet_health_enable_message">Salud de la billetera necesita los análisis de transacciones y UTXO. ¿Activarlos ahora?</string>
+    <string name="settings_wallet_health_enable_confirm">Activar todo</string>
+    <string name="settings_wallet_health_enable_cancel">Cancelar</string>
+
+    <!-- Settings: Tor quick labels -->
+    <string name="settings_tor_status_label">Estado de Tor: %1$s</string>
+    <string name="settings_tor_last_log">Último log de Tor:</string>
+    <string name="settings_tor_renew_identity">Renovar identidad</string>
+
+    <!-- Settings: health thresholds mapping -->
+    <string name="settings_transaction_change_exposure_high">Exposición de cambio (alta)</string>
+    <string name="settings_transaction_change_exposure_medium">Exposición de cambio (media)</string>
+    <string name="settings_transaction_low_fee_threshold">Umbral de tarifa baja</string>
+    <string name="settings_transaction_high_fee_threshold">Umbral de tarifa alta</string>
+    <string name="settings_transaction_consolidation_fee_threshold">Umbral de tarifa para consolidación</string>
+    <string name="settings_transaction_consolidation_high_fee_threshold">Umbral de tarifa alta para consolidación</string>
+    <string name="settings_utxo_address_reuse_high_threshold">Umbral alto de reutilización de direcciones</string>
+    <string name="settings_utxo_change_confirmations">Confirmaciones para consolidar cambio</string>
+    <string name="settings_utxo_long_inactive_confirmations">Confirmaciones para inactividad prolongada</string>
+    <string name="settings_utxo_high_value_threshold">Umbral de alto valor</string>
+    <string name="settings_utxo_well_documented_threshold">Umbral para valores bien documentados</string>
+    <string name="settings_unit_sat_vb">sat/vB</string>
+    <string name="settings_transaction_health_title">Análisis de transacciones (Beta)</string>
+    <string name="settings_transaction_health_subtitle">Calcula heurísticas de privacidad y comisiones para cada transacción.</string>
+    <string name="settings_utxo_health_title">Análisis de UTXOs (Beta)</string>
+    <string name="settings_utxo_health_subtitle">Evalúa tu set de UTXOs para dust, reutilización y consolidación.</string>
+
+    <!-- Transaction health indicators -->
+    <string name="transaction_health_score_chip">Puntaje %1$d</string>
+    <string name="transaction_health_indicator_address_reuse">Reutilización de direcciones detectada</string>
+    <string name="transaction_health_indicator_change_exposure">Salida de cambio identificable</string>
+    <string name="transaction_health_indicator_dust_incoming">Dust recibido</string>
+    <string name="transaction_health_indicator_dust_outgoing">Dust gastado junto a entradas mayores</string>
+    <string name="transaction_health_indicator_fee_overpay">Tarifa alta</string>
+    <string name="transaction_health_indicator_fee_underpay">Tarifa baja</string>
+    <string name="transaction_health_indicator_script_mix">Entradas con scripts mixtos</string>
+    <string name="transaction_health_indicator_segwit">Uso de SegWit/Taproot</string>
+    <string name="transaction_health_severity_low">Baja</string>
+    <string name="transaction_health_severity_medium">Media</string>
+    <string name="transaction_health_severity_high">Alta</string>
+
+    <!-- UTXO health availability -->
+    <string name="utxo_detail_health_disabled">El análisis de UTXO está desactivado. Actívalo en Ajustes.</string>
+    <string name="utxo_detail_health_unavailable">Los datos de salud del UTXO no están disponibles para esta entrada.</string>
+
+    <!-- Wallet colors -->
+    <string name="wallet_color_dialog_title">Elige el color de la billetera</string>
+    <string name="wallet_color_dialog_subtitle">Selecciona el acento usado en el fondo de la billetera.</string>
+    <string name="wallet_color_dialog_close">Listo</string>
+    <string name="wallet_color_option_orange">Naranja</string>
+    <string name="wallet_color_option_blue">Azul</string>
+    <string name="wallet_color_option_purple">Morado</string>
+    <string name="wallet_color_option_green">Verde</string>
+    <string name="wallet_color_option_pink">Rosa</string>
+    <string name="wallet_color_option_yellow">Amarillo</string>
+    <string name="wallet_color_option_red">Rojo</string>
+    <string name="wallet_color_option_cyan">Cian</string>
+
+    <!-- Wallet detail remaining menu/actions -->
+    <string name="wallet_detail_descriptor_label">Descriptor</string>
+    <string name="wallet_detail_change_descriptor_label">Descriptor de cambio</string>
+    <string name="wallet_detail_flip_hint_show_chart">Toca la tarjeta para explorar tu gráfico de balance.</string>
+    <string name="wallet_detail_flip_hint_show_summary">Toca la tarjeta para volver al resumen.</string>
+    <string name="wallet_detail_descriptor_copy_action">Copiar descriptor</string>
+    <string name="wallet_detail_descriptor_qr_action">Mostrar QR del descriptor</string>
+    <string name="wallet_detail_change_descriptor_copy_action">Copiar descriptor de cambio</string>
+    <string name="wallet_detail_change_descriptor_qr_action">Mostrar QR del descriptor de cambio</string>
+    <string name="wallet_detail_descriptor_copied_toast">Descriptor copiado. El portapapeles se borra en 60 segundos.</string>
+    <string name="wallet_detail_descriptor_qr_title">QR del descriptor</string>
+    <string name="wallet_detail_descriptor_qr_close">Cerrar</string>
+    <string name="wallet_detail_descriptor_qr_error">No se pudo generar un código QR para este descriptor.</string>
+    <string name="wallet_detail_menu_overflow">Acciones de la billetera</string>
+    <string name="wallet_detail_menu_edit">Editar billetera</string>
+    <string name="wallet_detail_menu_color">Color</string>
+    <string name="wallet_detail_menu_export_labels">Exportar BIP‑329</string>
+    <string name="wallet_detail_menu_descriptors">Descriptores</string>
+    <string name="wallet_detail_menu_force_rescan">Forzar reescaneo completo</string>
+    <string name="wallet_detail_menu_delete">Eliminar billetera</string>
+    <string name="wallet_detail_selected_timestamp">Balance al %1$s</string>
+    <string name="wallet_detail_export_ready">Exportación BIP‑329 lista para compartir</string>
+    <string name="wallet_detail_export_error">Error al exportar las etiquetas</string>
+    <string name="wallet_detail_export_empty">No hay salidas etiquetadas para exportar</string>
+    <string name="wallet_detail_export_chooser_title">Compartir etiquetas BIP‑329</string>
+    <string name="wallet_detail_rename_title">Renombrar billetera</string>
+    <string name="wallet_detail_rename_field_label">Nombre de la billetera</string>
+    <string name="wallet_detail_rename_placeholder">Introduce un nombre nuevo</string>
+    <string name="wallet_detail_rename_support">Caracteres restantes: %1$d</string>
+    <string name="wallet_detail_rename_save">Guardar</string>
+    <string name="wallet_detail_rename_cancel">Cancelar</string>
+    <string name="wallet_detail_rename_success">Nombre de la billetera actualizado</string>
+    <string name="wallet_detail_rename_error_blank">El nombre no puede estar vacío</string>
+    <string name="wallet_detail_rename_error_exists">Ya existe una billetera con ese nombre</string>
+    <string name="wallet_detail_rename_error_generic">No se pudo renombrar la billetera</string>
+    <string name="wallet_detail_force_rescan_scheduled">Reescaneo completo en cola. Actualiza para empezar a sincronizar.</string>
+    <string name="wallet_detail_force_rescan_failed">No se pudo programar un reescaneo completo. Inténtalo de nuevo.</string>
+    <string name="wallet_detail_pull_to_refresh_hint">Desliza para actualizar</string>
+    <string name="wallet_detail_shared_descriptors_label">Descriptores usados en otros dispositivos</string>
+    <string name="wallet_detail_shared_descriptors_hint">Mantén esto activado cuando otros dispositivos deriven direcciones para estos descriptores. Desactívalo sólo si UtxoPocket es el único observador.</string>
+    <string name="wallet_detail_shared_descriptors_enabled">Marcado como compartido. Se ha programado un reescaneo completo.</string>
+    <string name="wallet_detail_shared_descriptors_disabled">Marcado como de un solo dispositivo.</string>
+    <string name="wallet_detail_shared_descriptors_error">No se pudo actualizar la configuración de descriptores compartidos.</string>
+    <string name="wallet_detail_last_full_scan">Último reescaneo completo: %1$s</string>
+    <string name="wallet_detail_last_full_scan_never">Aún no se completa un reescaneo completo.</string>
+    <string name="wallet_detail_full_scan_pending">Rescan completo en cola</string>
+    <string name="wallet_detail_delete_confirm_title">¿Eliminar billetera?</string>
+    <string name="wallet_detail_delete_confirm_message">¿Quieres eliminar "%1$s" de UtxoPocket?</string>
+    <string name="wallet_detail_delete_continue">Continuar</string>
+    <string name="wallet_detail_delete_cancel">Cancelar</string>
+    <string name="wallet_detail_delete_final_title">Confirmar eliminación</string>
+    <string name="wallet_detail_delete_final_message">Esta acción elimina permanentemente la billetera watch‑only de UtxoPocket. No se puede deshacer.</string>
+    <string name="wallet_detail_delete_confirm_action">Eliminar billetera</string>
+    <string name="wallet_detail_delete_error">No se pudo eliminar la billetera. Inténtalo de nuevo.</string>
+    <string name="wallet_detail_delete_success">Billetera eliminada.</string>
+
+    <!-- Wallet health snapshot labels -->
+    <string name="wallet_detail_health_title">Salud de la billetera</string>
+    <string name="wallet_detail_health_reused_addresses">Direcciones reutilizadas</string>
+    <string name="wallet_detail_health_change_outputs">Salidas de cambio</string>
+    <string name="wallet_detail_health_dust_outputs">Salidas dust (&lt;= %1$s)</string>
+    <string name="wallet_detail_health_dust_outputs_disabled">Salidas dust (umbral desactivado)</string>
+    <string name="wallet_detail_list_error_generic">No se pudieron cargar los datos. Desliza para actualizar e inténtalo de nuevo.</string>
+    <string name="wallet_detail_health_count_label">Cantidad: %1$d</string>
+    <string name="wallet_detail_health_balance_label">Balance: %1$s</string>
+    <string name="wallet_detail_health_overview_title">Instantánea de salud</string>
+    <string name="wallet_detail_health_overview_score_label">Puntaje general</string>
+    <string name="wallet_detail_health_overview_score_value">%1$d</string>
+    <string name="wallet_detail_health_overview_badges">Destacados</string>
+    <string name="wallet_detail_health_overview_badges_empty">Aún no hay destacados.</string>
+    <string name="wallet_detail_health_overview_indicator_count">%1$d indicadores revisados</string>
+    <string name="wallet_detail_health_overview_pillar_score">%1$d / 100</string>
+    <string name="wallet_detail_health_overview_pending">Calculando la salud de la billetera… mantén la app abierta.</string>
+    <string name="wallet_detail_health_overview_learn_more">Abrir artículo de la wiki</string>
+    <string name="wallet_health_pillar_privacy">Postura de privacidad</string>
+    <string name="wallet_health_pillar_inventory">Higiene del inventario</string>
+    <string name="wallet_health_pillar_efficiency">Eficiencia operativa</string>
+    <string name="wallet_health_pillar_risk">Riesgo y resiliencia</string>
+
+    <!-- Testnet faucet helper -->
+    <string name="wallets_testnet_faucet_banner_title">Obtén bitcoin de prueba en un faucet</string>
+    <string name="wallets_testnet_faucet_banner_body">Usa un faucet de %1$s para practicar sin arriesgar fondos mainnet.</string>
+    <string name="wallets_testnet_faucet_view_action">Ver faucets</string>
+    <string name="wallets_testnet_faucet_wiki_action">Leer guía de faucets</string>
+    <string name="wallets_testnet_faucet_dismiss">Ocultar recordatorio</string>
+    <string name="wallets_testnet_faucet_dialog_title">Faucets de %1$s</string>
+    <string name="wallets_testnet_faucet_dialog_hint">Selecciona un faucet para abrirlo en tu navegador.</string>
+    <string name="wallets_testnet_faucet_dialog_close">Listo</string>
+
+    <!-- Remaining add wallet descriptor types -->
+    <string name="add_wallet_descriptor_type_address">Dirección</string>
+    <string name="add_wallet_descriptor_type_combo">Combo</string>
+    <string name="add_wallet_descriptor_type_multisig">Multisig</string>
+    <string name="add_wallet_descriptor_type_other">Otro</string>
+    <string name="add_wallet_descriptor_type_p2pkh">P2PKH (legacy)</string>
+    <string name="add_wallet_descriptor_type_p2sh">P2SH</string>
+    <string name="add_wallet_descriptor_type_p2wpkh">P2WPKH (SegWit nativo)</string>
+    <string name="add_wallet_descriptor_type_p2wsh">P2WSH</string>
+    <string name="add_wallet_descriptor_type_raw">Script sin procesar</string>
+    <string name="add_wallet_descriptor_type_taproot">Taproot (tr)</string>
+
+    <!-- Wallet health toggle titles -->
+    <string name="settings_wallet_health_title">Salud de la billetera (Beta)</string>
+    <string name="settings_wallet_health_subtitle">Combina insights de transacciones y UTXO en un puntaje global.</string>
+
+    <!-- Tor notifications and states -->
+    <string name="tor_notification_action_renew">Nueva identidad</string>
+    <string name="tor_notification_action_retry">Reintentar</string>
+    <string name="tor_notification_action_stop">Detener</string>
+    <string name="tor_notification_channel_description">Actualizaciones del servicio en primer plano para la conectividad de Tor.</string>
+    <string name="tor_notification_channel_name">Estado de Tor</string>
+    <string name="tor_notification_content_error">Error: %1$s</string>
+    <string name="tor_notification_content_waiting">Iniciando…</string>
+    <string name="tor_notification_title_connected">Tor: Conectado</string>
+    <string name="tor_notification_title_connecting">Tor: Conectando</string>
+    <string name="tor_notification_title_disconnected">Tor: Desconectado</string>
+    <string name="tor_notification_title_error">Tor: Error</string>
+    <string name="tor_notification_title_idle">Tor: Inactivo</string>
+    <string name="tor_state_connecting">Conectando</string>
+    <string name="tor_state_running">En ejecución</string>
+    <string name="tor_state_stopped">Detenido</string>
+    <string name="tor_status_bootstrap_progress">Progreso de arranque: %1$d%%</string>
+    <string name="tor_status_connecting">Conectando</string>
+    <string name="tor_status_error">Error: %1$s</string>
+    <string name="tor_status_proxy_endpoint">Proxy: %1$s:%2$d</string>
+    <string name="tor_status_running">En ejecución</string>
+    <string name="tor_status_stopped">Detenido</string>
+
+    <!-- Transaction health section -->
+    <string name="transaction_detail_health_section_title">Salud de la transacción</string>
+    <string name="transaction_detail_health_indicator_count">%1$d indicadores</string>
+    <string name="transaction_detail_health_badges_title">Insignias</string>
+    <string name="transaction_detail_health_indicator_none">No se activó ninguna heurística.</string>
+    <string name="transaction_detail_health_indicator_value">%1$s pts · %2$s</string>
+    <string name="transaction_detail_health_disabled">El análisis de transacciones está desactivado. Actívalo en Ajustes para revisar privacidad y comisiones.</string>
+    <string name="transaction_detail_health_unavailable">Las señales de salud no están disponibles para esta entrada.</string>
+    <string name="transaction_health_indicator_batching">Pago en lote detectado</string>
+    <string name="transaction_health_indicator_consolidation">Postura de consolidación</string>
+    <string name="transaction_structure_legacy">Legacy</string>
+    <string name="transaction_structure_segwit">SegWit</string>
+    <string name="transaction_structure_taproot">Taproot</string>
+
+    <!-- Wallet address QR actions -->
+    <string name="wallet_detail_address_qr_title">QR de la dirección</string>
+    <string name="wallet_detail_address_qr_action">Código QR de la dirección</string>
+    <string name="wallet_detail_address_qr_error">No se pudo generar un código QR para esta dirección.</string>
+    <string name="wallet_detail_address_qr_close">Cerrar</string>
+    <string name="wallet_detail_confirmations">%1$d confs</string>
+    <string name="wallet_detail_single_confirmation">1 conf</string>
+    <string name="wallet_detail_pending_confirmation">Pendiente</string>
+
+    <!-- Wallet descriptors header/hint -->
+    <string name="wallet_detail_descriptors_title">Descriptores de la billetera</string>
+    <string name="wallet_detail_descriptors_hint">Mantén estos descriptores privados y guarda un respaldo seguro. Cualquiera con ellos puede monitorear tu billetera.</string>
+
+    <!-- Wiki CTA in wallets list -->
+    <string name="wallets_node_prompt_wiki_cta">Aprende a conectarte vía Tor</string>
+
+    <!-- Wallet descriptor types (duplicated mapping for detail lists) -->
+    <string name="wallet_detail_descriptor_type_address">Dirección</string>
+    <string name="wallet_detail_descriptor_type_combo">Combo</string>
+    <string name="wallet_detail_descriptor_type_legacy">Legacy</string>
+    <string name="wallet_detail_descriptor_type_multisig">Multisig</string>
+    <string name="wallet_detail_descriptor_type_other">Otro</string>
+    <string name="wallet_detail_descriptor_type_p2sh">P2SH</string>
+    <string name="wallet_detail_descriptor_type_raw">Sin procesar</string>
+    <string name="wallet_detail_descriptor_type_segwit">SegWit</string>
+    <string name="wallet_detail_descriptor_type_segwit_p2wsh">SegWit (P2WSH)</string>
+    <string name="wallet_detail_descriptor_type_taproot">Taproot</string>
+
 </resources>

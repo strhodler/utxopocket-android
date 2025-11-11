@@ -552,6 +552,9 @@
     <string name="settings_dust_threshold_hint">Set to 0 to disable dust warnings.</string>
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_section_interface">Interface</string>
+    <string name="settings_language_label">Language</string>
+    <string name="settings_language_value_en">English</string>
+    <string name="settings_language_value_es">Spanish</string>
     <string name="settings_display_unit_label">Display units</string>
     <string name="settings_display_mode_label">List render mode</string>
     <string name="settings_theme_label">Theme</string>

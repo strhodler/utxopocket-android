@@ -3,6 +3,7 @@ package com.strhodler.utxopocket.presentation.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
@@ -57,6 +58,7 @@ class SettingsViewModel @Inject constructor(
                 appPreferencesRepository.pinLockEnabled,
                 appPreferencesRepository.preferredNetwork,
                 appPreferencesRepository.themePreference,
+                appPreferencesRepository.appLanguage,
                 appPreferencesRepository.balanceUnit,
                 appPreferencesRepository.listDisplayMode,
                 appPreferencesRepository.walletAnimationsEnabled,
@@ -74,17 +76,18 @@ class SettingsViewModel @Inject constructor(
                 val pinEnabled = values[2] as Boolean
                 val network = values[3] as BitcoinNetwork
                 val themePreference = values[4] as ThemePreference
-                val balanceUnit = values[5] as BalanceUnit
-                val listDisplayMode = values[6] as ListDisplayMode
-                val walletAnimationsEnabled = values[7] as Boolean
-                val advancedMode = values[8] as Boolean
-                val transactionAnalysisEnabled = values[9] as Boolean
-                val utxoHealthEnabled = values[10] as Boolean
-                val walletHealthEnabled = values[11] as Boolean
-                val dustThreshold = values[12] as Long
-                val transactionParameters = values[13] as TransactionHealthParameters
-                val utxoParameters = values[14] as UtxoHealthParameters
-                val nodeConfig = values[15] as NodeConfig
+                val appLanguage = values[5] as AppLanguage
+                val balanceUnit = values[6] as BalanceUnit
+                val listDisplayMode = values[7] as ListDisplayMode
+                val walletAnimationsEnabled = values[8] as Boolean
+                val advancedMode = values[9] as Boolean
+                val transactionAnalysisEnabled = values[10] as Boolean
+                val utxoHealthEnabled = values[11] as Boolean
+                val walletHealthEnabled = values[12] as Boolean
+                val dustThreshold = values[13] as Long
+                val transactionParameters = values[14] as TransactionHealthParameters
+                val utxoParameters = values[15] as UtxoHealthParameters
+                val nodeConfig = values[16] as NodeConfig
                 val previous = _uiState.value
 
                 val walletHealthToggleEnabled = transactionAnalysisEnabled && utxoHealthEnabled
@@ -103,6 +106,7 @@ class SettingsViewModel @Inject constructor(
 
                 previous.copy(
                     themePreference = themePreference,
+                    appLanguage = appLanguage,
                     pinEnabled = pinEnabled,
                     preferredNetwork = network,
                     preferredUnit = balanceUnit,
@@ -157,6 +161,13 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(preferredUnit = unit) }
         viewModelScope.launch {
             appPreferencesRepository.setBalanceUnit(unit)
+        }
+    }
+
+    fun onLanguageSelected(language: AppLanguage) {
+        _uiState.update { it.copy(appLanguage = language) }
+        viewModelScope.launch {
+            appPreferencesRepository.setAppLanguage(language)
         }
     }
 

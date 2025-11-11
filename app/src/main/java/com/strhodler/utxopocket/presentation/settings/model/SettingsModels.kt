@@ -1,6 +1,7 @@
 package com.strhodler.utxopocket.presentation.settings.model
 
 import androidx.annotation.StringRes
+import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
@@ -15,9 +16,10 @@ import com.strhodler.utxopocket.domain.model.ListDisplayMode
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 
 data class SettingsUiState(
+    val appLanguage: AppLanguage = AppLanguage.EN,
     val preferredUnit: BalanceUnit = BalanceUnit.DEFAULT,
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
-    val listDisplayMode: ListDisplayMode = ListDisplayMode.Compact,
+    val listDisplayMode: ListDisplayMode = ListDisplayMode.Cards,
     val walletAnimationsEnabled: Boolean = true,
     val advancedMode: Boolean = false,
     val transactionAnalysisEnabled: Boolean = true,

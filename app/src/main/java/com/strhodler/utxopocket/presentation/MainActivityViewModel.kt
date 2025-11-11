@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
 import com.strhodler.utxopocket.domain.model.NodeStatus
@@ -44,6 +45,7 @@ data class AppEntryUiState(
     val onboardingCompleted: Boolean = false,
     val status: StatusBarUiState = StatusBarUiState(),
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
+    val appLanguage: AppLanguage = AppLanguage.EN,
     val pinLockEnabled: Boolean = false,
     val appLocked: Boolean = false
 )
@@ -93,6 +95,7 @@ class MainActivityViewModel @Inject constructor(
         appPreferencesRepository.preferredNetwork,
         torManager.latestLog,
         appPreferencesRepository.themePreference,
+        appPreferencesRepository.appLanguage,
         pinEnabledState,
         lockState
     ) { values ->
@@ -103,8 +106,9 @@ class MainActivityViewModel @Inject constructor(
         val network = values[4] as BitcoinNetwork
         val torLog = values[5] as String
         val themePreference = values[6] as ThemePreference
-        val pinEnabled = values[7] as Boolean
-        val locked = values[8] as Boolean
+        val appLanguage = values[7] as AppLanguage
+        val pinEnabled = values[8] as Boolean
+        val locked = values[9] as Boolean
         val snapshotMatchesNetwork = nodeSnapshot.network == network
         val effectiveNodeStatus = if (snapshotMatchesNetwork) {
             nodeSnapshot.status
@@ -129,6 +133,7 @@ class MainActivityViewModel @Inject constructor(
                 network = network
             ),
             themePreference = themePreference,
+            appLanguage = appLanguage,
             pinLockEnabled = pinEnabled,
             appLocked = pinEnabled && locked && onboarding
         )
