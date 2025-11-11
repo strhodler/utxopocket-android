@@ -48,6 +48,9 @@
     <string name="node_custom_name_placeholder">Mi servidor Electrum</string>
     <string name="settings_option_enabled">Activado</string>
     <string name="settings_option_disabled">Desactivado</string>
+    <string name="settings_language_label">Idioma</string>
+    <string name="settings_language_value_en">Inglés</string>
+    <string name="settings_language_value_es">Español</string>
     <string name="settings_wallet_animations_title">Animaciones de wallets</string>
     <string name="settings_wallet_animations_description">Controla el brillo y el balance animado en la lista de wallets.</string>
     <string name="status_tor_action_description">Mostrar el estado de Tor</string>

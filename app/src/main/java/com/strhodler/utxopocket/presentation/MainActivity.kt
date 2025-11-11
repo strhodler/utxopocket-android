@@ -1,9 +1,11 @@
 package com.strhodler.utxopocket.presentation
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -111,7 +113,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
     private val viewModel: MainActivityViewModel by viewModels()
 
@@ -123,6 +125,13 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            LaunchedEffect(uiState.appLanguage) {
+                val desiredLocales = LocaleListCompat.forLanguageTags(uiState.appLanguage.languageTag)
+                val currentLocales = AppCompatDelegate.getApplicationLocales()
+                if (currentLocales.toLanguageTags() != desiredLocales.toLanguageTags()) {
+                    AppCompatDelegate.setApplicationLocales(desiredLocales)
+                }
+            }
             UtxoPocketTheme(themePreference = uiState.themePreference) {
                 when {
                     !uiState.isReady -> {

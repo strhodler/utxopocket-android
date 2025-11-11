@@ -1,6 +1,7 @@
 package com.strhodler.utxopocket.data.preferences
 
 import android.content.Context
+import androidx.core.os.LocaleListCompat
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
@@ -9,6 +10,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
@@ -72,6 +74,13 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs[Keys.THEME_PREFERENCE]?.let { value ->
                 runCatching { ThemePreference.valueOf(value) }.getOrNull()
             } ?: ThemePreference.SYSTEM
+        }
+
+    override val appLanguage: Flow<AppLanguage> =
+        dataStore.data.map { prefs ->
+            prefs[Keys.APP_LANGUAGE]?.let { stored ->
+                AppLanguage.fromLanguageTag(stored)
+            } ?: inferDeviceLanguage()
         }
 
     override val balanceUnit: Flow<BalanceUnit> =
@@ -237,6 +246,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     override suspend fun setThemePreference(themePreference: ThemePreference) {
         dataStore.edit { prefs -> prefs[Keys.THEME_PREFERENCE] = themePreference.name }
+    }
+
+    override suspend fun setAppLanguage(language: AppLanguage) {
+        dataStore.edit { prefs -> prefs[Keys.APP_LANGUAGE] = language.languageTag }
     }
 
     override suspend fun setBalanceUnit(unit: BalanceUnit) {
@@ -540,6 +553,18 @@ class DefaultAppPreferencesRepository @Inject constructor(
         }
     }
 
+    private fun inferDeviceLanguage(): AppLanguage {
+        val locales = LocaleListCompat.getAdjustedDefault()
+        for (index in 0 until locales.size()) {
+            val locale = locales[index]
+            val match = AppLanguage.fromLanguageTagOrNull(locale?.toLanguageTag())
+            if (match != null) {
+                return match
+            }
+        }
+        return AppLanguage.EN
+    }
+
     private object Keys {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val PREFERRED_NETWORK = stringPreferencesKey("preferred_network")
@@ -559,6 +584,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val NODE_CUSTOM_LIST = stringPreferencesKey("node_custom_list")
         val NODE_CUSTOM_SELECTED_ID = stringPreferencesKey("node_custom_selected_id")
         val THEME_PREFERENCE = stringPreferencesKey("theme_preference")
+        val APP_LANGUAGE = stringPreferencesKey("app_language")
         val BALANCE_UNIT = stringPreferencesKey("balance_unit")
         val LIST_DISPLAY_MODE = stringPreferencesKey("list_display_mode")
         val WALLET_ANIMATIONS_ENABLED = booleanPreferencesKey("wallet_animations_enabled")
