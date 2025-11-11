@@ -331,7 +331,6 @@
     <string name="pin_unlock_description">Introduce tu PIN de 6 dígitos para continuar.</string>
     <string name="pin_unlock_confirm">Desbloquear</string>
     <string name="utxo_detail_deposit_date">Fecha de depósito</string>
-    <string name="transaction_detail_broadcast_info">Emitida el %1$s</string>
     <string name="health_more_info">Más información</string>
     <string name="wallet_balance_range_last_week">Última semana</string>
     <string name="wallet_balance_range_last_month">Último mes</string>
@@ -422,12 +421,12 @@
     <string name="add_wallet_title">Añadir billetera ₿</string>
     <string name="add_wallet_title_with_network">Añadir billetera %1$s</string>
     <string name="add_wallet_descriptor_label">Descriptor de la billetera</string>
-    <string name="add_wallet_descriptor_placeholder">wpkh([fingerprint/84'/0'/0']xpub…/0/*)#checksum</string>
+    <string name="add_wallet_descriptor_placeholder">wpkh([fingerprint/84\'/0\'/0\']xpub…/0/*)#checksum</string>
     <string name="add_wallet_descriptor_helper">Plantillas compatibles: wpkh(), wsh(), sh(), tr(), pkh(), combo(), (sorted)multi().</string>
     <string name="add_wallet_advanced_show">Mostrar opciones avanzadas</string>
     <string name="add_wallet_advanced_hide">Ocultar opciones avanzadas</string>
     <string name="add_wallet_change_descriptor_label">Descriptor de cambio (opcional)</string>
-    <string name="add_wallet_change_descriptor_placeholder">wpkh([fingerprint/84'/0'/0']xpub…/1/*)#checksum</string>
+    <string name="add_wallet_change_descriptor_placeholder">wpkh([fingerprint/84\'/0\'/0\']xpub…/1/*)#checksum</string>
     <string name="add_wallet_network_label">Red</string>
     <string name="add_wallet_network_hint">Usando la red de la aplicación: %1$s</string>
     <string name="add_wallet_name_label">Nombre de la billetera</string>
