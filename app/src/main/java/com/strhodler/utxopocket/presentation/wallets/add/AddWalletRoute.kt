@@ -50,6 +50,8 @@ fun AddWalletRoute(
         onSharedDescriptorsChange = viewModel::onSharedDescriptorsChanged,
         onSubmit = viewModel::submit,
         onNetworkMismatchKeep = viewModel::onNetworkMismatchKeep,
-        onNetworkMismatchSwitch = viewModel::onNetworkMismatchSwitch
+        onNetworkMismatchSwitch = viewModel::onNetworkMismatchSwitch,
+        onCombinedDescriptorConfirm = viewModel::onCombinedDescriptorConfirmed,
+        onCombinedDescriptorReject = viewModel::onCombinedDescriptorRejected
     )
 }

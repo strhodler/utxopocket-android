@@ -439,6 +439,10 @@
     <string name="add_wallet_network_mismatch_message">This descriptor appears to belong to %1$s, but %2$s is currently selected. Switch networks before continuing?</string>
     <string name="add_wallet_network_mismatch_switch">Switch to %1$s</string>
     <string name="add_wallet_network_mismatch_keep">Keep %1$s</string>
+    <string name="add_wallet_combined_descriptor_title">Split descriptor pair?</string>
+    <string name="add_wallet_combined_descriptor_message">We detected a receive/change pair. The change branch was moved to Advanced so UtxoPocket can validate both.</string>
+    <string name="add_wallet_combined_descriptor_confirm">Keep split descriptors</string>
+    <string name="add_wallet_combined_descriptor_cancel">Clear both fields</string>
     <string name="add_wallet_cancel">Cancel</string>
     <string name="add_wallet_submit">Add ₿ wallet</string>
     <string name="add_wallet_success_message">Wallet added.</string>

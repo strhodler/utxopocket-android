@@ -444,6 +444,10 @@
     <string name="add_wallet_network_mismatch_message">Este descriptor parece pertenecer a %1$s, pero actualmente está seleccionada %2$s. ¿Cambiar de red antes de continuar?</string>
     <string name="add_wallet_network_mismatch_switch">Cambiar a %1$s</string>
     <string name="add_wallet_network_mismatch_keep">Mantener %1$s</string>
+    <string name="add_wallet_combined_descriptor_title">¿Dividir par de descriptores?</string>
+    <string name="add_wallet_combined_descriptor_message">Detectamos un par recepción/cambio. Movimos la rama de cambio a Avanzado para que UtxoPocket valide ambas.</string>
+    <string name="add_wallet_combined_descriptor_confirm">Conservar descriptores separados</string>
+    <string name="add_wallet_combined_descriptor_cancel">Vaciar ambos campos</string>
     <string name="add_wallet_cancel">Cancelar</string>
     <string name="add_wallet_submit">Añadir billetera ₿</string>
     <string name="add_wallet_success_message">Billetera añadida.</string>
