@@ -78,6 +78,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.FileProvider
 import com.github.barteksc.pdfviewer.PDFView
 import com.github.barteksc.pdfviewer.util.FitPolicy
+import com.strhodler.utxopocket.BuildConfig
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.common.generateQrBitmap
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
@@ -195,6 +196,24 @@ private fun MoreScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = {
+                        Text(text = stringResource(id = R.string.more_item_app_version))
+                    },
+                    supportingContent = {
+                        Text(
+                            text = stringResource(
+                                id = R.string.more_item_app_version_value,
+                                BuildConfig.VERSION_NAME,
+                                BuildConfig.VERSION_CODE
+                            ),
+                            fontFamily = FontFamily.Monospace
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
             item {

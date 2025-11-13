@@ -11,6 +11,8 @@
     <string name="more_section_documents">Bitcoin</string>
     <string name="more_section_others">Otros</string>
     <string name="more_section_about">Acerca de</string>
+    <string name="more_item_app_version">Versión de la app</string>
+    <string name="more_item_app_version_value">v%1$s (código %2$d)</string>
     <string name="more_item_about">Acerca de</string>
     <string name="more_item_about_supporting">Quién construye UtxoPocket y cómo apoyar el proyecto.</string>
     <string name="more_item_bitcoin_pdf">Whitepaper de Bitcoin (PDF)</string>
