@@ -84,6 +84,7 @@ import com.strhodler.utxopocket.presentation.pin.PinSetupScreen
 import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
 import com.strhodler.utxopocket.presentation.pin.formatPinCountdownMessage
 import com.strhodler.utxopocket.presentation.pin.formatPinStaticError
+import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
@@ -214,6 +215,7 @@ fun SettingsRoute(
         ) {
             SettingsScreen(
                 state = state,
+                onLanguageSelected = viewModel::onLanguageSelected,
                 onUnitSelected = viewModel::onUnitSelected,
                 onThemeSelected = viewModel::onThemeSelected,
                 onDisplayModeSelected = viewModel::onDisplayModeSelected,
@@ -485,6 +487,7 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 @Composable
 fun SettingsScreen(
     state: SettingsUiState,
+    onLanguageSelected: (AppLanguage) -> Unit,
     onUnitSelected: (BalanceUnit) -> Unit,
     onThemeSelected: (ThemePreference) -> Unit,
     onDisplayModeSelected: (ListDisplayMode) -> Unit,
@@ -592,6 +595,23 @@ fun SettingsScreen(
         }
 
         SettingsCard(title = stringResource(id = R.string.settings_section_interface)) {
+            val englishLabel = stringResource(id = R.string.settings_language_value_en)
+            val spanishLabel = stringResource(id = R.string.settings_language_value_es)
+            val languageLabel: (AppLanguage) -> String = { language ->
+                when (language) {
+                    AppLanguage.EN -> englishLabel
+                    AppLanguage.ES -> spanishLabel
+                }
+            }
+            val languageOptions = remember { AppLanguage.entries.toList() }
+            SettingsSelectRow(
+                title = stringResource(id = R.string.settings_language_label),
+                selectedLabel = languageLabel(state.appLanguage),
+                options = languageOptions,
+                optionLabel = languageLabel,
+                onOptionSelected = onLanguageSelected
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             val btcLabel = stringResource(id = R.string.settings_unit_btc)
             val satsLabel = stringResource(id = R.string.settings_unit_sats)
             val unitLabel: (BalanceUnit) -> String = { unit ->

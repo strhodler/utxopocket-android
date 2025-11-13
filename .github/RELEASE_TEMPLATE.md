@@ -13,13 +13,27 @@
 
 ## Verification
 - **Version/Tag:** `vX.Y.Z`
-- **QA summary:** _Sentinel-run suites + manual probes (Tor, PIN, panic wipe)._
-- **Automated suites:** ``./gradlew lintDebug`` • ``./gradlew :app:testDebugUnitTest`` • _Add others if executed (e.g., ``:app:connectedDebugAndroidTest``)._
-- **Manual notes:** _Logs/screenshots if applicable._
-- **Hash commands for users:**
+- **Signer certificate fingerprints:**
   ```bash
-  sha256sum UtxoPocket-vX.Y.Z.apk
-  sha512sum UtxoPocket-vX.Y.Z.apk
+  SHA-256: e5b195f0592cb546494df04722e9140e7dd92f4efd377ad8b159496d9bde9524
+  SHA-1: 79e2591f07d8f439964ad320a3b8d1a2e4a75047
+  ```
+- **Signature verification:**
+  ```bash
+  apksigner verify --print-certs UtxoPocket-vX.Y.Z.apk
+
+  Signer #1 certificate DN: ST=Blockchain, L=Mempool, O=strhodler, OU=strhodler, CN=strhodler
+  Signer #1 certificate SHA-256 digest: e5b195f0592cb546494df04722e9140e7dd92f4efd377ad8b159496d9bde9524
+  Signer #1 certificate SHA-1 digest: 79e2591f07d8f439964ad320a3b8d1a2e4a75047
+  Signer #1 certificate MD5 digest: 918a3acf4d973633cc40a84949238536
+  ```
+- **Checksum:**
+  ```bash
+  sha256sum -c UtxoPocket-vX.Y.Z.apk.sha256
+  UtxoPocket-vX.Y.Z.apk: OK
+
+  sha512sum -c UtxoPocket-vX.Y.Z.apk.sha512
+  UtxoPocket-vX.Y.Z.apk: OK
   ```
 
 ## Artifacts
@@ -27,7 +41,6 @@
 - 🔐 `UtxoPocket-vX.Y.Z.apk.sha256`
 - 🔐 `UtxoPocket-vX.Y.Z.apk.sha512`
 - 📄 `SBOM-UtxoPocket-vX.Y.Z.json` (CycloneDX/SPDX) _or_ `deps-vX.Y.Z.txt`
-- 🧪 `qa-report-vX.Y.Z.md` (optional but recommended)
 
 ## References
 - Backlog items covered: _list issue numbers/links._

@@ -17,6 +17,16 @@ UtxoPocket is a watch-only Android wallet that treats privacy as a functional re
 - **Network observers** — Tor is required; there is no clearnet fallback. TLS validation leverages BDK’s Electrum client. Custom node entries allow onion-only setups to avoid exit nodes entirely.
 - **Data leakage** — The app sets `android:allowBackup="false"`, limits `FileProvider` scope, and keeps SQLCipher passphrases in encrypted preferences so Google backups or rooted filesystem snapshots cannot trivially recover wallet history.
 
+## Runtime Permissions
+- **Internet (`android.permission.INTERNET`)** and **network state (`android.permission.ACCESS_NETWORK_STATE`)**
+  - Needed to route Electrum traffic through Tor and to react to connectivity changes; sync aborts instead of falling back to clearnet.
+- **Foreground service (`android.permission.FOREGROUND_SERVICE`, `android.permission.FOREGROUND_SERVICE_DATA_SYNC`)**
+  - Keeps the Tor proxy alive while backgrounded and surfaces the mandatory persistent notification.
+- **Camera (`android.permission.CAMERA`)**
+  - Requested on demand for QR scanning (descriptors, endpoints). Frames are processed locally; no media capture is stored or transmitted.
+
+Not requested: contacts, location, telephony, legacy storage, SMS, analytics, or ad permissions. Shared files (e.g., PDFs) use scoped `FileProvider`/MediaStore paths to avoid broad storage access.
+
 ## Dependencies of Interest
 - [BDK Android 2.2.0](https://bitcoindevkit.org/)
 - [SQLCipher 4.5.4](https://github.com/sqlcipher/sqlcipher)

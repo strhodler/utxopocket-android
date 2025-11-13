@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.presentation.wallets.detail
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.paging.PagingData
+import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
@@ -324,8 +325,9 @@ class WalletDetailViewModelRangeTest {
         private val preferredNetworkState = MutableStateFlow(BitcoinNetwork.TESTNET)
         private val pinLockEnabledState = MutableStateFlow(false)
         private val themePreferenceState = MutableStateFlow(ThemePreference.SYSTEM)
+        private val appLanguageState = MutableStateFlow(AppLanguage.EN)
         private val balanceUnitState = MutableStateFlow(BalanceUnit.DEFAULT)
-        private val listDisplayModeState = MutableStateFlow(ListDisplayMode.Compact)
+        private val listDisplayModeState = MutableStateFlow(ListDisplayMode.Cards)
         private val walletAnimationsEnabledState = MutableStateFlow(true)
         private val balanceRangeState = MutableStateFlow(BalanceRange.LastYear)
         private val advancedModeState = MutableStateFlow(false)
@@ -342,6 +344,7 @@ class WalletDetailViewModelRangeTest {
         override val preferredNetwork: Flow<BitcoinNetwork> = preferredNetworkState
         override val pinLockEnabled: Flow<Boolean> = pinLockEnabledState
         override val themePreference: Flow<ThemePreference> = themePreferenceState
+        override val appLanguage: Flow<AppLanguage> = appLanguageState
         override val balanceUnit: Flow<BalanceUnit> = balanceUnitState
         override val listDisplayMode: Flow<ListDisplayMode> = listDisplayModeState
         override val walletAnimationsEnabled: Flow<Boolean> = walletAnimationsEnabledState
@@ -370,6 +373,10 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun setThemePreference(themePreference: ThemePreference) {
             this.themePreferenceState.value = themePreference
+        }
+
+        override suspend fun setAppLanguage(language: AppLanguage) {
+            appLanguageState.value = language
         }
 
         override suspend fun setBalanceUnit(unit: BalanceUnit) {
