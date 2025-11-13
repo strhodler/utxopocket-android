@@ -2,6 +2,7 @@
 *.iml
 .gradle
 .gradle-cache
+/.kotlin/
 /local.properties
 /.idea
 .DS_Store

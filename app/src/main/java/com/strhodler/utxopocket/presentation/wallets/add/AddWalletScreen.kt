@@ -73,6 +73,8 @@ fun AddWalletScreen(
     onSubmit: () -> Unit,
     onNetworkMismatchKeep: () -> Unit,
     onNetworkMismatchSwitch: (BitcoinNetwork) -> Unit,
+    onCombinedDescriptorConfirm: () -> Unit,
+    onCombinedDescriptorReject: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     SetSecondaryTopBar(
@@ -162,6 +164,44 @@ fun AddWalletScreen(
                             selectedNetworkLabel
                         )
                     )
+                }
+            }
+        )
+    }
+    state.combinedDescriptorDialog?.let { combined ->
+        AlertDialog(
+            onDismissRequest = onCombinedDescriptorReject,
+            icon = {
+                Icon(
+                    imageVector = Icons.Outlined.WarningAmber,
+                    contentDescription = null
+                )
+            },
+            title = { Text(text = stringResource(id = R.string.add_wallet_combined_descriptor_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = stringResource(id = R.string.add_wallet_combined_descriptor_message),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = combined.externalDescriptor,
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
+                    )
+                    Text(
+                        text = combined.changeDescriptor,
+                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onCombinedDescriptorConfirm) {
+                    Text(text = stringResource(id = R.string.add_wallet_combined_descriptor_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onCombinedDescriptorReject) {
+                    Text(text = stringResource(id = R.string.add_wallet_combined_descriptor_cancel))
                 }
             }
         )

@@ -38,6 +38,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -61,6 +62,10 @@ class AddWalletViewModelTest {
     private lateinit var preferencesRepository: FakeAppPreferencesRepository
     private lateinit var applicationScope: TestScope
     private lateinit var viewModel: AddWalletViewModel
+    private val externalDescriptor =
+        "wpkh([4ebcb1eb/84'/1'/0']tpubDC2Q4xK4XH72JGuTT792eTfxBibfTyyLCK3HYwdmJXJY1bKKvQ1y6Fgrd78EBYtFUJmZRAEBpuJp3SGMJ2QpYeaGmgQAfDGcTaqmYtD9uP6/0/*)#4dyrd2fc"
+    private val changeDescriptor =
+        "wpkh([4ebcb1eb/84'/1'/0']tpubDC2Q4xK4XH72JGuTT792eTfxBibfTyyLCK3HYwdmJXJY1bKKvQ1y6Fgrd78EBYtFUJmZRAEBpuJp3SGMJ2QpYeaGmgQAfDGcTaqmYtD9uP6/1/*)#yepzsleq"
 
     @BeforeTest
     fun setUp() {
@@ -230,6 +235,40 @@ class AddWalletViewModelTest {
 
         assertEquals(BitcoinNetwork.MAINNET, preferencesRepository.currentNetwork)
         assertEquals(null, viewModel.uiState.value.networkMismatchDialog)
+    }
+
+    @Test
+    fun combinedDescriptorPasteSplitsInputsAndShowsDialog() = runTest {
+        viewModel.onDescriptorChanged(listOf(externalDescriptor, changeDescriptor).joinToString("\n"))
+
+        val state = viewModel.uiState.value
+        assertEquals(externalDescriptor, state.descriptor)
+        assertEquals(changeDescriptor, state.changeDescriptor)
+        assertTrue(state.showAdvanced)
+        assertNotNull(state.combinedDescriptorDialog)
+    }
+
+    @Test
+    fun rejectingCombinedDescriptorClearsFields() = runTest {
+        viewModel.onDescriptorChanged(listOf(externalDescriptor, changeDescriptor).joinToString("\n"))
+        viewModel.onCombinedDescriptorRejected()
+
+        val state = viewModel.uiState.value
+        assertEquals("", state.descriptor)
+        assertEquals("", state.changeDescriptor)
+        assertFalse(state.showAdvanced)
+        assertNull(state.combinedDescriptorDialog)
+    }
+
+    @Test
+    fun confirmingCombinedDescriptorKeepsSplitValues() = runTest {
+        viewModel.onDescriptorChanged(listOf(externalDescriptor, changeDescriptor).joinToString("\n"))
+        viewModel.onCombinedDescriptorConfirmed()
+
+        val state = viewModel.uiState.value
+        assertEquals(externalDescriptor, state.descriptor)
+        assertEquals(changeDescriptor, state.changeDescriptor)
+        assertNull(state.combinedDescriptorDialog)
     }
 }
 

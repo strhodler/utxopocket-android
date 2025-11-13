@@ -49,6 +49,9 @@ class AddWalletViewModel @Inject constructor(
     }
 
     fun onDescriptorChanged(value: String) {
+        if (maybeHandleCombinedDescriptorPaste(value)) {
+            return
+        }
         descriptorInput.update { input ->
             input.copy(
                 descriptor = value,
@@ -60,7 +63,8 @@ class AddWalletViewModel @Inject constructor(
                 descriptor = value,
                 validation = DescriptorValidationResult.Idle,
                 formError = null,
-                networkMismatchDialog = null
+                networkMismatchDialog = null,
+                combinedDescriptorDialog = null
             )
         }
         scheduleValidation()
@@ -156,6 +160,32 @@ class AddWalletViewModel @Inject constructor(
         _uiState.update { it.copy(networkMismatchDialog = null) }
         viewModelScope.launch {
             appPreferencesRepository.setPreferredNetwork(network)
+        }
+    }
+
+    fun onCombinedDescriptorConfirmed() {
+        _uiState.update { it.copy(combinedDescriptorDialog = null) }
+    }
+
+    fun onCombinedDescriptorRejected() {
+        validationJob?.cancel()
+        descriptorInput.update { input ->
+            input.copy(
+                descriptor = "",
+                changeDescriptor = "",
+                lastNetworkMismatchPrompt = null
+            )
+        }
+        _uiState.update {
+            it.copy(
+                descriptor = "",
+                changeDescriptor = "",
+                showAdvanced = false,
+                validation = DescriptorValidationResult.Empty,
+                isValidating = false,
+                formError = null,
+                combinedDescriptorDialog = null
+            )
         }
     }
 
@@ -312,6 +342,76 @@ class AddWalletViewModel @Inject constructor(
     private data class NetworkMismatchPrompt(
         val descriptor: String,
         val detectedNetwork: BitcoinNetwork
+    )
+
+    private fun maybeHandleCombinedDescriptorPaste(rawValue: String): Boolean {
+        val split = CombinedDescriptorParser.split(rawValue) ?: return false
+        descriptorInput.update {
+            it.copy(
+                descriptor = split.external,
+                changeDescriptor = split.change,
+                lastNetworkMismatchPrompt = null
+            )
+        }
+        _uiState.update {
+            it.copy(
+                descriptor = split.external,
+                changeDescriptor = split.change,
+                showAdvanced = true,
+                validation = DescriptorValidationResult.Idle,
+                formError = null,
+                networkMismatchDialog = null,
+                combinedDescriptorDialog = CombinedDescriptorDialogState(
+                    externalDescriptor = split.external,
+                    changeDescriptor = split.change
+                )
+            )
+        }
+        scheduleValidation()
+        return true
+    }
+
+    private object CombinedDescriptorParser {
+        private val BRANCH_REGEX = Regex("^(.*)/(0|1)/\\*\\)(?:#([0-9a-z]+))?$", RegexOption.IGNORE_CASE)
+
+        fun split(rawValue: String): CombinedDescriptorSplit? {
+            val lines = rawValue
+                .lineSequence()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .toList()
+            if (lines.size != 2) return null
+            val first = parseBranch(lines[0]) ?: return null
+            val second = parseBranch(lines[1]) ?: return null
+            if (first.base != second.base) return null
+            return when {
+                first.branch == 0 && second.branch == 1 -> CombinedDescriptorSplit(first.original, second.original)
+                first.branch == 1 && second.branch == 0 -> CombinedDescriptorSplit(second.original, first.original)
+                else -> null
+            }
+        }
+
+        private fun parseBranch(line: String): BranchDescriptor? {
+            val match = BRANCH_REGEX.find(line) ?: return null
+            val base = match.groupValues[1]
+            val branch = match.groupValues[2].toInt()
+            return BranchDescriptor(
+                original = line.trim(),
+                base = base,
+                branch = branch
+            )
+        }
+    }
+
+    private data class BranchDescriptor(
+        val original: String,
+        val base: String,
+        val branch: Int
+    )
+
+    private data class CombinedDescriptorSplit(
+        val external: String,
+        val change: String
     )
 
     companion object {

@@ -14,10 +14,16 @@ data class AddWalletUiState(
     val isValidating: Boolean = false,
     val isSaving: Boolean = false,
     val formError: String? = null,
-    val networkMismatchDialog: NetworkMismatchDialogState? = null
+    val networkMismatchDialog: NetworkMismatchDialogState? = null,
+    val combinedDescriptorDialog: CombinedDescriptorDialogState? = null
 )
 
 data class NetworkMismatchDialogState(
     val selectedNetwork: BitcoinNetwork,
     val descriptorNetwork: BitcoinNetwork
+)
+
+data class CombinedDescriptorDialogState(
+    val externalDescriptor: String,
+    val changeDescriptor: String
 )
