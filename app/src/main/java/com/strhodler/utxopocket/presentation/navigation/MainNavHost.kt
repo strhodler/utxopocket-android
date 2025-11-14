@@ -43,13 +43,13 @@ import com.strhodler.utxopocket.presentation.wiki.WikiNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiRoute
 import com.strhodler.utxopocket.presentation.wiki.WikiSearchRoute
 import com.strhodler.utxopocket.presentation.wiki.WikiViewModel
+import com.strhodler.utxopocket.presentation.wiki.WikiContent
 
 @Composable
 fun MainNavHost(
     navController: NavHostController,
     modifier: Modifier = Modifier,
-    statusBarState: StatusBarUiState,
-    onNetworkClick: () -> Unit = {}
+    statusBarState: StatusBarUiState
 ) {
     NavHost(
         navController = navController,
@@ -88,13 +88,17 @@ fun MainNavHost(
                             restoreState = true
                         }
                     },
-                    onNetworkClick = onNetworkClick,
                     onSelectNode = {
                         navController.navigate(
                             WalletsNavigation.nodeStatusRoute(
                                 WalletsNavigation.NodeStatusTabDestination.Management
                             )
                         ) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onConnectTor = {
+                        navController.navigate(WalletsNavigation.TorStatusRoute) {
                             launchSingleTop = true
                         }
                     },
@@ -114,6 +118,17 @@ fun MainNavHost(
                     onBack = { navController.popBackStack() },
                     onWalletCreated = {
                         navController.popBackStack(WalletsNavigation.ListRoute, inclusive = false)
+                    },
+                    onDescriptorHelp = {
+                        navController.navigate(
+                            WikiNavigation.detailRoute(WikiContent.DescriptorCompatibilityTopicId)
+                        ) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 )
             }
@@ -270,7 +285,11 @@ fun MainNavHost(
             NodeStatusRoute(
                 status = statusBarState,
                 onBack = { navController.popBackStack() },
-                onOpenNetworkPicker = onNetworkClick,
+                onOpenTorStatus = {
+                    navController.navigate(WalletsNavigation.TorStatusRoute) {
+                        launchSingleTop = true
+                    }
+                },
                 initialTabIndex = initialTabIndex
             )
         }

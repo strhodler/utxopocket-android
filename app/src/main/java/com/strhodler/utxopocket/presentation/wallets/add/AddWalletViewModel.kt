@@ -24,6 +24,9 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+private const val GENERIC_DESCRIPTOR_ERROR =
+    "Invalid or malformed descriptor; review the imported descriptor or the compatibility wiki article."
+
 @HiltViewModel
 class AddWalletViewModel @Inject constructor(
     private val walletRepository: WalletRepository,
@@ -108,7 +111,9 @@ class AddWalletViewModel @Inject constructor(
         when (val validation = currentState.validation) {
             is DescriptorValidationResult.Valid -> Unit
             is DescriptorValidationResult.Invalid -> {
-                _uiState.update { it.copy(formError = validation.reason) }
+                _uiState.update {
+                    it.copy(formError = validation.reason.ifBlank { GENERIC_DESCRIPTOR_ERROR })
+                }
                 return
             }
 

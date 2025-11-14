@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 interface TorManager {
     val status: StateFlow<TorStatus>
     val latestLog: StateFlow<String>
-    suspend fun start(config: TorConfig = TorConfig.DEFAULT)
+    suspend fun start(config: TorConfig = TorConfig.DEFAULT): Result<SocksProxyConfig>
     suspend fun stop()
     suspend fun renewIdentity(): Boolean
     fun currentProxy(): SocksProxyConfig

@@ -19,15 +19,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.dropWhile
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.TimeoutException
 import java.net.InetSocketAddress
 import java.net.Proxy
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 @Singleton
 class DefaultTorManager @Inject constructor(
@@ -36,6 +38,7 @@ class DefaultTorManager @Inject constructor(
 ) : TorManager {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val startMutex = Mutex()
 
     private val _status = MutableStateFlow<TorStatus>(TorStatus.Stopped)
     override val status: StateFlow<TorStatus> = _status.asStateFlow()
@@ -53,28 +56,40 @@ class DefaultTorManager @Inject constructor(
                 torRuntimeManager.latestLog
             ) { state, proxy, error, progress, log ->
                 when (state) {
-                        TorRuntimeManager.ConnectionState.CONNECTED -> {
-                            val effectiveProxy = proxy.toSocksConfig()
-                            lastConfig = TorConfig(effectiveProxy)
-                            TorStatus.Running(effectiveProxy)
-                        }
-                        TorRuntimeManager.ConnectionState.CONNECTING,
-                        TorRuntimeManager.ConnectionState.IDLE -> TorStatus.Connecting(
-                            progress = progress,
-                            message = log
-                        )
-                        TorRuntimeManager.ConnectionState.DISCONNECTED -> TorStatus.Stopped
-                        TorRuntimeManager.ConnectionState.ERROR -> TorStatus.Error(error ?: "Tor error")
+                    TorRuntimeManager.ConnectionState.CONNECTED -> {
+                        val effectiveProxy = proxy.toSocksConfig()
+                        lastConfig = TorConfig(effectiveProxy)
+                        TorStatus.Running(effectiveProxy)
                     }
+                    TorRuntimeManager.ConnectionState.CONNECTING -> TorStatus.Connecting(
+                        progress = progress,
+                        message = log
+                    )
+                    TorRuntimeManager.ConnectionState.DISCONNECTED,
+                    TorRuntimeManager.ConnectionState.IDLE -> TorStatus.Stopped
+                    TorRuntimeManager.ConnectionState.ERROR -> TorStatus.Error(error ?: "Tor error")
+                }
             }.collect { mappedStatus ->
                 _status.value = mappedStatus
             }
         }
     }
 
-    override suspend fun start(config: TorConfig) {
-        lastConfig = config
-        sendAction(TorServiceActions.ACTION_START)
+    override suspend fun start(config: TorConfig): Result<SocksProxyConfig> {
+        var immediateResult: Result<SocksProxyConfig>? = null
+        startMutex.withLock {
+            lastConfig = config
+            when (val current = _status.value) {
+                is TorStatus.Running -> immediateResult = Result.success(current.proxy)
+                is TorStatus.Connecting -> Unit
+                else -> {
+                    _status.value = TorStatus.Connecting()
+                    sendAction(TorServiceActions.ACTION_START)
+                }
+            }
+        }
+        immediateResult?.let { return it }
+        return waitForRunning()
     }
 
     override suspend fun stop() {
@@ -105,27 +120,7 @@ class DefaultTorManager @Inject constructor(
         if (current is TorStatus.Running) {
             return current.proxy
         }
-        start(lastConfig)
-        return suspendCancellableCoroutine { continuation ->
-            val job = scope.launch {
-                status.collect { state ->
-                    when (state) {
-                        is TorStatus.Running -> {
-                            continuation.resume(state.proxy)
-                            cancel()
-                        }
-                        is TorStatus.Error -> {
-                            continuation.resumeWithException(
-                                IllegalStateException(state.message)
-                            )
-                            cancel()
-                        }
-                        else -> Unit
-                    }
-                }
-            }
-            continuation.invokeOnCancellation { job.cancel() }
-        }
+        return start(lastConfig).getOrElse { throw it }
     }
 
     private fun sendAction(action: String) {
@@ -145,5 +140,22 @@ class DefaultTorManager @Inject constructor(
         } else {
             lastConfig.socksProxy
         }
+    }
+
+    private suspend fun waitForRunning(timeoutMillis: Long = START_TIMEOUT_MILLIS): Result<SocksProxyConfig> {
+        val nextState = withTimeoutOrNull(timeoutMillis) {
+            status.dropWhile { state ->
+                state !is TorStatus.Running && state !is TorStatus.Error
+            }.first()
+        } ?: return Result.failure(TimeoutException("Tor bootstrap timed out"))
+        return when (nextState) {
+            is TorStatus.Running -> Result.success(nextState.proxy)
+            is TorStatus.Error -> Result.failure(IllegalStateException(nextState.message))
+            else -> Result.failure(IllegalStateException("Tor stopped before connecting"))
+        }
+    }
+
+    companion object {
+        private const val START_TIMEOUT_MILLIS = 4 * 60_000L
     }
 }

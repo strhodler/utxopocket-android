@@ -76,8 +76,7 @@ class DefaultNodeConnectionTester @Inject constructor(
     }
 
     private suspend fun ensureProxy(): SocksProxyConfig {
-        torManager.start()
-        return torManager.awaitProxy()
+        return torManager.start().getOrElse { throw it }
     }
 
     private fun SocksProxyConfig.toSocks5String(): String = "${this.host}:${this.port}"

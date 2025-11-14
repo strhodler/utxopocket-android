@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -70,13 +69,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
-import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.NodeStatus
+import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
+import com.strhodler.utxopocket.presentation.components.ConnectionIssueBanner
+import com.strhodler.utxopocket.presentation.components.ConnectionIssueBannerStyle
 import com.strhodler.utxopocket.presentation.components.RefreshableContent
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
@@ -95,8 +96,8 @@ fun WalletsRoute(
     onAddWallet: () -> Unit,
     onOpenWiki: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
-    onNetworkClick: () -> Unit,
     onSelectNode: () -> Unit,
+    onConnectTor: () -> Unit,
     onWalletSelected: (Long, String) -> Unit,
     snackbarMessage: String? = null,
     onSnackbarConsumed: () -> Unit = {},
@@ -110,8 +111,8 @@ fun WalletsRoute(
         onAddWallet = onAddWallet,
         onOpenWiki = onOpenWiki,
         onOpenWikiTopic = onOpenWikiTopic,
-        onNetworkClick = onNetworkClick,
         onSelectNode = onSelectNode,
+        onConnectTor = onConnectTor,
         onWalletSelected = onWalletSelected,
         snackbarMessage = snackbarMessage,
         onSnackbarConsumed = onSnackbarConsumed
@@ -125,8 +126,8 @@ fun WalletsScreen(
     onAddWallet: () -> Unit,
     onOpenWiki: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
-    onNetworkClick: () -> Unit,
     onSelectNode: () -> Unit,
+    onConnectTor: () -> Unit,
     onWalletSelected: (Long, String) -> Unit,
     snackbarMessage: String? = null,
     onSnackbarConsumed: () -> Unit = {},
@@ -153,8 +154,8 @@ fun WalletsScreen(
             onRefreshRequested = onRefreshRequested,
             onOpenWiki = onOpenWiki,
             onOpenWikiTopic = onOpenWikiTopic,
-            onNetworkClick = onNetworkClick,
             onSelectNode = onSelectNode,
+             onConnectTor = onConnectTor,
             onWalletSelected = onWalletSelected,
             onAddWallet = onAddWallet,
             modifier = Modifier
@@ -170,8 +171,8 @@ private fun WalletsContent(
     onRefreshRequested: () -> Unit,
     onOpenWiki: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
-    onNetworkClick: () -> Unit,
     onSelectNode: () -> Unit,
+    onConnectTor: () -> Unit,
     onWalletSelected: (Long, String) -> Unit,
     onAddWallet: () -> Unit,
     modifier: Modifier = Modifier
@@ -181,8 +182,18 @@ private fun WalletsContent(
     val canAddWallet = state.nodeStatus is NodeStatus.Synced
     val showNodePrompt = state.wallets.isEmpty() && !state.hasActiveNodeSelection
 
+    val torStatus = state.torStatus
+    val showTorBanner = torStatus is TorStatus.Stopped || torStatus is TorStatus.Error
+    val torBannerMessage = stringResource(id = R.string.wallets_tor_disconnected_banner)
+
     val hasWalletErrors = state.wallets.any { it.lastSyncStatus is NodeStatus.Error }
-    val globalErrorMessage = state.errorMessage.takeUnless { hasWalletErrors }
+    val sanitizedErrorMessage = state.errorMessage.takeUnless { hasWalletErrors }?.takeIf { it.isNotBlank() }
+    val showDisconnectedBanner = state.nodeStatus == NodeStatus.Idle
+    val connectionBannerMessage = when {
+        sanitizedErrorMessage != null -> sanitizedErrorMessage
+        showDisconnectedBanner -> stringResource(id = R.string.wallets_node_disconnected_banner)
+        else -> null
+    }
 
     RefreshableContent(
         isRefreshing = state.isRefreshing,
@@ -209,30 +220,43 @@ private fun WalletsContent(
                 .padding(vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            when {
+                showTorBanner -> {
+                    ConnectionIssueBanner(
+                        message = torBannerMessage,
+                        primaryLabel = stringResource(id = R.string.tor_connect_action),
+                        onPrimaryClick = onConnectTor,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .fillMaxWidth()
+                    )
+                }
+                connectionBannerMessage != null -> {
+                    ConnectionIssueBanner(
+                        message = connectionBannerMessage,
+                        primaryLabel = stringResource(id = R.string.wallets_manage_connection_action),
+                        onPrimaryClick = onSelectNode,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .fillMaxWidth()
+                    )
+                }
+            }
             WalletsList(
                 wallets = state.wallets,
-                network = state.selectedNetwork,
                 onOpenWiki = onOpenWiki,
                 onOpenWikiTopic = onOpenWikiTopic,
                 balanceUnit = state.balanceUnit,
                 totalBalanceSats = state.totalBalanceSats,
-                onNetworkClick = onNetworkClick,
                 onSelectNode = onSelectNode,
                 onWalletSelected = onWalletSelected,
                 onAddWallet = onAddWallet,
                 canAddWallet = canAddWallet,
                 showNodePrompt = showNodePrompt,
-                isRefreshing = state.isRefreshing,
                 walletAnimationsEnabled = state.walletAnimationsEnabled,
+                isRefreshing = state.isRefreshing,
                 modifier = Modifier.weight(1f, fill = true)
             )
-            globalErrorMessage?.let { error ->
-                Text(
-                    text = error,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
         }
     }
 }
@@ -240,37 +264,26 @@ private fun WalletsContent(
 @Composable
 private fun WalletsList(
     wallets: List<WalletSummary>,
-    network: BitcoinNetwork,
     onOpenWiki: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     balanceUnit: BalanceUnit,
     totalBalanceSats: Long,
-    onNetworkClick: () -> Unit,
     onSelectNode: () -> Unit,
     onWalletSelected: (Long, String) -> Unit,
     onAddWallet: () -> Unit,
     canAddWallet: Boolean,
     showNodePrompt: Boolean,
-    isRefreshing: Boolean,
     walletAnimationsEnabled: Boolean,
+    isRefreshing: Boolean,
     modifier: Modifier = Modifier
 ) {
     if (wallets.isEmpty()) {
-        // Non-scrollable layout when empty; content centered.
-        Box(modifier = modifier.fillMaxWidth()) {
-            // Show network status + selector even when there are no wallets
-            NetworkStatusCard(
-                network = network,
-                onClick = onNetworkClick,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(horizontal = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING)
-                    .fillMaxWidth()
-            )
-            val centerModifier = Modifier
-                .align(Alignment.Center)
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
                 .padding(horizontal = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING)
-
+        ) {
+            val centerModifier = Modifier.align(Alignment.Center)
             if (showNodePrompt) {
                 NodeSelectionPrompt(
                     onSelectNode = onSelectNode,
@@ -303,8 +316,6 @@ private fun WalletsList(
                 WalletsBalanceHeader(
                     totalBalanceSats = totalBalanceSats,
                     balanceUnit = balanceUnit,
-                    network = network,
-                    onNetworkClick = onNetworkClick,
                     animationsEnabled = walletAnimationsEnabled
                 )
             }
@@ -314,7 +325,8 @@ private fun WalletsList(
                     balanceUnit = balanceUnit,
                     onClick = { onWalletSelected(wallet.id, wallet.name) },
                     modifier = Modifier.fillMaxWidth(),
-                    animationsEnabled = walletAnimationsEnabled
+                    animationsEnabled = walletAnimationsEnabled,
+                    isSyncing = isRefreshing
                 )
             }
             item(key = "wallets-add-descriptor") {
@@ -377,10 +389,11 @@ private fun WalletCard(
     balanceUnit: BalanceUnit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    animationsEnabled: Boolean
+    animationsEnabled: Boolean,
+    isSyncing: Boolean
 ) {
     val syncStatus = wallet.lastSyncStatus
-    val statusLabel = nodeStatusLabel(syncStatus)
+    val statusLabel = nodeStatusLabel(syncStatus, isSyncing)
     val theme = remember(wallet.color) { wallet.color.toTheme() }
     val shimmerPhase = if (animationsEnabled) rememberWalletShimmerPhase() else 0f
     val contentColor = theme.onGradient
@@ -509,8 +522,6 @@ private fun WalletCard(
 private fun WalletsBalanceHeader(
     totalBalanceSats: Long,
     balanceUnit: BalanceUnit,
-    network: BitcoinNetwork,
-    onNetworkClick: () -> Unit,
     modifier: Modifier = Modifier,
     animationsEnabled: Boolean
 ) {
@@ -522,79 +533,24 @@ private fun WalletsBalanceHeader(
         shadowElevation = 0.dp
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            NetworkStatusCard(
-                network = network,
-                onClick = onNetworkClick,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 48.dp, bottom = 30.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = stringResource(id = R.string.wallets_total_balance_label),
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center
-                )
-                RollingBalanceText(
-                    balanceSats = totalBalanceSats,
-                    unit = balanceUnit,
-                    style = MaterialTheme.typography.displaySmall.copy(
-                        fontWeight = FontWeight.Medium
-                    ),
-                    monospaced = true,
-                    animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0
-                )
-            }
-
-        }
-    }
-}
-
-@Composable
-private fun NetworkStatusCard(
-    network: BitcoinNetwork,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val networkLabel = stringResource(
-        id = when (network) {
-            BitcoinNetwork.MAINNET -> R.string.network_mainnet
-            BitcoinNetwork.TESTNET -> R.string.network_testnet
-            BitcoinNetwork.TESTNET4 -> R.string.network_testnet4
-            BitcoinNetwork.SIGNET -> R.string.network_signet
-        }
-    )
-    Card(
-        onClick = onClick,
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(WalletCardCornerRadius)
-    ) {
-        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = networkLabel,
+                text = stringResource(id = R.string.wallets_total_balance_label),
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f, fill = true)
+                textAlign = TextAlign.Center
             )
-            Icon(
-                imageVector = Icons.Outlined.ExpandMore,
-                contentDescription = stringResource(
-                    id = R.string.wallets_network_selector_expand_content_description
+            RollingBalanceText(
+                balanceSats = totalBalanceSats,
+                unit = balanceUnit,
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontWeight = FontWeight.Medium
                 ),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                monospaced = true,
+                animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0
             )
         }
     }
@@ -699,14 +655,6 @@ private fun EmptyState(
 // Removed LoadingState to avoid duplicate loaders; rely on pull-to-refresh indicator.
 
 @Composable
-private fun networkChipLabel(network: BitcoinNetwork): String = when (network) {
-    BitcoinNetwork.MAINNET -> stringResource(id = R.string.network_mainnet)
-    BitcoinNetwork.TESTNET -> stringResource(id = R.string.network_testnet)
-    BitcoinNetwork.TESTNET4 -> stringResource(id = R.string.network_testnet4)
-    BitcoinNetwork.SIGNET -> stringResource(id = R.string.network_signet)
-}
-
-@Composable
 private fun walletDescriptorTypeLabel(type: DescriptorType): String = when (type) {
     DescriptorType.P2PKH -> stringResource(id = R.string.wallet_detail_descriptor_type_legacy)
     DescriptorType.P2WPKH -> stringResource(id = R.string.wallet_detail_descriptor_type_segwit)
@@ -739,9 +687,14 @@ private fun WalletInfoChip(
 }
 
 @Composable
-private fun nodeStatusLabel(status: NodeStatus): String = when (status) {
-    NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
-    NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
-    NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
-    is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
+private fun nodeStatusLabel(status: NodeStatus, isSyncing: Boolean): String {
+    if (isSyncing) {
+        return stringResource(id = R.string.wallets_state_syncing)
+    }
+    return when (status) {
+        NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
+        NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
+        NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
+        is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
+    }
 }

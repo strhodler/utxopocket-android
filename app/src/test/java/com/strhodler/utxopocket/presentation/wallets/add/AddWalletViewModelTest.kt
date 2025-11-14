@@ -153,6 +153,23 @@ class AddWalletViewModelTest {
     }
 
     @Test
+    fun submitShowsGenericErrorWhenValidationReasonBlank() = runTest {
+        walletRepository.validationResult = DescriptorValidationResult.Invalid("")
+
+        viewModel.onDescriptorChanged("invalid")
+        viewModel.onWalletNameChanged("Test Wallet")
+        advanceTimeBy(400)
+
+        viewModel.submit()
+
+        val state = viewModel.uiState.value
+        assertEquals(
+            "Invalid or malformed descriptor; review the imported descriptor or the compatibility wiki article.",
+            state.formError
+        )
+    }
+
+    @Test
     fun sharedDescriptorsToggleAffectsCreationRequest() = runTest {
         walletRepository.validationResult = DescriptorValidationResult.Valid(
             descriptor = "wpkh(test)",

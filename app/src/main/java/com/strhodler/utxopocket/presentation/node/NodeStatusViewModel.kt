@@ -8,6 +8,8 @@ import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
+import com.strhodler.utxopocket.domain.model.NodeStatus
+import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
@@ -37,8 +39,9 @@ class NodeStatusViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 appPreferencesRepository.preferredNetwork,
-                nodeConfigurationRepository.nodeConfig
-            ) { network, config ->
+                nodeConfigurationRepository.nodeConfig,
+                walletRepository.observeNodeStatus()
+            ) { network, config, nodeSnapshot ->
                 val publicNodes = nodeConfigurationRepository.publicNodesFor(network)
                 val selectedPublic = config.selectedPublicNodeId?.takeIf { id ->
                     publicNodes.any { it.id == id }
@@ -47,6 +50,9 @@ class NodeStatusViewModel @Inject constructor(
                 val selectedCustom = config.selectedCustomNodeId?.takeIf { id ->
                     customNodes.any { it.id == id }
                 }
+                val snapshotMatchesNetwork = nodeSnapshot.network == network
+                val isConnected = nodeSnapshot.status is NodeStatus.Synced && snapshotMatchesNetwork
+                val isConnecting = nodeSnapshot.status is NodeStatus.Connecting && snapshotMatchesNetwork
                 NodeConfigSnapshot(
                     networkLabel = network,
                     connectionOption = config.connectionOption,
@@ -54,7 +60,9 @@ class NodeStatusViewModel @Inject constructor(
                     publicNodes = publicNodes,
                     customNodes = customNodes,
                     selectedPublic = selectedPublic,
-                    selectedCustom = selectedCustom
+                    selectedCustom = selectedCustom,
+                    isConnected = isConnected,
+                    isConnecting = isConnecting
                 )
             }.collect { snapshot ->
                 _uiState.update { previous ->
@@ -65,7 +73,9 @@ class NodeStatusViewModel @Inject constructor(
                         publicNodes = snapshot.publicNodes,
                         selectedPublicNodeId = snapshot.selectedPublic,
                         customNodes = snapshot.customNodes,
-                        selectedCustomNodeId = snapshot.selectedCustom
+                        selectedCustomNodeId = snapshot.selectedCustom,
+                        isNodeConnected = snapshot.isConnected,
+                        isNodeActivating = snapshot.isConnecting
                     )
                 }
             }
@@ -84,7 +94,27 @@ class NodeStatusViewModel @Inject constructor(
         }
         viewModelScope.launch {
             appPreferencesRepository.setPreferredNetwork(network)
+            nodeConfigurationRepository.updateNodeConfig { current ->
+                current.copy(
+                    connectionOption = NodeConnectionOption.PUBLIC,
+                    selectedPublicNodeId = null,
+                    selectedCustomNodeId = null
+                )
+            }
             walletRepository.refresh(network)
+        }
+    }
+
+    fun disconnectNode() {
+        viewModelScope.launch {
+            nodeConfigurationRepository.updateNodeConfig { current ->
+                current.copy(
+                    connectionOption = NodeConnectionOption.PUBLIC,
+                    selectedPublicNodeId = null,
+                    selectedCustomNodeId = null
+                )
+            }
+            walletRepository.refresh(_uiState.value.preferredNetwork)
         }
     }
 
@@ -533,6 +563,8 @@ class NodeStatusViewModel @Inject constructor(
         val publicNodes: List<PublicNode>,
         val customNodes: List<CustomNode>,
         val selectedPublic: String?,
-        val selectedCustom: String?
+        val selectedCustom: String?,
+        val isConnected: Boolean,
+        val isConnecting: Boolean
     )
 }

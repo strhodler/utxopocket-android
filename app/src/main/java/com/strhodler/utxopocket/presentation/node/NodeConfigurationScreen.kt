@@ -2,29 +2,33 @@ package com.strhodler.utxopocket.presentation.node
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.ArrowDropUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Divider
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -35,18 +39,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
@@ -66,60 +74,21 @@ fun NodeConfigurationRoute(
     onBack: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var customNodeQrError by remember { mutableStateOf<String?>(null) }
-    val permissionDeniedMessage = stringResource(id = R.string.node_scan_error_permission)
-    val invalidNodeMessage = stringResource(id = R.string.node_scan_error_invalid)
     val snackbarHostState = remember { SnackbarHostState() }
-    val coroutineScope = rememberCoroutineScope()
     val hapticFeedback = LocalHapticFeedback.current
     val context = LocalContext.current
-    val scanSuccessMessage = stringResource(id = R.string.qr_scan_success)
     var pendingActivation by remember { mutableStateOf<NodeActivationTarget?>(null) }
 
-    val startQrScan = rememberNodeQrScanner(
-        onParsed = { result ->
-            customNodeQrError = null
-            when (result) {
-                is NodeQrParseResult.HostPort -> {
-                    if (state.nodeConnectionOption != NodeConnectionOption.CUSTOM) {
-                        viewModel.onNodeConnectionOptionSelected(NodeConnectionOption.CUSTOM)
-                    }
-                    if (state.nodeAddressOption != NodeAddressOption.HOST_PORT) {
-                        viewModel.onNodeAddressOptionSelected(NodeAddressOption.HOST_PORT)
-                    }
-                    viewModel.onNewCustomHostChanged(result.host)
-                    viewModel.onNewCustomPortChanged(result.port)
-                }
-
-                is NodeQrParseResult.Onion -> {
-                    if (state.nodeConnectionOption != NodeConnectionOption.CUSTOM) {
-                        viewModel.onNodeConnectionOptionSelected(NodeConnectionOption.CUSTOM)
-                    }
-                    if (state.nodeAddressOption != NodeAddressOption.ONION) {
-                        viewModel.onNodeAddressOptionSelected(NodeAddressOption.ONION)
-                    }
-                    val sanitized = result.address.removePrefix("tcp://").removePrefix("ssl://")
-                    val normalized = if (sanitized.contains(':')) sanitized else "$sanitized:50001"
-                    viewModel.onNewCustomOnionChanged(normalized)
-                }
-
-                is NodeQrParseResult.Error -> Unit
-            }
-        },
-        onPermissionDenied = {
-            customNodeQrError = permissionDeniedMessage
-            coroutineScope.launch { snackbarHostState.showSnackbar(permissionDeniedMessage) }
-        },
-        onInvalid = {
-            customNodeQrError = invalidNodeMessage
-            coroutineScope.launch { snackbarHostState.showSnackbar(invalidNodeMessage) }
-        },
-        onSuccess = {
-            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-            coroutineScope.launch {
-                snackbarHostState.showSnackbar(scanSuccessMessage)
-            }
-        }
+    val qrEditorState = rememberNodeCustomNodeEditorState(
+        isEditorVisible = state.isCustomNodeEditorVisible,
+        nodeConnectionOption = state.nodeConnectionOption,
+        nodeAddressOption = state.nodeAddressOption,
+        snackbarHostState = snackbarHostState,
+        onConnectionOptionSelected = viewModel::onNodeConnectionOptionSelected,
+        onAddressOptionSelected = viewModel::onNodeAddressOptionSelected,
+        onHostChanged = viewModel::onNewCustomHostChanged,
+        onPortChanged = viewModel::onNewCustomPortChanged,
+        onOnionChanged = viewModel::onNewCustomOnionChanged
     )
 
     fun applyActivation(target: NodeActivationTarget) {
@@ -156,12 +125,6 @@ fun NodeConfigurationRoute(
         }
     }
 
-    LaunchedEffect(state.isCustomNodeEditorVisible) {
-        if (!state.isCustomNodeEditorVisible) {
-            customNodeQrError = null
-        }
-    }
-
     LaunchedEffect(state.customNodeSuccessMessage, state.customNodes.size) {
         val messageRes = state.customNodeSuccessMessage ?: return@LaunchedEffect
         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -174,18 +137,12 @@ fun NodeConfigurationRoute(
     if (editorVisible) {
         SetSecondaryTopBar(
             title = addCustomTitle,
-            onBackClick = {
-                customNodeQrError = null
-                viewModel.onDismissCustomNodeEditor()
-            }
+            onBackClick = viewModel::onDismissCustomNodeEditor
         )
     } else {
         SetSecondaryTopBar(
             title = configurationTitle,
-            onBackClick = {
-                customNodeQrError = null
-                onBack()
-            }
+            onBackClick = onBack
         )
     }
 
@@ -207,13 +164,10 @@ fun NodeConfigurationRoute(
             onionValue = state.newCustomOnion,
             isTesting = state.isTestingCustomNode,
             errorMessage = state.customNodeError,
-            qrErrorMessage = customNodeQrError,
+            qrErrorMessage = qrEditorState.qrErrorMessage,
             isPrimaryActionEnabled = state.customNodeHasChanges,
             primaryActionLabel = primaryLabel,
-            onDismiss = {
-                customNodeQrError = null
-                viewModel.onDismissCustomNodeEditor()
-            },
+            onDismiss = viewModel::onDismissCustomNodeEditor,
             onNameChanged = viewModel::onNewCustomNameChanged,
             onNodeAddressOptionSelected = viewModel::onNodeAddressOptionSelected,
             onHostChanged = viewModel::onNewCustomHostChanged,
@@ -224,8 +178,8 @@ fun NodeConfigurationRoute(
             } else {
                 viewModel::onTestAndAddCustomNode
             },
-            onStartQrScan = startQrScan,
-            onClearQrError = { customNodeQrError = null },
+            onStartQrScan = qrEditorState.startQrScan,
+            onClearQrError = qrEditorState.clearQrError,
             onDeleteNode = deleteAction
         )
     } else {
@@ -236,11 +190,10 @@ fun NodeConfigurationRoute(
             selectedPublicNodeId = state.selectedPublicNodeId,
             customNodes = state.customNodes,
             selectedCustomNodeId = state.selectedCustomNodeId,
+            isNodeConnected = state.isNodeConnected,
+            isNodeActivating = state.isNodeActivating,
             customNodeSuccessMessage = state.customNodeSuccessMessage,
-            onDismiss = {
-                customNodeQrError = null
-                onBack()
-            },
+            onDismiss = onBack,
             onNetworkSelected = viewModel::onNetworkSelected,
             onPublicNodeSelected = onPublicNodeSelected@{ nodeId ->
                 val node = state.publicNodes.firstOrNull { it.id == nodeId } ?: return@onPublicNodeSelected
@@ -263,10 +216,8 @@ fun NodeConfigurationRoute(
                 )
             },
             onCustomNodeDetails = viewModel::onEditCustomNode,
-            onAddCustomNodeClick = {
-                customNodeQrError = null
-                viewModel.onAddCustomNodeClicked()
-            },
+            onAddCustomNodeClick = viewModel::onAddCustomNodeClicked,
+            onDisconnectNode = viewModel::onDisconnectNode,
             snackbarHostState = snackbarHostState
         )
 
@@ -291,6 +242,8 @@ fun NodeConfigurationScreen(
     selectedPublicNodeId: String?,
     customNodes: List<CustomNode>,
     selectedCustomNodeId: String?,
+    isNodeConnected: Boolean,
+    isNodeActivating: Boolean,
     customNodeSuccessMessage: Int?,
     onDismiss: () -> Unit,
     onNetworkSelected: ((BitcoinNetwork) -> Unit)?,
@@ -298,6 +251,7 @@ fun NodeConfigurationScreen(
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
+    onDisconnectNode: (() -> Unit)? = null,
     snackbarHostState: SnackbarHostState
 ) {
     BackHandler(onBack = onDismiss)
@@ -311,21 +265,24 @@ fun NodeConfigurationScreen(
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            NodeConfigurationContent(
-                network = network,
-                publicNodes = publicNodes,
-                nodeConnectionOption = nodeConnectionOption,
-                selectedPublicNodeId = selectedPublicNodeId,
-                customNodes = customNodes,
-                selectedCustomNodeId = selectedCustomNodeId,
-                customNodeSuccessMessage = customNodeSuccessMessage,
-                onNetworkSelected = onNetworkSelected,
-                onPublicNodeSelected = onPublicNodeSelected,
-                onCustomNodeSelected = onCustomNodeSelected,
-                onCustomNodeDetails = onCustomNodeDetails,
-                onAddCustomNodeClick = onAddCustomNodeClick
-            )
-        }
+        NodeConfigurationContent(
+            network = network,
+            publicNodes = publicNodes,
+            nodeConnectionOption = nodeConnectionOption,
+            selectedPublicNodeId = selectedPublicNodeId,
+            customNodes = customNodes,
+            selectedCustomNodeId = selectedCustomNodeId,
+            isNodeConnected = isNodeConnected,
+            isNodeActivating = isNodeActivating,
+            customNodeSuccessMessage = customNodeSuccessMessage,
+            onNetworkSelected = onNetworkSelected,
+            onPublicNodeSelected = onPublicNodeSelected,
+            onCustomNodeSelected = onCustomNodeSelected,
+            onCustomNodeDetails = onCustomNodeDetails,
+            onAddCustomNodeClick = onAddCustomNodeClick,
+            onDisconnectNode = onDisconnectNode
+        )
+    }
     }
 }
 
@@ -337,22 +294,24 @@ fun NodeConfigurationContent(
     selectedPublicNodeId: String?,
     customNodes: List<CustomNode>,
     selectedCustomNodeId: String?,
+    isNodeConnected: Boolean,
+    isNodeActivating: Boolean,
     customNodeSuccessMessage: Int?,
     onNetworkSelected: ((BitcoinNetwork) -> Unit)?,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
+    onDisconnectNode: (() -> Unit)? = null,
     showTorReminder: Boolean = true
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        NetworkSelector(
+        NodeNetworkSelector(
             selectedNetwork = network,
-            onNetworkSelected = onNetworkSelected ?: {},
-            enabled = onNetworkSelected != null
+            onNetworkSelected = onNetworkSelected
         )
 
         AvailableNodesSection(
@@ -361,44 +320,77 @@ fun NodeConfigurationContent(
             selectedPublicId = selectedPublicNodeId,
             selectedCustomId = selectedCustomNodeId,
             activeOption = nodeConnectionOption,
+            isNodeConnected = isNodeConnected,
+            isNodeActivating = isNodeActivating,
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
             onCustomNodeDetails = onCustomNodeDetails,
             onAddCustomNodeClick = onAddCustomNodeClick,
+            onDisconnect = onDisconnectNode,
             showTorReminder = showTorReminder,
             successMessage = customNodeSuccessMessage
         )
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun NetworkSelector(
+private fun NodeNetworkSelector(
     selectedNetwork: BitcoinNetwork,
-    onNetworkSelected: (BitcoinNetwork) -> Unit,
-    enabled: Boolean
+    onNetworkSelected: ((BitcoinNetwork) -> Unit)?
 ) {
+    if (onNetworkSelected == null) return
+    val options = remember { BitcoinNetwork.entries }
+    var expanded by remember { mutableStateOf(false) }
+    var fieldWidth by remember { mutableStateOf(Dp.Unspecified) }
+    val density = LocalDensity.current
+    val focusManager = LocalFocusManager.current
+    val trailingIcon = if (expanded) Icons.Outlined.ArrowDropUp else Icons.Outlined.ArrowDropDown
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = stringResource(id = R.string.network_select_title),
             style = MaterialTheme.typography.titleMedium
         )
-        Text(
-            text = stringResource(id = R.string.network_select_description),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            BitcoinNetwork.entries.forEach { option ->
-                FilterChip(
-                    selected = option == selectedNetwork,
-                    onClick = { onNetworkSelected(option) },
-                    enabled = enabled,
-                    label = { Text(networkLabel(option)) }
+        Box {
+            OutlinedTextField(
+                value = networkLabel(selectedNetwork),
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned { fieldWidth = with(density) { it.size.width.toDp() } }
+                    .onFocusChanged { state -> expanded = state.isFocused },
+                trailingIcon = {
+                    Icon(
+                        imageVector = trailingIcon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    disabledContainerColor = MaterialTheme.colorScheme.surface
                 )
+            )
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = {
+                    expanded = false
+                    focusManager.clearFocus(force = true)
+                },
+                modifier = if (fieldWidth != Dp.Unspecified) Modifier.width(fieldWidth) else Modifier
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(text = networkLabel(option)) },
+                        onClick = {
+                            onNetworkSelected(option)
+                            expanded = false
+                            focusManager.clearFocus(force = true)
+                        }
+                    )
+                }
             }
         }
     }
@@ -411,10 +403,13 @@ private fun AvailableNodesSection(
     selectedPublicId: String?,
     selectedCustomId: String?,
     activeOption: NodeConnectionOption,
+    isNodeConnected: Boolean,
+    isNodeActivating: Boolean,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
+    onDisconnect: (() -> Unit)?,
     showTorReminder: Boolean,
     successMessage: Int?
 ) {
@@ -427,9 +422,12 @@ private fun AvailableNodesSection(
                     title = node.displayName,
                     subtitle = sanitizeEndpoint(node.endpoint),
                     typeLabel = publicTypeLabel,
-                    active = activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
+                    selected = activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
+                    connected = (isNodeConnected || isNodeActivating) &&
+                        activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
                     onActivate = { onPublicNodeSelected(node.id) },
-                    onDetailsClick = { onPublicNodeSelected(node.id) }
+                    onDetailsClick = { onPublicNodeSelected(node.id) },
+                    onDeactivate = onDisconnect
                 )
             )
         }
@@ -439,9 +437,12 @@ private fun AvailableNodesSection(
                     title = node.displayLabel(),
                     subtitle = sanitizeEndpoint(node.endpointLabel()),
                     typeLabel = customTypeLabel,
-                    active = activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
+                    selected = activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
+                    connected = (isNodeConnected || isNodeActivating) &&
+                        activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
                     onActivate = { onCustomNodeSelected(node.id) },
-                    onDetailsClick = { onCustomNodeDetails(node.id) }
+                    onDetailsClick = { onCustomNodeDetails(node.id) },
+                    onDeactivate = onDisconnect
                 )
             )
         }
@@ -471,9 +472,11 @@ private fun AvailableNodesSection(
                         title = item.title,
                         subtitle = item.subtitle,
                         typeLabel = item.typeLabel,
-                        active = item.active,
+                        selected = item.selected,
+                        connected = item.connected,
                         onActivate = item.onActivate,
                         onDetailsClick = item.onDetailsClick,
+                        onDeactivate = item.onDeactivate,
                         showDivider = index < nodes.lastIndex
                     )
                 }
@@ -522,9 +525,11 @@ private fun NodeListItem(
     title: String,
     subtitle: String?,
     typeLabel: String? = null,
-    active: Boolean,
+    selected: Boolean,
+    connected: Boolean,
     onActivate: () -> Unit,
     onDetailsClick: () -> Unit,
+    onDeactivate: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     showDivider: Boolean = false
 ) {
@@ -561,7 +566,7 @@ private fun NodeListItem(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -569,10 +574,11 @@ private fun NodeListItem(
             supportingContent = supportingContent,
             trailingContent = {
                 Switch(
-                    checked = active,
+                    checked = connected,
                     onCheckedChange = { checked ->
-                        if (checked && !active) {
-                            onActivate()
+                        when {
+                            checked && !connected -> onActivate()
+                            !checked && connected -> onDeactivate?.invoke()
                         }
                     }
                 )
@@ -580,12 +586,12 @@ private fun NodeListItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .selectable(
-                    selected = active,
+                    selected = selected,
                     onClick = onDetailsClick,
                     role = Role.Button
                 ),
             colors = ListItemDefaults.colors(
-                containerColor = if (active) {
+                containerColor = if (selected) {
                     MaterialTheme.colorScheme.surfaceContainerHigh
                 } else {
                     Color.Transparent
@@ -602,9 +608,11 @@ private data class AvailableNodeItem(
     val title: String,
     val subtitle: String,
     val typeLabel: String,
-    val active: Boolean,
+    val selected: Boolean,
+    val connected: Boolean,
     val onActivate: () -> Unit,
-    val onDetailsClick: () -> Unit
+    val onDetailsClick: () -> Unit,
+    val onDeactivate: (() -> Unit)? = null
 )
 
 private data class NodeActivationTarget(
