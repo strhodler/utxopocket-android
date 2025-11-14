@@ -17,6 +17,7 @@ import com.strhodler.utxopocket.R
 fun AddWalletRoute(
     onBack: () -> Unit,
     onWalletCreated: () -> Unit,
+    onDescriptorHelp: () -> Unit,
     viewModel: AddWalletViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -43,6 +44,7 @@ fun AddWalletRoute(
         state = state,
         snackbarHostState = snackbarHostState,
         onBack = onBack,
+        onDescriptorHelp = onDescriptorHelp,
         onDescriptorChange = viewModel::onDescriptorChanged,
         onChangeDescriptorChange = viewModel::onChangeDescriptorChanged,
         onWalletNameChange = viewModel::onWalletNameChanged,

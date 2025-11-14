@@ -2,29 +2,33 @@ package com.strhodler.utxopocket.presentation.node
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.ArrowDropUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Divider
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -42,11 +46,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
@@ -349,10 +358,9 @@ fun NodeConfigurationContent(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        NetworkSelector(
+        NodeNetworkSelector(
             selectedNetwork = network,
-            onNetworkSelected = onNetworkSelected ?: {},
-            enabled = onNetworkSelected != null
+            onNetworkSelected = onNetworkSelected
         )
 
         AvailableNodesSection(
@@ -371,34 +379,64 @@ fun NodeConfigurationContent(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun NetworkSelector(
+private fun NodeNetworkSelector(
     selectedNetwork: BitcoinNetwork,
-    onNetworkSelected: (BitcoinNetwork) -> Unit,
-    enabled: Boolean
+    onNetworkSelected: ((BitcoinNetwork) -> Unit)?
 ) {
+    if (onNetworkSelected == null) return
+    val options = remember { BitcoinNetwork.entries }
+    var expanded by remember { mutableStateOf(false) }
+    var fieldWidth by remember { mutableStateOf(Dp.Unspecified) }
+    val density = LocalDensity.current
+    val focusManager = LocalFocusManager.current
+    val trailingIcon = if (expanded) Icons.Outlined.ArrowDropUp else Icons.Outlined.ArrowDropDown
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = stringResource(id = R.string.network_select_title),
             style = MaterialTheme.typography.titleMedium
         )
-        Text(
-            text = stringResource(id = R.string.network_select_description),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            BitcoinNetwork.entries.forEach { option ->
-                FilterChip(
-                    selected = option == selectedNetwork,
-                    onClick = { onNetworkSelected(option) },
-                    enabled = enabled,
-                    label = { Text(networkLabel(option)) }
+        Box {
+            OutlinedTextField(
+                value = networkLabel(selectedNetwork),
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned { fieldWidth = with(density) { it.size.width.toDp() } }
+                    .onFocusChanged { state -> expanded = state.isFocused },
+                trailingIcon = {
+                    Icon(
+                        imageVector = trailingIcon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    disabledContainerColor = MaterialTheme.colorScheme.surface
                 )
+            )
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = {
+                    expanded = false
+                    focusManager.clearFocus(force = true)
+                },
+                modifier = if (fieldWidth != Dp.Unspecified) Modifier.width(fieldWidth) else Modifier
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(text = networkLabel(option)) },
+                        onClick = {
+                            onNetworkSelected(option)
+                            expanded = false
+                            focusManager.clearFocus(force = true)
+                        }
+                    )
+                }
             }
         }
     }

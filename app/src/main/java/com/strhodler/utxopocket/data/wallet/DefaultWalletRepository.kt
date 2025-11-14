@@ -95,6 +95,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import dagger.hilt.android.qualifiers.ApplicationContext
 
+private const val GENERIC_DESCRIPTOR_ERROR =
+    "Invalid or malformed descriptor; review the imported descriptor or the compatibility wiki article."
+
 @Singleton
 class DefaultWalletRepository @Inject constructor(
     private val walletDao: WalletDao,
@@ -421,6 +424,7 @@ class DefaultWalletRepository @Inject constructor(
         var endpoint: String? = previousSnapshot.endpoint.takeIf { previousSnapshot.network == network }
         var estimatedFeeRateSatPerVb: Double? =
             previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network }
+        var lastWalletError: String? = null
         try {
             ensureForeground()
             torManager.start()
@@ -541,6 +545,9 @@ class DefaultWalletRepository @Inject constructor(
                             defaultMessage = error.message.orEmpty().ifBlank { "Wallet sync failed" },
                             endpoint = endpoint
                         )
+                        if (lastWalletError == null) {
+                            lastWalletError = reason
+                        }
                         if (BuildConfig.DEBUG) {
                             Log.e(TAG, "Sync failed for wallet ${entity.name} (${entity.id})", error)
                         } else {
@@ -555,7 +562,13 @@ class DefaultWalletRepository @Inject constructor(
                     }
                 }
                 ensureForeground()
-                val finalStatus = NodeStatus.Synced
+                val finalStatus = if (hadWalletErrors) {
+                    NodeStatus.Error(
+                        lastWalletError ?: "Wallet sync completed with errors. Check wallets for details."
+                    )
+                } else {
+                    NodeStatus.Synced
+                }
                 val syncCompletedAt = System.currentTimeMillis()
                 nodeStatus.value = NodeStatusSnapshot(
                     status = finalStatus,
@@ -987,8 +1000,8 @@ class DefaultWalletRepository @Inject constructor(
         if (containsPrivateMaterial(sanitizedDescriptor) ||
             sanitizedChange?.let(::containsPrivateMaterial) == true
         ) {
-            return@withContext DescriptorValidationResult.Invalid(
-                reason = "Descriptor contains private key material. Only watch-only descriptors are supported."
+            return@withContext descriptorInvalid(
+                "Descriptor contains private key material. Only watch-only descriptors are supported."
             )
         }
 
@@ -999,9 +1012,7 @@ class DefaultWalletRepository @Inject constructor(
                 network = bdkNetwork
             )
         } catch (error: Throwable) {
-            return@withContext DescriptorValidationResult.Invalid(
-                reason = error.message ?: "Descriptor is not valid."
-            )
+            return@withContext descriptorInvalid(error.message)
         }
 
         try {
@@ -1009,22 +1020,22 @@ class DefaultWalletRepository @Inject constructor(
             val isMultipath = parsedDescriptor.isMultipath()
 
             if (isMultipath && sanitizedChange != null) {
-                return@withContext DescriptorValidationResult.Invalid(
-                    reason = "Remove the separate change descriptor when using a BIP-389 multipath descriptor."
+                return@withContext descriptorInvalid(
+                    "Remove the separate change descriptor when using a BIP-389 multipath descriptor."
                 )
             }
 
             if (isMultipath) {
                 val singleDescriptors = runCatching { parsedDescriptor.toSingleDescriptors() }
                     .getOrElse { error ->
-                        return@withContext DescriptorValidationResult.Invalid(
-                            reason = "Multipath descriptor could not be expanded: ${error.message ?: "unknown error"}"
+                        return@withContext descriptorInvalid(
+                            "Multipath descriptor could not be expanded: ${error.message ?: "unknown error"}"
                         )
                     }
                 try {
                     if (singleDescriptors.size != 2) {
-                        return@withContext DescriptorValidationResult.Invalid(
-                            reason = "Multipath descriptor must expand to exactly two branches (external/change)."
+                        return@withContext descriptorInvalid(
+                            "Multipath descriptor must expand to exactly two branches (external/change)."
                         )
                     }
                 } finally {
@@ -1039,8 +1050,8 @@ class DefaultWalletRepository @Inject constructor(
                         network = bdkNetwork
                     )
                 }.getOrElse { error ->
-                    return@withContext DescriptorValidationResult.Invalid(
-                        reason = "Change descriptor invalid: ${error.message ?: "unknown error"}"
+                    return@withContext descriptorInvalid(
+                        "Change descriptor invalid: ${error.message ?: "unknown error"}"
                     )
                 }
                 parsedChange.destroy()
@@ -1052,14 +1063,14 @@ class DefaultWalletRepository @Inject constructor(
                 normalizedChange?.let(::hasWildcard) == true
 
             if (!isMultipath && !derivedHasWildcard) {
-                return@withContext DescriptorValidationResult.Invalid(
-                    reason = "Descriptor must include a wildcard derivation (`*`) or use a BIP-389 multipath branch (`/<0;1>/*`)."
+                return@withContext descriptorInvalid(
+                    "Descriptor must include a wildcard derivation (`*`) or use a BIP-389 multipath branch (`/<0;1>/*`)."
                 )
             }
 
             if (!isMultipath && derivedHasWildcard && normalizedChange == null) {
-                return@withContext DescriptorValidationResult.Invalid(
-                    reason = "A change descriptor is required for HD descriptors. Provide a BIP-389 multipath descriptor (`/<0;1>/*`) or a dedicated change descriptor."
+                return@withContext descriptorInvalid(
+                    "A change descriptor is required for HD descriptors. Provide a BIP-389 multipath descriptor (`/<0;1>/*`) or a dedicated change descriptor."
                 )
             }
 
@@ -1115,7 +1126,7 @@ class DefaultWalletRepository @Inject constructor(
                 val message = when (validation) {
                     is DescriptorValidationResult.Invalid -> validation.reason
                     DescriptorValidationResult.Empty -> "Descriptor is required."
-                    else -> "Descriptor is not valid."
+                    else -> GENERIC_DESCRIPTOR_ERROR
                 }
                 return@withContext WalletCreationResult.Failure(message)
             }
@@ -1485,4 +1496,10 @@ class DefaultWalletRepository @Inject constructor(
     }
 
     private fun hasWildcard(descriptor: String): Boolean = descriptor.contains("*")
+
+    private fun String?.orDescriptorError(): String =
+        this?.takeIf { it.isNotBlank() } ?: GENERIC_DESCRIPTOR_ERROR
+
+    private fun descriptorInvalid(reason: String?): DescriptorValidationResult.Invalid =
+        DescriptorValidationResult.Invalid(reason.orDescriptorError())
 }

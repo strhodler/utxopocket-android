@@ -43,6 +43,7 @@ import com.strhodler.utxopocket.presentation.wiki.WikiNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiRoute
 import com.strhodler.utxopocket.presentation.wiki.WikiSearchRoute
 import com.strhodler.utxopocket.presentation.wiki.WikiViewModel
+import com.strhodler.utxopocket.presentation.wiki.WikiContent
 
 @Composable
 fun MainNavHost(
@@ -88,7 +89,6 @@ fun MainNavHost(
                             restoreState = true
                         }
                     },
-                    onNetworkClick = onNetworkClick,
                     onSelectNode = {
                         navController.navigate(
                             WalletsNavigation.nodeStatusRoute(
@@ -114,6 +114,17 @@ fun MainNavHost(
                     onBack = { navController.popBackStack() },
                     onWalletCreated = {
                         navController.popBackStack(WalletsNavigation.ListRoute, inclusive = false)
+                    },
+                    onDescriptorHelp = {
+                        navController.navigate(
+                            WikiNavigation.detailRoute(WikiContent.DescriptorCompatibilityTopicId)
+                        ) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 )
             }

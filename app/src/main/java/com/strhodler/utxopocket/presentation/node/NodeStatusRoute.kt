@@ -27,7 +27,6 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Wifi
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,7 +39,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -227,7 +225,6 @@ fun NodeStatusRoute(
             status = status,
             state = state,
             snackbarHostState = snackbarHostState,
-            onRetry = viewModel::retryNodeConnection,
             onOpenNetworkPicker = onOpenNetworkPicker,
             onNetworkSelected = viewModel::onNetworkSelected,
             onPublicNodeSelected = viewModel::onPublicNodeSelected,
@@ -245,7 +242,6 @@ private fun NodeStatusScreen(
     status: StatusBarUiState,
     state: NodeStatusUiState,
     snackbarHostState: SnackbarHostState,
-    onRetry: () -> Unit,
     onOpenNetworkPicker: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
@@ -285,8 +281,7 @@ private fun NodeStatusScreen(
             item("hero") {
                 NodeHeroHeader(
                     status = status,
-                    modifier = Modifier.fillMaxWidth(),
-                    onRetry = onRetry
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
             stickyHeader {
@@ -356,8 +351,7 @@ private fun NodeStatusScreen(
 @Composable
 private fun NodeHeroHeader(
     status: StatusBarUiState,
-    modifier: Modifier = Modifier,
-    onRetry: () -> Unit
+    modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val theme = remember(status.nodeStatus) { statusThemeFor(status.nodeStatus, colorScheme) }
@@ -375,7 +369,6 @@ private fun NodeHeroHeader(
     val torStatus = status.torStatus
     val torRunning = torStatus is TorStatus.Running
     val torConnecting = torStatus is TorStatus.Connecting
-    val showReconnectButton = showReconnect && torRunning
     val reconnectInfoMessage = when {
         showReconnect && torConnecting -> stringResource(id = R.string.node_reconnect_waiting_for_tor)
         showReconnect && !torRunning -> stringResource(id = R.string.node_reconnect_tor_required)
@@ -461,21 +454,18 @@ private fun NodeHeroHeader(
             }
         }
 
-        if (showReconnectButton) {
-            TextButton(
-                onClick = onRetry,
-                enabled = status.nodeStatus !is NodeStatus.Connecting,
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = primaryContentColor
-                )
-            ) {
-                Text(text = stringResource(id = R.string.status_node_retry_action))
+        if (showReconnect) {
+            val notice = when {
+                status.nodeStatus is NodeStatus.Error -> status.nodeStatus.message.ifBlank {
+                    stringResource(id = R.string.wallets_state_error)
+                }
+                reconnectInfoMessage != null -> reconnectInfoMessage
+                else -> stringResource(id = R.string.node_manage_prompt)
             }
-        } else if (reconnectInfoMessage != null) {
             Text(
-                text = reconnectInfoMessage,
-                style = MaterialTheme.typography.bodySmall,
-                color = primaryContentColor.copy(alpha = 0.9f),
+                text = notice,
+                style = MaterialTheme.typography.bodyMedium,
+                color = primaryContentColor,
                 textAlign = TextAlign.Center
             )
         }
@@ -511,12 +501,7 @@ private fun NodeOverviewContent(
     modifier: Modifier = Modifier
 ) {
     val resources = LocalContext.current.resources
-    val nodeDetails = buildNodeDetails(
-        resources = resources,
-        blockHeight = status.nodeBlockHeight,
-        feeRate = status.nodeFeeRateSatPerVb,
-        serverInfo = status.nodeServerInfo
-    )
+    val isConnected = status.nodeStatus == NodeStatus.Synced
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -527,11 +512,33 @@ private fun NodeOverviewContent(
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = 4.dp)
         )
-        nodeDetails.forEach { (label, value) ->
-            NodeDetailCard(
-                label = label,
-                value = value
+        if (!isConnected) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                tonalElevation = 1.dp,
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
+            ) {
+                Text(
+                    text = stringResource(id = R.string.node_overview_disconnected_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+        } else {
+            val nodeDetails = buildNodeDetails(
+                resources = resources,
+                blockHeight = status.nodeBlockHeight,
+                feeRate = status.nodeFeeRateSatPerVb,
+                serverInfo = status.nodeServerInfo
             )
+            nodeDetails.forEach { (label, value) ->
+                NodeDetailCard(
+                    label = label,
+                    value = value
+                )
+            }
         }
     }
 }

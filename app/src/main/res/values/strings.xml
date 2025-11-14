@@ -69,6 +69,8 @@
     <string name="wallets_node_prompt_description">Choose the node you want to sync with before adding descriptors.</string>
     <string name="wallets_node_prompt_action">Select node</string>
     <string name="wallets_node_prompt_wiki_cta">Learn how to connect via Tor</string>
+    <string name="wallets_node_disconnected_banner">No node connection. Manage your nodes to resume syncing.</string>
+    <string name="wallets_manage_connection_action">Manage connection</string>
     <string name="wallets_add_wallet_secondary">Add ₿ wallet</string>
     <string name="wallets_empty_add_action">Add ₿ wallet</string>
     <string name="wallets_total_balance_label">Total balance</string>
@@ -397,6 +399,9 @@
     <string name="status_node_retry_action">Reconnect</string>
     <string name="node_reconnect_tor_required">Connect Tor before reconnecting to your node.</string>
     <string name="node_reconnect_waiting_for_tor">Waiting for Tor to finish connecting…</string>
+    <string name="node_status_idle_banner">Select a node to reconnect and resume syncing.</string>
+    <string name="node_overview_disconnected_message">Connect to a node to view recent block, fee, and server information.</string>
+    <string name="node_manage_prompt">Select a node under the Manage tab to reconnect and resume syncing.</string>
     <string name="wallets_balance">Balance: %1$s %2$s</string>
     <string name="wallets_transactions">Transactions: %1$d</string>
     <string name="wallets_status">Status: %1$s</string>
@@ -404,7 +409,6 @@
     <string name="wallets_state_connecting">Connecting</string>
     <string name="wallets_state_synced">Synced</string>
     <string name="wallets_state_error">Error</string>
-    <string name="wallets_network_selector_expand_content_description">Select network</string>
     <string name="wallets_last_sync">Last sync: %1$s</string>
     <string name="wallets_sync_error_icon_description">Wallet synchronization warning</string>
     <string name="wallets_testnet_faucet_banner_title">Get testnet bitcoin from a faucet</string>
@@ -429,6 +433,8 @@
     <string name="add_wallet_name_label">Wallet name</string>
     <string name="add_wallet_name_placeholder">My Bitcoin Wallet</string>
     <string name="add_wallet_validation_loading">Validating descriptor…</string>
+    <string name="add_wallet_descriptor_help_action">Descriptor compatibility</string>
+    <string name="add_wallet_descriptor_generic_error">Invalid or malformed descriptor; review the imported descriptor or the compatibility wiki article.</string>
     <string name="add_wallet_descriptor_detected">Detected descriptor type: %1$s</string>
     <string name="add_wallet_descriptor_wildcard_yes">Wildcard derivation detected (*)</string>
     <string name="add_wallet_descriptor_wildcard_no">No wildcard detected; only a single address will be tracked.</string>
