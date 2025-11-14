@@ -49,8 +49,7 @@ import com.strhodler.utxopocket.presentation.wiki.WikiContent
 fun MainNavHost(
     navController: NavHostController,
     modifier: Modifier = Modifier,
-    statusBarState: StatusBarUiState,
-    onNetworkClick: () -> Unit = {}
+    statusBarState: StatusBarUiState
 ) {
     NavHost(
         navController = navController,
@@ -95,6 +94,11 @@ fun MainNavHost(
                                 WalletsNavigation.NodeStatusTabDestination.Management
                             )
                         ) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onConnectTor = {
+                        navController.navigate(WalletsNavigation.TorStatusRoute) {
                             launchSingleTop = true
                         }
                     },
@@ -281,7 +285,11 @@ fun MainNavHost(
             NodeStatusRoute(
                 status = statusBarState,
                 onBack = { navController.popBackStack() },
-                onOpenNetworkPicker = onNetworkClick,
+                onOpenTorStatus = {
+                    navController.navigate(WalletsNavigation.TorStatusRoute) {
+                        launchSingleTop = true
+                    }
+                },
                 initialTabIndex = initialTabIndex
             )
         }

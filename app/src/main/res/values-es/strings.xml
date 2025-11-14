@@ -79,7 +79,6 @@
     <string name="network_signet">Signet</string>
     <string name="network_select_title">Seleccionar red de Bitcoin</string>
     <string name="network_select_description">Elige qué red de Bitcoin usar.</string>
-    <string name="network_switching_title">Cambiando a…</string>
 
     <!-- Settings -->
     <string name="settings_title">Ajustes</string>
@@ -145,6 +144,8 @@
     <string name="node_status_idle_banner">Selecciona un nodo y vuelve a conectar para reanudar la sincronización.</string>
     <string name="node_overview_disconnected_message">Conéctate a un nodo para ver el bloque reciente, tarifas y datos del servidor.</string>
     <string name="node_manage_prompt">Selecciona un nodo en la pestaña Gestionar para reconectar y reanudar la sincronización.</string>
+    <string name="node_disconnect_action">Desconectar</string>
+    <string name="wallets_tor_disconnected_banner">Tor no está en ejecución. Conéctalo para reanudar la conexión con el nodo.</string>
 
     <!-- Wallet detail -->
     <string name="wallet_detail_title">Detalles de la billetera</string>
@@ -401,6 +402,10 @@
     <string name="tor_overview_latest_event_label">Último registro</string>
     <string name="tor_overview_latest_event_empty">Aún no hay registros de Tor.</string>
     <string name="tor_overview_renew_identity_error">No se pudo renovar la identidad de Tor. Intenta de nuevo en unos segundos.</string>
+    <string name="tor_disconnect_action">Desconectar Tor</string>
+    <string name="tor_connect_action">Conectar Tor</string>
+    <string name="tor_overview_stop_error">No se pudo desconectar Tor. Inténtalo nuevamente.</string>
+    <string name="tor_overview_start_error">No se pudo conectar con Tor. Inténtalo nuevamente.</string>
     <string name="node_overview_title">Centro del nodo</string>
     <string name="node_overview_details_title">Detalles de conexión</string>
     <string name="node_overview_fee_rate_title">Tarifa sugerida</string>

@@ -71,11 +71,13 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.NodeStatus
+import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.ConnectionIssueBanner
+import com.strhodler.utxopocket.presentation.components.ConnectionIssueBannerStyle
 import com.strhodler.utxopocket.presentation.components.RefreshableContent
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
@@ -95,6 +97,7 @@ fun WalletsRoute(
     onOpenWiki: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onSelectNode: () -> Unit,
+    onConnectTor: () -> Unit,
     onWalletSelected: (Long, String) -> Unit,
     snackbarMessage: String? = null,
     onSnackbarConsumed: () -> Unit = {},
@@ -109,6 +112,7 @@ fun WalletsRoute(
         onOpenWiki = onOpenWiki,
         onOpenWikiTopic = onOpenWikiTopic,
         onSelectNode = onSelectNode,
+        onConnectTor = onConnectTor,
         onWalletSelected = onWalletSelected,
         snackbarMessage = snackbarMessage,
         onSnackbarConsumed = onSnackbarConsumed
@@ -123,6 +127,7 @@ fun WalletsScreen(
     onOpenWiki: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onSelectNode: () -> Unit,
+    onConnectTor: () -> Unit,
     onWalletSelected: (Long, String) -> Unit,
     snackbarMessage: String? = null,
     onSnackbarConsumed: () -> Unit = {},
@@ -150,6 +155,7 @@ fun WalletsScreen(
             onOpenWiki = onOpenWiki,
             onOpenWikiTopic = onOpenWikiTopic,
             onSelectNode = onSelectNode,
+             onConnectTor = onConnectTor,
             onWalletSelected = onWalletSelected,
             onAddWallet = onAddWallet,
             modifier = Modifier
@@ -166,6 +172,7 @@ private fun WalletsContent(
     onOpenWiki: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onSelectNode: () -> Unit,
+    onConnectTor: () -> Unit,
     onWalletSelected: (Long, String) -> Unit,
     onAddWallet: () -> Unit,
     modifier: Modifier = Modifier
@@ -174,6 +181,10 @@ private fun WalletsContent(
     val shouldShowPullToRefreshIndicator = !(state.isRefreshing && state.nodeStatus is NodeStatus.Connecting)
     val canAddWallet = state.nodeStatus is NodeStatus.Synced
     val showNodePrompt = state.wallets.isEmpty() && !state.hasActiveNodeSelection
+
+    val torStatus = state.torStatus
+    val showTorBanner = torStatus is TorStatus.Stopped || torStatus is TorStatus.Error
+    val torBannerMessage = stringResource(id = R.string.wallets_tor_disconnected_banner)
 
     val hasWalletErrors = state.wallets.any { it.lastSyncStatus is NodeStatus.Error }
     val sanitizedErrorMessage = state.errorMessage.takeUnless { hasWalletErrors }?.takeIf { it.isNotBlank() }
@@ -209,15 +220,27 @@ private fun WalletsContent(
                 .padding(vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            connectionBannerMessage?.let { message ->
-                ConnectionIssueBanner(
-                    message = message,
-                    primaryLabel = stringResource(id = R.string.wallets_manage_connection_action),
-                    onPrimaryClick = onSelectNode,
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .fillMaxWidth()
-                )
+            when {
+                showTorBanner -> {
+                    ConnectionIssueBanner(
+                        message = torBannerMessage,
+                        primaryLabel = stringResource(id = R.string.tor_connect_action),
+                        onPrimaryClick = onConnectTor,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .fillMaxWidth()
+                    )
+                }
+                connectionBannerMessage != null -> {
+                    ConnectionIssueBanner(
+                        message = connectionBannerMessage,
+                        primaryLabel = stringResource(id = R.string.wallets_manage_connection_action),
+                        onPrimaryClick = onSelectNode,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .fillMaxWidth()
+                    )
+                }
             }
             WalletsList(
                 wallets = state.wallets,

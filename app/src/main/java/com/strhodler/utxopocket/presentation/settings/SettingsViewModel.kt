@@ -153,7 +153,28 @@ class SettingsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             appPreferencesRepository.setPreferredNetwork(network)
+            nodeConfigurationRepository.updateNodeConfig { current ->
+                current.copy(
+                    connectionOption = NodeConnectionOption.PUBLIC,
+                    selectedPublicNodeId = null,
+                    selectedCustomNodeId = null
+                )
+            }
+            torManager.stop()
             walletRepository.refresh(network)
+        }
+    }
+
+    fun onDisconnectNode() {
+        viewModelScope.launch {
+            nodeConfigurationRepository.updateNodeConfig { current ->
+                current.copy(
+                    connectionOption = NodeConnectionOption.PUBLIC,
+                    selectedPublicNodeId = null,
+                    selectedCustomNodeId = null
+                )
+            }
+            walletRepository.refresh(_uiState.value.preferredNetwork)
         }
     }
 

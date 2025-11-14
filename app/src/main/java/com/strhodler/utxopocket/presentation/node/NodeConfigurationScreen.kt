@@ -39,7 +39,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,60 +74,21 @@ fun NodeConfigurationRoute(
     onBack: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var customNodeQrError by remember { mutableStateOf<String?>(null) }
-    val permissionDeniedMessage = stringResource(id = R.string.node_scan_error_permission)
-    val invalidNodeMessage = stringResource(id = R.string.node_scan_error_invalid)
     val snackbarHostState = remember { SnackbarHostState() }
-    val coroutineScope = rememberCoroutineScope()
     val hapticFeedback = LocalHapticFeedback.current
     val context = LocalContext.current
-    val scanSuccessMessage = stringResource(id = R.string.qr_scan_success)
     var pendingActivation by remember { mutableStateOf<NodeActivationTarget?>(null) }
 
-    val startQrScan = rememberNodeQrScanner(
-        onParsed = { result ->
-            customNodeQrError = null
-            when (result) {
-                is NodeQrParseResult.HostPort -> {
-                    if (state.nodeConnectionOption != NodeConnectionOption.CUSTOM) {
-                        viewModel.onNodeConnectionOptionSelected(NodeConnectionOption.CUSTOM)
-                    }
-                    if (state.nodeAddressOption != NodeAddressOption.HOST_PORT) {
-                        viewModel.onNodeAddressOptionSelected(NodeAddressOption.HOST_PORT)
-                    }
-                    viewModel.onNewCustomHostChanged(result.host)
-                    viewModel.onNewCustomPortChanged(result.port)
-                }
-
-                is NodeQrParseResult.Onion -> {
-                    if (state.nodeConnectionOption != NodeConnectionOption.CUSTOM) {
-                        viewModel.onNodeConnectionOptionSelected(NodeConnectionOption.CUSTOM)
-                    }
-                    if (state.nodeAddressOption != NodeAddressOption.ONION) {
-                        viewModel.onNodeAddressOptionSelected(NodeAddressOption.ONION)
-                    }
-                    val sanitized = result.address.removePrefix("tcp://").removePrefix("ssl://")
-                    val normalized = if (sanitized.contains(':')) sanitized else "$sanitized:50001"
-                    viewModel.onNewCustomOnionChanged(normalized)
-                }
-
-                is NodeQrParseResult.Error -> Unit
-            }
-        },
-        onPermissionDenied = {
-            customNodeQrError = permissionDeniedMessage
-            coroutineScope.launch { snackbarHostState.showSnackbar(permissionDeniedMessage) }
-        },
-        onInvalid = {
-            customNodeQrError = invalidNodeMessage
-            coroutineScope.launch { snackbarHostState.showSnackbar(invalidNodeMessage) }
-        },
-        onSuccess = {
-            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-            coroutineScope.launch {
-                snackbarHostState.showSnackbar(scanSuccessMessage)
-            }
-        }
+    val qrEditorState = rememberNodeCustomNodeEditorState(
+        isEditorVisible = state.isCustomNodeEditorVisible,
+        nodeConnectionOption = state.nodeConnectionOption,
+        nodeAddressOption = state.nodeAddressOption,
+        snackbarHostState = snackbarHostState,
+        onConnectionOptionSelected = viewModel::onNodeConnectionOptionSelected,
+        onAddressOptionSelected = viewModel::onNodeAddressOptionSelected,
+        onHostChanged = viewModel::onNewCustomHostChanged,
+        onPortChanged = viewModel::onNewCustomPortChanged,
+        onOnionChanged = viewModel::onNewCustomOnionChanged
     )
 
     fun applyActivation(target: NodeActivationTarget) {
@@ -165,12 +125,6 @@ fun NodeConfigurationRoute(
         }
     }
 
-    LaunchedEffect(state.isCustomNodeEditorVisible) {
-        if (!state.isCustomNodeEditorVisible) {
-            customNodeQrError = null
-        }
-    }
-
     LaunchedEffect(state.customNodeSuccessMessage, state.customNodes.size) {
         val messageRes = state.customNodeSuccessMessage ?: return@LaunchedEffect
         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -183,18 +137,12 @@ fun NodeConfigurationRoute(
     if (editorVisible) {
         SetSecondaryTopBar(
             title = addCustomTitle,
-            onBackClick = {
-                customNodeQrError = null
-                viewModel.onDismissCustomNodeEditor()
-            }
+            onBackClick = viewModel::onDismissCustomNodeEditor
         )
     } else {
         SetSecondaryTopBar(
             title = configurationTitle,
-            onBackClick = {
-                customNodeQrError = null
-                onBack()
-            }
+            onBackClick = onBack
         )
     }
 
@@ -216,13 +164,10 @@ fun NodeConfigurationRoute(
             onionValue = state.newCustomOnion,
             isTesting = state.isTestingCustomNode,
             errorMessage = state.customNodeError,
-            qrErrorMessage = customNodeQrError,
+            qrErrorMessage = qrEditorState.qrErrorMessage,
             isPrimaryActionEnabled = state.customNodeHasChanges,
             primaryActionLabel = primaryLabel,
-            onDismiss = {
-                customNodeQrError = null
-                viewModel.onDismissCustomNodeEditor()
-            },
+            onDismiss = viewModel::onDismissCustomNodeEditor,
             onNameChanged = viewModel::onNewCustomNameChanged,
             onNodeAddressOptionSelected = viewModel::onNodeAddressOptionSelected,
             onHostChanged = viewModel::onNewCustomHostChanged,
@@ -233,8 +178,8 @@ fun NodeConfigurationRoute(
             } else {
                 viewModel::onTestAndAddCustomNode
             },
-            onStartQrScan = startQrScan,
-            onClearQrError = { customNodeQrError = null },
+            onStartQrScan = qrEditorState.startQrScan,
+            onClearQrError = qrEditorState.clearQrError,
             onDeleteNode = deleteAction
         )
     } else {
@@ -246,10 +191,7 @@ fun NodeConfigurationRoute(
             customNodes = state.customNodes,
             selectedCustomNodeId = state.selectedCustomNodeId,
             customNodeSuccessMessage = state.customNodeSuccessMessage,
-            onDismiss = {
-                customNodeQrError = null
-                onBack()
-            },
+            onDismiss = onBack,
             onNetworkSelected = viewModel::onNetworkSelected,
             onPublicNodeSelected = onPublicNodeSelected@{ nodeId ->
                 val node = state.publicNodes.firstOrNull { it.id == nodeId } ?: return@onPublicNodeSelected
@@ -272,10 +214,8 @@ fun NodeConfigurationRoute(
                 )
             },
             onCustomNodeDetails = viewModel::onEditCustomNode,
-            onAddCustomNodeClick = {
-                customNodeQrError = null
-                viewModel.onAddCustomNodeClicked()
-            },
+            onAddCustomNodeClick = viewModel::onAddCustomNodeClicked,
+            onDisconnectNode = viewModel::onDisconnectNode,
             snackbarHostState = snackbarHostState
         )
 
@@ -307,6 +247,7 @@ fun NodeConfigurationScreen(
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
+    onDisconnectNode: (() -> Unit)? = null,
     snackbarHostState: SnackbarHostState
 ) {
     BackHandler(onBack = onDismiss)
@@ -320,21 +261,22 @@ fun NodeConfigurationScreen(
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            NodeConfigurationContent(
-                network = network,
-                publicNodes = publicNodes,
-                nodeConnectionOption = nodeConnectionOption,
-                selectedPublicNodeId = selectedPublicNodeId,
-                customNodes = customNodes,
-                selectedCustomNodeId = selectedCustomNodeId,
-                customNodeSuccessMessage = customNodeSuccessMessage,
-                onNetworkSelected = onNetworkSelected,
-                onPublicNodeSelected = onPublicNodeSelected,
-                onCustomNodeSelected = onCustomNodeSelected,
-                onCustomNodeDetails = onCustomNodeDetails,
-                onAddCustomNodeClick = onAddCustomNodeClick
-            )
-        }
+        NodeConfigurationContent(
+            network = network,
+            publicNodes = publicNodes,
+            nodeConnectionOption = nodeConnectionOption,
+            selectedPublicNodeId = selectedPublicNodeId,
+            customNodes = customNodes,
+            selectedCustomNodeId = selectedCustomNodeId,
+            customNodeSuccessMessage = customNodeSuccessMessage,
+            onNetworkSelected = onNetworkSelected,
+            onPublicNodeSelected = onPublicNodeSelected,
+            onCustomNodeSelected = onCustomNodeSelected,
+            onCustomNodeDetails = onCustomNodeDetails,
+            onAddCustomNodeClick = onAddCustomNodeClick,
+            onDisconnectNode = onDisconnectNode
+        )
+    }
     }
 }
 
@@ -352,6 +294,7 @@ fun NodeConfigurationContent(
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
+    onDisconnectNode: (() -> Unit)? = null,
     showTorReminder: Boolean = true
 ) {
     Column(
@@ -373,6 +316,7 @@ fun NodeConfigurationContent(
             onCustomNodeSelected = onCustomNodeSelected,
             onCustomNodeDetails = onCustomNodeDetails,
             onAddCustomNodeClick = onAddCustomNodeClick,
+            onDisconnect = onDisconnectNode,
             showTorReminder = showTorReminder,
             successMessage = customNodeSuccessMessage
         )
@@ -453,6 +397,7 @@ private fun AvailableNodesSection(
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
+    onDisconnect: (() -> Unit)?,
     showTorReminder: Boolean,
     successMessage: Int?
 ) {
@@ -467,7 +412,8 @@ private fun AvailableNodesSection(
                     typeLabel = publicTypeLabel,
                     active = activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
                     onActivate = { onPublicNodeSelected(node.id) },
-                    onDetailsClick = { onPublicNodeSelected(node.id) }
+                    onDetailsClick = { onPublicNodeSelected(node.id) },
+                    onDeactivate = onDisconnect
                 )
             )
         }
@@ -479,7 +425,8 @@ private fun AvailableNodesSection(
                     typeLabel = customTypeLabel,
                     active = activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
                     onActivate = { onCustomNodeSelected(node.id) },
-                    onDetailsClick = { onCustomNodeDetails(node.id) }
+                    onDetailsClick = { onCustomNodeDetails(node.id) },
+                    onDeactivate = onDisconnect
                 )
             )
         }
@@ -512,6 +459,7 @@ private fun AvailableNodesSection(
                         active = item.active,
                         onActivate = item.onActivate,
                         onDetailsClick = item.onDetailsClick,
+                        onDeactivate = item.onDeactivate,
                         showDivider = index < nodes.lastIndex
                     )
                 }
@@ -563,6 +511,7 @@ private fun NodeListItem(
     active: Boolean,
     onActivate: () -> Unit,
     onDetailsClick: () -> Unit,
+    onDeactivate: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     showDivider: Boolean = false
 ) {
@@ -609,8 +558,9 @@ private fun NodeListItem(
                 Switch(
                     checked = active,
                     onCheckedChange = { checked ->
-                        if (checked && !active) {
-                            onActivate()
+                        when {
+                            checked && !active -> onActivate()
+                            !checked && active -> onDeactivate?.invoke()
                         }
                     }
                 )
@@ -642,7 +592,8 @@ private data class AvailableNodeItem(
     val typeLabel: String,
     val active: Boolean,
     val onActivate: () -> Unit,
-    val onDetailsClick: () -> Unit
+    val onDetailsClick: () -> Unit,
+    val onDeactivate: (() -> Unit)? = null
 )
 
 private data class NodeActivationTarget(

@@ -84,7 +84,27 @@ class NodeStatusViewModel @Inject constructor(
         }
         viewModelScope.launch {
             appPreferencesRepository.setPreferredNetwork(network)
+            nodeConfigurationRepository.updateNodeConfig { current ->
+                current.copy(
+                    connectionOption = NodeConnectionOption.PUBLIC,
+                    selectedPublicNodeId = null,
+                    selectedCustomNodeId = null
+                )
+            }
             walletRepository.refresh(network)
+        }
+    }
+
+    fun disconnectNode() {
+        viewModelScope.launch {
+            nodeConfigurationRepository.updateNodeConfig { current ->
+                current.copy(
+                    connectionOption = NodeConnectionOption.PUBLIC,
+                    selectedPublicNodeId = null,
+                    selectedCustomNodeId = null
+                )
+            }
+            walletRepository.refresh(_uiState.value.preferredNetwork)
         }
     }
 

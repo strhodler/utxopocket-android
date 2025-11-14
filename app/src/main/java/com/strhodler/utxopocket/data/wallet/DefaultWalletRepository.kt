@@ -344,7 +344,6 @@ class DefaultWalletRepository @Inject constructor(
         val config = nodeConfigurationRepository.nodeConfig.first()
         val previousSnapshot = nodeStatus.value
         if (!config.hasActiveSelection()) {
-            torManager.start()
             syncStatus.value = SyncStatusSnapshot(isRefreshing = false, network = network)
             val snapshotMatchesNetwork = previousSnapshot.network == network
             nodeStatus.value = NodeStatusSnapshot(
@@ -396,8 +395,9 @@ class DefaultWalletRepository @Inject constructor(
         val previousSnapshot = nodeStatus.value
         val lastSyncForNetwork = previousSnapshot.lastSyncCompletedAt
             .takeIf { previousSnapshot.network == network }
-        val shouldSignalConnecting =
+        var shouldSignalConnecting =
             previousSnapshot.network != network || previousSnapshot.status !is NodeStatus.Synced
+        val previousEndpoint = previousSnapshot.endpoint.takeIf { previousSnapshot.network == network }
         val cancellationSignal = SyncCancellationSignal { !appInForeground.get() }
         fun ensureForeground() {
             if (cancellationSignal.shouldCancel()) {
@@ -421,17 +421,30 @@ class DefaultWalletRepository @Inject constructor(
         var serverInfo: ElectrumServerInfo? =
             previousSnapshot.serverInfo.takeIf { previousSnapshot.network == network }
         var blockHeight: Long? = previousSnapshot.blockHeight.takeIf { previousSnapshot.network == network }
-        var endpoint: String? = previousSnapshot.endpoint.takeIf { previousSnapshot.network == network }
+        var endpoint: String? = previousEndpoint
         var estimatedFeeRateSatPerVb: Double? =
             previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network }
         var lastWalletError: String? = null
         try {
             ensureForeground()
-            torManager.start()
-            val proxy = torManager.awaitProxy()
+            val proxy = torManager.start().getOrElse { throw it }
             ensureForeground()
             val session = blockchainFactory.create(network, proxy)
             endpoint = session.endpoint.url
+            if (previousEndpoint != endpoint) {
+                shouldSignalConnecting = true
+            }
+            if (shouldSignalConnecting) {
+                nodeStatus.value = NodeStatusSnapshot(
+                    status = NodeStatus.Connecting,
+                    blockHeight = blockHeight,
+                    serverInfo = serverInfo,
+                    endpoint = endpoint,
+                    lastSyncCompletedAt = lastSyncForNetwork,
+                    network = network,
+                    feeRateSatPerVb = estimatedFeeRateSatPerVb
+                )
+            }
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "Starting electrum sync via $endpoint using proxy ${proxy.host}:${proxy.port}")
             } else {

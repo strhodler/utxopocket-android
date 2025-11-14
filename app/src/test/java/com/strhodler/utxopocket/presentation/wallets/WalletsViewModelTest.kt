@@ -8,6 +8,7 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.ListDisplayMode
 import com.strhodler.utxopocket.domain.model.NodeAddressOption
+import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
@@ -97,6 +98,24 @@ class WalletsViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals(errorMessage, state.errorMessage)
+    }
+
+    @Test
+    fun hasActiveNodeSelectionReflectsNodeConfig() = runTest {
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(
+                connectionOption = NodeConnectionOption.PUBLIC,
+                selectedPublicNodeId = "pub-node"
+            )
+        }
+        advanceUntilIdle()
+        assertEquals(true, viewModel.uiState.value.hasActiveNodeSelection)
+
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(selectedPublicNodeId = null)
+        }
+        advanceUntilIdle()
+        assertEquals(false, viewModel.uiState.value.hasActiveNodeSelection)
     }
 }
 
@@ -189,7 +208,7 @@ private class TestTorManager : TorManager {
     override val status: StateFlow<TorStatus> = MutableStateFlow(TorStatus.Running(proxy))
     override val latestLog: StateFlow<String> = MutableStateFlow("")
 
-    override suspend fun start(config: TorConfig) = Unit
+    override suspend fun start(config: TorConfig): Result<SocksProxyConfig> = Result.success(proxy)
 
     override suspend fun stop() = Unit
 

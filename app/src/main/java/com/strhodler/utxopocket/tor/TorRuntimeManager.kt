@@ -5,6 +5,7 @@ import android.util.Log
 import com.msopentech.thali.android.toronionproxy.AndroidOnionProxyManager
 import com.strhodler.utxopocket.di.IoDispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -71,6 +72,7 @@ class TorRuntimeManager @Inject constructor(
             _errorMessage.value = null
             _latestLog.value = "Bootstrapping..."
             _bootstrapProgress.value = 0
+            startLogPump()
             runCatching {
                 withContext(ioDispatcher) {
                     val totalSecondsPerTorStartup = 4 * 60
@@ -91,13 +93,25 @@ class TorRuntimeManager @Inject constructor(
                 }
                 _state.value = ConnectionState.CONNECTED
                 _bootstrapProgress.value = 100
-                startLogPump()
             }.onFailure { error ->
-                Log.e("TorRuntimeManager", "Tor start failed", error)
+                val cancelled = error is CancellationException
+                if (cancelled) {
+                    Log.i("TorRuntimeManager", "Tor start cancelled")
+                } else {
+                    Log.e("TorRuntimeManager", "Tor start failed", error)
+                }
                 processRunning.set(false)
                 _proxy.value = null
-                _state.value = ConnectionState.ERROR
-                _errorMessage.value = error.message ?: error.javaClass.simpleName
+                _state.value = if (cancelled) {
+                    ConnectionState.DISCONNECTED
+                } else {
+                    ConnectionState.ERROR
+                }
+                _errorMessage.value = if (cancelled) {
+                    null
+                } else {
+                    error.message ?: error.javaClass.simpleName
+                }
                 _bootstrapProgress.value = 0
                 stopLogPump()
             }
@@ -155,8 +169,11 @@ class TorRuntimeManager @Inject constructor(
 
     private fun startLogPump() {
         if (logJob?.isActive == true) return
-        logJob = runtimeScope.launch {
-            while (isActive && processRunning.get()) {
+        val job = runtimeScope.launch {
+            while (isActive) {
+                if (!shouldPumpLogs()) {
+                    break
+                }
                 val latest = withContext(ioDispatcher) {
                     runCatching { onionProxyManager.getLastLog() }.getOrDefault("")
                 }
@@ -169,6 +186,16 @@ class TorRuntimeManager @Inject constructor(
                 delay(2_000)
             }
         }
+        job.invokeOnCompletion { logJob = null }
+        logJob = job
+    }
+
+    private fun shouldPumpLogs(): Boolean {
+        return when (_state.value) {
+            ConnectionState.CONNECTING,
+            ConnectionState.CONNECTED -> true
+            else -> false
+        } && (processRunning.get() || _state.value == ConnectionState.CONNECTING)
     }
 
     private fun stopLogPump() {

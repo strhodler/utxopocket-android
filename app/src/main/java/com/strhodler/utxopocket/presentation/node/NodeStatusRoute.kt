@@ -33,16 +33,17 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -74,7 +75,6 @@ import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
-import com.strhodler.utxopocket.presentation.node.NodeStatusUiState.Companion.ONION_DEFAULT_PORT
 import com.strhodler.utxopocket.presentation.wallets.components.WalletColorTheme
 import com.strhodler.utxopocket.presentation.wallets.components.onGradient
 import com.strhodler.utxopocket.presentation.wallets.components.walletCardBackground
@@ -90,70 +90,25 @@ import kotlinx.coroutines.launch
 fun NodeStatusRoute(
     status: StatusBarUiState,
     onBack: () -> Unit,
-    onOpenNetworkPicker: () -> Unit,
+    onOpenTorStatus: () -> Unit,
     initialTabIndex: Int = NodeStatusTab.Overview.ordinal,
     viewModel: NodeStatusViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var customNodeQrError by remember { mutableStateOf<String?>(null) }
-    val permissionDeniedMessage = stringResource(id = R.string.node_scan_error_permission)
-    val invalidNodeMessage = stringResource(id = R.string.node_scan_error_invalid)
-    val scanSuccessMessage = stringResource(id = R.string.qr_scan_success)
     val snackbarHostState = remember { SnackbarHostState() }
-    val coroutineScope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
-
-    val startQrScan = rememberNodeQrScanner(
-        onParsed = { result ->
-            customNodeQrError = null
-            when (result) {
-                is NodeQrParseResult.HostPort -> {
-                    if (state.nodeConnectionOption != NodeConnectionOption.CUSTOM) {
-                        viewModel.onNodeConnectionOptionSelected(NodeConnectionOption.CUSTOM)
-                    }
-                    if (state.nodeAddressOption != NodeAddressOption.HOST_PORT) {
-                        viewModel.onNodeAddressOptionSelected(NodeAddressOption.HOST_PORT)
-                    }
-                    viewModel.onNewCustomHostChanged(result.host)
-                    viewModel.onNewCustomPortChanged(result.port.toString())
-                }
-
-                is NodeQrParseResult.Onion -> {
-                    if (state.nodeConnectionOption != NodeConnectionOption.CUSTOM) {
-                        viewModel.onNodeConnectionOptionSelected(NodeConnectionOption.CUSTOM)
-                    }
-                    if (state.nodeAddressOption != NodeAddressOption.ONION) {
-                        viewModel.onNodeAddressOptionSelected(NodeAddressOption.ONION)
-                    }
-                    val sanitized = result.address.removePrefix("tcp://").removePrefix("ssl://")
-                    viewModel.onNewCustomOnionChanged(
-                        if (sanitized.contains(':')) sanitized else "$sanitized:$ONION_DEFAULT_PORT"
-                    )
-                }
-
-                is NodeQrParseResult.Error -> Unit
-            }
-        },
-        onPermissionDenied = {
-            customNodeQrError = permissionDeniedMessage
-            coroutineScope.launch { snackbarHostState.showSnackbar(permissionDeniedMessage) }
-        },
-        onInvalid = {
-            customNodeQrError = invalidNodeMessage
-            coroutineScope.launch { snackbarHostState.showSnackbar(invalidNodeMessage) }
-        },
-        onSuccess = {
-            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            coroutineScope.launch { snackbarHostState.showSnackbar(scanSuccessMessage) }
-        }
+    val qrEditorState = rememberNodeCustomNodeEditorState(
+        isEditorVisible = state.isCustomNodeEditorVisible,
+        nodeConnectionOption = state.nodeConnectionOption,
+        nodeAddressOption = state.nodeAddressOption,
+        snackbarHostState = snackbarHostState,
+        onConnectionOptionSelected = viewModel::onNodeConnectionOptionSelected,
+        onAddressOptionSelected = viewModel::onNodeAddressOptionSelected,
+        onHostChanged = viewModel::onNewCustomHostChanged,
+        onPortChanged = viewModel::onNewCustomPortChanged,
+        onOnionChanged = viewModel::onNewCustomOnionChanged
     )
-
-    LaunchedEffect(state.isCustomNodeEditorVisible) {
-        if (!state.isCustomNodeEditorVisible) {
-            customNodeQrError = null
-        }
-    }
 
     LaunchedEffect(state.selectionNotice) {
         val notice = state.selectionNotice ?: return@LaunchedEffect
@@ -169,10 +124,7 @@ fun NodeStatusRoute(
     if (editorVisible) {
         SetSecondaryTopBar(
             title = addCustomTitle,
-            onBackClick = {
-                customNodeQrError = null
-                viewModel.onDismissCustomNodeEditor()
-            }
+            onBackClick = viewModel::onDismissCustomNodeEditor
         )
     } else {
         SetSecondaryTopBar(
@@ -199,13 +151,10 @@ fun NodeStatusRoute(
             onionValue = state.newCustomOnion,
             isTesting = state.isTestingCustomNode,
             errorMessage = state.customNodeError,
-            qrErrorMessage = customNodeQrError,
+            qrErrorMessage = qrEditorState.qrErrorMessage,
             isPrimaryActionEnabled = state.customNodeHasChanges,
             primaryActionLabel = primaryLabel,
-            onDismiss = {
-                customNodeQrError = null
-                viewModel.onDismissCustomNodeEditor()
-            },
+            onDismiss = viewModel::onDismissCustomNodeEditor,
             onNameChanged = viewModel::onNewCustomNameChanged,
             onNodeAddressOptionSelected = viewModel::onNodeAddressOptionSelected,
             onHostChanged = viewModel::onNewCustomHostChanged,
@@ -216,8 +165,8 @@ fun NodeStatusRoute(
             } else {
                 viewModel::onTestAndAddCustomNode
             },
-            onStartQrScan = startQrScan,
-            onClearQrError = { customNodeQrError = null },
+            onStartQrScan = qrEditorState.startQrScan,
+            onClearQrError = qrEditorState.clearQrError,
             onDeleteNode = deleteAction
         )
     } else {
@@ -225,13 +174,14 @@ fun NodeStatusRoute(
             status = status,
             state = state,
             snackbarHostState = snackbarHostState,
-            onOpenNetworkPicker = onOpenNetworkPicker,
             onNetworkSelected = viewModel::onNetworkSelected,
             onPublicNodeSelected = viewModel::onPublicNodeSelected,
             onCustomNodeSelected = viewModel::onCustomNodeSelected,
             onCustomNodeDetails = viewModel::onEditCustomNode,
             onAddCustomNodeClick = viewModel::onAddCustomNodeClicked,
-            initialTabIndex = initialTabIndex
+            initialTabIndex = initialTabIndex,
+            onDisconnect = viewModel::disconnectNode,
+            onConnectTor = onOpenTorStatus
         )
     }
 }
@@ -242,13 +192,14 @@ private fun NodeStatusScreen(
     status: StatusBarUiState,
     state: NodeStatusUiState,
     snackbarHostState: SnackbarHostState,
-    onOpenNetworkPicker: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
-    initialTabIndex: Int
+    initialTabIndex: Int,
+    onDisconnect: () -> Unit,
+    onConnectTor: () -> Unit
 ) {
     val listState = rememberLazyListState()
     val tabs = remember { NodeStatusTab.values().toList() }
@@ -281,6 +232,8 @@ private fun NodeStatusScreen(
             item("hero") {
                 NodeHeroHeader(
                     status = status,
+                    onDisconnect = onDisconnect,
+                    onConnectTor = onConnectTor,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -337,7 +290,8 @@ private fun NodeStatusScreen(
                                 onPublicNodeSelected = onPublicNodeSelected,
                                 onCustomNodeSelected = onCustomNodeSelected,
                                 onCustomNodeDetails = onCustomNodeDetails,
-                                onAddCustomNodeClick = onAddCustomNodeClick
+                                onAddCustomNodeClick = onAddCustomNodeClick,
+                                onDisconnect = onDisconnect
                             )
                         }
                         Spacer(modifier = Modifier.height(32.dp))
@@ -351,7 +305,9 @@ private fun NodeStatusScreen(
 @Composable
 private fun NodeHeroHeader(
     status: StatusBarUiState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onDisconnect: (() -> Unit)? = null,
+    onConnectTor: (() -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val theme = remember(status.nodeStatus) { statusThemeFor(status.nodeStatus, colorScheme) }
@@ -455,19 +411,55 @@ private fun NodeHeroHeader(
         }
 
         if (showReconnect) {
-            val notice = when {
-                status.nodeStatus is NodeStatus.Error -> status.nodeStatus.message.ifBlank {
-                    stringResource(id = R.string.wallets_state_error)
+            when {
+                status.nodeStatus is NodeStatus.Error -> {
+                    val notice = status.nodeStatus.message.ifBlank {
+                        stringResource(id = R.string.wallets_state_error)
+                    }
+                    Text(
+                        text = notice,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = primaryContentColor,
+                        textAlign = TextAlign.Center
+                    )
                 }
-                reconnectInfoMessage != null -> reconnectInfoMessage
-                else -> stringResource(id = R.string.node_manage_prompt)
+                torConnecting -> {
+                    Text(
+                        text = reconnectInfoMessage ?: stringResource(id = R.string.wallets_state_connecting),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = primaryContentColor,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                !torRunning -> {
+                    TextButton(
+                        onClick = { onConnectTor?.invoke() },
+                        enabled = onConnectTor != null,
+                        colors = ButtonDefaults.textButtonColors(contentColor = primaryContentColor)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.tor_connect_action),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+                }
+                else -> {
+                    Text(
+                        text = stringResource(id = R.string.node_manage_prompt),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = primaryContentColor,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
-            Text(
-                text = notice,
-                style = MaterialTheme.typography.bodyMedium,
-                color = primaryContentColor,
-                textAlign = TextAlign.Center
-            )
+        }
+        if (status.nodeStatus == NodeStatus.Synced && onDisconnect != null) {
+            TextButton(
+                onClick = onDisconnect,
+                colors = ButtonDefaults.textButtonColors(contentColor = primaryContentColor)
+            ) {
+                Text(text = stringResource(id = R.string.node_disconnect_action))
+            }
         }
     }
 }
@@ -551,7 +543,8 @@ private fun NodeManagementContent(
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
-    onAddCustomNodeClick: () -> Unit
+    onAddCustomNodeClick: () -> Unit,
+    onDisconnect: () -> Unit
 ) {
     Column(
         modifier = modifier,
@@ -570,6 +563,7 @@ private fun NodeManagementContent(
             onCustomNodeSelected = onCustomNodeSelected,
             onCustomNodeDetails = onCustomNodeDetails,
             onAddCustomNodeClick = onAddCustomNodeClick,
+            onDisconnectNode = onDisconnect,
             showTorReminder = false
         )
     }

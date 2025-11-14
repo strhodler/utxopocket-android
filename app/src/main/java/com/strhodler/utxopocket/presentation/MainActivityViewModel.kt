@@ -12,6 +12,7 @@ import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
+import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
@@ -79,8 +80,10 @@ class MainActivityViewModel @Inject constructor(
         viewModelScope.launch {
             torManager.status.collect { status ->
                 val isRunning = status is TorStatus.Running
-                if (!lastTorWasRunning && isRunning) {
-                    ensureNodeAutoConnect()
+                val shouldDisconnect = status is TorStatus.Stopped || status is TorStatus.Error
+                when {
+                    lastTorWasRunning && shouldDisconnect -> disconnectNodeSelection()
+                    !lastTorWasRunning && isRunning -> ensureNodeAutoConnect()
                 }
                 lastTorWasRunning = isRunning
             }
@@ -203,5 +206,24 @@ class MainActivityViewModel @Inject constructor(
         }
         val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
         walletRepository.refresh(preferredNetwork)
+    }
+
+    private suspend fun disconnectNodeSelection() {
+        var clearedSelection = false
+        nodeConfigurationRepository.updateNodeConfig { current ->
+            if (!current.hasActiveSelection()) {
+                return@updateNodeConfig current
+            }
+            clearedSelection = true
+            current.copy(
+                connectionOption = NodeConnectionOption.PUBLIC,
+                selectedPublicNodeId = null,
+                selectedCustomNodeId = null
+            )
+        }
+        if (clearedSelection) {
+            val network = appPreferencesRepository.preferredNetwork.first()
+            walletRepository.refresh(network)
+        }
     }
 }

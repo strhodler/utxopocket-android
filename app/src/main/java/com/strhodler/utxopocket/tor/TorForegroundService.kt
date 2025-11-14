@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationManagerCompat
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.di.ApplicationScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +14,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -20,6 +22,10 @@ class TorForegroundService : Service() {
 
     @Inject
     lateinit var torRuntimeManager: TorRuntimeManager
+
+    @Inject
+    @ApplicationScope
+    lateinit var applicationScope: CoroutineScope
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -50,15 +56,17 @@ class TorForegroundService : Service() {
     }
 
     private fun startTor() {
-        serviceScope.launch {
+        applicationScope.launch {
             torRuntimeManager.start()
         }
     }
 
     private fun stopTor() {
-        serviceScope.launch {
+        applicationScope.launch {
             torRuntimeManager.stop()
-            stopSelf()
+            withContext(Dispatchers.Main.immediate) {
+                stopSelf()
+            }
         }
     }
 
