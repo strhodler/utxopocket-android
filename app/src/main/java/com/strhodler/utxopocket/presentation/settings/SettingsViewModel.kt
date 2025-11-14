@@ -11,6 +11,8 @@ import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
+import com.strhodler.utxopocket.domain.model.NodeStatus
+import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TorStatus
@@ -69,7 +71,8 @@ class SettingsViewModel @Inject constructor(
                 appPreferencesRepository.dustThresholdSats,
                 appPreferencesRepository.transactionHealthParameters,
                 appPreferencesRepository.utxoHealthParameters,
-                nodeConfigurationRepository.nodeConfig
+                nodeConfigurationRepository.nodeConfig,
+                walletRepository.observeNodeStatus()
             ) { values: Array<Any?> ->
                 val torStatus = values[0] as TorStatus
                 val torLog = values[1] as String
@@ -88,6 +91,7 @@ class SettingsViewModel @Inject constructor(
                 val transactionParameters = values[14] as TransactionHealthParameters
                 val utxoParameters = values[15] as UtxoHealthParameters
                 val nodeConfig = values[16] as NodeConfig
+                val nodeSnapshot = values[17] as NodeStatusSnapshot
                 val previous = _uiState.value
 
                 val walletHealthToggleEnabled = transactionAnalysisEnabled && utxoHealthEnabled
@@ -103,6 +107,9 @@ class SettingsViewModel @Inject constructor(
                 val selectedCustomId = nodeConfig.selectedCustomNodeId?.takeIf { id ->
                     customNodes.any { it.id == id }
                 }
+
+                val isConnected = nodeSnapshot.status is NodeStatus.Synced &&
+                    nodeSnapshot.network == network
 
                 previous.copy(
                     themePreference = themePreference,
@@ -125,6 +132,7 @@ class SettingsViewModel @Inject constructor(
                     selectedPublicNodeId = selectedPublicId,
                     customNodes = customNodes,
                     selectedCustomNodeId = selectedCustomId,
+                    isNodeConnected = isConnected,
                     torStatus = torStatus,
                     torLastLog = torLog,
                     errorMessage = null,

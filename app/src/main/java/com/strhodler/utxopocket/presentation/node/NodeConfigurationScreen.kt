@@ -190,6 +190,7 @@ fun NodeConfigurationRoute(
             selectedPublicNodeId = state.selectedPublicNodeId,
             customNodes = state.customNodes,
             selectedCustomNodeId = state.selectedCustomNodeId,
+            isNodeConnected = state.isNodeConnected,
             customNodeSuccessMessage = state.customNodeSuccessMessage,
             onDismiss = onBack,
             onNetworkSelected = viewModel::onNetworkSelected,
@@ -240,6 +241,7 @@ fun NodeConfigurationScreen(
     selectedPublicNodeId: String?,
     customNodes: List<CustomNode>,
     selectedCustomNodeId: String?,
+    isNodeConnected: Boolean,
     customNodeSuccessMessage: Int?,
     onDismiss: () -> Unit,
     onNetworkSelected: ((BitcoinNetwork) -> Unit)?,
@@ -268,6 +270,7 @@ fun NodeConfigurationScreen(
             selectedPublicNodeId = selectedPublicNodeId,
             customNodes = customNodes,
             selectedCustomNodeId = selectedCustomNodeId,
+            isNodeConnected = isNodeConnected,
             customNodeSuccessMessage = customNodeSuccessMessage,
             onNetworkSelected = onNetworkSelected,
             onPublicNodeSelected = onPublicNodeSelected,
@@ -288,6 +291,7 @@ fun NodeConfigurationContent(
     selectedPublicNodeId: String?,
     customNodes: List<CustomNode>,
     selectedCustomNodeId: String?,
+    isNodeConnected: Boolean,
     customNodeSuccessMessage: Int?,
     onNetworkSelected: ((BitcoinNetwork) -> Unit)?,
     onPublicNodeSelected: (String) -> Unit,
@@ -312,6 +316,7 @@ fun NodeConfigurationContent(
             selectedPublicId = selectedPublicNodeId,
             selectedCustomId = selectedCustomNodeId,
             activeOption = nodeConnectionOption,
+            isNodeConnected = isNodeConnected,
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
             onCustomNodeDetails = onCustomNodeDetails,
@@ -393,6 +398,7 @@ private fun AvailableNodesSection(
     selectedPublicId: String?,
     selectedCustomId: String?,
     activeOption: NodeConnectionOption,
+    isNodeConnected: Boolean,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
@@ -410,7 +416,8 @@ private fun AvailableNodesSection(
                     title = node.displayName,
                     subtitle = sanitizeEndpoint(node.endpoint),
                     typeLabel = publicTypeLabel,
-                    active = activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
+                    selected = activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
+                    connected = isNodeConnected && activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
                     onActivate = { onPublicNodeSelected(node.id) },
                     onDetailsClick = { onPublicNodeSelected(node.id) },
                     onDeactivate = onDisconnect
@@ -423,7 +430,8 @@ private fun AvailableNodesSection(
                     title = node.displayLabel(),
                     subtitle = sanitizeEndpoint(node.endpointLabel()),
                     typeLabel = customTypeLabel,
-                    active = activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
+                    selected = activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
+                    connected = isNodeConnected && activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
                     onActivate = { onCustomNodeSelected(node.id) },
                     onDetailsClick = { onCustomNodeDetails(node.id) },
                     onDeactivate = onDisconnect
@@ -456,7 +464,8 @@ private fun AvailableNodesSection(
                         title = item.title,
                         subtitle = item.subtitle,
                         typeLabel = item.typeLabel,
-                        active = item.active,
+                        selected = item.selected,
+                        connected = item.connected,
                         onActivate = item.onActivate,
                         onDetailsClick = item.onDetailsClick,
                         onDeactivate = item.onDeactivate,
@@ -508,7 +517,8 @@ private fun NodeListItem(
     title: String,
     subtitle: String?,
     typeLabel: String? = null,
-    active: Boolean,
+    selected: Boolean,
+    connected: Boolean,
     onActivate: () -> Unit,
     onDetailsClick: () -> Unit,
     onDeactivate: (() -> Unit)? = null,
@@ -548,7 +558,7 @@ private fun NodeListItem(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -556,11 +566,11 @@ private fun NodeListItem(
             supportingContent = supportingContent,
             trailingContent = {
                 Switch(
-                    checked = active,
+                    checked = connected,
                     onCheckedChange = { checked ->
                         when {
-                            checked && !active -> onActivate()
-                            !checked && active -> onDeactivate?.invoke()
+                            checked && !connected -> onActivate()
+                            !checked && connected -> onDeactivate?.invoke()
                         }
                     }
                 )
@@ -568,12 +578,12 @@ private fun NodeListItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .selectable(
-                    selected = active,
+                    selected = selected,
                     onClick = onDetailsClick,
                     role = Role.Button
                 ),
             colors = ListItemDefaults.colors(
-                containerColor = if (active) {
+                containerColor = if (selected) {
                     MaterialTheme.colorScheme.surfaceContainerHigh
                 } else {
                     Color.Transparent
@@ -590,7 +600,8 @@ private data class AvailableNodeItem(
     val title: String,
     val subtitle: String,
     val typeLabel: String,
-    val active: Boolean,
+    val selected: Boolean,
+    val connected: Boolean,
     val onActivate: () -> Unit,
     val onDetailsClick: () -> Unit,
     val onDeactivate: (() -> Unit)? = null

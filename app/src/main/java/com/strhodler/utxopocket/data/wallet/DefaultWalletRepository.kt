@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.data.wallet
 
 import android.content.Context
 import android.util.Log
+import android.os.SystemClock
 import com.strhodler.utxopocket.BuildConfig
 import com.strhodler.utxopocket.data.bdk.BdkBlockchainFactory
 import com.strhodler.utxopocket.data.bdk.BdkManagedWallet
@@ -64,7 +65,12 @@ import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -116,6 +122,7 @@ class DefaultWalletRepository @Inject constructor(
         private const val TAG = "DefaultWalletRepository"
         private const val MAX_LABEL_LENGTH = 255
         private const val DEFAULT_PAGING_PAGE_SIZE = 50
+        private const val BACKGROUND_GRACE_MILLIS = 5 * 60 * 1000L
         private val EXTENDED_PRIVATE_KEY_REGEX =
             Regex("\\b[acdfklmnstuvxyz]prv[0-9a-z]+", RegexOption.IGNORE_CASE)
         private val WIF_PRIVATE_KEY_REGEX =
@@ -141,6 +148,11 @@ class DefaultWalletRepository @Inject constructor(
         )
     )
     private val appInForeground = AtomicBoolean(true)
+    @Volatile
+    private var backgroundGraceExpiryMillis: Long = 0L
+    @Volatile
+    private var backgroundIdleJob: Job? = null
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private data class CachedWallet(
         val managed: BdkManagedWallet,
@@ -362,8 +374,8 @@ class DefaultWalletRepository @Inject constructor(
             val policy = retryPolicyFor(network)
             var attempt = 0
             while (attempt < policy.maxAttempts) {
-                if (!appInForeground.get()) {
-                    Log.i(TAG, "Skipping wallet refresh for $network because app is backgrounded")
+                if (!isSyncAllowed()) {
+                    Log.i(TAG, "Skipping wallet refresh for $network because background grace expired")
                     return@withContext
                 }
                 try {
@@ -398,7 +410,7 @@ class DefaultWalletRepository @Inject constructor(
         var shouldSignalConnecting =
             previousSnapshot.network != network || previousSnapshot.status !is NodeStatus.Synced
         val previousEndpoint = previousSnapshot.endpoint.takeIf { previousSnapshot.network == network }
-        val cancellationSignal = SyncCancellationSignal { !appInForeground.get() }
+        val cancellationSignal = SyncCancellationSignal { !isSyncAllowed() }
         fun ensureForeground() {
             if (cancellationSignal.shouldCancel()) {
                 throw CancellationException("Sync cancelled while app is backgrounded on $network")
@@ -1422,10 +1434,29 @@ class DefaultWalletRepository @Inject constructor(
             return
         }
         Log.d(TAG, "Wallet sync foreground state -> $isForeground")
-        if (!isForeground) {
-            val snapshot = nodeStatus.value
-            nodeStatus.value = snapshot.copy(status = NodeStatus.Idle)
+        if (isForeground) {
+            backgroundGraceExpiryMillis = 0L
+            backgroundIdleJob?.cancel()
+            backgroundIdleJob = null
+        } else {
+            backgroundGraceExpiryMillis = SystemClock.elapsedRealtime() + BACKGROUND_GRACE_MILLIS
+            backgroundIdleJob?.cancel()
+            backgroundIdleJob = repositoryScope.launch {
+                delay(BACKGROUND_GRACE_MILLIS)
+                if (!appInForeground.get()) {
+                    val snapshot = nodeStatus.value
+                    nodeStatus.value = snapshot.copy(status = NodeStatus.Idle)
+                }
+            }
         }
+    }
+
+    private fun isSyncAllowed(): Boolean {
+        if (appInForeground.get()) {
+            return true
+        }
+        val expiry = backgroundGraceExpiryMillis
+        return expiry != 0L && SystemClock.elapsedRealtime() < expiry
     }
 
     private fun WalletAddressType.toKeychainKind(): KeychainKind = when (this) {

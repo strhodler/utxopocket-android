@@ -557,6 +557,7 @@ private fun NodeManagementContent(
             selectedPublicNodeId = state.selectedPublicNodeId,
             customNodes = state.customNodes,
             selectedCustomNodeId = state.selectedCustomNodeId,
+            isNodeConnected = state.isNodeConnected,
             customNodeSuccessMessage = state.customNodeSuccessMessage,
             onNetworkSelected = onNetworkSelected,
             onPublicNodeSelected = onPublicNodeSelected,

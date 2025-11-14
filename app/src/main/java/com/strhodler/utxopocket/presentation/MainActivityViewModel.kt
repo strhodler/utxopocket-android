@@ -151,6 +151,9 @@ class MainActivityViewModel @Inject constructor(
             lockState.value = true
         }
         walletRepository.setSyncForegroundState(true)
+        viewModelScope.launch {
+            resumeNodeIfNeeded()
+        }
     }
 
     fun onAppBackgrounded() {
@@ -224,6 +227,20 @@ class MainActivityViewModel @Inject constructor(
         if (clearedSelection) {
             val network = appPreferencesRepository.preferredNetwork.first()
             walletRepository.refresh(network)
+        }
+    }
+
+    private suspend fun resumeNodeIfNeeded() {
+        val config = nodeConfigurationRepository.nodeConfig.first()
+        if (!config.hasActiveSelection()) {
+            return
+        }
+        val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
+        val nodeSnapshot = walletRepository.observeNodeStatus().first()
+        val snapshotMatchesNetwork = nodeSnapshot.network == preferredNetwork
+        val isConnected = snapshotMatchesNetwork && nodeSnapshot.status is NodeStatus.Synced
+        if (!isConnected) {
+            walletRepository.refresh(preferredNetwork)
         }
     }
 }
