@@ -12,7 +12,7 @@ private fun Throwable.rootCause(): Throwable {
 }
 
 private fun Throwable.torAwareHint(): String? = when (rootCause()) {
-    is ElectrumException.AllAttemptsErrored -> "The selected node appears to reject Tor connections. Choose another endpoint that supports Tor."
+    is ElectrumException.AllAttemptsErrored -> "Tor connection timed out after several retries. This is often temporary—wait a moment and try again, or switch to an endpoint known to allow Tor."
     is SSLHandshakeException -> "TLS handshake failed while connecting through Tor. Verify the node's certificate or try a different endpoint."
     else -> null
 }
