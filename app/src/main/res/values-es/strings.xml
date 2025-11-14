@@ -447,7 +447,7 @@
     <string name="add_wallet_network_mismatch_switch">Cambiar a %1$s</string>
     <string name="add_wallet_network_mismatch_keep">Mantener %1$s</string>
     <string name="add_wallet_combined_descriptor_title">¿Dividir par de descriptores?</string>
-    <string name="add_wallet_combined_descriptor_message">Detectamos un par recepción/cambio. Movimos la rama de cambio a Avanzado para que UtxoPocket valide ambas.</string>
+    <string name="add_wallet_combined_descriptor_message">Par de recepción/cambio detectado. Se ha movido la rama de cambio al input de descriptor de cambio para que UtxoPocket valide ambas.</string>
     <string name="add_wallet_combined_descriptor_confirm">Conservar descriptores separados</string>
     <string name="add_wallet_combined_descriptor_cancel">Vaciar ambos campos</string>
     <string name="add_wallet_cancel">Cancelar</string>

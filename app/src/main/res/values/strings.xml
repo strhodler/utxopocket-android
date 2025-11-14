@@ -442,7 +442,7 @@
     <string name="add_wallet_network_mismatch_switch">Switch to %1$s</string>
     <string name="add_wallet_network_mismatch_keep">Keep %1$s</string>
     <string name="add_wallet_combined_descriptor_title">Split descriptor pair?</string>
-    <string name="add_wallet_combined_descriptor_message">We detected a receive/change pair. The change branch was moved to Advanced so UtxoPocket can validate both.</string>
+    <string name="add_wallet_combined_descriptor_message">Receive/change pair detected. The change branch has been moved to the change descriptor input so that UtxoPocket can validate both.</string>
     <string name="add_wallet_combined_descriptor_confirm">Keep split descriptors</string>
     <string name="add_wallet_combined_descriptor_cancel">Clear both fields</string>
     <string name="add_wallet_cancel">Cancel</string>
