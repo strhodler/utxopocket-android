@@ -413,6 +413,7 @@
     <string name="wallets_status">Status: %1$s</string>
     <string name="wallets_state_idle">Idle</string>
     <string name="wallets_state_connecting">Connecting</string>
+    <string name="wallets_state_syncing">Syncing…</string>
     <string name="wallets_state_synced">Synced</string>
     <string name="wallets_state_error">Error</string>
     <string name="wallets_last_sync">Last sync: %1$s</string>

@@ -254,6 +254,7 @@ private fun WalletsContent(
                 canAddWallet = canAddWallet,
                 showNodePrompt = showNodePrompt,
                 walletAnimationsEnabled = state.walletAnimationsEnabled,
+                isRefreshing = state.isRefreshing,
                 modifier = Modifier.weight(1f, fill = true)
             )
         }
@@ -273,6 +274,7 @@ private fun WalletsList(
     canAddWallet: Boolean,
     showNodePrompt: Boolean,
     walletAnimationsEnabled: Boolean,
+    isRefreshing: Boolean,
     modifier: Modifier = Modifier
 ) {
     if (wallets.isEmpty()) {
@@ -323,7 +325,8 @@ private fun WalletsList(
                     balanceUnit = balanceUnit,
                     onClick = { onWalletSelected(wallet.id, wallet.name) },
                     modifier = Modifier.fillMaxWidth(),
-                    animationsEnabled = walletAnimationsEnabled
+                    animationsEnabled = walletAnimationsEnabled,
+                    isSyncing = isRefreshing
                 )
             }
             item(key = "wallets-add-descriptor") {
@@ -386,10 +389,11 @@ private fun WalletCard(
     balanceUnit: BalanceUnit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    animationsEnabled: Boolean
+    animationsEnabled: Boolean,
+    isSyncing: Boolean
 ) {
     val syncStatus = wallet.lastSyncStatus
-    val statusLabel = nodeStatusLabel(syncStatus)
+    val statusLabel = nodeStatusLabel(syncStatus, isSyncing)
     val theme = remember(wallet.color) { wallet.color.toTheme() }
     val shimmerPhase = if (animationsEnabled) rememberWalletShimmerPhase() else 0f
     val contentColor = theme.onGradient
@@ -683,9 +687,14 @@ private fun WalletInfoChip(
 }
 
 @Composable
-private fun nodeStatusLabel(status: NodeStatus): String = when (status) {
-    NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
-    NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
-    NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
-    is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
+private fun nodeStatusLabel(status: NodeStatus, isSyncing: Boolean): String {
+    if (isSyncing) {
+        return stringResource(id = R.string.wallets_state_syncing)
+    }
+    return when (status) {
+        NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
+        NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
+        NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
+        is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
+    }
 }

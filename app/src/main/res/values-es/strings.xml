@@ -44,6 +44,7 @@
     <string name="wallets_status">Estado: %1$s</string>
     <string name="wallets_state_idle">Inactivo</string>
     <string name="wallets_state_connecting">Conectando</string>
+    <string name="wallets_state_syncing">Sincronizando…</string>
     <string name="wallets_state_synced">Sincronizado</string>
     <string name="wallets_state_error">Error</string>
     <string name="wallets_last_sync">Última sincronización: %1$s</string>
