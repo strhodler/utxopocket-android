@@ -17,6 +17,7 @@ data class NodeStatusUiState(
     val customNodes: List<CustomNode> = emptyList(),
     val selectedCustomNodeId: String? = null,
     val isNodeConnected: Boolean = false,
+    val isNodeActivating: Boolean = false,
     val newCustomName: String = "",
     val newCustomHost: String = "",
     val newCustomPort: String = DEFAULT_SSL_PORT,

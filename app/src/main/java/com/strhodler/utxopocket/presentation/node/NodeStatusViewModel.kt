@@ -50,8 +50,9 @@ class NodeStatusViewModel @Inject constructor(
                 val selectedCustom = config.selectedCustomNodeId?.takeIf { id ->
                     customNodes.any { it.id == id }
                 }
-                val isConnected = nodeSnapshot.status is NodeStatus.Synced &&
-                    nodeSnapshot.network == network
+                val snapshotMatchesNetwork = nodeSnapshot.network == network
+                val isConnected = nodeSnapshot.status is NodeStatus.Synced && snapshotMatchesNetwork
+                val isConnecting = nodeSnapshot.status is NodeStatus.Connecting && snapshotMatchesNetwork
                 NodeConfigSnapshot(
                     networkLabel = network,
                     connectionOption = config.connectionOption,
@@ -60,7 +61,8 @@ class NodeStatusViewModel @Inject constructor(
                     customNodes = customNodes,
                     selectedPublic = selectedPublic,
                     selectedCustom = selectedCustom,
-                    isConnected = isConnected
+                    isConnected = isConnected,
+                    isConnecting = isConnecting
                 )
             }.collect { snapshot ->
                 _uiState.update { previous ->
@@ -72,7 +74,8 @@ class NodeStatusViewModel @Inject constructor(
                         selectedPublicNodeId = snapshot.selectedPublic,
                         customNodes = snapshot.customNodes,
                         selectedCustomNodeId = snapshot.selectedCustom,
-                        isNodeConnected = snapshot.isConnected
+                        isNodeConnected = snapshot.isConnected,
+                        isNodeActivating = snapshot.isConnecting
                     )
                 }
             }
@@ -561,6 +564,7 @@ class NodeStatusViewModel @Inject constructor(
         val customNodes: List<CustomNode>,
         val selectedPublic: String?,
         val selectedCustom: String?,
-        val isConnected: Boolean
+        val isConnected: Boolean,
+        val isConnecting: Boolean
     )
 }

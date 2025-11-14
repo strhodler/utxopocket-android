@@ -108,8 +108,9 @@ class SettingsViewModel @Inject constructor(
                     customNodes.any { it.id == id }
                 }
 
-                val isConnected = nodeSnapshot.status is NodeStatus.Synced &&
-                    nodeSnapshot.network == network
+                val snapshotMatchesNetwork = nodeSnapshot.network == network
+                val isConnected = nodeSnapshot.status is NodeStatus.Synced && snapshotMatchesNetwork
+                val isActivating = nodeSnapshot.status is NodeStatus.Connecting && snapshotMatchesNetwork
 
                 previous.copy(
                     themePreference = themePreference,
@@ -133,6 +134,7 @@ class SettingsViewModel @Inject constructor(
                     customNodes = customNodes,
                     selectedCustomNodeId = selectedCustomId,
                     isNodeConnected = isConnected,
+                    isNodeActivating = isActivating,
                     torStatus = torStatus,
                     torLastLog = torLog,
                     errorMessage = null,

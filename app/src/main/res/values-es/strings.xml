@@ -396,6 +396,8 @@
     <string name="tor_overview_proxy_label">Endpoint del proxy</string>
     <string name="tor_overview_proxy_value">%1$s:%2$d</string>
     <string name="tor_overview_proxy_unavailable">No disponible hasta que Tor se conecte.</string>
+    <string name="tor_overview_proxy_pending_chip">Esperando proxy...</string>
+    <string name="tor_overview_proxy_unavailable_chip">Proxy no disponible</string>
     <string name="tor_overview_bootstrap_label">Progreso de arranque</string>
     <string name="tor_overview_bootstrap_percent_value">%1$d%%</string>
     <string name="tor_overview_bootstrap_complete">Completado</string>

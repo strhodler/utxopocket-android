@@ -25,7 +25,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NetworkCheck
-import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -371,19 +370,6 @@ private fun NodeHeroHeader(
                 label = networkLabel,
                 contentColor = primaryContentColor
             )
-            status.nodeStatus.let { currentStatus ->
-                val statusLabel = when (currentStatus) {
-                    NodeStatus.Synced -> stringResource(id = R.string.node_connected_badge)
-                    NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
-                    NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
-                    is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
-                }
-                StatusBadge(
-                    label = statusLabel,
-                    contentColor = primaryContentColor,
-                    leadingIcon = Icons.Outlined.Sync.takeIf { currentStatus == NodeStatus.Connecting }
-                )
-            }
         }
 
         Column(
@@ -558,6 +544,7 @@ private fun NodeManagementContent(
             customNodes = state.customNodes,
             selectedCustomNodeId = state.selectedCustomNodeId,
             isNodeConnected = state.isNodeConnected,
+            isNodeActivating = state.isNodeActivating,
             customNodeSuccessMessage = state.customNodeSuccessMessage,
             onNetworkSelected = onNetworkSelected,
             onPublicNodeSelected = onPublicNodeSelected,

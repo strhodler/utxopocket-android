@@ -8,7 +8,6 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,14 +22,12 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
@@ -40,6 +37,8 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -65,7 +64,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
@@ -517,21 +515,17 @@ private fun StatusBar(
                 .size(48.dp)
                 .semantics { this.contentDescription = contentDescription }
         ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+            BadgedBox(
+                badge = {
+                    indicatorColor?.let { color ->
+                        Badge(
+                            containerColor = color,
+                            contentColor = Color.Transparent
+                        )
+                    }
+                }
             ) {
                 icon()
-                indicatorColor?.let { color ->
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .offset(x = 6.dp, y = (-6).dp)
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(color)
-                    )
-                }
             }
         }
     }
@@ -639,17 +633,16 @@ private fun StatusBar(
     }
 
     @Composable
-    private fun torIndicatorColor(status: TorStatus): Color = when (status) {
-        is TorStatus.Running -> MaterialTheme.colorScheme.secondary
-        is TorStatus.Connecting -> MaterialTheme.colorScheme.outlineVariant
-        TorStatus.Stopped -> MaterialTheme.colorScheme.outlineVariant
-        is TorStatus.Error -> MaterialTheme.colorScheme.error
+    private fun torIndicatorColor(status: TorStatus): Color? = when (status) {
+        is TorStatus.Running -> TorConnectedBadgeColor
+        else -> null
     }
 
     @Composable
-    private fun nodeIndicatorColor(status: NodeStatus): Color = when (status) {
-        NodeStatus.Synced -> MaterialTheme.colorScheme.secondary
-        NodeStatus.Connecting -> MaterialTheme.colorScheme.outlineVariant
-        NodeStatus.Idle -> MaterialTheme.colorScheme.outlineVariant
-        is NodeStatus.Error -> MaterialTheme.colorScheme.error
+    private fun nodeIndicatorColor(status: NodeStatus): Color? = when (status) {
+        NodeStatus.Synced -> NodeConnectedBadgeColor
+        else -> null
     }
+
+private val TorConnectedBadgeColor = Color(0xFF2ECC71)
+private val NodeConnectedBadgeColor = Color(0xFF2ECC71)

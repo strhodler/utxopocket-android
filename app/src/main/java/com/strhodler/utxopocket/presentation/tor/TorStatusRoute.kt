@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -153,6 +154,11 @@ private fun TorHeroHeader(
         )
     }
     val latestLogEntry = remember(status.torLog) { latestTorLogEntry(status.torLog) }
+    val (proxyBadgeLabel, proxyBadgePlaceholder) = when {
+        proxyEndpoint != null -> proxyEndpoint to false
+        heroTorStatus is TorStatus.Connecting -> stringResource(id = R.string.tor_overview_proxy_pending_chip) to true
+        else -> stringResource(id = R.string.tor_overview_proxy_unavailable_chip) to false
+    }
 
     Column(
         modifier = modifier
@@ -193,15 +199,11 @@ private fun TorHeroHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             TorStatusBadge(
-                label = torStatusBadgeLabel(heroTorStatus),
-                contentColor = primaryContentColor
+                label = proxyBadgeLabel,
+                contentColor = primaryContentColor,
+                isPlaceholder = proxyBadgePlaceholder,
+                shimmerPhase = shimmerPhase
             )
-            if (status.torStatus is TorStatus.Running && proxyEndpoint != null) {
-                TorStatusBadge(
-                    label = proxyEndpoint,
-                    contentColor = primaryContentColor
-                )
-            }
         }
 
         Text(
@@ -452,9 +454,23 @@ private fun TorStatusHeroIcon(
 @Composable
 private fun TorStatusBadge(
     label: String,
-    contentColor: Color
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+    isPlaceholder: Boolean = false,
+    shimmerPhase: Float? = null
 ) {
+    val badgeModifier = if (isPlaceholder && shimmerPhase != null) {
+        modifier.walletShimmer(
+            phase = shimmerPhase,
+            cornerRadius = 50.dp,
+            shimmerAlpha = 0.35f,
+            highlightColor = contentColor
+        )
+    } else {
+        modifier
+    }
     Card(
+        modifier = badgeModifier,
         colors = CardDefaults.cardColors(
             containerColor = Color.White.copy(alpha = 0.14f)
         ),
@@ -462,14 +478,16 @@ private fun TorStatusBadge(
         shape = RoundedCornerShape(50)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .widthIn(min = 96.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
-                color = contentColor
+                color = contentColor.copy(alpha = if (isPlaceholder) 0.7f else 1f)
             )
         }
     }
@@ -480,17 +498,6 @@ private fun buildTorDetails(
     torStatus: TorStatus,
     torLog: String
 ): List<TorDetail> {
-    val statusValue = when (torStatus) {
-        is TorStatus.Running -> resources.getString(R.string.tor_status_running)
-        is TorStatus.Connecting -> resources.getString(R.string.tor_status_connecting)
-        TorStatus.Stopped -> resources.getString(R.string.tor_status_stopped)
-        is TorStatus.Error -> resources.getString(R.string.tor_status_error, torStatus.message)
-    }
-    val statusSupporting = when (torStatus) {
-        is TorStatus.Connecting -> torStatus.message?.takeIf { it.isNotBlank() }
-        is TorStatus.Error -> torStatus.message
-        else -> null
-    }
     val proxyValue = (torStatus as? TorStatus.Running)?.let {
         resources.getString(R.string.tor_overview_proxy_value, it.proxy.host, it.proxy.port)
     } ?: resources.getString(R.string.tor_overview_proxy_unavailable)
@@ -510,12 +517,6 @@ private fun buildTorDetails(
     val latestLog = latestTorLogEntry(torLog)
 
     return listOf(
-        TorDetail(
-            label = resources.getString(R.string.tor_overview_status_label),
-            value = statusValue,
-            supportingText = statusSupporting,
-            isError = torStatus is TorStatus.Error
-        ),
         TorDetail(
             label = resources.getString(R.string.tor_overview_proxy_label),
             value = proxyValue
@@ -544,22 +545,6 @@ private fun latestTorLogEntry(log: String): String? =
         .map { it.trim() }
         .filter { it.isNotEmpty() }
         .lastOrNull()
-
-@Composable
-private fun torStatusBadgeLabel(status: TorStatus): String = when (status) {
-    is TorStatus.Running -> stringResource(id = R.string.tor_state_running)
-    is TorStatus.Connecting -> {
-        val progress = status.progress.coerceIn(0, 100)
-        if (progress in 1..99) {
-            stringResource(id = R.string.tor_state_connecting) + " (${progress}%)"
-        } else {
-            stringResource(id = R.string.tor_state_connecting)
-        }
-    }
-
-    TorStatus.Stopped -> stringResource(id = R.string.tor_state_stopped)
-    is TorStatus.Error -> stringResource(id = R.string.wallets_state_error)
-}
 
 @Composable
 private fun torStatusMessage(status: TorStatus): String = when (status) {
