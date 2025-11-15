@@ -36,8 +36,8 @@
     <string name="wallets_empty_description">Añade tu primera billetera para empezar a seguir los balances.</string>
     <string name="wallets_empty_wiki_cta">Visita la Wiki para saber más sobre Bitcoin.</string>
     <string name="wallets_add_wallet_action">Añadir descriptor</string>
-    <string name="wallets_add_wallet_secondary">Añadir billetera ₿</string>
-    <string name="wallets_empty_add_action">Añadir billetera ₿</string>
+    <string name="wallets_add_wallet_secondary">Añadir billetera</string>
+    <string name="wallets_empty_add_action">Añadir billetera</string>
     <string name="wallets_total_balance_label">Balance total</string>
     <string name="wallets_balance">Balance: %1$s %2$s</string>
     <string name="wallets_transactions">Transacciones: %1$d</string>
@@ -430,7 +430,7 @@
     <string name="node_item_type_public">Nodo público</string>
     <string name="node_item_type_custom">Nodo personalizado</string>
     <!-- Add wallet -->
-    <string name="add_wallet_title">Añadir billetera ₿</string>
+    <string name="add_wallet_title">Añadir billetera</string>
     <string name="add_wallet_title_with_network">Añadir billetera %1$s</string>
     <string name="add_wallet_descriptor_label">Descriptor de la billetera</string>
     <string name="add_wallet_descriptor_placeholder">wpkh([fingerprint/84\'/0\'/0\']xpub…/0/*)#checksum</string>
@@ -463,13 +463,15 @@
     <string name="add_wallet_combined_descriptor_confirm">Conservar descriptores separados</string>
     <string name="add_wallet_combined_descriptor_cancel">Vaciar ambos campos</string>
     <string name="add_wallet_cancel">Cancelar</string>
-    <string name="add_wallet_submit">Añadir billetera ₿</string>
+    <string name="add_wallet_submit">Añadir billetera</string>
     <string name="add_wallet_success_message">Billetera añadida.</string>
     <string name="add_wallet_scan_descriptor">Escanear descriptor</string>
     <string name="add_wallet_scan_permission_denied">Se requiere la cámara para escanear descriptores.</string>
     <string name="add_wallet_scan_invalid">No encontramos un descriptor en ese código QR.</string>
     <string name="add_wallet_shared_descriptors_label">Descriptores usados en otros dispositivos</string>
-    <string name="add_wallet_shared_descriptors_helper">Mantén esto activado si también monitoreas esta billetera con otras apps o hardware. UtxoPocket programará reescaneos completos para descubrir direcciones reveladas en otros lugares.</string>
+    <string name="add_wallet_shared_descriptors_helper">Mantén esto activado si también monitoreas esta billetera con otras apps o hardware. UtxoPocket programa reescaneos completos para descubrir direcciones reveladas en otros lugares.</string>
+    <string name="add_wallet_shared_extended_label">Clave extendida usada en otros dispositivos</string>
+    <string name="add_wallet_shared_extended_helper">Déjalo activado cuando la misma clave extendida esté importada en otros monederos para que UtxoPocket siga rastreando la rama de cambio.</string>
 
     <!-- Dialogs & common -->
     <string name="dialog_close">Cerrar</string>
@@ -716,6 +718,33 @@
     <string name="add_wallet_descriptor_type_p2wsh">P2WSH</string>
     <string name="add_wallet_descriptor_type_raw">Script sin procesar</string>
     <string name="add_wallet_descriptor_type_taproot">Taproot (tr)</string>
+    <string name="add_wallet_tab_descriptor">Descriptor</string>
+    <string name="add_wallet_tab_extended_key">Clave extendida</string>
+    <string name="add_wallet_extended_extended_label">Clave pública extendida</string>
+    <string name="add_wallet_extended_extended_placeholder">xpub, ypub, zpub, tpub…</string>
+    <string name="add_wallet_extended_extended_helper">Pega o escanea la clave pública extendida de tu hardware wallet u otra app. UtxoPocket generará los descriptores automáticamente.</string>
+    <string name="add_wallet_extended_derivation_label">Ruta de derivación (opcional)</string>
+    <string name="add_wallet_extended_derivation_placeholder">m/84\'/0\'/0\'</string>
+    <string name="add_wallet_extended_derivation_helper">Metadatos opcionales para que el origen del descriptor coincida con la exportación de tu hardware wallet.</string>
+    <string name="add_wallet_extended_fingerprint_label">Huella maestra (opcional)</string>
+    <string name="add_wallet_extended_fingerprint_placeholder">F23C9A1B</string>
+    <string name="add_wallet_extended_fingerprint_helper">Huella hexadecimal de cuatro bytes de la clave raíz; mejora la paridad entre importaciones y exportaciones.</string>
+    <string name="add_wallet_extended_script_label">Tipo de script</string>
+    <string name="add_wallet_extended_script_helper">Elegir el mismo tipo que exportó tu monedero (Legacy, SegWit anidado, SegWit nativo, Taproot).</string>
+    <string name="add_wallet_extended_script_placeholder">Selecciona el tipo de script</string>
+    <string name="add_wallet_extended_change_label">Rastrear cambio</string>
+    <string name="add_wallet_extended_change_helper">Desactívalo solo si necesitas direcciones de recepción y nunca monitorearás el cambio.</string>
+    <string name="add_wallet_extended_dialog_title">Clave extendida detectada</string>
+    <string name="add_wallet_extended_dialog_message">UtxoPocket detectó una clave pública extendida. Confirma el tipo de script antes de continuar.</string>
+    <string name="add_wallet_extended_dialog_warning">Elige exactamente el tipo de script que exportó tu otro monedero; si no coincide, no verás tus saldos.</string>
+    <string name="add_wallet_extended_dialog_network">Sugerencia de red: %1$s</string>
+    <string name="add_wallet_extended_dialog_script_label">Tipo de script</string>
+    <string name="add_wallet_extended_dialog_confirm">Usar este tipo de script</string>
+    <string name="add_wallet_extended_dialog_cancel">Editar manualmente</string>
+    <string name="add_wallet_extended_type_p2pkh">P2PKH (legado)</string>
+    <string name="add_wallet_extended_type_p2sh_p2wpkh">P2SH-P2WPKH (SegWit anidado)</string>
+    <string name="add_wallet_extended_type_p2wpkh">P2WPKH (SegWit nativo)</string>
+    <string name="add_wallet_extended_type_p2tr">P2TR (Taproot)</string>
 
     <!-- Wallet health toggle titles -->
     <string name="settings_wallet_health_title">Salud de la billetera (Beta)</string>

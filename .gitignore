@@ -36,3 +36,4 @@ output-metadata.json
 
 # === Misc ===
 AGENTS.md
+/local.properties.wsl
