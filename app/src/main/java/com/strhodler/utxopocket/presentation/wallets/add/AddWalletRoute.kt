@@ -47,13 +47,23 @@ fun AddWalletRoute(
         onDescriptorHelp = onDescriptorHelp,
         onDescriptorChange = viewModel::onDescriptorChanged,
         onChangeDescriptorChange = viewModel::onChangeDescriptorChanged,
+        onImportModeSelected = viewModel::onImportModeSelected,
         onWalletNameChange = viewModel::onWalletNameChanged,
         onToggleAdvanced = viewModel::onToggleAdvanced,
+        onToggleExtendedAdvanced = viewModel::onToggleExtendedAdvanced,
         onSharedDescriptorsChange = viewModel::onSharedDescriptorsChanged,
+        onExtendedKeyChange = viewModel::onExtendedKeyChanged,
+        onExtendedDerivationPathChange = viewModel::onExtendedDerivationPathChanged,
+        onExtendedFingerprintChange = viewModel::onExtendedMasterFingerprintChanged,
+        onExtendedScriptTypeChange = viewModel::onExtendedKeyScriptTypeChanged,
+        onExtendedIncludeChangeBranch = viewModel::onExtendedIncludeChangeBranchChanged,
         onSubmit = viewModel::submit,
         onNetworkMismatchKeep = viewModel::onNetworkMismatchKeep,
         onNetworkMismatchSwitch = viewModel::onNetworkMismatchSwitch,
         onCombinedDescriptorConfirm = viewModel::onCombinedDescriptorConfirmed,
-        onCombinedDescriptorReject = viewModel::onCombinedDescriptorRejected
+        onCombinedDescriptorReject = viewModel::onCombinedDescriptorRejected,
+        onExtendedDialogTypeSelect = viewModel::onExtendedDialogTypeSelected,
+        onExtendedDialogConfirm = viewModel::onExtendedDialogConfirmed,
+        onExtendedDialogDismiss = viewModel::onExtendedDialogDismissed
     )
 }

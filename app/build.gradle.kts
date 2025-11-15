@@ -14,8 +14,8 @@ android {
         applicationId = "com.strhodler.utxopocket"
         minSdk = 28
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.3.0"
+        versionCode = 5
+        versionName = "0.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -93,6 +93,7 @@ dependencies {
     implementation(libs.androidx.security.crypto)
 
     implementation(libs.bdk.android)
+    implementation(libs.sparrow.hummingbird)
     implementation(libs.tor.android) {
         exclude(group = "info.guardianproject", module = "jtorctl")
     }
