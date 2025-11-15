@@ -144,11 +144,18 @@ fun WalletsScreen(
         onSnackbarConsumed()
     }
 
+    var snackbarBottomInset by remember { mutableStateOf(0.dp) }
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
+        snackbarHost = {
+            DismissibleSnackbarHost(
+                hostState = snackbarHostState,
+                bottomInset = snackbarBottomInset
+            )
+        },
         contentWindowInsets = ScreenScaffoldInsets
     ) { innerPadding ->
+        snackbarBottomInset = innerPadding.calculateBottomPadding()
         WalletsContent(
             state = state,
             onRefreshRequested = onRefreshRequested,

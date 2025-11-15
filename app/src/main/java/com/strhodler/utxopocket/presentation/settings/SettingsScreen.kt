@@ -203,11 +203,18 @@ fun SettingsRoute(
         viewModel.onHealthParameterMessageConsumed()
     }
 
+    var snackbarBottomInset by remember { mutableStateOf(0.dp) }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
+        snackbarHost = {
+            DismissibleSnackbarHost(
+                hostState = snackbarHostState,
+                bottomInset = snackbarBottomInset
+            )
+        },
         contentWindowInsets = ScreenScaffoldInsets
     ) { innerPadding ->
+        snackbarBottomInset = innerPadding.calculateBottomPadding()
         Box(
             modifier = Modifier
                 .fillMaxSize()
