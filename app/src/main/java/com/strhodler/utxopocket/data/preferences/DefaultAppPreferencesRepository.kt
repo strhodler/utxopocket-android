@@ -163,7 +163,12 @@ class DefaultAppPreferencesRepository @Inject constructor(
     }
 
     override suspend fun setPreferredNetwork(network: BitcoinNetwork) {
-        dataStore.edit { prefs -> prefs[Keys.PREFERRED_NETWORK] = network.name }
+        dataStore.edit { prefs ->
+            prefs[Keys.PREFERRED_NETWORK] = network.name
+            prefs[Keys.NODE_CONNECTION_OPTION] = NodeConnectionOption.PUBLIC.name
+            prefs.remove(Keys.NODE_SELECTED_PUBLIC_ID)
+            prefs.remove(Keys.NODE_CUSTOM_SELECTED_ID)
+        }
     }
 
     override suspend fun setPin(pin: String) {
@@ -441,7 +446,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
         val resolvedSelectedCustomId = selectedCustomNodeId?.takeIf { id ->
             sanitizedCustomNodes.any { it.id == id }
-        } ?: sanitizedCustomNodes.firstOrNull()?.id
+        }
 
         return when (connectionOption) {
             NodeConnectionOption.PUBLIC -> copy(

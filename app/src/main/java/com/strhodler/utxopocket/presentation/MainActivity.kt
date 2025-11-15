@@ -8,9 +8,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,14 +22,12 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
@@ -41,6 +37,8 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -66,7 +64,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
@@ -85,7 +82,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.strhodler.utxopocket.R
-import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.TorStatus
@@ -147,11 +143,9 @@ class MainActivity : AppCompatActivity() {
 
                     else -> {
                         val navController = rememberNavController()
-                        var showNetworkDialog by remember { mutableStateOf(false) }
                         var pinErrorMessage by remember { mutableStateOf<String?>(null) }
                         var pinLockoutExpiry by remember { mutableStateOf<Long?>(null) }
                         var pinLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
-                        var pendingNetworkSwitch by remember { mutableStateOf<BitcoinNetwork?>(null) }
                         val navBackStackEntry by navController.currentBackStackEntryAsState()
                         val bottomBarVisibleRoutes = remember {
                             setOf(
@@ -197,12 +191,6 @@ class MainActivity : AppCompatActivity() {
                         }
 
                         val topBarStateHolder = rememberMainTopBarStateHolder()
-
-                        LaunchedEffect(uiState.status.network) {
-                            if (pendingNetworkSwitch != null && uiState.status.network == pendingNetworkSwitch) {
-                                pendingNetworkSwitch = null
-                            }
-                        }
 
                         CompositionLocalProvider(
                             LocalMainTopBarStateHolder provides topBarStateHolder,
@@ -300,14 +288,7 @@ class MainActivity : AppCompatActivity() {
                                                 end = endPadding,
                                                 bottom = bottomPadding
                                             ),
-                                        statusBarState = uiState.status,
-                                        onNetworkClick = { showNetworkDialog = true }
-                                    )
-                                }
-
-                                pendingNetworkSwitch?.let { switchingNetwork ->
-                                    NetworkSwitchingOverlay(
-                                        network = switchingNetwork
+                                        statusBarState = uiState.status
                                     )
                                 }
 
@@ -365,20 +346,6 @@ class MainActivity : AppCompatActivity() {
                                 }
                             }
 
-                        }
-
-                        if (showNetworkDialog) {
-                            NetworkSelectionDialog(
-                                selected = uiState.status.network,
-                                onNetworkSelected = { network ->
-                                    if (network != uiState.status.network) {
-                                        pendingNetworkSwitch = network
-                                        viewModel.onNetworkSelected(network)
-                                    }
-                                    showNetworkDialog = false
-                                },
-                                onDismiss = { showNetworkDialog = false }
-                            )
                         }
 
                     }
@@ -548,21 +515,17 @@ private fun StatusBar(
                 .size(48.dp)
                 .semantics { this.contentDescription = contentDescription }
         ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+            BadgedBox(
+                badge = {
+                    indicatorColor?.let { color ->
+                        Badge(
+                            containerColor = color,
+                            contentColor = Color.Transparent
+                        )
+                    }
+                }
             ) {
                 icon()
-                indicatorColor?.let { color ->
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .offset(x = 6.dp, y = (-6).dp)
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(color)
-                    )
-                }
             }
         }
     }
@@ -670,127 +633,16 @@ private fun StatusBar(
     }
 
     @Composable
-    private fun torIndicatorColor(status: TorStatus): Color = when (status) {
-        is TorStatus.Running -> MaterialTheme.colorScheme.secondary
-        is TorStatus.Connecting -> MaterialTheme.colorScheme.outlineVariant
-        TorStatus.Stopped -> MaterialTheme.colorScheme.outlineVariant
-        is TorStatus.Error -> MaterialTheme.colorScheme.error
+    private fun torIndicatorColor(status: TorStatus): Color? = when (status) {
+        is TorStatus.Running -> TorConnectedBadgeColor
+        else -> null
     }
 
     @Composable
-    private fun nodeIndicatorColor(status: NodeStatus): Color = when (status) {
-        NodeStatus.Synced -> MaterialTheme.colorScheme.secondary
-        NodeStatus.Connecting -> MaterialTheme.colorScheme.outlineVariant
-        NodeStatus.Idle -> MaterialTheme.colorScheme.outlineVariant
-        is NodeStatus.Error -> MaterialTheme.colorScheme.error
+    private fun nodeIndicatorColor(status: NodeStatus): Color? = when (status) {
+        NodeStatus.Synced -> NodeConnectedBadgeColor
+        else -> null
     }
 
-    @Composable
-    private fun NetworkSwitchingOverlay(
-        network: BitcoinNetwork,
-        modifier: Modifier = Modifier
-    ) {
-        val interactionSource = remember { MutableInteractionSource() }
-        val networkName = bitcoinNetworkLabel(network)
-
-        Surface(
-            modifier = modifier
-                .fillMaxSize()
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = {}
-                ),
-            color = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    CircularProgressIndicator()
-                    Text(
-                        text = stringResource(id = R.string.network_switching_title),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = networkName,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
-
-    @Composable
-    private fun NetworkSelectionDialog(
-        selected: BitcoinNetwork,
-        onNetworkSelected: (BitcoinNetwork) -> Unit,
-        onDismiss: () -> Unit
-    ) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text(text = stringResource(id = R.string.network_select_title)) },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.network_select_description),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        BitcoinNetwork.entries.forEach { network ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .selectable(
-                                        selected = selected == network,
-                                        onClick = { onNetworkSelected(network) },
-                                        role = Role.RadioButton
-                                    )
-                                    .padding(horizontal = 4.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                RadioButton(
-                                    selected = selected == network,
-                                    onClick = null
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = bitcoinNetworkLabel(network),
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = onDismiss) {
-                    Text(text = stringResource(id = android.R.string.cancel))
-                }
-            }
-        )
-    }
-
-    @Composable
-    private fun bitcoinNetworkLabel(network: BitcoinNetwork): String {
-        val labelRes = when (network) {
-            BitcoinNetwork.MAINNET -> R.string.network_mainnet
-            BitcoinNetwork.TESTNET -> R.string.network_testnet
-            BitcoinNetwork.TESTNET4 -> R.string.network_testnet4
-            BitcoinNetwork.SIGNET -> R.string.network_signet
-        }
-        return stringResource(id = labelRes)
-    }
+private val TorConnectedBadgeColor = Color(0xFF2ECC71)
+private val NodeConnectedBadgeColor = Color(0xFF2ECC71)

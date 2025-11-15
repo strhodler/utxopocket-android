@@ -35,6 +35,34 @@ class TorStatusViewModel @Inject constructor(
         }
     }
 
+    fun onStopTor() {
+        if (_uiState.value.isStopping) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isStopping = true, errorMessageRes = null) }
+            val result = runCatching { torManager.stop() }
+            _uiState.update {
+                it.copy(
+                    isStopping = false,
+                    errorMessageRes = result.exceptionOrNull()?.let { R.string.tor_overview_stop_error }
+                )
+            }
+        }
+    }
+
+    fun onStartTor() {
+        if (_uiState.value.isStarting) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isStarting = true, errorMessageRes = null) }
+            val result = torManager.start()
+            _uiState.update {
+                it.copy(
+                    isStarting = false,
+                    errorMessageRes = result.exceptionOrNull()?.let { R.string.tor_overview_start_error }
+                )
+            }
+        }
+    }
+
     fun clearError() {
         _uiState.update { it.copy(errorMessageRes = null) }
     }
@@ -42,5 +70,7 @@ class TorStatusViewModel @Inject constructor(
 
 data class TorStatusActionUiState(
     val isRenewing: Boolean = false,
+    val isStopping: Boolean = false,
+    val isStarting: Boolean = false,
     @StringRes val errorMessageRes: Int? = null
 )

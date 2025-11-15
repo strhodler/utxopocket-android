@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.data.wallet
 
 import android.content.Context
 import android.util.Log
+import android.os.SystemClock
 import com.strhodler.utxopocket.BuildConfig
 import com.strhodler.utxopocket.data.bdk.BdkBlockchainFactory
 import com.strhodler.utxopocket.data.bdk.BdkManagedWallet
@@ -64,7 +65,12 @@ import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -95,6 +101,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import dagger.hilt.android.qualifiers.ApplicationContext
 
+private const val GENERIC_DESCRIPTOR_ERROR =
+    "Invalid or malformed descriptor; review the imported descriptor or the compatibility wiki article."
+
 @Singleton
 class DefaultWalletRepository @Inject constructor(
     private val walletDao: WalletDao,
@@ -113,6 +122,7 @@ class DefaultWalletRepository @Inject constructor(
         private const val TAG = "DefaultWalletRepository"
         private const val MAX_LABEL_LENGTH = 255
         private const val DEFAULT_PAGING_PAGE_SIZE = 50
+        private const val BACKGROUND_GRACE_MILLIS = 5 * 60 * 1000L
         private val EXTENDED_PRIVATE_KEY_REGEX =
             Regex("\\b[acdfklmnstuvxyz]prv[0-9a-z]+", RegexOption.IGNORE_CASE)
         private val WIF_PRIVATE_KEY_REGEX =
@@ -138,6 +148,11 @@ class DefaultWalletRepository @Inject constructor(
         )
     )
     private val appInForeground = AtomicBoolean(true)
+    @Volatile
+    private var backgroundGraceExpiryMillis: Long = 0L
+    @Volatile
+    private var backgroundIdleJob: Job? = null
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private data class CachedWallet(
         val managed: BdkManagedWallet,
@@ -341,7 +356,6 @@ class DefaultWalletRepository @Inject constructor(
         val config = nodeConfigurationRepository.nodeConfig.first()
         val previousSnapshot = nodeStatus.value
         if (!config.hasActiveSelection()) {
-            torManager.start()
             syncStatus.value = SyncStatusSnapshot(isRefreshing = false, network = network)
             val snapshotMatchesNetwork = previousSnapshot.network == network
             nodeStatus.value = NodeStatusSnapshot(
@@ -360,8 +374,8 @@ class DefaultWalletRepository @Inject constructor(
             val policy = retryPolicyFor(network)
             var attempt = 0
             while (attempt < policy.maxAttempts) {
-                if (!appInForeground.get()) {
-                    Log.i(TAG, "Skipping wallet refresh for $network because app is backgrounded")
+                if (!isSyncAllowed()) {
+                    Log.i(TAG, "Skipping wallet refresh for $network because background grace expired")
                     return@withContext
                 }
                 try {
@@ -393,9 +407,10 @@ class DefaultWalletRepository @Inject constructor(
         val previousSnapshot = nodeStatus.value
         val lastSyncForNetwork = previousSnapshot.lastSyncCompletedAt
             .takeIf { previousSnapshot.network == network }
-        val shouldSignalConnecting =
+        var shouldSignalConnecting =
             previousSnapshot.network != network || previousSnapshot.status !is NodeStatus.Synced
-        val cancellationSignal = SyncCancellationSignal { !appInForeground.get() }
+        val previousEndpoint = previousSnapshot.endpoint.takeIf { previousSnapshot.network == network }
+        val cancellationSignal = SyncCancellationSignal { !isSyncAllowed() }
         fun ensureForeground() {
             if (cancellationSignal.shouldCancel()) {
                 throw CancellationException("Sync cancelled while app is backgrounded on $network")
@@ -418,16 +433,30 @@ class DefaultWalletRepository @Inject constructor(
         var serverInfo: ElectrumServerInfo? =
             previousSnapshot.serverInfo.takeIf { previousSnapshot.network == network }
         var blockHeight: Long? = previousSnapshot.blockHeight.takeIf { previousSnapshot.network == network }
-        var endpoint: String? = previousSnapshot.endpoint.takeIf { previousSnapshot.network == network }
+        var endpoint: String? = previousEndpoint
         var estimatedFeeRateSatPerVb: Double? =
             previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network }
+        var lastWalletError: String? = null
         try {
             ensureForeground()
-            torManager.start()
-            val proxy = torManager.awaitProxy()
+            val proxy = torManager.start().getOrElse { throw it }
             ensureForeground()
             val session = blockchainFactory.create(network, proxy)
             endpoint = session.endpoint.url
+            if (previousEndpoint != endpoint) {
+                shouldSignalConnecting = true
+            }
+            if (shouldSignalConnecting) {
+                nodeStatus.value = NodeStatusSnapshot(
+                    status = NodeStatus.Connecting,
+                    blockHeight = blockHeight,
+                    serverInfo = serverInfo,
+                    endpoint = endpoint,
+                    lastSyncCompletedAt = lastSyncForNetwork,
+                    network = network,
+                    feeRateSatPerVb = estimatedFeeRateSatPerVb
+                )
+            }
             if (BuildConfig.DEBUG) {
                 Log.d(TAG, "Starting electrum sync via $endpoint using proxy ${proxy.host}:${proxy.port}")
             } else {
@@ -541,6 +570,9 @@ class DefaultWalletRepository @Inject constructor(
                             defaultMessage = error.message.orEmpty().ifBlank { "Wallet sync failed" },
                             endpoint = endpoint
                         )
+                        if (lastWalletError == null) {
+                            lastWalletError = reason
+                        }
                         if (BuildConfig.DEBUG) {
                             Log.e(TAG, "Sync failed for wallet ${entity.name} (${entity.id})", error)
                         } else {
@@ -555,7 +587,13 @@ class DefaultWalletRepository @Inject constructor(
                     }
                 }
                 ensureForeground()
-                val finalStatus = NodeStatus.Synced
+                val finalStatus = if (hadWalletErrors) {
+                    NodeStatus.Error(
+                        lastWalletError ?: "Wallet sync completed with errors. Check wallets for details."
+                    )
+                } else {
+                    NodeStatus.Synced
+                }
                 val syncCompletedAt = System.currentTimeMillis()
                 nodeStatus.value = NodeStatusSnapshot(
                     status = finalStatus,
@@ -987,8 +1025,8 @@ class DefaultWalletRepository @Inject constructor(
         if (containsPrivateMaterial(sanitizedDescriptor) ||
             sanitizedChange?.let(::containsPrivateMaterial) == true
         ) {
-            return@withContext DescriptorValidationResult.Invalid(
-                reason = "Descriptor contains private key material. Only watch-only descriptors are supported."
+            return@withContext descriptorInvalid(
+                "Descriptor contains private key material. Only watch-only descriptors are supported."
             )
         }
 
@@ -999,9 +1037,7 @@ class DefaultWalletRepository @Inject constructor(
                 network = bdkNetwork
             )
         } catch (error: Throwable) {
-            return@withContext DescriptorValidationResult.Invalid(
-                reason = error.message ?: "Descriptor is not valid."
-            )
+            return@withContext descriptorInvalid(error.message)
         }
 
         try {
@@ -1009,22 +1045,22 @@ class DefaultWalletRepository @Inject constructor(
             val isMultipath = parsedDescriptor.isMultipath()
 
             if (isMultipath && sanitizedChange != null) {
-                return@withContext DescriptorValidationResult.Invalid(
-                    reason = "Remove the separate change descriptor when using a BIP-389 multipath descriptor."
+                return@withContext descriptorInvalid(
+                    "Remove the separate change descriptor when using a BIP-389 multipath descriptor."
                 )
             }
 
             if (isMultipath) {
                 val singleDescriptors = runCatching { parsedDescriptor.toSingleDescriptors() }
                     .getOrElse { error ->
-                        return@withContext DescriptorValidationResult.Invalid(
-                            reason = "Multipath descriptor could not be expanded: ${error.message ?: "unknown error"}"
+                        return@withContext descriptorInvalid(
+                            "Multipath descriptor could not be expanded: ${error.message ?: "unknown error"}"
                         )
                     }
                 try {
                     if (singleDescriptors.size != 2) {
-                        return@withContext DescriptorValidationResult.Invalid(
-                            reason = "Multipath descriptor must expand to exactly two branches (external/change)."
+                        return@withContext descriptorInvalid(
+                            "Multipath descriptor must expand to exactly two branches (external/change)."
                         )
                     }
                 } finally {
@@ -1039,8 +1075,8 @@ class DefaultWalletRepository @Inject constructor(
                         network = bdkNetwork
                     )
                 }.getOrElse { error ->
-                    return@withContext DescriptorValidationResult.Invalid(
-                        reason = "Change descriptor invalid: ${error.message ?: "unknown error"}"
+                    return@withContext descriptorInvalid(
+                        "Change descriptor invalid: ${error.message ?: "unknown error"}"
                     )
                 }
                 parsedChange.destroy()
@@ -1052,14 +1088,14 @@ class DefaultWalletRepository @Inject constructor(
                 normalizedChange?.let(::hasWildcard) == true
 
             if (!isMultipath && !derivedHasWildcard) {
-                return@withContext DescriptorValidationResult.Invalid(
-                    reason = "Descriptor must include a wildcard derivation (`*`) or use a BIP-389 multipath branch (`/<0;1>/*`)."
+                return@withContext descriptorInvalid(
+                    "Descriptor must include a wildcard derivation (`*`) or use a BIP-389 multipath branch (`/<0;1>/*`)."
                 )
             }
 
             if (!isMultipath && derivedHasWildcard && normalizedChange == null) {
-                return@withContext DescriptorValidationResult.Invalid(
-                    reason = "A change descriptor is required for HD descriptors. Provide a BIP-389 multipath descriptor (`/<0;1>/*`) or a dedicated change descriptor."
+                return@withContext descriptorInvalid(
+                    "A change descriptor is required for HD descriptors. Provide a BIP-389 multipath descriptor (`/<0;1>/*`) or a dedicated change descriptor."
                 )
             }
 
@@ -1115,7 +1151,7 @@ class DefaultWalletRepository @Inject constructor(
                 val message = when (validation) {
                     is DescriptorValidationResult.Invalid -> validation.reason
                     DescriptorValidationResult.Empty -> "Descriptor is required."
-                    else -> "Descriptor is not valid."
+                    else -> GENERIC_DESCRIPTOR_ERROR
                 }
                 return@withContext WalletCreationResult.Failure(message)
             }
@@ -1398,10 +1434,29 @@ class DefaultWalletRepository @Inject constructor(
             return
         }
         Log.d(TAG, "Wallet sync foreground state -> $isForeground")
-        if (!isForeground) {
-            val snapshot = nodeStatus.value
-            nodeStatus.value = snapshot.copy(status = NodeStatus.Idle)
+        if (isForeground) {
+            backgroundGraceExpiryMillis = 0L
+            backgroundIdleJob?.cancel()
+            backgroundIdleJob = null
+        } else {
+            backgroundGraceExpiryMillis = SystemClock.elapsedRealtime() + BACKGROUND_GRACE_MILLIS
+            backgroundIdleJob?.cancel()
+            backgroundIdleJob = repositoryScope.launch {
+                delay(BACKGROUND_GRACE_MILLIS)
+                if (!appInForeground.get()) {
+                    val snapshot = nodeStatus.value
+                    nodeStatus.value = snapshot.copy(status = NodeStatus.Idle)
+                }
+            }
         }
+    }
+
+    private fun isSyncAllowed(): Boolean {
+        if (appInForeground.get()) {
+            return true
+        }
+        val expiry = backgroundGraceExpiryMillis
+        return expiry != 0L && SystemClock.elapsedRealtime() < expiry
     }
 
     private fun WalletAddressType.toKeychainKind(): KeychainKind = when (this) {
@@ -1485,4 +1540,10 @@ class DefaultWalletRepository @Inject constructor(
     }
 
     private fun hasWildcard(descriptor: String): Boolean = descriptor.contains("*")
+
+    private fun String?.orDescriptorError(): String =
+        this?.takeIf { it.isNotBlank() } ?: GENERIC_DESCRIPTOR_ERROR
+
+    private fun descriptorInvalid(reason: String?): DescriptorValidationResult.Invalid =
+        DescriptorValidationResult.Invalid(reason.orDescriptorError())
 }

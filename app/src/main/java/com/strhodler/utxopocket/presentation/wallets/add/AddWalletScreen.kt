@@ -55,6 +55,8 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
 import com.strhodler.utxopocket.domain.model.DescriptorWarning
+import com.strhodler.utxopocket.presentation.components.ConnectionIssueBanner
+import com.strhodler.utxopocket.presentation.components.ConnectionIssueBannerStyle
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import kotlinx.coroutines.launch
@@ -65,6 +67,7 @@ fun AddWalletScreen(
     state: AddWalletUiState,
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
+    onDescriptorHelp: () -> Unit,
     onDescriptorChange: (String) -> Unit,
     onChangeDescriptorChange: (String) -> Unit,
     onWalletNameChange: (String) -> Unit,
@@ -109,7 +112,10 @@ fun AddWalletScreen(
                 onToggleAdvanced = onToggleAdvanced,
                 onSharedDescriptorsChange = onSharedDescriptorsChange
             )
-            ValidationSummary(state = state)
+            ValidationSummary(
+                state = state,
+                onDescriptorHelp = onDescriptorHelp
+            )
             state.formError?.let { error ->
                 Text(
                     text = error,
@@ -444,7 +450,10 @@ private fun SharedDescriptorsToggle(
 }
 
 @Composable
-private fun ValidationSummary(state: AddWalletUiState) {
+private fun ValidationSummary(
+    state: AddWalletUiState,
+    onDescriptorHelp: () -> Unit
+) {
     when {
         state.isValidating -> {
             Row(
@@ -462,18 +471,16 @@ private fun ValidationSummary(state: AddWalletUiState) {
 
         state.validation is DescriptorValidationResult.Invalid -> {
             val invalid = state.validation
-            ElevatedCard(
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                )
-            ) {
-                Text(
-                    modifier = Modifier.padding(16.dp),
-                    text = invalid.reason,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer
-                )
+            val errorText = invalid.reason.ifBlank {
+                stringResource(id = R.string.add_wallet_descriptor_generic_error)
             }
+            ConnectionIssueBanner(
+                message = errorText,
+                primaryLabel = stringResource(id = R.string.add_wallet_descriptor_help_action),
+                onPrimaryClick = onDescriptorHelp,
+                modifier = Modifier.fillMaxWidth(),
+                style = ConnectionIssueBannerStyle.Error
+            )
         }
 
         state.validation is DescriptorValidationResult.Valid -> {

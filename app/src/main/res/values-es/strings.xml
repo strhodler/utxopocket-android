@@ -44,9 +44,9 @@
     <string name="wallets_status">Estado: %1$s</string>
     <string name="wallets_state_idle">Inactivo</string>
     <string name="wallets_state_connecting">Conectando</string>
+    <string name="wallets_state_syncing">Sincronizando…</string>
     <string name="wallets_state_synced">Sincronizado</string>
     <string name="wallets_state_error">Error</string>
-    <string name="wallets_network_selector_expand_content_description">Seleccionar red</string>
     <string name="wallets_last_sync">Última sincronización: %1$s</string>
     <string name="wallets_sync_error_icon_description">Advertencia de sincronización</string>
 
@@ -80,7 +80,6 @@
     <string name="network_signet">Signet</string>
     <string name="network_select_title">Seleccionar red de Bitcoin</string>
     <string name="network_select_description">Elige qué red de Bitcoin usar.</string>
-    <string name="network_switching_title">Cambiando a…</string>
 
     <!-- Settings -->
     <string name="settings_title">Ajustes</string>
@@ -143,6 +142,11 @@
     <string name="status_node_pruning_unknown">No reportado</string>
     <string name="status_node_unknown_value">Desconocido</string>
     <string name="status_node_retry_action">Reconectar</string>
+    <string name="node_status_idle_banner">Selecciona un nodo y vuelve a conectar para reanudar la sincronización.</string>
+    <string name="node_overview_disconnected_message">Conéctate a un nodo para ver el bloque reciente, tarifas y datos del servidor.</string>
+    <string name="node_manage_prompt">Selecciona un nodo en la pestaña Gestionar para reconectar y reanudar la sincronización.</string>
+    <string name="node_disconnect_action">Desconectar</string>
+    <string name="wallets_tor_disconnected_banner">Tor no está en ejecución. Conéctalo para reanudar la conexión con el nodo.</string>
 
     <!-- Wallet detail -->
     <string name="wallet_detail_title">Detalles de la billetera</string>
@@ -392,6 +396,8 @@
     <string name="tor_overview_proxy_label">Endpoint del proxy</string>
     <string name="tor_overview_proxy_value">%1$s:%2$d</string>
     <string name="tor_overview_proxy_unavailable">No disponible hasta que Tor se conecte.</string>
+    <string name="tor_overview_proxy_pending_chip">Esperando proxy...</string>
+    <string name="tor_overview_proxy_unavailable_chip">Proxy no disponible</string>
     <string name="tor_overview_bootstrap_label">Progreso de arranque</string>
     <string name="tor_overview_bootstrap_percent_value">%1$d%%</string>
     <string name="tor_overview_bootstrap_complete">Completado</string>
@@ -399,6 +405,10 @@
     <string name="tor_overview_latest_event_label">Último registro</string>
     <string name="tor_overview_latest_event_empty">Aún no hay registros de Tor.</string>
     <string name="tor_overview_renew_identity_error">No se pudo renovar la identidad de Tor. Intenta de nuevo en unos segundos.</string>
+    <string name="tor_disconnect_action">Desconectar Tor</string>
+    <string name="tor_connect_action">Conectar Tor</string>
+    <string name="tor_overview_stop_error">No se pudo desconectar Tor. Inténtalo nuevamente.</string>
+    <string name="tor_overview_start_error">No se pudo conectar con Tor. Inténtalo nuevamente.</string>
     <string name="node_overview_title">Centro del nodo</string>
     <string name="node_overview_details_title">Detalles de conexión</string>
     <string name="node_overview_fee_rate_title">Tarifa sugerida</string>
@@ -434,6 +444,8 @@
     <string name="add_wallet_name_label">Nombre de la billetera</string>
     <string name="add_wallet_name_placeholder">Mi billetera Bitcoin</string>
     <string name="add_wallet_validation_loading">Validando descriptor…</string>
+    <string name="add_wallet_descriptor_help_action">Compatibilidad de descriptores</string>
+    <string name="add_wallet_descriptor_generic_error">Descriptor inválido o mal formado; revisa el descriptor importado o la compatibilidad en la wiki.</string>
     <string name="add_wallet_descriptor_detected">Tipo de descriptor detectado: %1$s</string>
     <string name="add_wallet_descriptor_wildcard_yes">Se detectó derivación con comodín (*)</string>
     <string name="add_wallet_descriptor_wildcard_no">No se detectó comodín; sólo se seguirá una dirección.</string>
@@ -447,7 +459,7 @@
     <string name="add_wallet_network_mismatch_switch">Cambiar a %1$s</string>
     <string name="add_wallet_network_mismatch_keep">Mantener %1$s</string>
     <string name="add_wallet_combined_descriptor_title">¿Dividir par de descriptores?</string>
-    <string name="add_wallet_combined_descriptor_message">Detectamos un par recepción/cambio. Movimos la rama de cambio a Avanzado para que UtxoPocket valide ambas.</string>
+    <string name="add_wallet_combined_descriptor_message">Par de recepción/cambio detectado. Se ha movido la rama de cambio al input de descriptor de cambio para que UtxoPocket valide ambas.</string>
     <string name="add_wallet_combined_descriptor_confirm">Conservar descriptores separados</string>
     <string name="add_wallet_combined_descriptor_cancel">Vaciar ambos campos</string>
     <string name="add_wallet_cancel">Cancelar</string>
@@ -761,6 +773,8 @@
 
     <!-- Wiki CTA in wallets list -->
     <string name="wallets_node_prompt_wiki_cta">Aprende a conectarte vía Tor</string>
+    <string name="wallets_node_disconnected_banner">Sin conexión de nodo. Gestiona tus nodos para reanudar la sincronización.</string>
+    <string name="wallets_manage_connection_action">Gestionar conexión</string>
 
     <!-- Wallet descriptor types (duplicated mapping for detail lists) -->
     <string name="wallet_detail_descriptor_type_address">Dirección</string>

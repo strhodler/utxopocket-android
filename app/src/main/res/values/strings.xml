@@ -69,6 +69,8 @@
     <string name="wallets_node_prompt_description">Choose the node you want to sync with before adding descriptors.</string>
     <string name="wallets_node_prompt_action">Select node</string>
     <string name="wallets_node_prompt_wiki_cta">Learn how to connect via Tor</string>
+    <string name="wallets_node_disconnected_banner">No node connection. Manage your nodes to resume syncing.</string>
+    <string name="wallets_manage_connection_action">Manage connection</string>
     <string name="wallets_add_wallet_secondary">Add ₿ wallet</string>
     <string name="wallets_empty_add_action">Add ₿ wallet</string>
     <string name="wallets_total_balance_label">Total balance</string>
@@ -373,6 +375,8 @@
     <string name="tor_overview_proxy_label">Proxy endpoint</string>
     <string name="tor_overview_proxy_value">%1$s:%2$d</string>
     <string name="tor_overview_proxy_unavailable">Not available until Tor connects.</string>
+    <string name="tor_overview_proxy_pending_chip">Waiting for proxy...</string>
+    <string name="tor_overview_proxy_unavailable_chip">Proxy unavailable</string>
     <string name="tor_overview_bootstrap_label">Bootstrap progress</string>
     <string name="tor_overview_bootstrap_percent_value">%1$d%%</string>
     <string name="tor_overview_bootstrap_complete">Complete</string>
@@ -380,6 +384,10 @@
     <string name="tor_overview_latest_event_label">Latest log entry</string>
     <string name="tor_overview_latest_event_empty">No Tor log messages yet.</string>
     <string name="tor_overview_renew_identity_error">Could not renew Tor identity. Try again shortly.</string>
+    <string name="tor_disconnect_action">Disconnect Tor</string>
+    <string name="tor_connect_action">Connect Tor</string>
+    <string name="tor_overview_stop_error">Could not disconnect Tor. Try again shortly.</string>
+    <string name="tor_overview_start_error">Could not connect to Tor. Try again shortly.</string>
     <string name="status_block_height_short">Block %1$s</string>
     <string name="status_fee_rate_short">%1$s sat/vB</string>
     <string name="status_node_block_height_label">Block height</string>
@@ -397,14 +405,19 @@
     <string name="status_node_retry_action">Reconnect</string>
     <string name="node_reconnect_tor_required">Connect Tor before reconnecting to your node.</string>
     <string name="node_reconnect_waiting_for_tor">Waiting for Tor to finish connecting…</string>
+    <string name="node_status_idle_banner">Select a node to reconnect and resume syncing.</string>
+    <string name="node_overview_disconnected_message">Connect to a node to view recent block, fee, and server information.</string>
+    <string name="node_manage_prompt">Select a node under the Manage tab to reconnect and resume syncing.</string>
+    <string name="node_disconnect_action">Disconnect</string>
+    <string name="wallets_tor_disconnected_banner">Tor is not running. Connect Tor to resume node connectivity.</string>
     <string name="wallets_balance">Balance: %1$s %2$s</string>
     <string name="wallets_transactions">Transactions: %1$d</string>
     <string name="wallets_status">Status: %1$s</string>
     <string name="wallets_state_idle">Idle</string>
     <string name="wallets_state_connecting">Connecting</string>
+    <string name="wallets_state_syncing">Syncing…</string>
     <string name="wallets_state_synced">Synced</string>
     <string name="wallets_state_error">Error</string>
-    <string name="wallets_network_selector_expand_content_description">Select network</string>
     <string name="wallets_last_sync">Last sync: %1$s</string>
     <string name="wallets_sync_error_icon_description">Wallet synchronization warning</string>
     <string name="wallets_testnet_faucet_banner_title">Get testnet bitcoin from a faucet</string>
@@ -429,6 +442,8 @@
     <string name="add_wallet_name_label">Wallet name</string>
     <string name="add_wallet_name_placeholder">My Bitcoin Wallet</string>
     <string name="add_wallet_validation_loading">Validating descriptor…</string>
+    <string name="add_wallet_descriptor_help_action">Descriptor compatibility</string>
+    <string name="add_wallet_descriptor_generic_error">Invalid or malformed descriptor; review the imported descriptor or the compatibility wiki article.</string>
     <string name="add_wallet_descriptor_detected">Detected descriptor type: %1$s</string>
     <string name="add_wallet_descriptor_wildcard_yes">Wildcard derivation detected (*)</string>
     <string name="add_wallet_descriptor_wildcard_no">No wildcard detected; only a single address will be tracked.</string>
@@ -442,7 +457,7 @@
     <string name="add_wallet_network_mismatch_switch">Switch to %1$s</string>
     <string name="add_wallet_network_mismatch_keep">Keep %1$s</string>
     <string name="add_wallet_combined_descriptor_title">Split descriptor pair?</string>
-    <string name="add_wallet_combined_descriptor_message">We detected a receive/change pair. The change branch was moved to Advanced so UtxoPocket can validate both.</string>
+    <string name="add_wallet_combined_descriptor_message">Receive/change pair detected. The change branch has been moved to the change descriptor input so that UtxoPocket can validate both.</string>
     <string name="add_wallet_combined_descriptor_confirm">Keep split descriptors</string>
     <string name="add_wallet_combined_descriptor_cancel">Clear both fields</string>
     <string name="add_wallet_cancel">Cancel</string>
@@ -584,7 +599,6 @@
     <string name="network_signet">Signet</string>
     <string name="network_select_title">Select Bitcoin network</string>
     <string name="network_select_description">Choose which Bitcoin network to use.</string>
-    <string name="network_switching_title">Switching to…</string>
     <string name="settings_node_source">Choose node source</string>
     <string name="settings_theme_system">System (%1$s)</string>
     <string name="settings_theme_value_light">Light</string>

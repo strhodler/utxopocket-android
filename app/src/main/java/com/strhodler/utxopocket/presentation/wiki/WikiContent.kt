@@ -313,6 +313,7 @@ object WikiContent {
     const val UtxoHealthTopicId: String = "utxo-health"
     const val WalletHealthTopicId: String = "wallet-health"
     const val NodeConnectivityTopicId: String = "node-connectivity"
+    const val DescriptorCompatibilityTopicId: String = "descriptor-compatibility"
 
     val categories: List<WikiCategory> = listOf(
         WikiCategory(

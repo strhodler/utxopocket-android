@@ -97,6 +97,13 @@ class OnboardingViewModel @Inject constructor(
     fun onSelectNetwork(network: BitcoinNetwork) {
         viewModelScope.launch {
             appPreferencesRepository.setPreferredNetwork(network)
+            nodeConfigurationRepository.updateNodeConfig { current ->
+                current.copy(
+                    connectionOption = NodeConnectionOption.PUBLIC,
+                    selectedPublicNodeId = null,
+                    selectedCustomNodeId = null
+                )
+            }
         }
     }
 

@@ -36,19 +36,8 @@ class WalletsViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val selectedNetwork = MutableStateFlow(BitcoinNetwork.DEFAULT)
-
-    init {
-        viewModelScope.launch {
-            appPreferencesRepository.preferredNetwork.collect { network ->
-                val previous = selectedNetwork.value
-                selectedNetwork.value = network
-                if (previous != network) {
-                    refresh()
-                }
-            }
-        }
-        refresh()
-    }
+    private val hasWallets = MutableStateFlow(false)
+    private var lastObservedNodeStatus: NodeStatus? = null
 
     private val walletData = selectedNetwork.flatMapLatest { network ->
         walletRepository.observeWalletSummaries(network)
@@ -66,6 +55,56 @@ class WalletsViewModel @Inject constructor(
                     )
                 )
             }
+    }
+
+    init {
+        viewModelScope.launch {
+            appPreferencesRepository.preferredNetwork.collect { network ->
+                val previous = selectedNetwork.value
+                selectedNetwork.value = network
+                if (previous != network) {
+                    refresh()
+                }
+            }
+        }
+        viewModelScope.launch {
+            walletData.collect { data ->
+                hasWallets.value = data.wallets.isNotEmpty()
+            }
+        }
+        viewModelScope.launch {
+            combine(
+                walletRepository.observeNodeStatus(),
+                walletRepository.observeSyncStatus(),
+                selectedNetwork,
+                hasWallets
+            ) { nodeSnapshot, syncSnapshot, network, hasWallets ->
+                AutoRefreshSignal(
+                    nodeSnapshot = nodeSnapshot,
+                    syncSnapshot = syncSnapshot,
+                    selectedNetwork = network,
+                    hasWallets = hasWallets
+                )
+            }.collect { signal ->
+                val previousStatus = lastObservedNodeStatus
+                val currentStatus = signal.nodeSnapshot.status
+                val matchesNetwork = signal.nodeSnapshot.network == signal.selectedNetwork
+                val syncBusy = signal.syncSnapshot.isRefreshing &&
+                    signal.syncSnapshot.network == signal.selectedNetwork
+                if (
+                    previousStatus != null &&
+                    previousStatus !is NodeStatus.Synced &&
+                    currentStatus is NodeStatus.Synced &&
+                    matchesNetwork &&
+                    signal.hasWallets &&
+                    !syncBusy
+                ) {
+                    walletRepository.refresh(signal.selectedNetwork)
+                }
+                lastObservedNodeStatus = currentStatus
+            }
+        }
+        refresh()
     }
 
     private val walletSnapshot = combine(
@@ -164,6 +203,13 @@ class WalletsViewModel @Inject constructor(
         val syncStatus: SyncStatusSnapshot,
         val torStatus: TorStatus,
         val balanceUnit: BalanceUnit
+    )
+
+    private data class AutoRefreshSignal(
+        val nodeSnapshot: NodeStatusSnapshot,
+        val syncSnapshot: SyncStatusSnapshot,
+        val selectedNetwork: BitcoinNetwork,
+        val hasWallets: Boolean
     )
 }
 
