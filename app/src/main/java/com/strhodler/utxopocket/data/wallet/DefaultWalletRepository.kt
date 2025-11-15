@@ -12,6 +12,7 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.map
+import androidx.room.withTransaction
 import com.strhodler.utxopocket.data.db.WalletDao
 import com.strhodler.utxopocket.data.db.UtxoLabelProjection
 import com.strhodler.utxopocket.data.db.WalletEntity
@@ -96,6 +97,7 @@ import org.bitcoindevkit.Transaction
 import org.bitcoindevkit.Wallet
 import org.bitcoindevkit.use
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -178,6 +180,7 @@ class DefaultWalletRepository @Inject constructor(
 
     private val walletCacheMutex = Mutex()
     private val walletCache = mutableMapOf<Long, CachedWallet>()
+    private val deletingWallets = ConcurrentHashMap<Long, Boolean>()
 
     override fun observeWalletSummaries(network: BitcoinNetwork): Flow<List<WalletSummary>> =
         walletDao.observeWallets(network.name)
@@ -302,6 +305,16 @@ class DefaultWalletRepository @Inject constructor(
             runCatching { cached.managed.release() }
         }
     }
+
+    private fun markWalletDeletionPending(id: Long) {
+        deletingWallets[id] = true
+    }
+
+    private fun clearWalletDeletionPending(id: Long) {
+        deletingWallets.remove(id)
+    }
+
+    private fun isWalletDeletionPending(id: Long): Boolean = deletingWallets.containsKey(id)
 
     private fun Wallet.inspectSyncDelta(): WalletSyncDelta {
         val staged = runCatching { staged() }.getOrNull() ?: return WalletSyncDelta.NONE
@@ -493,17 +506,40 @@ class DefaultWalletRepository @Inject constructor(
                 var hadWalletErrors = false
                 wallets.forEach { entity ->
                     ensureForeground()
+                    if (isWalletDeletionPending(entity.id)) {
+                        if (BuildConfig.DEBUG) {
+                            Log.d(TAG, "Skipping sync for wallet ${entity.id} because it is being deleted.")
+                        }
+                        return@forEach
+                    }
+                    val cancelledForDeletion = AtomicBoolean(false)
                     runCatching {
                         withWallet(entity) { wallet, persister ->
                             ensureForeground()
                             val shouldRunFullScan = entity.requiresFullScan || entity.lastFullScanTime == null
                             val hasChangeKeychain = !entity.viewOnly && entity.hasChangeBranch()
+                            val walletCancellationSignal = SyncCancellationSignal {
+                                if (cancellationSignal.shouldCancel()) {
+                                    return@SyncCancellationSignal true
+                                }
+                                if (isWalletDeletionPending(entity.id)) {
+                                    cancelledForDeletion.set(true)
+                                    return@SyncCancellationSignal true
+                                }
+                                false
+                            }
                             blockchain.syncWallet(
                                 wallet = wallet,
                                 shouldRunFullScan = shouldRunFullScan,
                                 hasChangeKeychain = hasChangeKeychain,
-                                cancellationSignal = cancellationSignal
+                                cancellationSignal = walletCancellationSignal
                             )
+                            if (cancelledForDeletion.get() || isWalletDeletionPending(entity.id)) {
+                                if (BuildConfig.DEBUG) {
+                                    Log.d(TAG, "Wallet ${entity.id} sync cancelled mid-flight because it is being deleted.")
+                                }
+                                return@withWallet
+                            }
                             val delta = wallet.inspectSyncDelta()
                             val didPersist = wallet.persist(persister)
                             val balanceSats = wallet.balance().use { balance ->
@@ -561,6 +597,12 @@ class DefaultWalletRepository @Inject constructor(
                             }
                         }
                     }.onFailure { error ->
+                        if (cancelledForDeletion.get() || isWalletDeletionPending(entity.id)) {
+                            if (BuildConfig.DEBUG) {
+                                Log.d(TAG, "Wallet ${entity.id} sync aborted because it is being deleted.")
+                            }
+                            return@forEach
+                        }
                         if (error is CancellationException) {
                             throw error
                         }
@@ -1194,10 +1236,28 @@ class DefaultWalletRepository @Inject constructor(
 
     override suspend fun deleteWallet(id: Long) = withContext(ioDispatcher) {
         val entity = walletDao.findById(id) ?: return@withContext
-        invalidateWalletCache(id)
-        val network = BitcoinNetwork.valueOf(entity.network)
-        runCatching { walletFactory.removeStorage(id, network) }
-        walletDao.deleteById(id)
+        markWalletDeletionPending(id)
+        try {
+            invalidateWalletCache(id)
+            val network = BitcoinNetwork.valueOf(entity.network)
+            runCatching { walletFactory.removeStorage(id, network) }
+            removeWalletFromDatabase(id)
+        } finally {
+            clearWalletDeletionPending(id)
+        }
+    }
+
+    private suspend fun removeWalletFromDatabase(walletId: Long) {
+        database.withTransaction {
+            walletDao.clearTransactionOutputs(walletId)
+            walletDao.clearTransactionInputs(walletId)
+            walletDao.clearTransactions(walletId)
+            walletDao.clearTransactionHealth(walletId)
+            walletDao.clearUtxoHealth(walletId)
+            walletDao.clearWalletHealth(walletId)
+            walletDao.clearUtxos(walletId)
+            walletDao.deleteById(walletId)
+        }
     }
 
     override suspend fun wipeAllWalletData() = withContext(ioDispatcher) {
