@@ -4,11 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
+import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
 import com.strhodler.utxopocket.di.ApplicationScope
 import com.strhodler.utxopocket.domain.model.WalletCreationRequest
 import com.strhodler.utxopocket.domain.model.WalletCreationResult
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.ur.UniformResourceImportParser
+import com.strhodler.utxopocket.domain.ur.UniformResourceResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -61,6 +64,9 @@ class AddWalletViewModel @Inject constructor(
 
     fun onDescriptorChanged(value: String) {
         val trimmed = value.trim()
+        if (maybeHandleUniformResourceInput(trimmed)) {
+            return
+        }
         if (maybeHandleExtendedKeyDetection(trimmed)) {
             return
         }
@@ -137,6 +143,10 @@ class AddWalletViewModel @Inject constructor(
     }
 
     fun onExtendedKeyChanged(value: String) {
+        val trimmed = value.trim()
+        if (maybeHandleUniformResourceInput(trimmed)) {
+            return
+        }
         val previousForm = _uiState.value.extendedForm
         _uiState.update {
             it.copy(
@@ -546,6 +556,92 @@ class AddWalletViewModel @Inject constructor(
         val detectedNetwork: BitcoinNetwork
     )
 
+    private fun maybeHandleUniformResourceInput(rawValue: String): Boolean {
+        val parserResult = UniformResourceImportParser.parse(rawValue, descriptorInput.value.network)
+            ?: return false
+        when (parserResult) {
+            is UniformResourceResult.Descriptor -> applyUniformDescriptor(parserResult.descriptor, parserResult.changeDescriptor)
+            is UniformResourceResult.ExtendedKey -> applyUniformExtendedKey(parserResult)
+            is UniformResourceResult.Failure -> {
+                _uiState.update { it.copy(formError = parserResult.reason, isValidating = false) }
+            }
+        }
+        return true
+    }
+
+    private fun applyUniformDescriptor(descriptor: String, changeDescriptor: String?) {
+        val hasChange = !changeDescriptor.isNullOrBlank()
+        descriptorInput.update {
+            it.copy(
+                descriptor = descriptor,
+                changeDescriptor = changeDescriptor.orEmpty(),
+                lastNetworkMismatchPrompt = null
+            )
+        }
+        _uiState.update {
+            it.copy(
+                descriptor = descriptor,
+                changeDescriptor = changeDescriptor.orEmpty(),
+                showAdvanced = hasChange,
+                validation = DescriptorValidationResult.Idle,
+                isValidating = false,
+                formError = null,
+                networkMismatchDialog = null,
+                combinedDescriptorDialog = null,
+                importMode = WalletImportMode.DESCRIPTOR,
+                extendedDialog = null
+            )
+        }
+        scheduleValidation()
+    }
+
+    private fun applyUniformExtendedKey(result: UniformResourceResult.ExtendedKey) {
+        descriptorInput.update {
+            it.copy(
+                descriptor = "",
+                changeDescriptor = "",
+                lastNetworkMismatchPrompt = null
+            )
+        }
+        val cleanedPath = result.derivationPath?.removePrefix("m/").orEmpty()
+        val detection = ExtendedKeyDetection(
+            extendedKey = result.extendedKey,
+            network = result.detectedNetwork,
+            derivationPath = cleanedPath.ifBlank { null },
+            masterFingerprint = result.masterFingerprint,
+            includeChangeBranch = result.includeChange,
+            scriptType = result.scriptType
+        )
+        val currentState = _uiState.value
+        val scriptSelection = result.scriptType ?: detection.scriptType ?: currentState.extendedForm.scriptType
+        _uiState.update { state ->
+            state.copy(
+                descriptor = "",
+                changeDescriptor = "",
+                showAdvanced = false,
+                importMode = WalletImportMode.EXTENDED_KEY,
+                showExtendedAdvanced = state.showExtendedAdvanced ||
+                    cleanedPath.isNotEmpty() ||
+                    !result.masterFingerprint.isNullOrBlank(),
+                extendedForm = state.extendedForm.copy(
+                    extendedKey = result.extendedKey,
+                    derivationPath = cleanedPath,
+                    masterFingerprint = result.masterFingerprint.orEmpty(),
+                    scriptType = scriptSelection,
+                    includeChangeBranch = result.includeChange,
+                    errorMessage = null
+                ),
+                validation = DescriptorValidationResult.Idle,
+                isValidating = false,
+                formError = null,
+                networkMismatchDialog = null,
+                combinedDescriptorDialog = null,
+                extendedDialog = buildExtendedDialogState(detection)
+            )
+        }
+        scheduleExtendedKeyValidation()
+    }
+
     private fun maybeHandleExtendedKeyDetection(rawValue: String): Boolean {
         val detection = ExtendedKeyImportDetector.detect(rawValue) ?: return false
         descriptorInput.update {
@@ -675,7 +771,7 @@ class AddWalletViewModel @Inject constructor(
             derivationPath = detection.derivationPath,
             masterFingerprint = detection.masterFingerprint,
             availableTypes = ExtendedKeyScriptType.entries.toList(),
-            selectedType = null
+            selectedType = detection.scriptType
         )
     }
 
@@ -827,7 +923,8 @@ class AddWalletViewModel @Inject constructor(
         val network: BitcoinNetwork?,
         val derivationPath: String? = null,
         val masterFingerprint: String? = null,
-        val includeChangeBranch: Boolean = true
+        val includeChangeBranch: Boolean = true,
+        val scriptType: ExtendedKeyScriptType? = null
     )
 
     private sealed class ExtendedKeyDescriptorBuildResult {

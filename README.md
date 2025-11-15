@@ -10,6 +10,9 @@ UtxoPocket is an open-source Android app for monitoring multiple Bitcoin wallets
 - **UX with intent**: adaptive Compose UI, responsive loaders (e.g., Tor bootstrap progress), intentional micro-interactions.
 - **Reproducible & auditable**: deterministic build scripts and a strictly watch-only trust model.
 
+### Acknowledgements
+- Built with the [Hummingbird](https://github.com/sparrowwallet/hummingbird) UR toolkit by Sparrow Wallet (Apache-2.0).
+
 ---
 
 ## Installation
@@ -98,6 +101,7 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 - [Sentinel](https://code.samourai.io/wallet/sentinel-android)
 - [Ashigaru Wallet](https://ashigaru.rs/)
 - [Sparrow Wallet](https://github.com/sparrowwallet/sparrow)
+- [Hummingbird UR Toolkit](https://github.com/sparrowwallet/hummingbird)
 
 ---
 

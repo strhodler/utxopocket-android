@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.presentation.wallets.add
 
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
+import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
 
 data class AddWalletUiState(
     val descriptor: String = "",
@@ -35,13 +36,6 @@ data class CombinedDescriptorDialogState(
 enum class WalletImportMode {
     DESCRIPTOR,
     EXTENDED_KEY
-}
-
-enum class ExtendedKeyScriptType {
-    P2PKH,
-    P2SH_P2WPKH,
-    P2WPKH,
-    P2TR
 }
 
 data class ExtendedKeyFormState(
