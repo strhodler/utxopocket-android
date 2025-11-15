@@ -660,31 +660,61 @@ class DefaultAppPreferencesRepository @Inject constructor(
         private val PUBLIC_NODES = listOf(
             PublicNode(
                 id = "SIGNET_MEMPOOL_SPACE",
-                displayName = "Mempool.space Signet",
+                displayName = "Mempool.space",
                 endpoint = "ssl://mempool.space:60602",
                 network = BitcoinNetwork.SIGNET
             ),
             PublicNode(
                 id = "SETHFORPRIVACY_COM",
-                displayName = "Sethforprivacy Fulcrum",
+                displayName = "Seth For Privacy",
                 endpoint = "ssl://fulcrum.sethforprivacy.com:50002",
                 network = BitcoinNetwork.MAINNET
             ),
             PublicNode(
+                id = "BLOCKSTREAM_INFO",
+                displayName = "Blockstream",
+                endpoint = "ssl://electrum.blockstream.info:60002",
+                network = BitcoinNetwork.MAINNET
+            ),
+            PublicNode(
+                id = "BITAROO_NET",
+                displayName = "Bitaroo",
+                endpoint = "ssl://electrum.bitaroo.net:50002",
+                network = BitcoinNetwork.MAINNET
+            ),
+            PublicNode(
+                id = "DIY_NODES_COM",
+                displayName = "DIY Nodes",
+                endpoint = "ssl://electrum.diynodes.com:50002",
+                network = BitcoinNetwork.MAINNET
+            ),
+            PublicNode(
                 id = "TESTNET_BLOCKSTREAM_INFO",
-                displayName = "Blockstream Testnet3",
+                displayName = "Blockstream",
                 endpoint = "ssl://electrum.blockstream.info:60002",
                 network = BitcoinNetwork.TESTNET
             ),
             PublicNode(
+                id = "TESTNET_ARANGUREN",
+                displayName = "Aranguren",
+                endpoint = "ssl://testnet.aranguren.org:51002",
+                network = BitcoinNetwork.TESTNET
+            ),
+            PublicNode(
+                id = "TESTNET_QTORNADO",
+                displayName = "Qtornado",
+                endpoint = "ssl://testnet.qtornado.com:51002",
+                network = BitcoinNetwork.TESTNET
+            ),
+            PublicNode(
                 id = "TESTNET4_MEMPOOL_SPACE",
-                displayName = "Mempool.space Testnet4",
+                displayName = "Mempool.space",
                 endpoint = "ssl://mempool.space:40002",
                 network = BitcoinNetwork.TESTNET4
             ),
             PublicNode(
                 id = "TESTNET4_BLACKIE",
-                displayName = "Blackie Testnet4",
+                displayName = "Blackie",
                 endpoint = "ssl://blackie.c3-soft.com:57010",
                 network = BitcoinNetwork.TESTNET4
             )
