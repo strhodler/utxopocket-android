@@ -8,6 +8,7 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ListDisplayMode
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
+import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
@@ -66,6 +67,9 @@ class AddWalletViewModelTest {
         "wpkh([4ebcb1eb/84'/1'/0']tpubDC2Q4xK4XH72JGuTT792eTfxBibfTyyLCK3HYwdmJXJY1bKKvQ1y6Fgrd78EBYtFUJmZRAEBpuJp3SGMJ2QpYeaGmgQAfDGcTaqmYtD9uP6/0/*)#4dyrd2fc"
     private val changeDescriptor =
         "wpkh([4ebcb1eb/84'/1'/0']tpubDC2Q4xK4XH72JGuTT792eTfxBibfTyyLCK3HYwdmJXJY1bKKvQ1y6Fgrd78EBYtFUJmZRAEBpuJp3SGMJ2QpYeaGmgQAfDGcTaqmYtD9uP6/1/*)#yepzsleq"
+    private val sampleXpub =
+        "xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9YwgmzM2dVn1EzvQnUnxekxXGr1XcsU8ZP8KX2HFqRSbuuSSMzdg3NofM8JrjVNewc19h"
+    private val scriptTypeRequiredMessage = "Select the script type that matches your wallet export."
 
     @BeforeTest
     fun setUp() {
@@ -286,6 +290,84 @@ class AddWalletViewModelTest {
         assertEquals(externalDescriptor, state.descriptor)
         assertEquals(changeDescriptor, state.changeDescriptor)
         assertNull(state.combinedDescriptorDialog)
+    }
+
+    @Test
+    fun extendedKeyDetectionRequiresManualScriptSelectionBeforeValidation() = runTest {
+        val expectedDescriptor = "pkh($sampleXpub/0/*)"
+        val expectedChange = "pkh($sampleXpub/1/*)"
+        walletRepository.validationResult = DescriptorValidationResult.Valid(
+            descriptor = expectedDescriptor,
+            changeDescriptor = expectedChange,
+            type = DescriptorType.P2PKH,
+            hasWildcard = true
+        )
+
+        viewModel.onDescriptorChanged(sampleXpub)
+        advanceTimeBy(400)
+
+        val initialState = viewModel.uiState.value
+        assertEquals(WalletImportMode.EXTENDED_KEY, initialState.importMode)
+        assertEquals(sampleXpub, initialState.extendedForm.extendedKey)
+        assertNull(initialState.extendedForm.scriptType)
+        assertEquals(scriptTypeRequiredMessage, initialState.extendedForm.errorMessage)
+        val dialog = assertNotNull(initialState.extendedDialog)
+        assertNull(dialog.selectedType)
+
+        viewModel.onExtendedDialogTypeSelected(ExtendedKeyScriptType.P2PKH)
+        viewModel.onExtendedDialogConfirmed()
+        advanceTimeBy(400)
+
+        val validatedState = viewModel.uiState.value
+        val validation = assertIs<DescriptorValidationResult.Valid>(validatedState.validation)
+        assertEquals(expectedDescriptor, validation.descriptor)
+        assertEquals(expectedChange, validation.changeDescriptor)
+    }
+
+    @Test
+    fun extendedKeyModeRequiresExtendedKeyButKeepsGlobalErrorClear() = runTest {
+        viewModel.onImportModeSelected(WalletImportMode.EXTENDED_KEY)
+
+        val state = viewModel.uiState.value
+        assertEquals(WalletImportMode.EXTENDED_KEY, state.importMode)
+        assertNull(state.formError)
+        assertEquals("Extended public key is required for Extended Key import.", state.extendedForm.errorMessage)
+    }
+
+    @Test
+    fun extendedKeySubmitUsesSynthesizedDescriptors() = runTest {
+        val expectedDescriptor = "pkh($sampleXpub/0/*)"
+        val expectedChange = "pkh($sampleXpub/1/*)"
+        walletRepository.validationResult = DescriptorValidationResult.Valid(
+            descriptor = expectedDescriptor,
+            changeDescriptor = expectedChange,
+            type = DescriptorType.P2PKH,
+            hasWildcard = true
+        )
+        walletRepository.creationResult = WalletCreationResult.Success(
+            WalletSummary(
+                id = 10L,
+                name = "Extended import",
+                balanceSats = 0,
+                transactionCount = 0,
+                network = BitcoinNetwork.TESTNET,
+                lastSyncStatus = NodeStatus.Idle,
+                lastSyncTime = null
+            )
+        )
+
+        viewModel.onExtendedKeyChanged(sampleXpub)
+        viewModel.onImportModeSelected(WalletImportMode.EXTENDED_KEY)
+        viewModel.onExtendedKeyScriptTypeChanged(ExtendedKeyScriptType.P2PKH)
+        viewModel.onWalletNameChanged("Extended import")
+        advanceTimeBy(400)
+
+        viewModel.submit()
+        advanceUntilIdle()
+
+        val request = walletRepository.lastAddWalletRequest
+        assertEquals(expectedDescriptor, request?.descriptor)
+        assertEquals(expectedChange, request?.changeDescriptor)
     }
 }
 

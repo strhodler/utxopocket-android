@@ -124,6 +124,7 @@ private fun MoreScreen(
     viewModel: MoreViewModel
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    var snackbarBottomInset by remember { mutableStateOf(0.dp) }
 
     val networkState = viewModel.preferredNetwork.collectAsStateWithLifecycle()
     val network = networkState.value
@@ -131,9 +132,15 @@ private fun MoreScreen(
     var showFaucetDialog by remember { mutableStateOf(false) }
 
     Scaffold(
-        snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
+        snackbarHost = {
+            DismissibleSnackbarHost(
+                hostState = snackbarHostState,
+                bottomInset = snackbarBottomInset
+            )
+        },
         contentWindowInsets = ScreenScaffoldInsets
     ) { paddingValues ->
+        snackbarBottomInset = paddingValues.calculateBottomPadding()
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()

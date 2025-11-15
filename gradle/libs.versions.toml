@@ -32,6 +32,7 @@ rxandroid = "2.1.1"
 zxing = "4.3.0"
 splashscreen = "1.2.0"
 paging = "3.3.6"
+hummingbird = "1.7.4"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -85,6 +86,7 @@ vico-compose = { group = "com.patrykandpatrick.vico", name = "compose", version.
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
 androidx-paging-runtime = { group = "androidx.paging", name = "paging-runtime", version.ref = "paging" }
 androidx-paging-compose = { group = "androidx.paging", name = "paging-compose", version.ref = "paging" }
+sparrow-hummingbird = { group = "com.sparrowwallet", name = "hummingbird", version.ref = "hummingbird" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

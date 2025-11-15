@@ -93,6 +93,7 @@ dependencies {
     implementation(libs.androidx.security.crypto)
 
     implementation(libs.bdk.android)
+    implementation(libs.sparrow.hummingbird)
     implementation(libs.tor.android) {
         exclude(group = "info.guardianproject", module = "jtorctl")
     }
