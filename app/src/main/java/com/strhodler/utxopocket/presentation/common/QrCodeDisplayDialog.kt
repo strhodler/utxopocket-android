@@ -43,7 +43,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.strhodler.utxopocket.presentation.common.generateQrBitmap
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContex
+import kotlinx.coroutines.withContext
 @Composable
 fun QrCodeDisplayDialog(
     title: String,

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -50,10 +51,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -78,6 +77,8 @@ import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionInput
 import com.strhodler.utxopocket.domain.model.WalletTransactionOutput
+import com.strhodler.utxopocket.presentation.common.SectionCard
+import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.displayLabel
 import com.strhodler.utxopocket.domain.model.WalletDefaults
@@ -690,8 +691,14 @@ private fun TransactionDetailContent(
     modifier: Modifier = Modifier
 ) {
     val transaction = requireNotNull(state.transaction)
-    val clipboardManager = LocalClipboardManager.current
     val copyMessage = stringResource(id = R.string.transaction_detail_copy_toast)
+    val showShortMessage = remember(onShowMessage) {
+        { message: String -> onShowMessage(message, SnackbarDuration.Short) }
+    }
+    val copyToClipboard = rememberCopyToClipboard(
+        successMessage = copyMessage,
+        onShowMessage = showShortMessage
+    )
     val amountText = remember(transaction, state.balanceUnit) {
         transactionAmount(
             amountSats = transaction.amountSats,
@@ -809,8 +816,10 @@ private fun TransactionDetailContent(
                         badges = badges
                     )
                 }
-                DetailSection(
-                    title = stringResource(id = R.string.transaction_detail_flow_inputs)
+                SectionCard(
+                    title = stringResource(id = R.string.transaction_detail_flow_inputs),
+                    contentPadding = PaddingValues(16.dp),
+                    contentSpacing = 12.dp
                 ) {
                     TransactionFlowColumn(
                         items = inputDisplays,
@@ -857,8 +866,10 @@ private fun TransactionDetailContent(
                         highlighted = output.isMine
                     )
                 }
-                DetailSection(
-                    title = stringResource(id = R.string.transaction_detail_flow_outputs)
+                SectionCard(
+                    title = stringResource(id = R.string.transaction_detail_flow_outputs),
+                    contentPadding = PaddingValues(16.dp),
+                    contentSpacing = 12.dp
                 ) {
                     TransactionFlowColumn(
                         items = outputDisplays,
@@ -867,18 +878,17 @@ private fun TransactionDetailContent(
                 }
             }
 
-            DetailSection(
-                title = stringResource(id = R.string.transaction_detail_section_overview)
+            SectionCard(
+                title = stringResource(id = R.string.transaction_detail_section_overview),
+                contentPadding = PaddingValues(16.dp),
+                contentSpacing = 12.dp
             ) {
                 DetailRow(
                     label = stringResource(id = R.string.transaction_detail_id_label),
                     value = transaction.id,
                     singleLine = false,
                     trailing = {
-                        IconButton(onClick = {
-                            clipboardManager.setText(AnnotatedString(transaction.id))
-                            onShowMessage(copyMessage, SnackbarDuration.Short)
-                        }) {
+                        IconButton(onClick = { copyToClipboard(transaction.id) }) {
                             Icon(
                                 imageVector = Icons.Outlined.ContentCopy,
                                 contentDescription = stringResource(id = R.string.transaction_detail_copy_id)
@@ -895,8 +905,10 @@ private fun TransactionDetailContent(
                     value = feeRateLabel
                 )
             }
-            DetailSection(
-                title = stringResource(id = R.string.transaction_detail_section_status)
+            SectionCard(
+                title = stringResource(id = R.string.transaction_detail_section_status),
+                contentPadding = PaddingValues(16.dp),
+                contentSpacing = 12.dp
             ) {
                 DetailRow(
                     label = stringResource(id = R.string.transaction_detail_confirmations_label),
@@ -911,10 +923,7 @@ private fun TransactionDetailContent(
                     value = blockHashValue ?: stringResource(id = R.string.transaction_detail_unknown),
                     trailing = blockHashValue?.let {
                         {
-                        IconButton(onClick = {
-                            clipboardManager.setText(AnnotatedString(it))
-                            onShowMessage(copyMessage, SnackbarDuration.Short)
-                        }) {
+                        IconButton(onClick = { copyToClipboard(it) }) {
                             Icon(
                                 imageVector = Icons.Outlined.ContentCopy,
                                     contentDescription = stringResource(id = R.string.transaction_detail_copy_block_hash)
@@ -928,8 +937,10 @@ private fun TransactionDetailContent(
                 value = dateLabel
             )
         }
-            DetailSection(
-                title = stringResource(id = R.string.transaction_detail_section_size)
+            SectionCard(
+                title = stringResource(id = R.string.transaction_detail_section_size),
+                contentPadding = PaddingValues(16.dp),
+                contentSpacing = 12.dp
             ) {
                 DetailRow(
                     label = stringResource(id = R.string.transaction_detail_size_bytes),
@@ -953,8 +964,7 @@ private fun TransactionDetailContent(
                 TransactionHexBlock(
                     hex = rawHex,
                     onCopy = {
-                        clipboardManager.setText(AnnotatedString(rawHex))
-                        onShowMessage(copyMessage, SnackbarDuration.Short)
+                        copyToClipboard(rawHex)
                     }
                 )
             }
@@ -1064,8 +1074,11 @@ private fun UtxoDetailContent(
     val utxo = requireNotNull(state.utxo)
     val displayLabel = utxo.displayLabel
     val isInheritedLabel = utxo.label.isNullOrBlank() && !utxo.transactionLabel.isNullOrBlank()
-    val clipboardManager = LocalClipboardManager.current
     val copyMessage = stringResource(id = R.string.utxo_detail_copy_toast)
+    val copyToClipboard = rememberCopyToClipboard(
+        successMessage = copyMessage,
+        onShowMessage = { message -> onShowMessage(message, SnackbarDuration.Short) }
+    )
     val fullOutpoint = remember(utxo.txid, utxo.vout) { "${utxo.txid}:${utxo.vout}" }
     val displayOutpoint = remember(utxo.txid, utxo.vout) { formatOutPoint(utxo.txid, utxo.vout) }
     val confirmationsLabel = confirmationLabel(utxo.confirmations)
@@ -1137,17 +1150,16 @@ private fun UtxoDetailContent(
                 updating = spendableUpdating,
                 onToggle = onToggleSpendable
             )
-            DetailSection(
-                title = stringResource(id = R.string.utxo_detail_section_overview)
+            SectionCard(
+                title = stringResource(id = R.string.utxo_detail_section_overview),
+                contentPadding = PaddingValues(16.dp),
+                contentSpacing = 12.dp
             ) {
                 DetailRow(
                     label = stringResource(id = R.string.utxo_detail_outpoint_label),
                     value = fullOutpoint,
                     trailing = {
-                        IconButton(onClick = {
-                            clipboardManager.setText(AnnotatedString(fullOutpoint))
-                            onShowMessage(copyMessage, SnackbarDuration.Short)
-                        }) {
+                        IconButton(onClick = { copyToClipboard(fullOutpoint) }) {
                             Icon(
                                 imageVector = Icons.Outlined.ContentCopy,
                                 contentDescription = stringResource(id = R.string.utxo_detail_copy_outpoint)
@@ -1164,8 +1176,10 @@ private fun UtxoDetailContent(
                     value = confirmationsLabel
                 )
             }
-            DetailSection(
-                title = stringResource(id = R.string.utxo_detail_section_metadata)
+            SectionCard(
+                title = stringResource(id = R.string.utxo_detail_section_metadata),
+                contentPadding = PaddingValues(16.dp),
+                contentSpacing = 12.dp
             ) {
                 utxo.address?.let { address ->
                     DetailRow(
@@ -1173,10 +1187,7 @@ private fun UtxoDetailContent(
                         value = address,
                         singleLine = false,
                         trailing = {
-                            IconButton(onClick = {
-                                clipboardManager.setText(AnnotatedString(address))
-                                onShowMessage(copyMessage, SnackbarDuration.Short)
-                            }) {
+                            IconButton(onClick = { copyToClipboard(address) }) {
                                 Icon(
                                     imageVector = Icons.Outlined.ContentCopy,
                                     contentDescription = stringResource(id = R.string.utxo_detail_copy_address)
@@ -1202,10 +1213,7 @@ private fun UtxoDetailContent(
                     value = utxo.txid,
                     singleLine = false,
                     trailing = {
-                        IconButton(onClick = {
-                            clipboardManager.setText(AnnotatedString(utxo.txid))
-                            onShowMessage(copyMessage, SnackbarDuration.Short)
-                        }) {
+                        IconButton(onClick = { copyToClipboard(utxo.txid) }) {
                             Icon(
                                 imageVector = Icons.Outlined.ContentCopy,
                                 contentDescription = stringResource(id = R.string.utxo_detail_copy_txid)
@@ -1800,37 +1808,6 @@ private fun TransactionHealthSeverity.labelRes(): Int = when (this) {
     TransactionHealthSeverity.LOW -> R.string.transaction_health_severity_low
     TransactionHealthSeverity.MEDIUM -> R.string.transaction_health_severity_medium
     TransactionHealthSeverity.HIGH -> R.string.transaction_health_severity_high
-}
-
-@Composable
-private fun DetailSection(
-    title: String,
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-            content()
-        }
-    }
 }
 
 @Composable

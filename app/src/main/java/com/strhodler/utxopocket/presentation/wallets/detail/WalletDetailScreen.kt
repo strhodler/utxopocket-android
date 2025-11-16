@@ -79,16 +79,13 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -117,8 +114,6 @@ import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.domain.model.WalletHealthPillar
 import com.strhodler.utxopocket.domain.model.WalletHealthResult
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import com.strhodler.utxopocket.presentation.components.BalancePoint
 import com.strhodler.utxopocket.presentation.components.RefreshableContent
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
@@ -127,6 +122,7 @@ import com.strhodler.utxopocket.presentation.common.QrCodeDisplayDialog
 import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.common.balanceUnitLabel
 import com.strhodler.utxopocket.presentation.common.balanceValue
+import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.common.transactionAmount
 import com.strhodler.utxopocket.presentation.wallets.components.onGradient
 import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
@@ -276,34 +272,29 @@ private fun WalletDetailContent(
         }
     }
     val walletTheme = remember(summary.color) { summary.color.toTheme() }
-    val clipboardManager = LocalClipboardManager.current
-    val clipboardScope = rememberCoroutineScope()
     var descriptorForQr by remember { mutableStateOf<String?>(null) }
     var addressForQr by remember { mutableStateOf<WalletAddress?>(null) }
     val descriptorCopiedMessage =
         stringResource(id = R.string.wallet_detail_descriptor_copied_toast)
-    val handleDescriptorCopy: (String) -> Unit =
-        remember(descriptorCopiedMessage, clipboardManager, onShowMessage) {
-            { descriptor: String ->
-                clipboardManager.setText(AnnotatedString(descriptor))
-                onShowMessage(descriptorCopiedMessage, SnackbarDuration.Short)
-                clipboardScope.launch {
-                    delay(CLIPBOARD_CLEAR_DELAY_MS)
-                    if (clipboardManager.getText()?.text == descriptor) {
-                        clipboardManager.setText(AnnotatedString(""))
-                    }
-                }
-            }
-        }
+    val showShortMessage = remember(onShowMessage) {
+        { message: String -> onShowMessage(message, SnackbarDuration.Short) }
+    }
+    val handleDescriptorCopy = rememberCopyToClipboard(
+        successMessage = descriptorCopiedMessage,
+        onShowMessage = showShortMessage,
+        clearDelayMs = CLIPBOARD_CLEAR_DELAY_MS
+    )
     val addressCopyToast = stringResource(id = R.string.wallet_detail_address_copy_toast)
-    val handleAddressCopy =
-        remember(addressCopyToast, clipboardManager, onReceiveAddressCopied, onShowMessage) {
-            { address: WalletAddress ->
-                clipboardManager.setText(AnnotatedString(address.value))
-                onShowMessage(addressCopyToast, SnackbarDuration.Short)
-                onReceiveAddressCopied(address)
-            }
+    val addressCopyAction = rememberCopyToClipboard(
+        successMessage = addressCopyToast,
+        onShowMessage = showShortMessage
+    )
+    val handleAddressCopy = remember(addressCopyAction, onReceiveAddressCopied) {
+        { address: WalletAddress ->
+            addressCopyAction(address.value)
+            onReceiveAddressCopied(address)
         }
+    }
     var selectedBalancePoint by remember { mutableStateOf<BalancePoint?>(null) }
     LaunchedEffect(state.selectedRange) {
         selectedBalancePoint = null
@@ -619,10 +610,9 @@ private fun WalletDetailContent(
                                         address = address,
                                         copyEnabled = true,
                                         showQr = true,
-                                        onCopy = { onReceiveAddressCopied(address) },
+                                        onCopy = { handleAddressCopy(address) },
                                         onShowQr = { addressForQr = address },
-                                        onClick = { onAddressSelected(address) },
-                                        onShowMessage = onShowMessage
+                                        onClick = { onAddressSelected(address) }
                                     )
                                 }
                             }
@@ -1590,11 +1580,8 @@ private fun WalletAddressListItem(
     onCopy: (() -> Unit)? = null,
     onShowQr: (() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
-    onShowMessage: (String, SnackbarDuration) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
-    val clipboardManager = LocalClipboardManager.current
-    val copyToast = stringResource(id = R.string.wallet_detail_address_copy_toast)
     val indexLabel = stringResource(
         id = R.string.wallet_detail_address_derivation_index,
         address.derivationIndex
@@ -1651,11 +1638,7 @@ private fun WalletAddressListItem(
                         }
                         if (copyEnabled) {
                             IconButton(
-                                onClick = {
-                                    clipboardManager.setText(AnnotatedString(address.value))
-                                    onShowMessage(copyToast, SnackbarDuration.Short)
-                                    onCopy?.invoke()
-                                }
+                                onClick = { onCopy?.invoke() }
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.ContentCopy,

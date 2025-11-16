@@ -16,8 +16,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Warning
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,9 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -51,7 +47,9 @@ import com.strhodler.utxopocket.domain.model.AddressUsage
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.common.generateQrBitmap
+import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
@@ -306,8 +304,11 @@ private fun AddressOverviewCard(
     detail: WalletAddressDetail,
     onShowMessage: (String, SnackbarDuration) -> Unit
 ) {
-    val clipboardManager = LocalClipboardManager.current
     val copyToast = stringResource(id = R.string.address_detail_copy_toast)
+    val copyHandler = rememberCopyToClipboard(
+        successMessage = copyToast,
+        onShowMessage = { message -> onShowMessage(message, SnackbarDuration.Short) }
+    )
     val usageText = when (detail.usage) {
         AddressUsage.NEVER -> stringResource(id = R.string.address_detail_usage_never)
         AddressUsage.ONCE -> stringResource(id = R.string.address_detail_usage_once)
@@ -317,14 +318,13 @@ private fun AddressOverviewCard(
         )
     }
 
-    InfoCard(title = stringResource(id = R.string.address_detail_section_overview)) {
+    SectionCard(title = stringResource(id = R.string.address_detail_section_overview)) {
         CopyableValueRow(
             label = stringResource(id = R.string.address_detail_address_label),
             value = detail.value,
             copyContentDescription = stringResource(id = R.string.address_detail_copy_address)
         ) {
-            clipboardManager.setText(AnnotatedString(it))
-            onShowMessage(copyToast, SnackbarDuration.Short)
+            copyHandler(it)
         }
         InfoTextRow(
             label = stringResource(id = R.string.address_detail_path_label),
@@ -346,50 +346,26 @@ private fun AddressScriptCard(
     detail: WalletAddressDetail,
     onShowMessage: (String, SnackbarDuration) -> Unit
 ) {
-    val clipboardManager = LocalClipboardManager.current
     val copyToast = stringResource(id = R.string.address_detail_copy_toast)
+    val copyHandler = rememberCopyToClipboard(
+        successMessage = copyToast,
+        onShowMessage = { message -> onShowMessage(message, SnackbarDuration.Short) }
+    )
 
-    InfoCard(title = stringResource(id = R.string.address_detail_section_scripts)) {
+    SectionCard(title = stringResource(id = R.string.address_detail_section_scripts)) {
         CopyableTextBlock(
             label = stringResource(id = R.string.address_detail_script_label),
             value = detail.scriptPubKey,
             copyContentDescription = stringResource(id = R.string.address_detail_copy_script)
         ) {
-            clipboardManager.setText(AnnotatedString(it))
-            onShowMessage(copyToast, SnackbarDuration.Short)
+            copyHandler(it)
         }
         CopyableTextBlock(
             label = stringResource(id = R.string.address_detail_descriptor_label),
             value = detail.descriptor,
             copyContentDescription = stringResource(id = R.string.address_detail_copy_descriptor)
         ) {
-            clipboardManager.setText(AnnotatedString(it))
-            onShowMessage(copyToast, SnackbarDuration.Short)
-        }
-    }
-}
-
-@Composable
-private fun InfoCard(
-    title: String,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
-            content()
+            copyHandler(it)
         }
     }
 }
