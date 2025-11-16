@@ -13,6 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.glossary.GlossaryDetailRoute
 import com.strhodler.utxopocket.presentation.glossary.GlossaryNavigation
@@ -278,9 +279,15 @@ fun MainNavHost(
             )
         ) { backStackEntry ->
             val tabArg = backStackEntry.arguments?.getString(WalletsNavigation.NodeStatusTabArg)
+            val dynamicDefaultTab = if (statusBarState.nodeStatus == NodeStatus.Synced) {
+                WalletsNavigation.NodeStatusTabDestination.Overview
+            } else {
+                WalletsNavigation.NodeStatusTabDestination.Management
+            }
             val initialTabIndex = when (tabArg) {
                 WalletsNavigation.NodeStatusTabDestination.Management.argValue -> 1
-                else -> 0
+                WalletsNavigation.NodeStatusTabDestination.Overview.argValue -> 0
+                else -> if (dynamicDefaultTab == WalletsNavigation.NodeStatusTabDestination.Management) 1 else 0
             }
             NodeStatusRoute(
                 status = statusBarState,
