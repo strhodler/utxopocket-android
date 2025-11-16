@@ -6,7 +6,6 @@ import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
-import com.strhodler.utxopocket.domain.model.ListDisplayMode
 import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeConfig
@@ -237,7 +236,6 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
     override val themePreference: Flow<ThemePreference> = MutableStateFlow(ThemePreference.SYSTEM)
     override val appLanguage: Flow<AppLanguage> = MutableStateFlow(AppLanguage.EN)
     override val balanceUnit: Flow<BalanceUnit> = MutableStateFlow(BalanceUnit.SATS)
-    override val listDisplayMode: Flow<ListDisplayMode> = MutableStateFlow(ListDisplayMode.Cards)
     override val walletAnimationsEnabled: Flow<Boolean> = MutableStateFlow(true)
     override val walletBalanceRange: Flow<BalanceRange> = MutableStateFlow(BalanceRange.LastYear)
     override val advancedMode: Flow<Boolean> = MutableStateFlow(false)
@@ -267,8 +265,6 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
     override suspend fun setAppLanguage(language: AppLanguage) = Unit
 
     override suspend fun setBalanceUnit(unit: BalanceUnit) = Unit
-
-    override suspend fun setListDisplayMode(mode: ListDisplayMode) = Unit
 
     override suspend fun setWalletAnimationsEnabled(enabled: Boolean) = Unit
 

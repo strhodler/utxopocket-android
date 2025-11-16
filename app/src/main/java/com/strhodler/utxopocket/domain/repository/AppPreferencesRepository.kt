@@ -4,7 +4,6 @@ import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
-import com.strhodler.utxopocket.domain.model.ListDisplayMode
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
@@ -18,7 +17,6 @@ interface AppPreferencesRepository {
     val themePreference: Flow<ThemePreference>
     val appLanguage: Flow<AppLanguage>
     val balanceUnit: Flow<BalanceUnit>
-    val listDisplayMode: Flow<ListDisplayMode>
     val walletAnimationsEnabled: Flow<Boolean>
     val walletBalanceRange: Flow<BalanceRange>
     val advancedMode: Flow<Boolean>
@@ -37,7 +35,6 @@ interface AppPreferencesRepository {
     suspend fun setThemePreference(themePreference: ThemePreference)
     suspend fun setAppLanguage(language: AppLanguage)
     suspend fun setBalanceUnit(unit: BalanceUnit)
-    suspend fun setListDisplayMode(mode: ListDisplayMode)
     suspend fun setWalletAnimationsEnabled(enabled: Boolean)
     suspend fun setWalletBalanceRange(range: BalanceRange)
     suspend fun setAdvancedMode(enabled: Boolean)

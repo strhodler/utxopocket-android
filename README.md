@@ -106,6 +106,10 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 
 ---
 
+Join telegram group: https://t.me/+6fel_1iKvQxmNzdk
+
+---
+
 ## License
 Released under the [MIT License](LICENSE). Third-party libraries bundled with UtxoPocket retain their original licenses.
 

@@ -165,6 +165,7 @@
     <string name="wallet_detail_export_chooser_title">Share BIP-329 labels</string>
     <string name="wallet_detail_import_error">Failed to import labels</string>
     <string name="wallet_detail_import_file_error">Unable to read the selected file</string>
+    <string name="wallet_detail_import_no_transactions">Import labels after this wallet has at least one transaction</string>
     <string name="wallet_detail_import_summary">Tx labels: %1$d · Outputs: %2$d · Spendable: %3$d · Skipped: %4$d · Invalid: %5$d</string>
     <string name="wallet_detail_rename_title">Rename wallet</string>
     <string name="wallet_detail_rename_field_label">Wallet name</string>
@@ -358,7 +359,7 @@
     <string name="utxo_detail_label_error">Unable to update label</string>
     <string name="utxo_detail_label_inherited">Inherited from the transaction label</string>
     <string name="utxo_detail_spendable_toggle_label">Spendable in this wallet</string>
-    <string name="utxo_detail_spendable_toggle_hint">Disable to freeze the coin until you re-enable it.</string>
+    <string name="utxo_detail_spendable_toggle_hint">Decide whether this coin should appear as spendable when exporting BIP-329 to your signing wallet.</string>
     <string name="utxo_detail_spendable_success">Spendable flag updated</string>
     <string name="utxo_detail_spendable_error">Unable to update the spendable flag</string>
     <string name="utxo_detail_network">Network</string>
@@ -625,12 +626,7 @@
     <string name="settings_language_value_en">English</string>
     <string name="settings_language_value_es">Spanish</string>
     <string name="settings_display_unit_label">Display units</string>
-    <string name="settings_display_mode_label">List render mode</string>
     <string name="settings_theme_label">Theme</string>
-    <string name="settings_display_density_description">Choose how lists render UTXOs and transactions.</string>
-    <string name="settings_display_density_compact">Compact</string>
-    <string name="settings_display_density_cards">Cards</string>
-    <string name="settings_display_density_hint">Compact keeps fast lists; cards surface IDs, addresses, and warnings inline.</string>
     <string name="settings_option_enabled">Enabled</string>
     <string name="settings_option_disabled">Disabled</string>
     <string name="settings_wallet_animations_title">Wallet animations</string>

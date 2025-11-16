@@ -5,7 +5,6 @@ import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
-import com.strhodler.utxopocket.domain.model.ListDisplayMode
 import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
@@ -113,8 +112,6 @@ class NodeStatusViewModelTest {
             MutableStateFlow(AppLanguage.EN)
         override val balanceUnit: StateFlow<BalanceUnit> =
             MutableStateFlow(BalanceUnit.SATS)
-        override val listDisplayMode: StateFlow<ListDisplayMode> =
-            MutableStateFlow(ListDisplayMode.Cards)
         override val walletAnimationsEnabled: StateFlow<Boolean> = MutableStateFlow(true)
         override val walletBalanceRange: StateFlow<BalanceRange> =
             MutableStateFlow(BalanceRange.LastYear)
@@ -140,7 +137,6 @@ class NodeStatusViewModelTest {
         override suspend fun setThemePreference(themePreference: ThemePreference) = Unit
         override suspend fun setAppLanguage(language: AppLanguage) = Unit
         override suspend fun setBalanceUnit(unit: BalanceUnit) = Unit
-        override suspend fun setListDisplayMode(mode: ListDisplayMode) = Unit
         override suspend fun setWalletAnimationsEnabled(enabled: Boolean) = Unit
         override suspend fun setWalletBalanceRange(range: BalanceRange) = Unit
         override suspend fun setAdvancedMode(enabled: Boolean) = Unit

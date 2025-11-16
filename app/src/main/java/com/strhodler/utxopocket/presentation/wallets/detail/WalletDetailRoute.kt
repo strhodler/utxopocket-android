@@ -145,6 +145,7 @@ fun WalletDetailRoute(
     val sharedDescriptorsErrorMessage = stringResource(id = R.string.wallet_detail_shared_descriptors_error)
     val importErrorMessage = stringResource(id = R.string.wallet_detail_import_error)
     val importFileErrorMessage = stringResource(id = R.string.wallet_detail_import_file_error)
+    val importNoTransactionsMessage = stringResource(id = R.string.wallet_detail_import_no_transactions)
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         coroutineScope.launch {
@@ -379,6 +380,10 @@ fun WalletDetailRoute(
                         onClick = {
                             menuExpanded = false
                             if (importInProgress) {
+                                return@DropdownMenuItem
+                            }
+                            if (state.transactionsCount == 0) {
+                                showSnackbar(importNoTransactionsMessage, SnackbarDuration.Short)
                                 return@DropdownMenuItem
                             }
                             importLauncher.launch(

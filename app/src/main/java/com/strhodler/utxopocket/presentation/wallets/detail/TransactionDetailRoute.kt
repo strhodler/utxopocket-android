@@ -724,16 +724,9 @@ private fun TransactionDetailContent(
             amountText = amountText,
             feeRateLabel = feeRateLabel,
             confirmationsLabel = confirmationsLabel,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        LabelChip(
             label = transaction.label,
-            addLabelRes = R.string.transaction_detail_label_add_action,
-            editLabelRes = R.string.transaction_detail_label_edit_action,
-            onClick = { onEditTransactionLabel(transaction.label) },
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
+            onEditLabel = { onEditTransactionLabel(transaction.label) },
+            modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
         Column(
@@ -977,6 +970,8 @@ private fun TransactionDetailHeader(
     amountText: String,
     feeRateLabel: String,
     confirmationsLabel: String,
+    label: String?,
+    onEditLabel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val headerTheme = rememberDetailHeaderTheme()
@@ -1027,6 +1022,12 @@ private fun TransactionDetailHeader(
             TransactionChip(text = feeRateLabel, contentColor = contentColor)
             TransactionChip(text = confirmationsLabel, contentColor = contentColor)
         }
+        LabelChip(
+            label = label,
+            addLabelRes = R.string.transaction_detail_label_add_action,
+            editLabelRes = R.string.transaction_detail_label_edit_action,
+            onClick = onEditLabel
+        )
     }
 }
 
@@ -1099,10 +1100,7 @@ private fun UtxoDetailContent(
             unit = state.balanceUnit,
             label = displayLabel,
             isInherited = isInheritedLabel,
-            spendable = utxo.spendable,
-            spendableUpdating = spendableUpdating,
             onEditLabel = { onEditLabel(displayLabel) },
-            onToggleSpendable = onToggleSpendable,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -1134,6 +1132,11 @@ private fun UtxoDetailContent(
                     )
                 }
             }
+            SpendableToggleCard(
+                spendable = utxo.spendable,
+                updating = spendableUpdating,
+                onToggle = onToggleSpendable
+            )
             DetailSection(
                 title = stringResource(id = R.string.utxo_detail_section_overview)
             ) {
@@ -1227,10 +1230,7 @@ private fun UtxoDetailHeader(
     unit: BalanceUnit,
     label: String?,
     isInherited: Boolean,
-    spendable: Boolean,
-    spendableUpdating: Boolean,
     onEditLabel: () -> Unit,
-    onToggleSpendable: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val headerTheme = rememberDetailHeaderTheme()
@@ -1288,30 +1288,46 @@ private fun UtxoDetailHeader(
                 textAlign = TextAlign.Center
             )
         }
+    }
+}
+
+@Composable
+private fun SpendableToggleCard(
+    spendable: Boolean,
+    updating: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(20.dp)
+    ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = stringResource(id = R.string.utxo_detail_spendable_toggle_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = contentColor
+                    style = MaterialTheme.typography.titleMedium
                 )
                 Switch(
                     checked = spendable,
-                    onCheckedChange = { onToggleSpendable(it) },
-                    enabled = !spendableUpdating
+                    onCheckedChange = { onToggle(it) },
+                    enabled = !updating
                 )
             }
             Text(
                 text = stringResource(id = R.string.utxo_detail_spendable_toggle_hint),
                 style = MaterialTheme.typography.bodySmall,
-                color = contentColor.copy(alpha = 0.9f),
-                textAlign = TextAlign.Center
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

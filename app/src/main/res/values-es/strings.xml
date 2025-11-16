@@ -92,12 +92,7 @@
     <string name="settings_unit_btc">BTC</string>
     <string name="settings_unit_sats">sats</string>
     <string name="settings_display_unit_label">Unidades de visualización</string>
-    <string name="settings_display_mode_label">Modo de lista</string>
     <string name="settings_theme_label">Tema</string>
-    <string name="settings_display_density_description">Elige cómo muestran las listas UTXOs y transacciones.</string>
-    <string name="settings_display_density_compact">Compacto</string>
-    <string name="settings_display_density_cards">Tarjetas</string>
-    <string name="settings_display_density_hint">Compacto mantiene listas rápidas; tarjetas muestran IDs, direcciones y alertas.</string>
     <string name="settings_pin_title">PIN de la app</string>
     <string name="settings_pin_subtitle">Solicita un PIN de 6 dígitos al abrir la app.</string>
     <string name="settings_active_network">Red activa: %1$s</string>
@@ -302,7 +297,7 @@
     <string name="utxo_detail_label_error">No se pudo actualizar la etiqueta</string>
     <string name="utxo_detail_label_inherited">Heredada de la etiqueta de la transacción</string>
     <string name="utxo_detail_spendable_toggle_label">Gastable desde esta wallet</string>
-    <string name="utxo_detail_spendable_toggle_hint">Desactiva para congelar la moneda hasta que la vuelvas a habilitar.</string>
+    <string name="utxo_detail_spendable_toggle_hint">Define si esta moneda debe aparecer como gastable cuando exportes BIP-329 hacia tu billetera de gasto.</string>
     <string name="utxo_detail_spendable_success">Estado de gasto actualizado</string>
     <string name="utxo_detail_spendable_error">No se pudo actualizar el estado de gasto</string>
     <string name="utxo_detail_network">Red</string>
@@ -661,6 +656,7 @@
     <string name="wallet_detail_export_chooser_title">Compartir etiquetas BIP‑329</string>
     <string name="wallet_detail_import_error">Error al importar las etiquetas</string>
     <string name="wallet_detail_import_file_error">No se pudo leer el archivo seleccionado</string>
+    <string name="wallet_detail_import_no_transactions">Importa etiquetas cuando esta billetera tenga al menos una transacción</string>
     <string name="wallet_detail_import_summary">Tx: %1$d · Salidas: %2$d · Gastable: %3$d · Omitidas: %4$d · Inválidas: %5$d</string>
     <string name="wallet_detail_rename_title">Renombrar billetera</string>
     <string name="wallet_detail_rename_field_label">Nombre de la billetera</string>
