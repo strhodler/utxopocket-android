@@ -745,7 +745,7 @@ private fun nodeStatusMessage(status: NodeStatus): String = when (status) {
     NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
     NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
     NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
-    is NodeStatus.Error -> status.message
+    is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
 }
 
 @Composable

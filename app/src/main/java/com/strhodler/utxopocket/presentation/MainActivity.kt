@@ -389,9 +389,7 @@ private fun StatusBar(
             NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
             NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
             NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
-            is NodeStatus.Error -> status.message.ifBlank {
-                stringResource(id = R.string.wallets_state_connecting)
-            }
+            is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
         }
         val subtitleText = when {
             blockHeightLabel != null && feeRateLabel != null -> "$blockHeightLabel · $feeRateLabel"
