@@ -18,6 +18,7 @@ import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
+import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import kotlinx.coroutines.flow.Flow
 
 interface WalletRepository {
@@ -60,8 +61,11 @@ interface WalletRepository {
     ): WalletAddressDetail?
     suspend fun markAddressAsUsed(walletId: Long, type: WalletAddressType, derivationIndex: Int)
     suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?)
+    suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?)
+    suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?)
     suspend fun renameWallet(id: Long, name: String)
     suspend fun exportWalletLabels(walletId: Long): WalletLabelExport
+    suspend fun importWalletLabels(walletId: Long, payload: ByteArray): Bip329ImportResult
     fun setSyncForegroundState(isForeground: Boolean)
 }
 

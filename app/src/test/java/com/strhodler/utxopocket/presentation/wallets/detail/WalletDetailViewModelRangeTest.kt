@@ -6,7 +6,6 @@ import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
-import com.strhodler.utxopocket.domain.model.ListDisplayMode
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
@@ -229,10 +228,17 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
 
+        override suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?) = Unit
+
+        override suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?) = Unit
+
         override suspend fun renameWallet(id: Long, name: String) = Unit
 
         override suspend fun exportWalletLabels(walletId: Long) =
             throw UnsupportedOperationException("Not required for test")
+
+        override suspend fun importWalletLabels(walletId: Long, payload: ByteArray): com.strhodler.utxopocket.domain.model.Bip329ImportResult =
+            com.strhodler.utxopocket.domain.model.Bip329ImportResult(0, 0, 0, 0, 0)
 
         override fun setSyncForegroundState(isForeground: Boolean) = Unit
 
@@ -328,7 +334,6 @@ class WalletDetailViewModelRangeTest {
         private val themePreferenceState = MutableStateFlow(ThemePreference.SYSTEM)
         private val appLanguageState = MutableStateFlow(AppLanguage.EN)
         private val balanceUnitState = MutableStateFlow(BalanceUnit.DEFAULT)
-        private val listDisplayModeState = MutableStateFlow(ListDisplayMode.Cards)
         private val walletAnimationsEnabledState = MutableStateFlow(true)
         private val balanceRangeState = MutableStateFlow(BalanceRange.LastYear)
         private val advancedModeState = MutableStateFlow(false)
@@ -347,7 +352,6 @@ class WalletDetailViewModelRangeTest {
         override val themePreference: Flow<ThemePreference> = themePreferenceState
         override val appLanguage: Flow<AppLanguage> = appLanguageState
         override val balanceUnit: Flow<BalanceUnit> = balanceUnitState
-        override val listDisplayMode: Flow<ListDisplayMode> = listDisplayModeState
         override val walletAnimationsEnabled: Flow<Boolean> = walletAnimationsEnabledState
         override val walletBalanceRange: Flow<BalanceRange> = balanceRangeState
         override val advancedMode: Flow<Boolean> = advancedModeState
@@ -382,10 +386,6 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun setBalanceUnit(unit: BalanceUnit) {
             balanceUnitState.value = unit
-        }
-
-        override suspend fun setListDisplayMode(mode: ListDisplayMode) {
-            listDisplayModeState.value = mode
         }
 
         override suspend fun setWalletAnimationsEnabled(enabled: Boolean) {

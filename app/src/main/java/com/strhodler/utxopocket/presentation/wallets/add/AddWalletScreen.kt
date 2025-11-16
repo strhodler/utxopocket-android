@@ -395,7 +395,9 @@ private fun ImportModeTabs(
     val selectedIndex = modes.indexOf(selectedMode).coerceAtLeast(0)
     TabRow(
         selectedTabIndex = selectedIndex,
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.primary
     ) {
         modes.forEach { mode ->
             val label = when (mode) {

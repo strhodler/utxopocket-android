@@ -18,7 +18,6 @@ import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
-import com.strhodler.utxopocket.domain.model.ListDisplayMode
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
@@ -62,7 +61,6 @@ class SettingsViewModel @Inject constructor(
                 appPreferencesRepository.themePreference,
                 appPreferencesRepository.appLanguage,
                 appPreferencesRepository.balanceUnit,
-                appPreferencesRepository.listDisplayMode,
                 appPreferencesRepository.walletAnimationsEnabled,
                 appPreferencesRepository.advancedMode,
                 appPreferencesRepository.transactionAnalysisEnabled,
@@ -81,17 +79,16 @@ class SettingsViewModel @Inject constructor(
                 val themePreference = values[4] as ThemePreference
                 val appLanguage = values[5] as AppLanguage
                 val balanceUnit = values[6] as BalanceUnit
-                val listDisplayMode = values[7] as ListDisplayMode
-                val walletAnimationsEnabled = values[8] as Boolean
-                val advancedMode = values[9] as Boolean
-                val transactionAnalysisEnabled = values[10] as Boolean
-                val utxoHealthEnabled = values[11] as Boolean
-                val walletHealthEnabled = values[12] as Boolean
-                val dustThreshold = values[13] as Long
-                val transactionParameters = values[14] as TransactionHealthParameters
-                val utxoParameters = values[15] as UtxoHealthParameters
-                val nodeConfig = values[16] as NodeConfig
-                val nodeSnapshot = values[17] as NodeStatusSnapshot
+                val walletAnimationsEnabled = values[7] as Boolean
+                val advancedMode = values[8] as Boolean
+                val transactionAnalysisEnabled = values[9] as Boolean
+                val utxoHealthEnabled = values[10] as Boolean
+                val walletHealthEnabled = values[11] as Boolean
+                val dustThreshold = values[12] as Long
+                val transactionParameters = values[13] as TransactionHealthParameters
+                val utxoParameters = values[14] as UtxoHealthParameters
+                val nodeConfig = values[15] as NodeConfig
+                val nodeSnapshot = values[16] as NodeStatusSnapshot
                 val previous = _uiState.value
 
                 val walletHealthToggleEnabled = transactionAnalysisEnabled && utxoHealthEnabled
@@ -118,7 +115,6 @@ class SettingsViewModel @Inject constructor(
                     pinEnabled = pinEnabled,
                     preferredNetwork = network,
                     preferredUnit = balanceUnit,
-                    listDisplayMode = listDisplayMode,
                     advancedMode = advancedMode,
                     walletAnimationsEnabled = walletAnimationsEnabled,
                     transactionAnalysisEnabled = transactionAnalysisEnabled,
@@ -206,13 +202,6 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(themePreference = themePreference) }
         viewModelScope.launch {
             appPreferencesRepository.setThemePreference(themePreference)
-        }
-    }
-
-    fun onDisplayModeSelected(mode: ListDisplayMode) {
-        _uiState.update { it.copy(listDisplayMode = mode) }
-        viewModelScope.launch {
-            appPreferencesRepository.setListDisplayMode(mode)
         }
     }
 

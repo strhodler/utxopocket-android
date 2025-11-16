@@ -236,17 +236,30 @@ interface WalletDao {
 
     @Query(
         """
-        SELECT txid, vout, label 
-        FROM wallet_utxos 
-        WHERE wallet_id = :walletId 
-          AND label IS NOT NULL 
-          AND TRIM(label) != ''
+        SELECT txid, vout, label, spendable
+        FROM wallet_utxos
+        WHERE wallet_id = :walletId
         """
     )
-    suspend fun getUtxoLabels(walletId: Long): List<UtxoLabelProjection>
+    suspend fun getUtxoMetadata(walletId: Long): List<UtxoMetadataProjection>
+
+    @Query(
+        """
+        SELECT txid, label
+        FROM wallet_transactions
+        WHERE wallet_id = :walletId
+        """
+    )
+    suspend fun getTransactionLabels(walletId: Long): List<TransactionLabelProjection>
 
     @Query("UPDATE wallet_utxos SET label = :label WHERE wallet_id = :walletId AND txid = :txid AND vout = :vout")
     suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?)
+
+    @Query("UPDATE wallet_transactions SET label = :label WHERE wallet_id = :walletId AND txid = :txid")
+    suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?)
+
+    @Query("UPDATE wallet_utxos SET spendable = :spendable WHERE wallet_id = :walletId AND txid = :txid AND vout = :vout")
+    suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?)
 
     @Query("UPDATE wallets SET name = :name WHERE id = :id")
     suspend fun updateWalletName(id: Long, name: String)
@@ -352,10 +365,16 @@ interface WalletDao {
     }
 }
 
-data class UtxoLabelProjection(
+data class UtxoMetadataProjection(
     val txid: String,
     val vout: Int,
-    val label: String
+    val label: String?,
+    val spendable: Boolean?
+)
+
+data class TransactionLabelProjection(
+    val txid: String,
+    val label: String?
 )
 
 data class AddressReuseCountProjection(
