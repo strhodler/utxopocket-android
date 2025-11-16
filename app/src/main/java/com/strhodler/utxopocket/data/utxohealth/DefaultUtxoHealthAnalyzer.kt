@@ -9,6 +9,7 @@ import com.strhodler.utxopocket.domain.model.UtxoHealthResult
 import com.strhodler.utxopocket.domain.model.UtxoHealthSeverity
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletUtxo
+import com.strhodler.utxopocket.domain.model.displayLabel
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.service.UtxoHealthAnalyzer
 import javax.inject.Inject
@@ -111,7 +112,7 @@ class DefaultUtxoHealthAnalyzer @Inject constructor() : UtxoHealthAnalyzer {
         utxo: WalletUtxo,
         parameters: UtxoHealthParameters
     ): UtxoHealthIndicator? {
-        if (!utxo.label.isNullOrBlank()) return null
+        if (!utxo.displayLabel.isNullOrBlank()) return null
         if (utxo.valueSats < parameters.highValueThresholdSats) return null
         return UtxoHealthIndicator(
             type = UtxoHealthIndicatorType.MISSING_LABEL,
@@ -129,7 +130,7 @@ class DefaultUtxoHealthAnalyzer @Inject constructor() : UtxoHealthAnalyzer {
         parameters: UtxoHealthParameters
     ): UtxoHealthIndicator? {
         if (utxo.confirmations < parameters.longInactiveConfirmations) return null
-        if (!utxo.label.isNullOrBlank()) return null
+        if (!utxo.displayLabel.isNullOrBlank()) return null
         return UtxoHealthIndicator(
             type = UtxoHealthIndicatorType.LONG_INACTIVE,
             delta = LONG_INACTIVE_PENALTY,
@@ -146,7 +147,7 @@ class DefaultUtxoHealthAnalyzer @Inject constructor() : UtxoHealthAnalyzer {
         parameters: UtxoHealthParameters
     ): UtxoHealthIndicator? {
         if (utxo.valueSats < parameters.wellDocumentedValueThresholdSats) return null
-        if (utxo.label.isNullOrBlank()) return null
+        val resolvedLabel = utxo.displayLabel ?: return null
         return UtxoHealthIndicator(
             type = UtxoHealthIndicatorType.WELL_DOCUMENTED_HIGH_VALUE,
             delta = WELL_DOCUMENTED_BONUS,
@@ -154,7 +155,7 @@ class DefaultUtxoHealthAnalyzer @Inject constructor() : UtxoHealthAnalyzer {
             pillar = UtxoHealthPillar.INVENTORY,
             evidence = mapOf(
                 "valueSat" to utxo.valueSats.toString(),
-                "label" to utxo.label.orEmpty()
+                "label" to resolvedLabel
             )
         )
     }

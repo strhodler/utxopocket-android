@@ -116,6 +116,7 @@ data class WalletTransaction(
     val timestamp: Long?,
     val type: TransactionType,
     val confirmations: Int,
+    val label: String? = null,
     val blockHeight: Int? = null,
     val blockHash: String? = null,
     val sizeBytes: Long? = null,
@@ -141,6 +142,8 @@ data class WalletUtxo(
     val valueSats: Long,
     val confirmations: Int,
     val label: String? = null,
+    val transactionLabel: String? = null,
+    val spendable: Boolean = true,
     val status: UtxoStatus = if (confirmations > 0) UtxoStatus.CONFIRMED else UtxoStatus.PENDING,
     val address: String? = null,
     val addressType: WalletAddressType? = null,
@@ -183,6 +186,9 @@ data class WalletAddressDetail(
 
 val WalletUtxo.isAddressReused: Boolean
     get() = addressReuseCount > 1
+
+val WalletUtxo.displayLabel: String?
+    get() = label ?: transactionLabel
 
 data class WalletTransactionInput(
     val prevTxid: String,

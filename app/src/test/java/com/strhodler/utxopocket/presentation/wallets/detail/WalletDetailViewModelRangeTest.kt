@@ -229,10 +229,17 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
 
+        override suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?) = Unit
+
+        override suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?) = Unit
+
         override suspend fun renameWallet(id: Long, name: String) = Unit
 
         override suspend fun exportWalletLabels(walletId: Long) =
             throw UnsupportedOperationException("Not required for test")
+
+        override suspend fun importWalletLabels(walletId: Long, payload: ByteArray): com.strhodler.utxopocket.domain.model.Bip329ImportResult =
+            com.strhodler.utxopocket.domain.model.Bip329ImportResult(0, 0, 0, 0, 0)
 
         override fun setSyncForegroundState(isForeground: Boolean) = Unit
 

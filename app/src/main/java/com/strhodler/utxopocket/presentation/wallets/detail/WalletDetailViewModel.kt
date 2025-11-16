@@ -25,8 +25,10 @@ import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
+import com.strhodler.utxopocket.domain.model.displayLabel
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import com.strhodler.utxopocket.domain.model.WalletLabelExport
+import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.ListDisplayMode
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.TransactionHealthRepository
@@ -495,6 +497,13 @@ class WalletDetailViewModel @Inject constructor(
         }
     }
 
+    fun importLabels(payload: ByteArray, onResult: (Result<Bip329ImportResult>) -> Unit) {
+        viewModelScope.launch {
+            val result = runCatching { walletRepository.importWalletLabels(walletId, payload) }
+            onResult(result)
+        }
+    }
+
     private fun observeBalanceRangePreference() {
         viewModelScope.launch {
             appPreferencesRepository.walletBalanceRange.collect { range ->
@@ -640,7 +649,7 @@ data class UtxoLabelFilter(
     val showsAll: Boolean get() = showLabeled && showUnlabeled
 
     fun matches(utxo: WalletUtxo): Boolean {
-        val hasLabel = !utxo.label.isNullOrBlank()
+        val hasLabel = !utxo.displayLabel.isNullOrBlank()
         return if (hasLabel) {
             showLabeled
         } else {

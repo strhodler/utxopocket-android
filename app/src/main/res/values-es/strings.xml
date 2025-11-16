@@ -216,6 +216,16 @@
 
     <!-- Transaction detail -->
     <string name="transaction_detail_title">Detalles de la transacción</string>
+    <string name="transaction_detail_label_add_title">Agregar etiqueta de transacción</string>
+    <string name="transaction_detail_label_edit_title">Editar etiqueta de transacción</string>
+    <string name="transaction_detail_label_field_label">Etiqueta de transacción</string>
+    <string name="transaction_detail_label_placeholder">Describe el flujo (salario, intercambio P2P, pago…)</string>
+    <string name="transaction_detail_label_support">Caracteres restantes: %1$d</string>
+    <string name="transaction_detail_label_hint">Las etiquetas mantienen el contexto y se sincronizan mediante BIP-329.</string>
+    <string name="transaction_detail_label_add_action">Agregar etiqueta de transacción</string>
+    <string name="transaction_detail_label_edit_action">Editar etiqueta de transacción</string>
+    <string name="transaction_detail_label_success">Etiqueta de transacción guardada</string>
+    <string name="transaction_detail_label_error">No se pudo guardar la etiqueta de la transacción</string>
     <string name="transaction_detail_not_found">No se encontró la transacción.</string>
     <string name="transaction_detail_copy_toast">Copiado al portapapeles</string>
     <string name="transaction_detail_section_flow">Gráfico de transacción</string>
@@ -290,6 +300,11 @@
     <string name="utxo_detail_label_cancel_action">Cancelar</string>
     <string name="utxo_detail_label_success">Etiqueta guardada</string>
     <string name="utxo_detail_label_error">No se pudo actualizar la etiqueta</string>
+    <string name="utxo_detail_label_inherited">Heredada de la etiqueta de la transacción</string>
+    <string name="utxo_detail_spendable_toggle_label">Gastable desde esta wallet</string>
+    <string name="utxo_detail_spendable_toggle_hint">Desactiva para congelar la moneda hasta que la vuelvas a habilitar.</string>
+    <string name="utxo_detail_spendable_success">Estado de gasto actualizado</string>
+    <string name="utxo_detail_spendable_error">No se pudo actualizar el estado de gasto</string>
     <string name="utxo_detail_network">Red</string>
     <string name="utxo_detail_outpoint_label">Salida</string>
     <string name="utxo_detail_address">Dirección</string>
@@ -634,7 +649,8 @@
     <string name="wallet_detail_menu_overflow">Acciones de la billetera</string>
     <string name="wallet_detail_menu_edit">Editar billetera</string>
     <string name="wallet_detail_menu_color">Color</string>
-    <string name="wallet_detail_menu_export_labels">Exportar BIP‑329</string>
+    <string name="wallet_detail_menu_export_labels">Exportar BIP-329</string>
+    <string name="wallet_detail_menu_import_labels">Importar BIP-329</string>
     <string name="wallet_detail_menu_descriptors">Descriptores</string>
     <string name="wallet_detail_menu_force_rescan">Forzar reescaneo completo</string>
     <string name="wallet_detail_menu_delete">Eliminar billetera</string>
@@ -643,6 +659,9 @@
     <string name="wallet_detail_export_error">Error al exportar las etiquetas</string>
     <string name="wallet_detail_export_empty">No hay salidas etiquetadas para exportar</string>
     <string name="wallet_detail_export_chooser_title">Compartir etiquetas BIP‑329</string>
+    <string name="wallet_detail_import_error">Error al importar las etiquetas</string>
+    <string name="wallet_detail_import_file_error">No se pudo leer el archivo seleccionado</string>
+    <string name="wallet_detail_import_summary">Tx: %1$d · Salidas: %2$d · Gastable: %3$d · Omitidas: %4$d · Inválidas: %5$d</string>
     <string name="wallet_detail_rename_title">Renombrar billetera</string>
     <string name="wallet_detail_rename_field_label">Nombre de la billetera</string>
     <string name="wallet_detail_rename_placeholder">Introduce un nombre nuevo</string>

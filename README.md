@@ -76,6 +76,7 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 
 ## Bitcoin standards supported
 - BIPs: 32/39 (HD), 43/44 (paths), 84/86 (SegWit/Taproot), 379 (Miniscript), 389 (multipath), 329 (labels). See the wiki for details.
+- BIP-329 workflows: label transactions, inherit labels to UTXOs, toggle spendable/frozen state, and import/export JSONL so Sparrow and other apps stay in sync.
 
 ---
 

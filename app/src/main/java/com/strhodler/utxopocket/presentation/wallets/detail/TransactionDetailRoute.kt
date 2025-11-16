@@ -36,9 +36,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,7 +50,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
@@ -78,6 +79,7 @@ import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionInput
 import com.strhodler.utxopocket.domain.model.WalletTransactionOutput
 import com.strhodler.utxopocket.domain.model.WalletUtxo
+import com.strhodler.utxopocket.domain.model.displayLabel
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import com.strhodler.utxopocket.domain.model.UtxoStatus
 import com.strhodler.utxopocket.domain.model.UtxoAnalysisContext
@@ -122,6 +124,33 @@ import java.util.Locale
 
 private const val UTXO_LABEL_MAX_LENGTH = 255
 
+private data class LabelDialogStrings(
+    @StringRes val addTitleRes: Int,
+    @StringRes val editTitleRes: Int,
+    @StringRes val fieldLabelRes: Int,
+    @StringRes val placeholderRes: Int,
+    @StringRes val supportTextRes: Int,
+    @StringRes val hintRes: Int
+)
+
+private val UTXO_LABEL_DIALOG_STRINGS = LabelDialogStrings(
+    addTitleRes = R.string.utxo_detail_label_add_title,
+    editTitleRes = R.string.utxo_detail_label_edit_title,
+    fieldLabelRes = R.string.utxo_detail_label_field_label,
+    placeholderRes = R.string.utxo_detail_label_placeholder_short,
+    supportTextRes = R.string.utxo_detail_label_support,
+    hintRes = R.string.utxo_detail_label_hint
+)
+
+private val TRANSACTION_LABEL_DIALOG_STRINGS = LabelDialogStrings(
+    addTitleRes = R.string.transaction_detail_label_add_title,
+    editTitleRes = R.string.transaction_detail_label_edit_title,
+    fieldLabelRes = R.string.transaction_detail_label_field_label,
+    placeholderRes = R.string.transaction_detail_label_placeholder,
+    supportTextRes = R.string.transaction_detail_label_support,
+    hintRes = R.string.transaction_detail_label_hint
+)
+
 @Composable
 fun TransactionDetailRoute(
     onBack: () -> Unit,
@@ -129,6 +158,10 @@ fun TransactionDetailRoute(
     viewModel: TransactionDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var showLabelDialog by remember { mutableStateOf(false) }
+    var pendingLabel by remember { mutableStateOf<String?>(null) }
+    val transactionLabelSavedMessage = stringResource(id = R.string.transaction_detail_label_success)
+    val transactionLabelErrorMessage = stringResource(id = R.string.transaction_detail_label_error)
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val showSnackbar = remember(coroutineScope, snackbarHostState) {
@@ -149,12 +182,33 @@ fun TransactionDetailRoute(
         onBackClick = onBack
     )
 
+    val currentTransaction = state.transaction
+    if (showLabelDialog && currentTransaction != null) {
+        LabelEditDialog(
+            initialLabel = pendingLabel ?: currentTransaction.label,
+            strings = TRANSACTION_LABEL_DIALOG_STRINGS,
+            onDismiss = { showLabelDialog = false },
+            onConfirm = { newLabel ->
+                viewModel.updateLabel(newLabel) { result ->
+                    showLabelDialog = false
+                    val message =
+                        if (result.isSuccess) transactionLabelSavedMessage else transactionLabelErrorMessage
+                    showSnackbar(message, SnackbarDuration.Short)
+                }
+            }
+        )
+    }
+
     Scaffold(
         snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
         contentWindowInsets = ScreenScaffoldInsets
     ) { innerPadding ->
         TransactionDetailScreen(
             state = state,
+            onEditTransactionLabel = { label ->
+                pendingLabel = label
+                showLabelDialog = true
+            },
             onOpenWikiTopic = onOpenWikiTopic,
             onShowMessage = showSnackbar,
             modifier = Modifier
@@ -176,6 +230,9 @@ fun UtxoDetailRoute(
     var pendingLabel by remember { mutableStateOf<String?>(null) }
     val labelSavedMessage = stringResource(id = R.string.utxo_detail_label_success)
     val labelErrorMessage = stringResource(id = R.string.utxo_detail_label_error)
+    var spendableUpdating by remember { mutableStateOf(false) }
+    val spendableSavedMessage = stringResource(id = R.string.utxo_detail_spendable_success)
+    val spendableErrorMessage = stringResource(id = R.string.utxo_detail_spendable_error)
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val showSnackbar = remember(coroutineScope, snackbarHostState) {
@@ -198,8 +255,9 @@ fun UtxoDetailRoute(
 
     val currentUtxo = state.utxo
     if (showLabelDialog && currentUtxo != null) {
-        UtxoLabelDialog(
-            initialLabel = pendingLabel ?: currentUtxo.label,
+        LabelEditDialog(
+            initialLabel = pendingLabel ?: currentUtxo.displayLabel,
+            strings = UTXO_LABEL_DIALOG_STRINGS,
             onDismiss = { showLabelDialog = false },
             onConfirm = { newLabel ->
                 viewModel.updateLabel(newLabel) { result ->
@@ -221,6 +279,15 @@ fun UtxoDetailRoute(
                 pendingLabel = label
                 showLabelDialog = true
             },
+            onToggleSpendable = { value ->
+                spendableUpdating = true
+                viewModel.updateSpendable(value) { result ->
+                    spendableUpdating = false
+                    val message = if (result.isSuccess) spendableSavedMessage else spendableErrorMessage
+                    showSnackbar(message, SnackbarDuration.Short)
+                }
+            },
+            spendableUpdating = spendableUpdating,
             onOpenWikiTopic = onOpenWikiTopic,
             onShowMessage = showSnackbar,
             modifier = Modifier
@@ -234,7 +301,7 @@ fun UtxoDetailRoute(
 @HiltViewModel
 class TransactionDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    walletRepository: WalletRepository,
+    private val walletRepository: WalletRepository,
     appPreferencesRepository: AppPreferencesRepository,
     private val transactionHealthAnalyzer: TransactionHealthAnalyzer,
     private val transactionHealthRepository: TransactionHealthRepository
@@ -323,6 +390,14 @@ class TransactionDetailViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = TransactionDetailUiState()
     )
+
+    fun updateLabel(label: String?, onResult: (Result<Unit>) -> Unit) {
+        viewModelScope.launch {
+            val result =
+                runCatching { walletRepository.updateTransactionLabel(walletId, transactionId, label) }
+            onResult(result)
+        }
+    }
 }
 
 @HiltViewModel
@@ -433,6 +508,14 @@ class UtxoDetailViewModel @Inject constructor(
             onResult(result)
         }
     }
+
+    fun updateSpendable(spendable: Boolean, onResult: (Result<Unit>) -> Unit) {
+        viewModelScope.launch {
+            val result =
+                runCatching { walletRepository.updateUtxoSpendable(walletId, txId, vout, spendable) }
+            onResult(result)
+        }
+    }
 }
 
 data class TransactionDetailUiState(
@@ -470,6 +553,7 @@ sealed interface UtxoDetailError {
 @Composable
 private fun TransactionDetailScreen(
     state: TransactionDetailUiState,
+    onEditTransactionLabel: (String?) -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
@@ -489,6 +573,7 @@ private fun TransactionDetailScreen(
         else -> {
             TransactionDetailContent(
                 state = state,
+                onEditTransactionLabel = onEditTransactionLabel,
                 onOpenWikiTopic = onOpenWikiTopic,
                 onShowMessage = onShowMessage,
                 modifier = modifier
@@ -501,6 +586,8 @@ private fun TransactionDetailScreen(
 private fun UtxoDetailScreen(
     state: UtxoDetailUiState,
     onEditLabel: (String?) -> Unit,
+    onToggleSpendable: (Boolean) -> Unit,
+    spendableUpdating: Boolean,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
@@ -521,6 +608,8 @@ private fun UtxoDetailScreen(
             UtxoDetailContent(
                 state = state,
                 onEditLabel = onEditLabel,
+                onToggleSpendable = onToggleSpendable,
+                spendableUpdating = spendableUpdating,
                 onOpenWikiTopic = onOpenWikiTopic,
                 onShowMessage = onShowMessage,
                 modifier = modifier
@@ -530,18 +619,15 @@ private fun UtxoDetailScreen(
 }
 
 @Composable
-private fun UtxoLabelDialog(
+private fun LabelEditDialog(
     initialLabel: String?,
+    strings: LabelDialogStrings,
     onDismiss: () -> Unit,
     onConfirm: (String?) -> Unit
 ) {
     var value by remember(initialLabel) { mutableStateOf(initialLabel.orEmpty().take(UTXO_LABEL_MAX_LENGTH)) }
     val remaining = (UTXO_LABEL_MAX_LENGTH - value.length).coerceAtLeast(0)
-    val titleRes = if (initialLabel.isNullOrBlank()) {
-        R.string.utxo_detail_label_add_title
-    } else {
-        R.string.utxo_detail_label_edit_title
-    }
+    val titleRes = if (initialLabel.isNullOrBlank()) strings.addTitleRes else strings.editTitleRes
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -557,8 +643,8 @@ private fun UtxoLabelDialog(
                             input.take(UTXO_LABEL_MAX_LENGTH)
                         }
                     },
-                    label = { Text(text = stringResource(id = R.string.utxo_detail_label_field_label)) },
-                    placeholder = { Text(text = stringResource(id = R.string.utxo_detail_label_placeholder_short)) },
+                    label = { Text(text = stringResource(id = strings.fieldLabelRes)) },
+                    placeholder = { Text(text = stringResource(id = strings.placeholderRes)) },
                     singleLine = true,
                     maxLines = 1,
                     keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
@@ -568,7 +654,7 @@ private fun UtxoLabelDialog(
                     supportingText = {
                         Text(
                             text = stringResource(
-                                id = R.string.utxo_detail_label_support,
+                                id = strings.supportTextRes,
                                 remaining
                             ),
                             style = MaterialTheme.typography.labelSmall
@@ -576,7 +662,7 @@ private fun UtxoLabelDialog(
                     }
                 )
                 Text(
-                    text = stringResource(id = R.string.utxo_detail_label_hint),
+                    text = stringResource(id = strings.hintRes),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -598,6 +684,7 @@ private fun UtxoLabelDialog(
 @Composable
 private fun TransactionDetailContent(
     state: TransactionDetailUiState,
+    onEditTransactionLabel: (String?) -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
@@ -638,6 +725,15 @@ private fun TransactionDetailContent(
             feeRateLabel = feeRateLabel,
             confirmationsLabel = confirmationsLabel,
             modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        LabelChip(
+            label = transaction.label,
+            addLabelRes = R.string.transaction_detail_label_add_action,
+            editLabelRes = R.string.transaction_detail_label_edit_action,
+            onClick = { onEditTransactionLabel(transaction.label) },
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
         Column(
@@ -958,11 +1054,15 @@ private fun TransactionChip(
 private fun UtxoDetailContent(
     state: UtxoDetailUiState,
     onEditLabel: (String?) -> Unit,
+    onToggleSpendable: (Boolean) -> Unit,
+    spendableUpdating: Boolean,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val utxo = requireNotNull(state.utxo)
+    val displayLabel = utxo.displayLabel
+    val isInheritedLabel = utxo.label.isNullOrBlank() && !utxo.transactionLabel.isNullOrBlank()
     val clipboardManager = LocalClipboardManager.current
     val copyMessage = stringResource(id = R.string.utxo_detail_copy_toast)
     val fullOutpoint = remember(utxo.txid, utxo.vout) { "${utxo.txid}:${utxo.vout}" }
@@ -997,8 +1097,12 @@ private fun UtxoDetailContent(
             depositInfo = depositInfoText,
             valueSats = utxo.valueSats,
             unit = state.balanceUnit,
-            label = utxo.label,
-            onEditLabel = { onEditLabel(utxo.label) },
+            label = displayLabel,
+            isInherited = isInheritedLabel,
+            spendable = utxo.spendable,
+            spendableUpdating = spendableUpdating,
+            onEditLabel = { onEditLabel(displayLabel) },
+            onToggleSpendable = onToggleSpendable,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -1122,7 +1226,11 @@ private fun UtxoDetailHeader(
     valueSats: Long,
     unit: BalanceUnit,
     label: String?,
+    isInherited: Boolean,
+    spendable: Boolean,
+    spendableUpdating: Boolean,
     onEditLabel: () -> Unit,
+    onToggleSpendable: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val headerTheme = rememberDetailHeaderTheme()
@@ -1166,36 +1274,69 @@ private fun UtxoDetailHeader(
             ),
             monospaced = true
         )
-        UtxoLabelChip(
+        LabelChip(
             label = label,
+            addLabelRes = R.string.utxo_detail_label_add_action,
+            editLabelRes = R.string.utxo_detail_label_edit_action,
             onClick = onEditLabel
         )
+        if (isInherited) {
+            Text(
+                text = stringResource(id = R.string.utxo_detail_label_inherited),
+                style = MaterialTheme.typography.bodySmall,
+                color = contentColor.copy(alpha = 0.9f),
+                textAlign = TextAlign.Center
+            )
+        }
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(id = R.string.utxo_detail_spendable_toggle_label),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = contentColor
+                )
+                Switch(
+                    checked = spendable,
+                    onCheckedChange = { onToggleSpendable(it) },
+                    enabled = !spendableUpdating
+                )
+            }
+            Text(
+                text = stringResource(id = R.string.utxo_detail_spendable_toggle_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = contentColor.copy(alpha = 0.9f),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
 @Composable
-private fun UtxoLabelChip(
+private fun LabelChip(
     label: String?,
+    @StringRes addLabelRes: Int,
+    @StringRes editLabelRes: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val hasLabel = !label.isNullOrBlank()
-    val chipText = label?.takeIf { hasLabel } ?: stringResource(id = R.string.utxo_detail_label_add_action)
+    val chipText = label?.takeIf { hasLabel } ?: stringResource(id = addLabelRes)
     val backgroundColor = if (hasLabel) {
         MaterialTheme.colorScheme.surfaceVariant
     } else {
         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
     }
-    val contentColor = if (hasLabel) {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
     Surface(
         modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         color = backgroundColor,
-        contentColor = contentColor
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -1209,7 +1350,7 @@ private fun UtxoLabelChip(
             if (hasLabel) {
                 Icon(
                     imageVector = Icons.Outlined.Edit,
-                    contentDescription = stringResource(id = R.string.utxo_detail_label_edit_action),
+                    contentDescription = stringResource(id = editLabelRes),
                     modifier = Modifier.size(16.dp)
                 )
             }

@@ -25,6 +25,7 @@ import com.strhodler.utxopocket.domain.model.WalletCreationResult
 import com.strhodler.utxopocket.domain.model.WalletDetail
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletLabelExport
+import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
@@ -452,10 +453,17 @@ private class FakeWalletRepository : WalletRepository {
 
     override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
 
+    override suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?) = Unit
+
+    override suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?) = Unit
+
     override suspend fun renameWallet(id: Long, name: String) = Unit
 
     override suspend fun exportWalletLabels(walletId: Long): WalletLabelExport =
         WalletLabelExport(fileName = "labels.jsonl", entries = emptyList())
+
+    override suspend fun importWalletLabels(walletId: Long, payload: ByteArray): Bip329ImportResult =
+        Bip329ImportResult(0, 0, 0, 0, 0)
 
     override fun setSyncForegroundState(isForeground: Boolean) = Unit
 }

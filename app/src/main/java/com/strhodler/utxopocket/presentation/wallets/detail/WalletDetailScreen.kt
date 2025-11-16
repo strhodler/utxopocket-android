@@ -117,6 +117,7 @@ import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletUtxo
+import com.strhodler.utxopocket.domain.model.displayLabel
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
@@ -2301,7 +2302,7 @@ private fun UtxoCompactCard(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                utxo.label?.takeIf { it.isNotBlank() }?.let { label ->
+                utxo.displayLabel?.takeIf { it.isNotBlank() }?.let { label ->
                     Text(
                         text = label,
                         style = MaterialTheme.typography.bodySmall,
@@ -2372,7 +2373,7 @@ private fun UtxoDetailedCard(
                         text = "$amount $unitLabel",
                         style = MaterialTheme.typography.titleMedium
                     )
-                    utxo.label?.takeIf { it.isNotBlank() }?.let { label ->
+                    utxo.displayLabel?.takeIf { it.isNotBlank() }?.let { label ->
                         Text(
                             text = label,
                             style = MaterialTheme.typography.bodySmall,

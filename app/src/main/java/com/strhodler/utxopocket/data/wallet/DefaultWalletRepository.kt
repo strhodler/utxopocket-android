@@ -14,13 +14,14 @@ import androidx.paging.PagingData
 import androidx.paging.map
 import androidx.room.withTransaction
 import com.strhodler.utxopocket.data.db.WalletDao
-import com.strhodler.utxopocket.data.db.UtxoLabelProjection
+import com.strhodler.utxopocket.data.db.UtxoMetadataProjection
 import com.strhodler.utxopocket.data.db.WalletEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionInputEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionOutputEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionWithRelations
 import com.strhodler.utxopocket.data.db.WalletUtxoEntity
+import com.strhodler.utxopocket.data.db.TransactionLabelProjection
 import com.strhodler.utxopocket.data.db.toDomain
 import com.strhodler.utxopocket.data.db.UtxoPocketDatabase
 import com.strhodler.utxopocket.data.db.toStorage
@@ -51,6 +52,7 @@ import com.strhodler.utxopocket.domain.model.WalletColor
 import com.strhodler.utxopocket.domain.model.WalletCreationRequest
 import com.strhodler.utxopocket.domain.model.WalletCreationResult
 import com.strhodler.utxopocket.domain.model.Bip329LabelEntry
+import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.WalletDetail
 import com.strhodler.utxopocket.domain.model.WalletLabelExport
 import com.strhodler.utxopocket.domain.model.WalletSummary
@@ -85,6 +87,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
 import java.io.File
+import kotlin.text.Charsets
 import org.bitcoindevkit.Address
 import org.bitcoindevkit.ChainPosition
 import org.bitcoindevkit.Descriptor
@@ -96,6 +99,7 @@ import org.bitcoindevkit.ServerFeaturesRes
 import org.bitcoindevkit.Transaction
 import org.bitcoindevkit.Wallet
 import org.bitcoindevkit.use
+import org.json.JSONObject
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -256,13 +260,18 @@ class DefaultWalletRepository @Inject constructor(
             entity?.let { walletEntity ->
                 val domainTransactions = transactions.map(WalletTransactionWithRelations::toDomain)
                 val domainUtxos = utxos.map(WalletUtxoEntity::toDomain)
+                val transactionLabels = domainTransactions.associate { it.id to it.label }
                 val reuseCounts = domainUtxos
                     .mapNotNull { utxo -> utxo.address?.takeIf { it.isNotBlank() } }
                     .groupingBy { it }
                     .eachCount()
                 val enrichedUtxos = domainUtxos.map { utxo ->
                     val reuseCount = utxo.address?.let { reuseCounts[it] } ?: 1
-                    utxo.copy(addressReuseCount = reuseCount.coerceAtLeast(1))
+                    val inheritedLabel = transactionLabels[utxo.txid]
+                    utxo.copy(
+                        addressReuseCount = reuseCount.coerceAtLeast(1),
+                        transactionLabel = inheritedLabel
+                    )
                 }
                 WalletDetail(
                     summary = walletEntity.toDomain(),
@@ -549,20 +558,28 @@ class DefaultWalletRepository @Inject constructor(
                             val syncTimestamp = System.currentTimeMillis()
 
                             if (needsDataRefresh) {
+                                val transactionLabels = walletDao.getTransactionLabels(entity.id)
+                                    .associate { projection ->
+                                        projection.txid to sanitizeLabel(projection.label)
+                                    }
                                 val capturedTransactions = captureTransactions(
                                     walletId = entity.id,
                                     wallet = wallet,
-                                    currentHeight = blockHeight
+                                    currentHeight = blockHeight,
+                                    existingLabels = transactionLabels
                                 )
-                                val existingLabels = walletDao.getUtxoLabels(entity.id)
+                                val existingUtxoMetadata = walletDao.getUtxoMetadata(entity.id)
                                     .associate { projection ->
-                                        (projection.txid to projection.vout) to sanitizeLabel(projection.label)
+                                        (projection.txid to projection.vout) to LocalUtxoMetadata(
+                                            label = sanitizeLabel(projection.label),
+                                            spendable = projection.spendable
+                                        )
                                     }
                                 val utxoEntities = captureUtxos(
                                     walletId = entity.id,
                                     wallet = wallet,
                                     currentHeight = blockHeight,
-                                    existingLabels = existingLabels
+                                    existingMetadata = existingUtxoMetadata
                                 )
                                 walletDao.replaceTransactions(
                                     walletId = entity.id,
@@ -683,7 +700,8 @@ class DefaultWalletRepository @Inject constructor(
     private fun captureTransactions(
         walletId: Long,
         wallet: Wallet,
-        currentHeight: Long?
+        currentHeight: Long?,
+        existingLabels: Map<String, String?>
     ): CapturedTransactions {
         val canonicalTransactions = wallet.transactions()
         val mappedTransactions = mutableListOf<WalletTransactionEntity>()
@@ -801,6 +819,7 @@ class DefaultWalletRepository @Inject constructor(
                     timestamp = timestamp,
                     type = type.name,
                     confirmations = confirmations,
+                    label = existingLabels[txid],
                     blockHeight = blockInfo?.height,
                     blockHash = blockInfo?.hash,
                     sizeBytes = totalSizeBytes,
@@ -840,6 +859,37 @@ class DefaultWalletRepository @Inject constructor(
         val inputs: List<WalletTransactionInputEntity>,
         val outputs: List<WalletTransactionOutputEntity>
     )
+
+    private data class LocalUtxoMetadata(
+        val label: String?,
+        val spendable: Boolean?
+    )
+
+    private data class ParsedLabel(
+        val type: String,
+        val ref: String,
+        val label: String?,
+        val hasLabel: Boolean,
+        val spendable: Boolean?,
+        val hasSpendable: Boolean,
+        val origin: String?
+    )
+
+    private data class Bip329ImportAccumulator(
+        var transactionLabels: Int = 0,
+        var utxoLabels: Int = 0,
+        var spendableUpdates: Int = 0,
+        var skipped: Int = 0,
+        var invalid: Int = 0
+    ) {
+        fun toResult(): Bip329ImportResult = Bip329ImportResult(
+            transactionLabelsApplied = transactionLabels,
+            utxoLabelsApplied = utxoLabels,
+            utxoSpendableUpdates = spendableUpdates,
+            skipped = skipped,
+            invalid = invalid
+        )
+    }
 
     private data class OutputDetails(
         val address: String?,
@@ -906,7 +956,7 @@ class DefaultWalletRepository @Inject constructor(
         walletId: Long,
         wallet: Wallet,
         currentHeight: Long?,
-        existingLabels: Map<Pair<String, Int>, String?>
+        existingMetadata: Map<Pair<String, Int>, LocalUtxoMetadata>
     ): List<WalletUtxoEntity> {
         val outputs = wallet.listUnspent()
         val mapped = mutableListOf<WalletUtxoEntity>()
@@ -932,6 +982,7 @@ class DefaultWalletRepository @Inject constructor(
                     UtxoStatus.PENDING
                 }
                 val utxoKey = outPoint.txid.toString() to outPoint.vout.toInt()
+                val metadata = existingMetadata[utxoKey]
                 mapped += WalletUtxoEntity(
                     walletId = walletId,
                     txid = outPoint.txid.toString(),
@@ -939,7 +990,8 @@ class DefaultWalletRepository @Inject constructor(
                     valueSats = valueSats,
                     confirmations = chainPositionConfirmations(chainPosition, currentHeight),
                     status = status.name,
-                    label = existingLabels[utxoKey],
+                    label = metadata?.label,
+                    spendable = metadata?.spendable,
                     address = resolvedAddress,
                     keychain = keychain.name,
                     derivationIndex = derivationIndex?.toInt()
@@ -1455,6 +1507,24 @@ class DefaultWalletRepository @Inject constructor(
         walletDao.updateUtxoLabel(walletId, txid, vout, sanitized)
     }
 
+    override suspend fun updateTransactionLabel(
+        walletId: Long,
+        txid: String,
+        label: String?
+    ) = withContext(ioDispatcher) {
+        val sanitized = sanitizeLabel(label)
+        walletDao.updateTransactionLabel(walletId, txid, sanitized)
+    }
+
+    override suspend fun updateUtxoSpendable(
+        walletId: Long,
+        txid: String,
+        vout: Int,
+        spendable: Boolean?
+    ) = withContext(ioDispatcher) {
+        walletDao.updateUtxoSpendable(walletId, txid, vout, spendable)
+    }
+
     override suspend fun renameWallet(id: Long, name: String) = withContext(ioDispatcher) {
         val entity = walletDao.findById(id) ?: throw IllegalArgumentException("Wallet not found: $id")
         val trimmed = name.trim()
@@ -1470,23 +1540,118 @@ class DefaultWalletRepository @Inject constructor(
         withContext(ioDispatcher) {
             val entity =
                 walletDao.findById(walletId) ?: throw IllegalArgumentException("Wallet not found: $walletId")
-            val entries = walletDao.getUtxoLabels(walletId)
+            val origin = descriptorOrigin(entity.descriptor)
+            val transactionEntries = walletDao.getTransactionLabels(walletId)
                 .mapNotNull { projection ->
                     val label = sanitizeLabel(projection.label)
                     label?.let {
                         Bip329LabelEntry(
-                            type = "output",
-                            ref = "${projection.txid}:${projection.vout}",
-                            label = it
+                            type = "tx",
+                            ref = projection.txid,
+                            label = it,
+                            origin = origin
                         )
                     }
                 }
+            val utxoEntries = walletDao.getUtxoMetadata(walletId)
+                .mapNotNull { projection ->
+                    val label = sanitizeLabel(projection.label)
+                    val spendable = projection.spendable
+                    if (label == null && spendable == null) {
+                        null
+                    } else {
+                        Bip329LabelEntry(
+                            type = "output",
+                            ref = "${projection.txid}:${projection.vout}",
+                            label = label,
+                            origin = origin,
+                            spendable = spendable
+                        )
+                    }
+                }
+            val entries = transactionEntries + utxoEntries
             val baseName = sanitizeFileName(entity.name)
             WalletLabelExport(
                 fileName = "labels-$baseName.jsonl",
                 entries = entries
             )
         }
+
+    override suspend fun importWalletLabels(
+        walletId: Long,
+        payload: ByteArray
+    ): Bip329ImportResult = withContext(ioDispatcher) {
+        val entity = walletDao.findById(walletId)
+            ?: throw IllegalArgumentException("Wallet not found: $walletId")
+        val walletOrigin = descriptorOrigin(entity.descriptor)
+        val existingTransactions = walletDao.getTransactionsSnapshot(walletId)
+            .associateBy { it.txid }
+        val existingUtxos = walletDao.getUtxosSnapshot(walletId)
+            .associateBy { it.txid to it.vout }
+        val accumulator = Bip329ImportAccumulator()
+        payload.inputStream().bufferedReader(Charsets.UTF_8).use { reader ->
+            for (rawLine in reader.lineSequence()) {
+                val line = rawLine.trim()
+                if (line.isEmpty()) continue
+                val parsed = parseBip329Line(line) ?: run {
+                    accumulator.invalid++
+                    continue
+                }
+                if (!originsCompatible(parsed.origin, walletOrigin)) {
+                    accumulator.skipped++
+                    continue
+                }
+                when (parsed.type) {
+                    "tx" -> {
+                        if (!parsed.hasLabel) {
+                            accumulator.skipped++
+                            continue
+                        }
+                        val sanitized = sanitizeLabel(parsed.label)
+                        if (sanitized == null) {
+                            accumulator.skipped++
+                            continue
+                        }
+                        if (!existingTransactions.containsKey(parsed.ref)) {
+                            accumulator.skipped++
+                            continue
+                        }
+                        walletDao.updateTransactionLabel(walletId, parsed.ref, sanitized)
+                        accumulator.transactionLabels++
+                    }
+
+                    "output" -> {
+                        if (!parsed.hasLabel && !parsed.hasSpendable) {
+                            accumulator.skipped++
+                            continue
+                        }
+                        val outPoint = parseOutPoint(parsed.ref) ?: run {
+                            accumulator.invalid++
+                            continue
+                        }
+                        if (!existingUtxos.containsKey(outPoint)) {
+                            accumulator.skipped++
+                            continue
+                        }
+                        if (parsed.hasLabel) {
+                            val sanitized = sanitizeLabel(parsed.label)
+                            walletDao.updateUtxoLabel(walletId, outPoint.first, outPoint.second, sanitized)
+                            accumulator.utxoLabels++
+                        }
+                        if (parsed.hasSpendable) {
+                            walletDao.updateUtxoSpendable(walletId, outPoint.first, outPoint.second, parsed.spendable)
+                            accumulator.spendableUpdates++
+                        }
+                    }
+
+                    else -> {
+                        accumulator.skipped++
+                    }
+                }
+            }
+        }
+        accumulator.toResult()
+    }
 
     override fun setSyncForegroundState(isForeground: Boolean) {
         val previous = appInForeground.getAndSet(isForeground)
@@ -1535,6 +1700,62 @@ class DefaultWalletRepository @Inject constructor(
         val normalized = WHITESPACE_REGEX.replace(value, " ").trim()
         if (normalized.isEmpty()) return null
         return normalized.take(MAX_LABEL_LENGTH)
+    }
+
+    private fun parseBip329Line(line: String): ParsedLabel? = try {
+        val json = JSONObject(line)
+        val type = json.optString("type").orEmpty().lowercase(Locale.US)
+        val ref = json.optString("ref").orEmpty()
+        if (type.isBlank() || ref.isBlank()) {
+            null
+        } else {
+            val hasLabel = json.has("label")
+            val label = if (hasLabel && !json.isNull("label")) json.optString("label") else null
+            val hasSpendable = json.has("spendable")
+            val spendable =
+                if (hasSpendable && !json.isNull("spendable")) json.optBoolean("spendable") else null
+            val origin = if (json.has("origin") && !json.isNull("origin")) {
+                json.optString("origin")
+            } else {
+                null
+            }
+            ParsedLabel(
+                type = type,
+                ref = ref,
+                label = label,
+                hasLabel = hasLabel,
+                spendable = spendable,
+                hasSpendable = hasSpendable,
+                origin = origin
+            )
+        }
+    } catch (error: Exception) {
+        null
+    }
+
+    private fun parseOutPoint(ref: String): Pair<String, Int>? {
+        val separatorIndex = ref.lastIndexOf(':')
+        if (separatorIndex == -1) return null
+        val txid = ref.substring(0, separatorIndex)
+        val vout = ref.substring(separatorIndex + 1).toIntOrNull() ?: return null
+        return txid to vout
+    }
+
+    private fun originsCompatible(recordOrigin: String?, walletOrigin: String?): Boolean {
+        if (recordOrigin.isNullOrBlank()) return true
+        if (walletOrigin.isNullOrBlank()) return true
+        return recordOrigin == walletOrigin
+    }
+
+    private fun descriptorOrigin(descriptor: String?): String? {
+        if (descriptor.isNullOrBlank()) return null
+        val sanitized = descriptor.substringBefore("#").trim()
+        val bracketEnd = sanitized.indexOf(']')
+        if (bracketEnd == -1) return null
+        val prefix = sanitized.substring(0, bracketEnd + 1)
+        val openParens = prefix.count { it == '(' } - prefix.count { it == ')' }
+        val closing = if (openParens > 0) ")".repeat(openParens) else ""
+        return prefix + closing
     }
 
     private fun sanitizeFileName(raw: String): String {

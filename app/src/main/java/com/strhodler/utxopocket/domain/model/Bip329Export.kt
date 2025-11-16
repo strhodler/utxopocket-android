@@ -15,3 +15,11 @@ data class WalletLabelExport(
     val fileName: String,
     val entries: List<Bip329LabelEntry>
 )
+
+data class Bip329ImportResult(
+    val transactionLabelsApplied: Int,
+    val utxoLabelsApplied: Int,
+    val utxoSpendableUpdates: Int,
+    val skipped: Int,
+    val invalid: Int
+)
