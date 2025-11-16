@@ -258,6 +258,17 @@ interface WalletDao {
     @Query("UPDATE wallet_transactions SET label = :label WHERE wallet_id = :walletId AND txid = :txid")
     suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?)
 
+    @Query(
+        """
+        UPDATE wallet_utxos
+        SET label = :label
+        WHERE wallet_id = :walletId
+          AND txid = :txid
+          AND (label IS NULL OR TRIM(label) = '')
+        """
+    )
+    suspend fun inheritTransactionLabel(walletId: Long, txid: String, label: String)
+
     @Query("UPDATE wallet_utxos SET spendable = :spendable WHERE wallet_id = :walletId AND txid = :txid AND vout = :vout")
     suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?)
 

@@ -2,6 +2,7 @@
 *.iml
 .gradle
 .gradle-cache
+.gradle-user
 /.kotlin/
 /local.properties
 /.idea

@@ -1514,6 +1514,9 @@ class DefaultWalletRepository @Inject constructor(
     ) = withContext(ioDispatcher) {
         val sanitized = sanitizeLabel(label)
         walletDao.updateTransactionLabel(walletId, txid, sanitized)
+        if (sanitized != null) {
+            walletDao.inheritTransactionLabel(walletId, txid, sanitized)
+        }
     }
 
     override suspend fun updateUtxoSpendable(
@@ -1617,6 +1620,7 @@ class DefaultWalletRepository @Inject constructor(
                             continue
                         }
                         walletDao.updateTransactionLabel(walletId, parsed.ref, sanitized)
+                        walletDao.inheritTransactionLabel(walletId, parsed.ref, sanitized)
                         accumulator.transactionLabels++
                     }
 
