@@ -117,6 +117,7 @@ import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletUtxo
+import com.strhodler.utxopocket.domain.model.displayLabel
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
@@ -124,7 +125,6 @@ import com.strhodler.utxopocket.domain.model.WalletHealthPillar
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.strhodler.utxopocket.domain.model.WalletHealthResult
-import com.strhodler.utxopocket.domain.model.ListDisplayMode
 import com.strhodler.utxopocket.presentation.components.BalancePoint
 import com.strhodler.utxopocket.presentation.components.RefreshableContent
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
@@ -146,7 +146,6 @@ import kotlinx.coroutines.withContext
 import java.text.DateFormat
 import java.text.NumberFormat
 import java.util.Date
-import java.util.Locale
 import kotlin.math.absoluteValue
 
 private const val CLIPBOARD_CLEAR_DELAY_MS = 60_000L
@@ -418,6 +417,7 @@ private fun WalletDetailContent(
                         transactionsCount = state.transactionsCount,
                         utxosCount = state.utxosCount,
                         pagerState = pagerState,
+                        accentColor = walletTheme.accent,
                         modifier = Modifier
                             .padding(horizontal = 16.dp)
                             .padding(top = tabsTopPadding)
@@ -496,7 +496,6 @@ private fun WalletDetailContent(
                                                 unit = state.balanceUnit,
                                                 healthResult = state.transactionHealth[transaction.id],
                                                 analysisEnabled = state.transactionAnalysisEnabled,
-                                                displayMode = ListDisplayMode.Cards,
                                                 onClick = { onTransactionSelected(transaction.id) }
                                             )
                                         }
@@ -579,7 +578,6 @@ private fun WalletDetailContent(
                                                 dustThresholdSats = state.dustThresholdSats,
                                                 healthResult = state.utxoHealth["${utxo.txid}:${utxo.vout}"],
                                                 analysisEnabled = state.utxoHealthEnabled,
-                                                displayMode = ListDisplayMode.Cards,
                                                 onClick = { onUtxoSelected(utxo.txid, utxo.vout) }
                                             )
                                         }
@@ -1616,6 +1614,7 @@ private fun WalletTabs(
     transactionsCount: Int,
     utxosCount: Int,
     pagerState: PagerState,
+    accentColor: Color,
     modifier: Modifier = Modifier
 ) {
     val tabs = remember { WalletDetailTab.entries.toTypedArray() }
@@ -1628,7 +1627,7 @@ private fun WalletTabs(
             if (tabPositions.isNotEmpty()) {
                 TabRowDefaults.Indicator(
                     modifier = Modifier.tabIndicatorOffset(tabPositions[selected.ordinal]),
-                    color = MaterialTheme.colorScheme.primary
+                    color = accentColor
                 )
             }
         }
@@ -1637,7 +1636,7 @@ private fun WalletTabs(
             Tab(
                 selected = selected == tab,
                 onClick = { onTabSelected(tab) },
-                selectedContentColor = MaterialTheme.colorScheme.primary,
+                selectedContentColor = accentColor,
                 unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 text = {
                     Text(
@@ -1943,112 +1942,17 @@ private fun TransactionRow(
     unit: BalanceUnit,
     healthResult: TransactionHealthResult?,
     analysisEnabled: Boolean,
-    displayMode: ListDisplayMode,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    when (displayMode) {
-        ListDisplayMode.Compact -> TransactionCompactCard(
-            transaction = transaction,
-            unit = unit,
-            healthResult = healthResult,
-            analysisEnabled = analysisEnabled,
-            onClick = onClick,
-            modifier = modifier
-        )
-
-        ListDisplayMode.Cards -> TransactionDetailedCard(
-            transaction = transaction,
-            unit = unit,
-            healthResult = healthResult,
-            analysisEnabled = analysisEnabled,
-            onClick = onClick,
-            modifier = modifier
-        )
-    }
-}
-
-@Composable
-private fun TransactionCompactCard(
-    transaction: WalletTransaction,
-    unit: BalanceUnit,
-    healthResult: TransactionHealthResult?,
-    analysisEnabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val icon = when (transaction.type) {
-        TransactionType.RECEIVED -> Icons.Outlined.ArrowDownward
-        TransactionType.SENT -> Icons.Outlined.ArrowUpward
-    }
-    val iconTint = when (transaction.type) {
-        TransactionType.RECEIVED -> MaterialTheme.colorScheme.primary
-        TransactionType.SENT -> MaterialTheme.colorScheme.tertiary
-    }
-    val amountText = transactionAmount(transaction.amountSats, transaction.type, unit)
-    val dateText = transaction.timestamp?.let { timestamp ->
-        remember(timestamp) {
-            val dateFormat = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
-            dateFormat.format(Date(timestamp))
-        }
-    }
-
-    val healthScore = healthResult?.takeIf { analysisEnabled }?.finalScore
-
-    val transactionCardColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
-    Card(
+    TransactionDetailedCard(
+        transaction = transaction,
+        unit = unit,
+        healthResult = healthResult,
+        analysisEnabled = analysisEnabled,
         onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = transactionCardColor,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        ),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(imageVector = icon, contentDescription = null, tint = iconTint)
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = amountText,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                dateText?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                healthScore?.let { score ->
-                    Text(
-                        text = stringResource(id = R.string.transaction_health_score_chip, score),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = healthTextColor(score)
-                    )
-                }
-                Text(
-                    text = confirmationLabel(transaction.confirmations),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
+        modifier = modifier
+    )
 }
 
 @Composable
@@ -2058,31 +1962,18 @@ private fun UtxoRow(
     dustThresholdSats: Long,
     healthResult: UtxoHealthResult?,
     analysisEnabled: Boolean,
-    displayMode: ListDisplayMode,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    when (displayMode) {
-        ListDisplayMode.Compact -> UtxoCompactCard(
-            utxo = utxo,
-            unit = unit,
-            dustThresholdSats = dustThresholdSats,
-            healthResult = healthResult,
-            analysisEnabled = analysisEnabled,
-            onClick = onClick,
-            modifier = modifier
-        )
-
-        ListDisplayMode.Cards -> UtxoDetailedCard(
-            utxo = utxo,
-            unit = unit,
-            dustThresholdSats = dustThresholdSats,
-            healthResult = healthResult,
-            analysisEnabled = analysisEnabled,
-            onClick = onClick,
-            modifier = modifier
-        )
-    }
+    UtxoDetailedCard(
+        utxo = utxo,
+        unit = unit,
+        dustThresholdSats = dustThresholdSats,
+        healthResult = healthResult,
+        analysisEnabled = analysisEnabled,
+        onClick = onClick,
+        modifier = modifier
+    )
 }
 
 @Composable
@@ -2108,16 +1999,10 @@ private fun TransactionDetailedCard(
             val dateFormat = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
             dateFormat.format(Date(timestamp))
         }
-    }
+    } ?: stringResource(id = R.string.transaction_detail_unknown_date)
     val confirmationText = confirmationLabel(transaction.confirmations)
     val displayTransactionId = remember(transaction.id) { ellipsizeMiddle(transaction.id) }
     val healthScore = healthResult?.takeIf { analysisEnabled }?.finalScore
-    val formattedFeeRate = transaction.feeRateSatPerVb?.let { rate ->
-        remember(rate) {
-            String.format(Locale.getDefault(), "%.2f sats/vB", rate)
-        }
-    }
-    val feeRateLabel = formattedFeeRate ?: stringResource(id = R.string.transaction_detail_unknown)
 
     val utxoCardColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
     Card(
@@ -2150,11 +2035,13 @@ private fun TransactionDetailedCard(
                         text = amountText,
                         style = MaterialTheme.typography.titleMedium
                     )
-                    dateText?.let {
+                    transaction.label?.takeIf { it.isNotBlank() }?.let { label ->
                         Text(
-                            text = it,
+                            text = label,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -2207,108 +2094,16 @@ private fun TransactionDetailedCard(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = stringResource(id = R.string.transaction_detail_fee_rate),
+                        text = stringResource(id = R.string.transaction_detail_date),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    SelectionContainer {
-                        Text(
-                            text = feeRateLabel,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-@Suppress("UNUSED_PARAMETER")
-private fun UtxoCompactCard(
-    utxo: WalletUtxo,
-    unit: BalanceUnit,
-    dustThresholdSats: Long,
-    healthResult: UtxoHealthResult?,
-    analysisEnabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val amount = balanceValue(utxo.valueSats, unit)
-    val unitLabel = balanceUnitLabel(unit)
-    val healthScore = healthResult?.takeIf { analysisEnabled }?.finalScore
-    val confirmationText = confirmationLabel(utxo.confirmations)
-
-    val compactCardColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
-    Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = compactCardColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                val truncatedTxid = remember(utxo.txid) {
-                    val txid = utxo.txid
-                    if (txid.length <= 12) {
-                        txid
-                    } else {
-                        "${txid.take(6)}…${txid.takeLast(6)}"
-                    }
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
                     Text(
-                        text = "$amount $unitLabel",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                }
-                Text(
-                    text = "$truncatedTxid:${utxo.vout}",
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                healthScore?.let { score ->
-                    Text(
-                        text = stringResource(id = R.string.transaction_health_score_chip, score),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = healthTextColor(score)
-                    )
-                }
-                Text(
-                    text = confirmationText,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                utxo.label?.takeIf { it.isNotBlank() }?.let { label ->
-                    Text(
-                        text = label,
+                        text = dateText,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.End
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -2372,7 +2167,7 @@ private fun UtxoDetailedCard(
                         text = "$amount $unitLabel",
                         style = MaterialTheme.typography.titleMedium
                     )
-                    utxo.label?.takeIf { it.isNotBlank() }?.let { label ->
+                    utxo.displayLabel?.takeIf { it.isNotBlank() }?.let { label ->
                         Text(
                             text = label,
                             style = MaterialTheme.typography.bodySmall,

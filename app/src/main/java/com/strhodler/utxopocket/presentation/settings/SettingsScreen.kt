@@ -95,7 +95,6 @@ import com.strhodler.utxopocket.presentation.settings.model.TransactionParameter
 import com.strhodler.utxopocket.presentation.settings.model.UtxoParameterField
 import com.strhodler.utxopocket.presentation.settings.model.TransactionHealthParameterInputs
 import com.strhodler.utxopocket.presentation.settings.model.UtxoHealthParameterInputs
-import com.strhodler.utxopocket.domain.model.ListDisplayMode
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -225,7 +224,6 @@ fun SettingsRoute(
                 onLanguageSelected = viewModel::onLanguageSelected,
                 onUnitSelected = viewModel::onUnitSelected,
                 onThemeSelected = viewModel::onThemeSelected,
-                onDisplayModeSelected = viewModel::onDisplayModeSelected,
                 onWalletAnimationsToggled = viewModel::onWalletAnimationsToggled,
                 onTransactionAnalysisToggled = handleTransactionAnalysisToggle,
                 onUtxoHealthToggled = handleUtxoHealthToggle,
@@ -497,7 +495,6 @@ fun SettingsScreen(
     onLanguageSelected: (AppLanguage) -> Unit,
     onUnitSelected: (BalanceUnit) -> Unit,
     onThemeSelected: (ThemePreference) -> Unit,
-    onDisplayModeSelected: (ListDisplayMode) -> Unit,
     onWalletAnimationsToggled: (Boolean) -> Unit,
     onTransactionAnalysisToggled: (Boolean) -> Unit,
     onUtxoHealthToggled: (Boolean) -> Unit,
@@ -634,26 +631,6 @@ fun SettingsScreen(
                 options = unitOptions,
                 optionLabel = unitLabel,
                 onOptionSelected = onUnitSelected
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            val compactLabel = stringResource(id = R.string.settings_display_density_compact)
-            val cardsLabel = stringResource(id = R.string.settings_display_density_cards)
-            val displayModes = remember { ListDisplayMode.entries.toList() }
-            val displayModeLabel: (ListDisplayMode) -> String = { mode ->
-                when (mode) {
-                    ListDisplayMode.Compact -> compactLabel
-                    ListDisplayMode.Cards -> cardsLabel
-                }
-            }
-            val displaySupportingText = stringResource(id = R.string.settings_display_density_description) +
-                "\n" + stringResource(id = R.string.settings_display_density_hint)
-            SettingsSelectRow(
-                title = stringResource(id = R.string.settings_display_mode_label),
-                selectedLabel = displayModeLabel(state.listDisplayMode),
-                options = displayModes,
-                optionLabel = displayModeLabel,
-                onOptionSelected = onDisplayModeSelected,
-                supportingText = displaySupportingText
             )
             Spacer(modifier = Modifier.height(12.dp))
             val systemInDarkTheme = isSystemInDarkTheme()

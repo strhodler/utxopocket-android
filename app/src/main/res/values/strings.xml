@@ -63,8 +63,8 @@
     <string name="wallets_empty_title">No wallets yet</string>
     <string name="wallets_empty_description">Add your first wallet to start tracking balances.</string>
     <string name="wallets_empty_wiki_cta">Visit the Wiki to learn more about Bitcoin.</string>
-    <string name="wallets_add_wallet_action">Add descriptor</string>
-    <string name="wallets_add_wallet_disabled_hint">Connect to the node before adding a descriptor.</string>
+    <string name="wallets_add_wallet_action">Add wallet</string>
+    <string name="wallets_add_wallet_disabled_hint">Connect to the node before adding a wallet.</string>
     <string name="wallets_node_prompt_title">Select a node to get started</string>
     <string name="wallets_node_prompt_description">Choose the node you want to sync with before adding descriptors.</string>
     <string name="wallets_node_prompt_action">Select node</string>
@@ -154,6 +154,7 @@
     <string name="wallet_detail_menu_edit">Edit wallet</string>
     <string name="wallet_detail_menu_color">Color</string>
     <string name="wallet_detail_menu_export_labels">Export BIP-329</string>
+    <string name="wallet_detail_menu_import_labels">Import BIP-329</string>
     <string name="wallet_detail_menu_descriptors">Descriptors</string>
     <string name="wallet_detail_menu_force_rescan">Force full rescan</string>
     <string name="wallet_detail_menu_delete">Delete wallet</string>
@@ -162,6 +163,10 @@
     <string name="wallet_detail_export_error">Failed to export labels</string>
     <string name="wallet_detail_export_empty">No labeled outputs to export</string>
     <string name="wallet_detail_export_chooser_title">Share BIP-329 labels</string>
+    <string name="wallet_detail_import_error">Failed to import labels</string>
+    <string name="wallet_detail_import_file_error">Unable to read the selected file</string>
+    <string name="wallet_detail_import_no_transactions">Import labels after this wallet has at least one transaction</string>
+    <string name="wallet_detail_import_summary">Tx labels: %1$d · Outputs: %2$d · Spendable: %3$d · Skipped: %4$d · Invalid: %5$d</string>
     <string name="wallet_detail_rename_title">Rename wallet</string>
     <string name="wallet_detail_rename_field_label">Wallet name</string>
     <string name="wallet_detail_rename_placeholder">Enter a new name</string>
@@ -244,6 +249,16 @@
     <string name="wallet_detail_descriptor_qr_error">Could not generate QR code for this descriptor.</string>
 
     <string name="transaction_detail_title">Transaction details</string>
+    <string name="transaction_detail_label_add_title">Add transaction label</string>
+    <string name="transaction_detail_label_edit_title">Edit transaction label</string>
+    <string name="transaction_detail_label_field_label">Transaction label</string>
+    <string name="transaction_detail_label_placeholder">Describe the flow (salary, stack swap, payout…)</string>
+    <string name="transaction_detail_label_support">Characters remaining: %1$d</string>
+    <string name="transaction_detail_label_hint">Labels keep provenance synced across wallets via BIP-329.</string>
+    <string name="transaction_detail_label_add_action">Add transaction label</string>
+    <string name="transaction_detail_label_edit_action">Edit transaction label</string>
+    <string name="transaction_detail_label_success">Transaction label saved</string>
+    <string name="transaction_detail_label_error">Unable to save transaction label</string>
     <string name="transaction_detail_not_found">Transaction not found.</string>
     <string name="transaction_detail_copy_toast">Copied to clipboard</string>
     <string name="transaction_detail_section_flow">Transaction graph</string>
@@ -342,6 +357,11 @@
     <string name="utxo_detail_label_cancel_action">Cancel</string>
     <string name="utxo_detail_label_success">Label saved</string>
     <string name="utxo_detail_label_error">Unable to update label</string>
+    <string name="utxo_detail_label_inherited">Inherited from the transaction label</string>
+    <string name="utxo_detail_spendable_toggle_label">Spendable in this wallet</string>
+    <string name="utxo_detail_spendable_toggle_hint">Decide whether this coin should appear as spendable when exporting BIP-329 to your signing wallet.</string>
+    <string name="utxo_detail_spendable_success">Spendable flag updated</string>
+    <string name="utxo_detail_spendable_error">Unable to update the spendable flag</string>
     <string name="utxo_detail_network">Network</string>
     <string name="utxo_detail_outpoint_label">Output</string>
     <string name="utxo_detail_address">Address</string>
@@ -606,12 +626,7 @@
     <string name="settings_language_value_en">English</string>
     <string name="settings_language_value_es">Spanish</string>
     <string name="settings_display_unit_label">Display units</string>
-    <string name="settings_display_mode_label">List render mode</string>
     <string name="settings_theme_label">Theme</string>
-    <string name="settings_display_density_description">Choose how lists render UTXOs and transactions.</string>
-    <string name="settings_display_density_compact">Compact</string>
-    <string name="settings_display_density_cards">Cards</string>
-    <string name="settings_display_density_hint">Compact keeps fast lists; cards surface IDs, addresses, and warnings inline.</string>
     <string name="settings_option_enabled">Enabled</string>
     <string name="settings_option_disabled">Disabled</string>
     <string name="settings_wallet_animations_title">Wallet animations</string>

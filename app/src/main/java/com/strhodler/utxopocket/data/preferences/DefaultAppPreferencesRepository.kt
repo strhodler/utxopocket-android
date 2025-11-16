@@ -20,7 +20,6 @@ import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.ThemePreference
-import com.strhodler.utxopocket.domain.model.ListDisplayMode
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import android.util.Base64
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
@@ -88,13 +87,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs[Keys.BALANCE_UNIT]?.let { value ->
                 runCatching { BalanceUnit.valueOf(value) }.getOrNull()
             } ?: BalanceUnit.DEFAULT
-        }
-
-    override val listDisplayMode: Flow<ListDisplayMode> =
-        dataStore.data.map { prefs ->
-            prefs[Keys.LIST_DISPLAY_MODE]?.let { value ->
-                runCatching { ListDisplayMode.valueOf(value) }.getOrNull()
-            } ?: ListDisplayMode.Cards
         }
 
     override val walletAnimationsEnabled: Flow<Boolean> =
@@ -259,10 +251,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     override suspend fun setBalanceUnit(unit: BalanceUnit) {
         dataStore.edit { prefs -> prefs[Keys.BALANCE_UNIT] = unit.name }
-    }
-
-    override suspend fun setListDisplayMode(mode: ListDisplayMode) {
-        dataStore.edit { prefs -> prefs[Keys.LIST_DISPLAY_MODE] = mode.name }
     }
 
     override suspend fun setWalletAnimationsEnabled(enabled: Boolean) {
@@ -591,7 +579,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val THEME_PREFERENCE = stringPreferencesKey("theme_preference")
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val BALANCE_UNIT = stringPreferencesKey("balance_unit")
-        val LIST_DISPLAY_MODE = stringPreferencesKey("list_display_mode")
         val WALLET_ANIMATIONS_ENABLED = booleanPreferencesKey("wallet_animations_enabled")
         val WALLET_BALANCE_RANGE = stringPreferencesKey("wallet_balance_range")
         val ADVANCED_MODE = booleanPreferencesKey("advanced_mode_enabled")

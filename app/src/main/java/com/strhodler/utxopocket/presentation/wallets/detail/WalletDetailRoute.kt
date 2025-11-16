@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.IosShare
@@ -29,6 +30,8 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Scaffold
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.AlertDialog
@@ -71,7 +74,9 @@ import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
 import org.json.JSONObject
 import java.io.BufferedWriter
@@ -106,6 +111,7 @@ fun WalletDetailRoute(
     var renameInProgress by remember { mutableStateOf(false) }
     var renameErrorMessage by remember { mutableStateOf<String?>(null) }
     var isExporting by remember { mutableStateOf(false) }
+    var importInProgress by remember { mutableStateOf(false) }
     var forceRescanInProgress by remember { mutableStateOf(false) }
     var sharedDescriptorUpdating by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -137,6 +143,45 @@ fun WalletDetailRoute(
     val sharedDescriptorsEnabledMessage = stringResource(id = R.string.wallet_detail_shared_descriptors_enabled)
     val sharedDescriptorsDisabledMessage = stringResource(id = R.string.wallet_detail_shared_descriptors_disabled)
     val sharedDescriptorsErrorMessage = stringResource(id = R.string.wallet_detail_shared_descriptors_error)
+    val importErrorMessage = stringResource(id = R.string.wallet_detail_import_error)
+    val importFileErrorMessage = stringResource(id = R.string.wallet_detail_import_file_error)
+    val importNoTransactionsMessage = stringResource(id = R.string.wallet_detail_import_no_transactions)
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        coroutineScope.launch {
+            val bytesResult = runCatching {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { stream ->
+                        stream.readBytes()
+                    }
+                }
+            }
+            val payload = bytesResult.getOrElse {
+                showSnackbar(importFileErrorMessage, SnackbarDuration.Long)
+                return@launch
+            } ?: run {
+                showSnackbar(importFileErrorMessage, SnackbarDuration.Long)
+                return@launch
+            }
+            importInProgress = true
+            viewModel.importLabels(payload) { result ->
+                importInProgress = false
+                result.onSuccess { stats ->
+                    val message = context.getString(
+                        R.string.wallet_detail_import_summary,
+                        stats.transactionLabelsApplied,
+                        stats.utxoLabelsApplied,
+                        stats.utxoSpendableUpdates,
+                        stats.skipped,
+                        stats.invalid
+                    )
+                    showSnackbar(message, SnackbarDuration.Long)
+                }.onFailure {
+                    showSnackbar(importErrorMessage, SnackbarDuration.Long)
+                }
+            }
+        }
+    }
     val outerListState = rememberLazyListState()
     val tabs = remember { WalletDetailTab.entries.toTypedArray() }
     var selectedTab by rememberSaveable { mutableStateOf(WalletDetailTab.Transactions) }
@@ -321,6 +366,34 @@ fun WalletDetailRoute(
                                     showSnackbar(exportErrorMessage, SnackbarDuration.Long)
                                 }
                             }
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(text = stringResource(id = R.string.wallet_detail_menu_import_labels)) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Download,
+                                contentDescription = null
+                            )
+                        },
+                        enabled = !importInProgress,
+                        onClick = {
+                            menuExpanded = false
+                            if (importInProgress) {
+                                return@DropdownMenuItem
+                            }
+                            if (state.transactionsCount == 0) {
+                                showSnackbar(importNoTransactionsMessage, SnackbarDuration.Short)
+                                return@DropdownMenuItem
+                            }
+                            importLauncher.launch(
+                                arrayOf(
+                                    "application/json",
+                                    "text/plain",
+                                    "application/octet-stream",
+                                    "*/*"
+                                )
+                            )
                         }
                     )
                     DropdownMenuItem(

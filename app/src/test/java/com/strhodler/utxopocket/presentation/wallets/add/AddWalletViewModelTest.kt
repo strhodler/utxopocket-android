@@ -5,7 +5,6 @@ import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
-import com.strhodler.utxopocket.domain.model.ListDisplayMode
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
 import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
@@ -25,6 +24,7 @@ import com.strhodler.utxopocket.domain.model.WalletCreationResult
 import com.strhodler.utxopocket.domain.model.WalletDetail
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletLabelExport
+import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
@@ -452,10 +452,17 @@ private class FakeWalletRepository : WalletRepository {
 
     override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
 
+    override suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?) = Unit
+
+    override suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?) = Unit
+
     override suspend fun renameWallet(id: Long, name: String) = Unit
 
     override suspend fun exportWalletLabels(walletId: Long): WalletLabelExport =
         WalletLabelExport(fileName = "labels.jsonl", entries = emptyList())
+
+    override suspend fun importWalletLabels(walletId: Long, payload: ByteArray): Bip329ImportResult =
+        Bip329ImportResult(0, 0, 0, 0, 0)
 
     override fun setSyncForegroundState(isForeground: Boolean) = Unit
 }
@@ -467,7 +474,6 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val _themePreference = MutableStateFlow(ThemePreference.SYSTEM)
     private val _appLanguage = MutableStateFlow(AppLanguage.EN)
     private val _balanceUnit = MutableStateFlow(BalanceUnit.SATS)
-    private val _listDisplayMode = MutableStateFlow(ListDisplayMode.Cards)
     private val _walletBalanceRange = MutableStateFlow(BalanceRange.LastYear)
     private val _walletAnimationsEnabled = MutableStateFlow(true)
     private val _advancedMode = MutableStateFlow(false)
@@ -485,7 +491,6 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val themePreference: Flow<ThemePreference> = _themePreference
     override val appLanguage: Flow<AppLanguage> = _appLanguage
     override val balanceUnit: Flow<BalanceUnit> = _balanceUnit
-    override val listDisplayMode: Flow<ListDisplayMode> = _listDisplayMode
     override val walletBalanceRange: Flow<BalanceRange> = _walletBalanceRange
     override val walletAnimationsEnabled: Flow<Boolean> = _walletAnimationsEnabled
     override val advancedMode: Flow<Boolean> = _advancedMode
@@ -524,10 +529,6 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun setBalanceUnit(unit: BalanceUnit) {
         _balanceUnit.value = unit
-    }
-
-    override suspend fun setListDisplayMode(mode: ListDisplayMode) {
-        _listDisplayMode.value = mode
     }
 
     override suspend fun setWalletBalanceRange(range: BalanceRange) {
