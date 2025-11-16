@@ -417,6 +417,7 @@ private fun WalletDetailContent(
                         transactionsCount = state.transactionsCount,
                         utxosCount = state.utxosCount,
                         pagerState = pagerState,
+                        accentColor = walletTheme.accent,
                         modifier = Modifier
                             .padding(horizontal = 16.dp)
                             .padding(top = tabsTopPadding)
@@ -1613,6 +1614,7 @@ private fun WalletTabs(
     transactionsCount: Int,
     utxosCount: Int,
     pagerState: PagerState,
+    accentColor: Color,
     modifier: Modifier = Modifier
 ) {
     val tabs = remember { WalletDetailTab.entries.toTypedArray() }
@@ -1625,7 +1627,7 @@ private fun WalletTabs(
             if (tabPositions.isNotEmpty()) {
                 TabRowDefaults.Indicator(
                     modifier = Modifier.tabIndicatorOffset(tabPositions[selected.ordinal]),
-                    color = MaterialTheme.colorScheme.primary
+                    color = accentColor
                 )
             }
         }
@@ -1634,7 +1636,7 @@ private fun WalletTabs(
             Tab(
                 selected = selected == tab,
                 onClick = { onTabSelected(tab) },
-                selectedContentColor = MaterialTheme.colorScheme.primary,
+                selectedContentColor = accentColor,
                 unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 text = {
                     Text(
