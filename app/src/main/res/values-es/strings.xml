@@ -64,7 +64,7 @@
     <string name="onboarding_node_custom">Nodo personalizado</string>
     <string name="onboarding_tor_reminder">Todas las conexiones se enrutan por Tor de forma predeterminada.</string>
     <string name="onboarding_connection_standard">Host + Puerto</string>
-    <string name="onboarding_connection_onion">Dirección .onion</string>
+    <string name="onboarding_connection_onion">Onion</string>
     <string name="onboarding_host_label">Host</string>
     <string name="onboarding_port_label">Puerto</string>
     <string name="onboarding_onion_label">Endpoint onion</string>
@@ -391,6 +391,7 @@
     <string name="node_switch_confirm_confirm">Cambiar nodo</string>
     <string name="node_custom_name_label">Nombre del nodo</string>
     <string name="node_custom_name_placeholder">Mi servidor Electrum</string>
+    <string name="node_custom_edit_title">Editar nodo personalizado</string>
     <string name="node_custom_route_tor_label">Enviar el tráfico por Tor</string>
     <string name="node_custom_route_tor_supporting">Recomendado para servidores públicos. Desactívalo solo si el nodo está disponible en una LAN o túnel WireGuard de confianza.</string>
     <string name="node_custom_direct_warning">Las conexiones directas omiten Tor y pueden exponer tu dirección IP. Úsalas únicamente cuando controles todo el trayecto de red.</string>

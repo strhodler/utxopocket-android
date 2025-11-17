@@ -679,6 +679,7 @@
     <string name="node_custom_add_title">Add custom node</string>
     <string name="node_custom_name_label">Node name</string>
     <string name="node_custom_name_placeholder">My Electrum server</string>
+    <string name="node_custom_edit_title">Edit custom node</string>
     <string name="node_custom_route_tor_label">Route traffic through Tor</string>
     <string name="node_custom_route_tor_supporting">Recommended for public servers. Disable only when the node is reachable via a trusted LAN or WireGuard tunnel.</string>
     <string name="node_custom_direct_warning">Direct connections bypass Tor and expose your IP address. Use this mode only when you control the network path.</string>
@@ -713,7 +714,7 @@
     <string name="node_custom_delete_confirm_confirm">Remove</string>
     <string name="onboarding_tor_reminder">All connections are routed via Tor by default.</string>
     <string name="onboarding_connection_standard">Host + Port</string>
-    <string name="onboarding_connection_onion">.onion address</string>
+    <string name="onboarding_connection_onion">Onion</string>
     <string name="onboarding_host_label">Host</string>
     <string name="onboarding_port_label">Port</string>
     <string name="onboarding_onion_label">Onion endpoint</string>

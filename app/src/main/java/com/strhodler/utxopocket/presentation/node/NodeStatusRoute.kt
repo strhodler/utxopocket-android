@@ -23,12 +23,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -40,10 +42,12 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -110,6 +114,13 @@ fun NodeStatusRoute(
         onOnionPortChanged = viewModel::onNewCustomOnionPortChanged,
         onUseSslChanged = viewModel::onCustomNodeUseSslToggled
     )
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.isCustomNodeEditorVisible) {
+        if (!state.isCustomNodeEditorVisible) {
+            showDeleteDialog = false
+        }
+    }
 
     LaunchedEffect(state.selectionNotice) {
         val notice = state.selectionNotice ?: return@LaunchedEffect
@@ -119,13 +130,28 @@ fun NodeStatusRoute(
     }
 
     val editorVisible = state.isCustomNodeEditorVisible
+    val isEditing = state.editingCustomNodeId != null
     val overviewTitle = stringResource(id = R.string.node_overview_title)
     val addCustomTitle = stringResource(id = R.string.node_custom_add_title)
+    val editCustomTitle = stringResource(id = R.string.node_custom_edit_title)
 
     if (editorVisible) {
+        val title = if (isEditing) editCustomTitle else addCustomTitle
         SetSecondaryTopBar(
-            title = addCustomTitle,
-            onBackClick = viewModel::onDismissCustomNodeEditor
+            title = title,
+            onBackClick = viewModel::onDismissCustomNodeEditor,
+            actions = {
+                if (isEditing) {
+                    IconButton(
+                        onClick = { showDeleteDialog = true }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = stringResource(id = R.string.node_custom_delete_button)
+                        )
+                    }
+                }
+            }
         )
     } else {
         SetSecondaryTopBar(
@@ -135,16 +161,13 @@ fun NodeStatusRoute(
     }
 
     if (editorVisible) {
-        val isEditing = state.editingCustomNodeId != null
         val primaryLabel = if (isEditing) {
             stringResource(id = R.string.node_custom_save_button)
         } else {
             stringResource(id = R.string.node_custom_add_button)
         }
-        val deleteAction = state.editingCustomNodeId?.let { id ->
-            { viewModel.onDeleteCustomNode(id) }
-        }
         CustomNodeEditorScreen(
+            showTabs = !isEditing,
             nodeAddressOption = state.nodeAddressOption,
             nameValue = state.newCustomName,
             hostValue = state.newCustomHost,
@@ -173,9 +196,62 @@ fun NodeStatusRoute(
                 viewModel::onTestAndAddCustomNode
             },
             onStartQrScan = qrEditorState.startQrScan,
-            onClearQrError = qrEditorState.clearQrError,
-            onDeleteNode = deleteAction
+            onClearQrError = qrEditorState.clearQrError
         )
+
+        if (showDeleteDialog && isEditing) {
+            val deleteLabelRaw = remember(
+                state.newCustomName,
+                state.nodeAddressOption,
+                state.newCustomHost,
+                state.newCustomPort,
+                state.newCustomOnionHost,
+                state.newCustomOnionPort
+            ) {
+                buildCustomNodeLabel(
+                    name = state.newCustomName,
+                    option = state.nodeAddressOption,
+                    host = state.newCustomHost,
+                    port = state.newCustomPort,
+                    onionHost = state.newCustomOnionHost,
+                    onionPort = state.newCustomOnionPort
+                )
+            }
+            val deleteLabel = if (deleteLabelRaw.isNotBlank()) {
+                deleteLabelRaw
+            } else {
+                addCustomTitle
+            }
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title = { Text(text = stringResource(id = R.string.node_custom_delete_confirm_title)) },
+                text = {
+                    Text(
+                        text = stringResource(
+                            id = R.string.node_custom_delete_confirm_message,
+                            deleteLabel
+                        )
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteDialog = false
+                            state.editingCustomNodeId?.let { id ->
+                                viewModel.onDeleteCustomNode(id)
+                            }
+                        }
+                    ) {
+                        Text(text = stringResource(id = R.string.node_custom_delete_confirm_confirm))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = false }) {
+                        Text(text = stringResource(id = android.R.string.cancel))
+                    }
+                }
+            )
+        }
     } else {
         NodeStatusScreen(
             status = status,
@@ -805,4 +881,37 @@ private fun statusThemeFor(
         gradient = gradient,
         accent = accent
     )
+}
+
+private fun buildCustomNodeLabel(
+    name: String,
+    option: NodeAddressOption,
+    host: String,
+    port: String,
+    onionHost: String,
+    onionPort: String
+): String {
+    val trimmedName = name.trim()
+    if (trimmedName.isNotEmpty()) return trimmedName
+    return when (option) {
+        NodeAddressOption.HOST_PORT -> {
+            val trimmedHost = host.trim()
+            val trimmedPort = port.trim()
+            if (trimmedHost.isEmpty()) "" else if (trimmedPort.isNotEmpty()) {
+                "$trimmedHost:$trimmedPort"
+            } else {
+                trimmedHost
+            }
+        }
+
+        NodeAddressOption.ONION -> {
+            val trimmedHost = onionHost.trim()
+            val trimmedPort = onionPort.trim()
+            if (trimmedHost.isEmpty()) "" else if (trimmedPort.isNotEmpty()) {
+                "$trimmedHost:$trimmedPort"
+            } else {
+                trimmedHost
+            }
+        }
+    }
 }
