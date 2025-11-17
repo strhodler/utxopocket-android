@@ -576,7 +576,7 @@ private fun AvailableNodesSection(
 
         if (showTorReminder) {
             Text(
-                text = stringResource(id = R.string.onboarding_tor_reminder),
+                text = stringResource(id = R.string.node_tor_reminder),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary
             )

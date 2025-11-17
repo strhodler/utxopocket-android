@@ -155,8 +155,8 @@ fun CustomNodeEditorScreen(
                 ) {
                     tabOptions.forEachIndexed { index, option ->
                         val labelRes = when (option) {
-                            NodeAddressOption.HOST_PORT -> R.string.onboarding_connection_standard
-                            NodeAddressOption.ONION -> R.string.onboarding_connection_onion
+                            NodeAddressOption.HOST_PORT -> R.string.node_connection_standard
+                            NodeAddressOption.ONION -> R.string.node_connection_onion
                         }
                         Tab(
                             selected = pagerState.currentPage == index,
@@ -281,7 +281,7 @@ private fun HostPortInputs(
         OutlinedTextField(
             value = hostValue,
             onValueChange = onHostChanged,
-            label = { Text(stringResource(id = R.string.onboarding_host_label)) },
+            label = { Text(stringResource(id = R.string.node_host_label)) },
             placeholder = { Text("electrum.example.com") },
             modifier = Modifier.fillMaxWidth(),
             trailingIcon = {
@@ -298,7 +298,7 @@ private fun HostPortInputs(
         OutlinedTextField(
             value = portValue,
             onValueChange = onPortChanged,
-            label = { Text(stringResource(id = R.string.onboarding_port_label)) },
+            label = { Text(stringResource(id = R.string.node_port_label)) },
             placeholder = { Text("50002") },
             modifier = Modifier.fillMaxWidth()
         )
@@ -402,7 +402,7 @@ private fun OnionInput(
 
         val scanDescription = stringResource(id = R.string.node_scan_qr_content_description)
         val supportingText: @Composable () -> Unit = {
-            val text = qrErrorMessage ?: stringResource(id = R.string.onboarding_onion_hint)
+            val text = qrErrorMessage ?: stringResource(id = R.string.node_onion_hint)
             val color = if (qrErrorMessage != null) {
                 MaterialTheme.colorScheme.error
             } else {
@@ -417,7 +417,7 @@ private fun OnionInput(
         OutlinedTextField(
             value = hostValue,
             onValueChange = onHostChanged,
-            label = { Text(stringResource(id = R.string.onboarding_onion_label)) },
+            label = { Text(stringResource(id = R.string.node_onion_label)) },
             placeholder = { Text("example123.onion") },
             modifier = Modifier.fillMaxWidth(),
             trailingIcon = {
@@ -434,7 +434,7 @@ private fun OnionInput(
         OutlinedTextField(
             value = portValue,
             onValueChange = onPortChanged,
-            label = { Text(stringResource(id = R.string.onboarding_port_label)) },
+            label = { Text(stringResource(id = R.string.node_port_label)) },
             placeholder = { Text("50001") },
             modifier = Modifier.fillMaxWidth()
         )
