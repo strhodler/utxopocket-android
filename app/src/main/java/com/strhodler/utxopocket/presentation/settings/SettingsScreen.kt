@@ -184,15 +184,6 @@ fun SettingsRoute(
         }
     }
 
-    LaunchedEffect(state.nodeSelectionFeedback) {
-        val feedback = state.nodeSelectionFeedback ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(
-            message = context.getString(feedback.messageRes, feedback.argument),
-            duration = SnackbarDuration.Short
-        )
-        viewModel.onNodeSelectionFeedbackHandled()
-    }
-
     LaunchedEffect(state.healthParameterMessageRes) {
         val messageRes = state.healthParameterMessageRes ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(

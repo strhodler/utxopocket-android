@@ -6,8 +6,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,18 +21,26 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.ArrowDropUp
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.Wifi
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -42,7 +52,15 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Divider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,25 +72,33 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
 import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
+import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
@@ -837,17 +863,6 @@ private fun nodeStatusMessage(status: NodeStatus): String = when (status) {
     is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
 }
 
-@Composable
-private fun networkLabel(network: BitcoinNetwork): String {
-    val labelRes = when (network) {
-        BitcoinNetwork.MAINNET -> R.string.network_mainnet
-        BitcoinNetwork.TESTNET -> R.string.network_testnet
-        BitcoinNetwork.TESTNET4 -> R.string.network_testnet4
-        BitcoinNetwork.SIGNET -> R.string.network_signet
-    }
-    return stringResource(id = labelRes)
-}
-
 private fun formatEndpoint(value: String): String =
     value.substringAfter("://", value).trimEnd('/')
 
@@ -920,3 +935,337 @@ private fun buildCustomNodeLabel(
         }
     }
 }
+
+@Composable
+private fun NodeConfigurationContent(
+    network: BitcoinNetwork,
+    publicNodes: List<PublicNode>,
+    nodeConnectionOption: NodeConnectionOption,
+    selectedPublicNodeId: String?,
+    customNodes: List<CustomNode>,
+    selectedCustomNodeId: String?,
+    isNodeConnected: Boolean,
+    isNodeActivating: Boolean,
+    onNetworkSelected: (BitcoinNetwork) -> Unit,
+    onPublicNodeSelected: (String) -> Unit,
+    onCustomNodeSelected: (String) -> Unit,
+    onCustomNodeDetails: (String) -> Unit,
+    onAddCustomNodeClick: () -> Unit,
+    onDisconnectNode: (() -> Unit)? = null,
+    showTorReminder: Boolean = true
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        NodeNetworkSelector(
+            selectedNetwork = network,
+            onNetworkSelected = onNetworkSelected
+        )
+
+        AvailableNodesSection(
+            publicNodes = publicNodes,
+            customNodes = customNodes,
+            selectedPublicId = selectedPublicNodeId,
+            selectedCustomId = selectedCustomNodeId,
+            activeOption = nodeConnectionOption,
+            isNodeConnected = isNodeConnected,
+            isNodeActivating = isNodeActivating,
+            onPublicNodeSelected = onPublicNodeSelected,
+            onCustomNodeSelected = onCustomNodeSelected,
+            onCustomNodeDetails = onCustomNodeDetails,
+            onAddCustomNodeClick = onAddCustomNodeClick,
+            onDisconnect = onDisconnectNode,
+            showTorReminder = showTorReminder
+        )
+    }
+}
+
+@Composable
+private fun NodeNetworkSelector(
+    selectedNetwork: BitcoinNetwork,
+    onNetworkSelected: (BitcoinNetwork) -> Unit
+) {
+    val options = remember { BitcoinNetwork.entries }
+    var expanded by remember { mutableStateOf(false) }
+    var fieldWidth by remember { mutableStateOf(Dp.Unspecified) }
+    val density = LocalDensity.current
+    val focusManager = LocalFocusManager.current
+    val trailingIcon = if (expanded) Icons.Outlined.ArrowDropUp else Icons.Outlined.ArrowDropDown
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(id = R.string.network_select_title),
+            style = MaterialTheme.typography.titleMedium
+        )
+        Box {
+            OutlinedTextField(
+                value = networkLabel(selectedNetwork),
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned { fieldWidth = with(density) { it.size.width.toDp() } }
+                    .onFocusChanged { state -> expanded = state.isFocused },
+                trailingIcon = {
+                    Icon(
+                        imageVector = trailingIcon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    disabledContainerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = {
+                    expanded = false
+                    focusManager.clearFocus(force = true)
+                },
+                modifier = if (fieldWidth != Dp.Unspecified) Modifier.width(fieldWidth) else Modifier
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(text = networkLabel(option)) },
+                        onClick = {
+                            onNetworkSelected(option)
+                            expanded = false
+                            focusManager.clearFocus(force = true)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AvailableNodesSection(
+    publicNodes: List<PublicNode>,
+    customNodes: List<CustomNode>,
+    selectedPublicId: String?,
+    selectedCustomId: String?,
+    activeOption: NodeConnectionOption,
+    isNodeConnected: Boolean,
+    isNodeActivating: Boolean,
+    onPublicNodeSelected: (String) -> Unit,
+    onCustomNodeSelected: (String) -> Unit,
+    onCustomNodeDetails: (String) -> Unit,
+    onAddCustomNodeClick: () -> Unit,
+    onDisconnect: (() -> Unit)?,
+    showTorReminder: Boolean
+) {
+    val publicTypeLabel = stringResource(id = R.string.node_item_type_public)
+    val customTypeLabel = stringResource(id = R.string.node_item_type_custom)
+    val noTorLabel = stringResource(id = R.string.node_item_type_no_tor)
+    val nodes = buildList {
+        publicNodes.forEach { node ->
+            add(
+                AvailableNodeItem(
+                    title = node.displayName,
+                    subtitle = sanitizeEndpoint(node.endpoint),
+                    typeLabel = publicTypeLabel,
+                    selected = activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
+                    connected = (isNodeConnected || isNodeActivating) &&
+                        activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
+                    onActivate = { onPublicNodeSelected(node.id) },
+                    onDetailsClick = { onPublicNodeSelected(node.id) },
+                    onDeactivate = onDisconnect
+                )
+            )
+        }
+        customNodes.forEach { node ->
+            val typeLabel = if (node.routeThroughTor) {
+                customTypeLabel
+            } else {
+                "$customTypeLabel | $noTorLabel"
+            }
+            add(
+                AvailableNodeItem(
+                    title = node.displayLabel(),
+                    subtitle = sanitizeEndpoint(node.endpointLabel()),
+                    typeLabel = typeLabel,
+                    selected = activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
+                    connected = (isNodeConnected || isNodeActivating) &&
+                        activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
+                    onActivate = { onCustomNodeSelected(node.id) },
+                    onDetailsClick = { onCustomNodeDetails(node.id) },
+                    onDeactivate = onDisconnect
+                )
+            )
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = stringResource(id = R.string.node_section_available_title),
+            style = MaterialTheme.typography.titleMedium
+        )
+        Text(
+            text = stringResource(id = R.string.node_section_available_description),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        if (nodes.isEmpty()) {
+            Text(
+                text = stringResource(id = R.string.node_section_available_empty),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                nodes.forEachIndexed { index, item ->
+                    NodeListItem(
+                        title = item.title,
+                        subtitle = item.subtitle,
+                        typeLabel = item.typeLabel,
+                        selected = item.selected,
+                        connected = item.connected,
+                        onActivate = item.onActivate,
+                        onDetailsClick = item.onDetailsClick,
+                        onDeactivate = item.onDeactivate,
+                        showDivider = index < nodes.lastIndex
+                    )
+                }
+            }
+        }
+
+        Button(
+            onClick = onAddCustomNodeClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = AddCustomNodeButtonMinHeight),
+            contentPadding = AddCustomNodeButtonContentPadding
+        ) {
+            Icon(imageVector = Icons.Outlined.Add, contentDescription = null)
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = stringResource(id = R.string.node_custom_add_open_button),
+                style = MaterialTheme.typography.titleSmall
+            )
+        }
+
+        if (showTorReminder) {
+            Text(
+                text = stringResource(id = R.string.node_tor_reminder),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+private val AddCustomNodeButtonMinHeight = 56.dp
+private val AddCustomNodeButtonContentPadding =
+    PaddingValues(horizontal = 24.dp, vertical = 16.dp)
+
+@Composable
+private fun NodeListItem(
+    title: String,
+    subtitle: String?,
+    typeLabel: String? = null,
+    selected: Boolean,
+    connected: Boolean,
+    onActivate: () -> Unit,
+    onDetailsClick: () -> Unit,
+    onDeactivate: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    showDivider: Boolean = false
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        val supportingContent: (@Composable (() -> Unit))? =
+            if (subtitle != null || typeLabel != null) {
+                {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        subtitle?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        typeLabel?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            } else {
+                null
+            }
+        ListItem(
+            headlineContent = {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
+            supportingContent = supportingContent,
+            trailingContent = {
+                Switch(
+                    checked = connected,
+                    onCheckedChange = { checked ->
+                        when {
+                            checked && !connected -> onActivate()
+                            !checked && connected -> onDeactivate?.invoke()
+                        }
+                    }
+                )
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectable(
+                    selected = selected,
+                    onClick = onDetailsClick,
+                    role = Role.Button
+                ),
+            colors = ListItemDefaults.colors(
+                containerColor = if (selected) {
+                    MaterialTheme.colorScheme.surfaceContainerHigh
+                } else {
+                    Color.Transparent
+                }
+            )
+        )
+        if (showDivider) {
+            Divider(modifier = Modifier.padding(horizontal = 16.dp))
+        }
+    }
+}
+
+private data class AvailableNodeItem(
+    val title: String,
+    val subtitle: String,
+    val typeLabel: String,
+    val selected: Boolean,
+    val connected: Boolean,
+    val onActivate: () -> Unit,
+    val onDetailsClick: () -> Unit,
+    val onDeactivate: (() -> Unit)? = null
+)
+
+@Composable
+private fun networkLabel(network: BitcoinNetwork): String = when (network) {
+    BitcoinNetwork.MAINNET -> stringResource(id = R.string.network_mainnet)
+    BitcoinNetwork.TESTNET -> stringResource(id = R.string.network_testnet)
+    BitcoinNetwork.TESTNET4 -> stringResource(id = R.string.network_testnet4)
+    BitcoinNetwork.SIGNET -> stringResource(id = R.string.network_signet)
+}
+
+private fun sanitizeEndpoint(endpoint: String): String =
+    endpoint.removePrefix("ssl://").removePrefix("tcp://")

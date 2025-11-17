@@ -5,26 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
-import com.strhodler.utxopocket.domain.model.BitcoinNetwork
-import com.strhodler.utxopocket.domain.model.CustomNode
-import com.strhodler.utxopocket.domain.model.NodeAddressOption
-import com.strhodler.utxopocket.domain.model.NodeConfig
-import com.strhodler.utxopocket.domain.model.NodeConnectionOption
-import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
-import com.strhodler.utxopocket.domain.model.NodeStatus
-import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemePreference
-import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
-import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
-import com.strhodler.utxopocket.domain.service.NodeConnectionTester
-import com.strhodler.utxopocket.domain.service.TorManager
-import com.strhodler.utxopocket.domain.model.customNodesFor
-import com.strhodler.utxopocket.presentation.settings.model.NodeSelectionFeedback
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import com.strhodler.utxopocket.presentation.settings.model.TransactionHealthParameterInputs
 import com.strhodler.utxopocket.presentation.settings.model.TransactionParameterField
@@ -38,14 +24,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val torManager: TorManager,
     private val appPreferencesRepository: AppPreferencesRepository,
-    private val nodeConfigurationRepository: NodeConfigurationRepository,
-    private val nodeConnectionTester: NodeConnectionTester,
     private val walletRepository: WalletRepository
 ) : ViewModel() {
 
@@ -55,10 +37,7 @@ class SettingsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             combine(
-                torManager.status,
-                torManager.latestLog,
                 appPreferencesRepository.pinLockEnabled,
-                appPreferencesRepository.preferredNetwork,
                 appPreferencesRepository.themePreference,
                 appPreferencesRepository.appLanguage,
                 appPreferencesRepository.balanceUnit,
@@ -69,52 +48,30 @@ class SettingsViewModel @Inject constructor(
                 appPreferencesRepository.walletHealthEnabled,
                 appPreferencesRepository.dustThresholdSats,
                 appPreferencesRepository.transactionHealthParameters,
-                appPreferencesRepository.utxoHealthParameters,
-                nodeConfigurationRepository.nodeConfig,
-                walletRepository.observeNodeStatus()
+                appPreferencesRepository.utxoHealthParameters
             ) { values: Array<Any?> ->
-                val torStatus = values[0] as TorStatus
-                val torLog = values[1] as String
-                val pinEnabled = values[2] as Boolean
-                val network = values[3] as BitcoinNetwork
-                val themePreference = values[4] as ThemePreference
-                val appLanguage = values[5] as AppLanguage
-                val balanceUnit = values[6] as BalanceUnit
-                val walletAnimationsEnabled = values[7] as Boolean
-                val advancedMode = values[8] as Boolean
-                val transactionAnalysisEnabled = values[9] as Boolean
-                val utxoHealthEnabled = values[10] as Boolean
-                val walletHealthEnabled = values[11] as Boolean
-                val dustThreshold = values[12] as Long
-                val transactionParameters = values[13] as TransactionHealthParameters
-                val utxoParameters = values[14] as UtxoHealthParameters
-                val nodeConfig = values[15] as NodeConfig
-                val nodeSnapshot = values[16] as NodeStatusSnapshot
+                val pinEnabled = values[0] as Boolean
+                val themePreference = values[1] as ThemePreference
+                val appLanguage = values[2] as AppLanguage
+                val balanceUnit = values[3] as BalanceUnit
+                val walletAnimationsEnabled = values[4] as Boolean
+                val advancedMode = values[5] as Boolean
+                val transactionAnalysisEnabled = values[6] as Boolean
+                val utxoHealthEnabled = values[7] as Boolean
+                val walletHealthEnabled = values[8] as Boolean
+                val dustThreshold = values[9] as Long
+                val transactionParameters = values[10] as TransactionHealthParameters
+                val utxoParameters = values[11] as UtxoHealthParameters
                 val previous = _uiState.value
 
                 val walletHealthToggleEnabled = transactionAnalysisEnabled && utxoHealthEnabled
                 val normalizedWalletHealthEnabled =
                     walletHealthEnabled && walletHealthToggleEnabled
 
-                val publicNodes = nodeConfigurationRepository.publicNodesFor(network)
-                val selectedPublicId = nodeConfig.selectedPublicNodeId?.takeIf { id ->
-                    publicNodes.any { it.id == id }
-                }
-
-                val customNodes = nodeConfig.customNodesFor(network)
-                val selectedCustomId = nodeConfig.selectedCustomNodeId?.takeIf { id ->
-                    customNodes.any { it.id == id }
-                }
-
-                val snapshotMatchesNetwork = nodeSnapshot.network == network
-                val isConnected = nodeSnapshot.status is NodeStatus.Synced && snapshotMatchesNetwork
-                val isActivating = nodeSnapshot.status is NodeStatus.Connecting && snapshotMatchesNetwork
-
                 previous.copy(
                     themePreference = themePreference,
                     appLanguage = appLanguage,
                     pinEnabled = pinEnabled,
-                    preferredNetwork = network,
                     preferredUnit = balanceUnit,
                     advancedMode = advancedMode,
                     walletAnimationsEnabled = walletAnimationsEnabled,
@@ -124,17 +81,6 @@ class SettingsViewModel @Inject constructor(
                     walletHealthToggleEnabled = walletHealthToggleEnabled,
                     dustThresholdSats = dustThreshold,
                     dustThresholdInput = if (dustThreshold > 0L) dustThreshold.toString() else "",
-                    nodeConnectionOption = nodeConfig.connectionOption,
-                    nodeAddressOption = nodeConfig.addressOption,
-                    publicNodes = publicNodes,
-                    selectedPublicNodeId = selectedPublicId,
-                    customNodes = customNodes,
-                    selectedCustomNodeId = selectedCustomId,
-                    isNodeConnected = isConnected,
-                    isNodeActivating = isActivating,
-                    torStatus = torStatus,
-                    torLastLog = torLog,
-                    errorMessage = null,
                     transactionHealthParameters = transactionParameters,
                     transactionHealthInputs = if (previous.transactionInputsDirty) {
                         previous.transactionHealthInputs
@@ -151,37 +97,6 @@ class SettingsViewModel @Inject constructor(
             }.collect { state ->
                 _uiState.value = state
             }
-        }
-    }
-
-    fun onNetworkSelected(network: BitcoinNetwork) {
-        if (_uiState.value.preferredNetwork == network) {
-            return
-        }
-        viewModelScope.launch {
-            appPreferencesRepository.setPreferredNetwork(network)
-            nodeConfigurationRepository.updateNodeConfig { current ->
-                current.copy(
-                    connectionOption = NodeConnectionOption.PUBLIC,
-                    selectedPublicNodeId = null,
-                    selectedCustomNodeId = null
-                )
-            }
-            torManager.stop()
-            walletRepository.refresh(network)
-        }
-    }
-
-    fun onDisconnectNode() {
-        viewModelScope.launch {
-            nodeConfigurationRepository.updateNodeConfig { current ->
-                current.copy(
-                    connectionOption = NodeConnectionOption.PUBLIC,
-                    selectedPublicNodeId = null,
-                    selectedCustomNodeId = null
-                )
-            }
-            walletRepository.refresh(_uiState.value.preferredNetwork)
         }
     }
 
@@ -529,549 +444,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun onNodeConnectionOptionSelected(option: NodeConnectionOption) {
-        updateCustomNodeEditorState {
-            it.copy(
-                nodeConnectionOption = option,
-                isCustomNodeEditorVisible = if (option == NodeConnectionOption.CUSTOM) {
-                    it.isCustomNodeEditorVisible
-                } else {
-                    false
-                },
-                customNodeError = null,
-                customNodeSuccessMessage = null,
-                nodeSelectionFeedback = null
-            )
-        }
-        viewModelScope.launch {
-            nodeConfigurationRepository.updateNodeConfig { current ->
-                current.copy(connectionOption = option)
-            }
-        }
-    }
-
-    fun onNodeAddressOptionSelected(option: NodeAddressOption) {
-        updateCustomNodeEditorState {
-            it.copy(
-                nodeAddressOption = option,
-                customNodeError = null,
-                customNodeSuccessMessage = null
-            )
-        }
-        viewModelScope.launch {
-            nodeConfigurationRepository.updateNodeConfig { current ->
-                current.copy(addressOption = option)
-            }
-        }
-    }
-
-    fun onPublicNodeSelected(nodeId: String) {
-        val node = _uiState.value.publicNodes.firstOrNull { it.id == nodeId } ?: return
-        _uiState.update {
-            it.copy(
-                selectedPublicNodeId = nodeId,
-                nodeConnectionOption = NodeConnectionOption.PUBLIC,
-                isCustomNodeEditorVisible = false,
-                customNodeError = null,
-                nodeSelectionFeedback = NodeSelectionFeedback(
-                    messageRes = R.string.settings_node_selection_feedback,
-                    argument = node.displayName
-                )
-            )
-        }
-        viewModelScope.launch {
-            nodeConfigurationRepository.updateNodeConfig { current ->
-                current.copy(
-                    connectionOption = NodeConnectionOption.PUBLIC,
-                    selectedPublicNodeId = nodeId
-                )
-            }
-            walletRepository.refresh(_uiState.value.preferredNetwork)
-        }
-    }
-
-    fun onCustomNodeSelected(nodeId: String) {
-        val node = _uiState.value.customNodes.firstOrNull { it.id == nodeId } ?: return
-        _uiState.update {
-            it.copy(
-                selectedCustomNodeId = nodeId,
-                nodeConnectionOption = NodeConnectionOption.CUSTOM,
-                nodeAddressOption = node.addressOption,
-                isCustomNodeEditorVisible = false,
-                customNodeError = null,
-                customNodeSuccessMessage = null,
-                nodeSelectionFeedback = NodeSelectionFeedback(
-                    messageRes = R.string.settings_node_selection_feedback,
-                    argument = node.displayLabel()
-                )
-            )
-        }
-        viewModelScope.launch {
-            nodeConfigurationRepository.updateNodeConfig { current ->
-                current.copy(
-                    connectionOption = NodeConnectionOption.CUSTOM,
-                    addressOption = node.addressOption,
-                    selectedCustomNodeId = nodeId
-                )
-            }
-            walletRepository.refresh(_uiState.value.preferredNetwork)
-        }
-    }
-
-    fun onNodeSelectionFeedbackHandled() {
-        _uiState.update { it.copy(nodeSelectionFeedback = null) }
-    }
-
-    fun onDeleteCustomNode(nodeId: String) {
-        viewModelScope.launch {
-            var removedActive = false
-            var removedNode = false
-            nodeConfigurationRepository.updateNodeConfig { current ->
-                val remaining = current.customNodes.filterNot { it.id == nodeId }
-                if (remaining.size == current.customNodes.size) {
-                    return@updateNodeConfig current
-                }
-                removedNode = true
-                removedActive = current.connectionOption == NodeConnectionOption.CUSTOM &&
-                    current.selectedCustomNodeId == nodeId
-                val newSelected = current.selectedCustomNodeId?.takeIf { id ->
-                    id != nodeId && remaining.any { it.id == id }
-                }
-                current.copy(
-                    customNodes = remaining,
-                    selectedCustomNodeId = newSelected
-                )
-            }
-            if (removedActive) {
-                walletRepository.refresh(_uiState.value.preferredNetwork)
-            }
-            if (_uiState.value.editingCustomNodeId == nodeId) {
-                updateCustomNodeEditorState {
-                    it.copy(
-                        isCustomNodeEditorVisible = false,
-                        editingCustomNodeId = null,
-                        newCustomName = "",
-                        newCustomHost = "",
-                        newCustomPort = DEFAULT_SSL_PORT,
-                        newCustomOnionHost = "",
-                        newCustomOnionPort = ONION_DEFAULT_PORT.toString(),
-                        newCustomRouteThroughTor = true,
-                        newCustomUseSsl = true,
-                        isTestingCustomNode = false,
-                        customNodeError = null,
-                        customNodeSuccessMessage = null
-                    )
-                }
-            }
-            if (removedNode) {
-                _uiState.update {
-                    it.copy(
-                        customNodeError = null,
-                        customNodeSuccessMessage = R.string.node_custom_deleted
-                    )
-                }
-            }
-        }
-    }
-
-    fun onEditCustomNode(nodeId: String) {
-        val node = _uiState.value.customNodes.firstOrNull { it.id == nodeId } ?: return
-        updateCustomNodeEditorState {
-            it.copy(
-                isCustomNodeEditorVisible = true,
-                editingCustomNodeId = node.id,
-                nodeAddressOption = node.addressOption,
-                customNodeError = null,
-                customNodeSuccessMessage = null,
-                newCustomName = node.name,
-                newCustomHost = node.host,
-                newCustomPort = node.port?.toString() ?: DEFAULT_SSL_PORT,
-                newCustomOnionHost = node.onion.onionHost(),
-                newCustomOnionPort = node.onion.onionPort(),
-                newCustomRouteThroughTor = node.routeThroughTor,
-                newCustomUseSsl = if (node.addressOption == NodeAddressOption.HOST_PORT) {
-                    node.useSsl
-                } else {
-                    true
-                },
-                isTestingCustomNode = false
-            )
-        }
-    }
-
-    fun onSaveCustomNodeEdits() {
-        val state = _uiState.value
-        val editingId = state.editingCustomNodeId ?: return
-        val (validationError, candidateNode) = state.buildCustomNodeCandidate(editingId)
-        if (validationError != null || candidateNode == null) {
-            _uiState.update {
-                it.copy(
-                    customNodeError = validationError,
-                    customNodeSuccessMessage = null
-                )
-            }
-            return
-        }
-        val duplicateKey = candidateNode.endpointLabel().lowercase()
-        val duplicate = state.customNodes.any { existing ->
-            existing.id != editingId && existing.endpointLabel().equals(duplicateKey, ignoreCase = true)
-        }
-        if (duplicate) {
-            _uiState.update {
-                it.copy(
-                    customNodeError = "Node already added",
-                    customNodeSuccessMessage = null
-                )
-            }
-            return
-        }
-
-        viewModelScope.launch {
-            nodeConfigurationRepository.updateNodeConfig { current ->
-                current.copy(
-                    customNodes = current.customNodes.map { existing ->
-                        if (existing.id == editingId) candidateNode else existing
-                    }
-                )
-            }
-            _uiState.update {
-                it.copy(
-                    customNodeError = null,
-                    customNodeSuccessMessage = R.string.node_custom_updated,
-                    isCustomNodeEditorVisible = false,
-                    editingCustomNodeId = null,
-                    newCustomName = "",
-                    newCustomHost = "",
-                    newCustomPort = DEFAULT_SSL_PORT,
-                    newCustomOnionHost = "",
-                    newCustomOnionPort = ONION_DEFAULT_PORT.toString(),
-                    newCustomRouteThroughTor = true,
-                    newCustomUseSsl = true,
-                    customNodeHasChanges = false
-                )
-            }
-        }
-    }
-
-    fun onAddCustomNodeClicked() {
-        updateCustomNodeEditorState {
-            it.copy(
-                isCustomNodeEditorVisible = true,
-                editingCustomNodeId = null,
-                isTestingCustomNode = false,
-                customNodeError = null,
-                customNodeSuccessMessage = null,
-                newCustomName = "",
-                newCustomHost = "",
-                newCustomPort = DEFAULT_SSL_PORT,
-                newCustomOnionHost = "",
-                newCustomOnionPort = ONION_DEFAULT_PORT.toString(),
-                newCustomRouteThroughTor = true,
-                newCustomUseSsl = true
-            )
-        }
-    }
-
-    fun onDismissCustomNodeEditor() {
-        updateCustomNodeEditorState {
-            it.copy(
-                isCustomNodeEditorVisible = false,
-                editingCustomNodeId = null,
-                isTestingCustomNode = false,
-                customNodeError = null,
-                newCustomName = "",
-                newCustomHost = "",
-                newCustomPort = DEFAULT_SSL_PORT,
-                newCustomOnionHost = "",
-                newCustomOnionPort = ONION_DEFAULT_PORT.toString(),
-                newCustomRouteThroughTor = true,
-                newCustomUseSsl = true
-            )
-        }
-    }
-
-    fun onNewCustomNameChanged(name: String) {
-        updateCustomNodeEditorState {
-            it.copy(
-                newCustomName = name,
-                customNodeError = null,
-                customNodeSuccessMessage = null
-            )
-        }
-    }
-
-    fun onNewCustomHostChanged(host: String) {
-        updateCustomNodeEditorState {
-            it.copy(
-                newCustomHost = host,
-                customNodeError = null,
-                customNodeSuccessMessage = null
-            )
-        }
-    }
-
-    fun onNewCustomPortChanged(port: String) {
-        val digitsOnly = port.filter { it.isDigit() }
-        updateCustomNodeEditorState {
-            it.copy(
-                newCustomPort = digitsOnly,
-                customNodeError = null,
-                customNodeSuccessMessage = null
-            )
-        }
-    }
-
-    fun onNewCustomOnionHostChanged(value: String) {
-        val sanitized = value
-            .removePrefix("tcp://")
-            .removePrefix("ssl://")
-        val hasPort = sanitized.contains(':')
-        val hostPart = sanitized.substringBefore(':')
-        val portPart = sanitized.substringAfter(':', missingDelimiterValue = "")
-        val digits = portPart.filter { it.isDigit() }
-        updateCustomNodeEditorState {
-            it.copy(
-                newCustomOnionHost = hostPart,
-                newCustomOnionPort = if (hasPort) digits else it.newCustomOnionPort,
-                customNodeError = null,
-                customNodeSuccessMessage = null
-            )
-        }
-    }
-
-    fun onNewCustomOnionPortChanged(value: String) {
-        val digitsOnly = value.filter { it.isDigit() }
-        updateCustomNodeEditorState {
-            it.copy(
-                newCustomOnionPort = digitsOnly,
-                customNodeError = null,
-                customNodeSuccessMessage = null
-            )
-        }
-    }
-
-    fun onCustomNodeRouteThroughTorToggled(enabled: Boolean) {
-        updateCustomNodeEditorState {
-            it.copy(
-                newCustomRouteThroughTor = enabled,
-                customNodeError = null,
-                customNodeSuccessMessage = null
-            )
-        }
-    }
-
-    fun onCustomNodeUseSslToggled(enabled: Boolean) {
-        updateCustomNodeEditorState {
-            it.copy(
-                newCustomUseSsl = enabled,
-                customNodeError = null,
-                customNodeSuccessMessage = null
-            )
-        }
-    }
-
-    fun onTestAndAddCustomNode() {
-        val state = _uiState.value
-        if (state.isTestingCustomNode) return
-
-        val (validationError, candidateNode) = state.buildCustomNodeCandidate(existingId = null)
-        if (validationError != null || candidateNode == null) {
-            _uiState.update {
-                it.copy(
-                    customNodeError = validationError,
-                    customNodeSuccessMessage = null
-                )
-            }
-            return
-        }
-
-        val duplicateKey = candidateNode.endpointLabel().lowercase()
-        val isDuplicate = state.customNodes.any { existing ->
-            existing.endpointLabel().equals(duplicateKey, ignoreCase = true)
-        }
-        if (isDuplicate) {
-            _uiState.update {
-                it.copy(
-                    customNodeError = "Node already added",
-                    customNodeSuccessMessage = null
-                )
-            }
-            return
-        }
-
-        updateCustomNodeEditorState {
-            it.copy(
-                isTestingCustomNode = true,
-                customNodeError = null,
-                customNodeSuccessMessage = null
-            )
-        }
-
-        viewModelScope.launch {
-            val result = nodeConnectionTester.test(candidateNode)
-            when (result) {
-                is NodeConnectionTestResult.Success -> {
-                    nodeConfigurationRepository.updateNodeConfig { current ->
-                        val existing = current.customNodes
-                        val alreadyPresent = existing.any { existingNode ->
-                            existingNode.endpointLabel().equals(duplicateKey, ignoreCase = true)
-                        }
-                        if (alreadyPresent) {
-                            current
-                        } else {
-                            current.copy(
-                                connectionOption = NodeConnectionOption.CUSTOM,
-                                addressOption = candidateNode.addressOption,
-                                selectedPublicNodeId = null,
-                                customNodes = existing + candidateNode,
-                                selectedCustomNodeId = candidateNode.id
-                            )
-                        }
-                    }
-                    _uiState.update {
-                        it.copy(
-                            isTestingCustomNode = false,
-                            nodeConnectionOption = NodeConnectionOption.CUSTOM,
-                            nodeAddressOption = candidateNode.addressOption,
-                            isCustomNodeEditorVisible = false,
-                            editingCustomNodeId = null,
-                            customNodeSuccessMessage = R.string.node_custom_success,
-                            newCustomName = "",
-                            newCustomHost = "",
-                            newCustomPort = DEFAULT_SSL_PORT,
-                            newCustomOnionHost = "",
-                            newCustomOnionPort = ONION_DEFAULT_PORT.toString(),
-                            newCustomRouteThroughTor = true,
-                            newCustomUseSsl = true,
-                            customNodeError = null,
-                            customNodeHasChanges = false
-                        )
-                    }
-                    walletRepository.refresh(_uiState.value.preferredNetwork)
-                }
-
-                is NodeConnectionTestResult.Failure -> {
-                    _uiState.update {
-                        it.copy(
-                            isTestingCustomNode = false,
-                            customNodeError = result.reason,
-                            customNodeSuccessMessage = null
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private fun updateCustomNodeEditorState(transform: (SettingsUiState) -> SettingsUiState) {
-        _uiState.update { current ->
-            val updated = transform(current)
-            updated.copy(customNodeHasChanges = updated.computeEditorHasChanges())
-        }
-    }
-
-    private fun SettingsUiState.computeEditorHasChanges(): Boolean {
-        val candidate = buildCustomNodeCandidate(editingCustomNodeId).second
-        return if (editingCustomNodeId == null) {
-            candidate != null
-        } else {
-            val original = customNodes.firstOrNull { it.id == editingCustomNodeId } ?: return false
-            candidate != null && !candidate.isEquivalentTo(original)
-        }
-    }
-
-    private fun SettingsUiState.buildCustomNodeCandidate(existingId: String?): Pair<String?, CustomNode?> {
-        val trimmedName = newCustomName.trim()
-        if (existingId == null && trimmedName.isEmpty()) {
-            return "Name cannot be empty" to null
-        }
-        val targetNetwork = if (existingId != null) {
-            customNodes.firstOrNull { it.id == existingId }?.network ?: preferredNetwork
-        } else {
-            preferredNetwork
-        }
-        return when (nodeAddressOption) {
-            NodeAddressOption.HOST_PORT -> {
-                val host = newCustomHost.trim()
-                if (host.isEmpty()) {
-                    "Host cannot be empty" to null
-                } else {
-                    val portValue = newCustomPort.trim().toIntOrNull()
-                    when {
-                        portValue == null -> "Enter a valid port" to null
-                        portValue !in 1..65535 -> "Enter a valid port" to null
-                        else -> null to CustomNode(
-                            id = existingId ?: UUID.randomUUID().toString(),
-                            addressOption = NodeAddressOption.HOST_PORT,
-                            host = host,
-                            port = portValue,
-                            name = trimmedName,
-                            routeThroughTor = newCustomRouteThroughTor,
-                            useSsl = newCustomUseSsl,
-                            network = targetNetwork
-                        )
-                    }
-                }
-            }
-
-            NodeAddressOption.ONION -> {
-                val host = newCustomOnionHost.trim()
-                    .removePrefix("tcp://")
-                    .removePrefix("ssl://")
-                if (host.isEmpty()) {
-                    "Onion address cannot be empty" to null
-                } else {
-                    val portValue = newCustomOnionPort.trim()
-                        .ifBlank { ONION_DEFAULT_PORT.toString() }
-                        .toIntOrNull()
-                    when {
-                        portValue == null -> "Enter a valid port" to null
-                        portValue !in 1..65535 -> "Enter a valid port" to null
-                        else -> null to CustomNode(
-                            id = existingId ?: UUID.randomUUID().toString(),
-                            addressOption = NodeAddressOption.ONION,
-                            onion = "$host:$portValue",
-                            name = trimmedName,
-                            routeThroughTor = true,
-                            useSsl = false,
-                            network = targetNetwork
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private fun CustomNode.isEquivalentTo(other: CustomNode): Boolean =
-        addressOption == other.addressOption &&
-            host == other.host &&
-            port == other.port &&
-            onion == other.onion &&
-            name == other.name &&
-            routeThroughTor == other.routeThroughTor &&
-            useSsl == other.useSsl &&
-            network == other.network
-
-    private fun String.onionHost(): String {
-        if (isBlank()) return ""
-        val sanitized = removePrefix("tcp://")
-            .removePrefix("ssl://")
-            .trim()
-        return sanitized.substringBefore(':').trim()
-    }
-
-    private fun String.onionPort(): String {
-        val sanitized = removePrefix("tcp://")
-            .removePrefix("ssl://")
-            .trim()
-        val extracted = sanitized.substringAfter(':', missingDelimiterValue = "")
-            .trim()
-        return extracted.takeIf { it.isNotEmpty() } ?: ONION_DEFAULT_PORT.toString()
-    }
-
     private companion object {
         private const val MAX_THRESHOLD_LENGTH = 18
-        const val DEFAULT_SSL_PORT = "50002"
-        const val ONION_DEFAULT_PORT = 50001
     }
 }
