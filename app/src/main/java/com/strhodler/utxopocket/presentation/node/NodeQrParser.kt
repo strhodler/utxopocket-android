@@ -4,7 +4,7 @@ package com.strhodler.utxopocket.presentation.node
  * Represents the parsed result of a node configuration QR code.
  */
 sealed class NodeQrParseResult {
-    data class HostPort(val host: String, val port: String) : NodeQrParseResult()
+    data class HostPort(val host: String, val port: String, val useSsl: Boolean) : NodeQrParseResult()
     data class Onion(val address: String) : NodeQrParseResult()
     data class Error(val reason: String) : NodeQrParseResult()
 }
@@ -21,20 +21,31 @@ sealed class NodeQrParseResult {
  * Non-empty values that cannot be parsed return [NodeQrParseResult.Error].
  */
 fun parseNodeQrContent(raw: String): NodeQrParseResult {
-    val cleaned = raw
+    val base = raw
         .lineSequence()
         .map { it.trim() }
         .firstOrNull { it.isNotEmpty() }
-        ?.removePrefixIgnoreCase("electrum://")
-        ?.removePrefixIgnoreCase("ssl://")
-        ?.removePrefixIgnoreCase("tcp://")
-        ?.substringBefore("#")
-        ?.substringBefore("?")
-        ?.trim()
         ?: return NodeQrParseResult.Error("QR code is empty")
 
+    var cleaned = base
+        .removePrefixIgnoreCase("electrum://")
+        .substringBefore("#")
+        .substringBefore("?")
+        .trim()
     if (cleaned.isEmpty()) {
         return NodeQrParseResult.Error("QR code is empty")
+    }
+
+    var useSslHint: Boolean? = null
+    when {
+        cleaned.startsWith("ssl://", ignoreCase = true) -> {
+            useSslHint = true
+            cleaned = cleaned.removePrefixIgnoreCase("ssl://")
+        }
+        cleaned.startsWith("tcp://", ignoreCase = true) -> {
+            useSslHint = false
+            cleaned = cleaned.removePrefixIgnoreCase("tcp://")
+        }
     }
 
     val tokens = cleaned.split(':')
@@ -60,6 +71,12 @@ fun parseNodeQrContent(raw: String): NodeQrParseResult {
             val hasProtocolSuffix = tokens.size > 2 && protocolCandidate.all { it.isLetter() }
             val portToken = if (hasProtocolSuffix) tokens[tokens.size - 2] else protocolCandidate
             val port = portToken.filter { it.isDigit() }
+            val protocolUseSsl = if (hasProtocolSuffix) {
+                protocolCandidate.toSslFlag()
+            } else {
+                null
+            }
+            val resolvedUseSsl = protocolUseSsl ?: useSslHint ?: true
 
             return if (looksLikeOnion) {
                 if (port.isEmpty()) {
@@ -73,7 +90,8 @@ fun parseNodeQrContent(raw: String): NodeQrParseResult {
                 } else {
                     NodeQrParseResult.HostPort(
                         host = host,
-                        port = port
+                        port = port,
+                        useSsl = resolvedUseSsl
                     )
                 }
             }
@@ -87,3 +105,11 @@ private fun String.removePrefixIgnoreCase(prefix: String): String =
     } else {
         this
     }
+
+private fun String.toSslFlag(): Boolean? = when {
+    this.equals("s", ignoreCase = true) -> true
+    this.equals("ssl", ignoreCase = true) -> true
+    this.equals("t", ignoreCase = true) -> false
+    this.equals("tcp", ignoreCase = true) -> false
+    else -> null
+}

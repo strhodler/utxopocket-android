@@ -17,8 +17,16 @@ private fun Throwable.torAwareHint(): String? = when (rootCause()) {
     else -> null
 }
 
-fun Throwable.toTorAwareMessage(defaultMessage: String, endpoint: String? = null): String {
-    val base = torAwareHint() ?: defaultMessage
+fun Throwable.toTorAwareMessage(
+    defaultMessage: String,
+    endpoint: String? = null,
+    usedTor: Boolean = true
+): String {
+    val base = if (usedTor) {
+        torAwareHint() ?: defaultMessage
+    } else {
+        defaultMessage
+    }
     return if (endpoint != null) {
         "$base (endpoint: $endpoint)"
     } else {

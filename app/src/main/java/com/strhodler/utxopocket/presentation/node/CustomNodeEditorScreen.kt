@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -32,6 +33,7 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.NodeAddressOption
@@ -54,7 +57,10 @@ fun CustomNodeEditorScreen(
     nameValue: String,
     hostValue: String,
     portValue: String,
-    onionValue: String,
+    onionHostValue: String,
+    onionPortValue: String,
+    routeThroughTor: Boolean,
+    useSsl: Boolean,
     isTesting: Boolean,
     errorMessage: String?,
     qrErrorMessage: String?,
@@ -65,7 +71,10 @@ fun CustomNodeEditorScreen(
     onNodeAddressOptionSelected: (NodeAddressOption) -> Unit,
     onHostChanged: (String) -> Unit,
     onPortChanged: (String) -> Unit,
-    onOnionChanged: (String) -> Unit,
+    onOnionHostChanged: (String) -> Unit,
+    onOnionPortChanged: (String) -> Unit,
+    onRouteThroughTorChanged: (Boolean) -> Unit,
+    onUseSslChanged: (Boolean) -> Unit,
     onPrimaryAction: () -> Unit,
     onStartQrScan: () -> Unit,
     onClearQrError: () -> Unit,
@@ -95,9 +104,16 @@ fun CustomNodeEditorScreen(
 
     val deleteLabel = when {
         nameValue.isNotBlank() -> nameValue
-        nodeAddressOption == NodeAddressOption.HOST_PORT && hostValue.isNotBlank() ->
-            if (portValue.isNotBlank()) "${hostValue.trim()}:${portValue.trim()}" else hostValue.trim()
-        nodeAddressOption == NodeAddressOption.ONION && onionValue.isNotBlank() -> onionValue.trim()
+        nodeAddressOption == NodeAddressOption.HOST_PORT && hostValue.isNotBlank() -> {
+            val host = hostValue.trim()
+            val port = portValue.trim()
+            if (port.isNotBlank()) "$host:$port" else host
+        }
+        nodeAddressOption == NodeAddressOption.ONION && onionHostValue.isNotBlank() -> {
+            val host = onionHostValue.trim()
+            val port = onionPortValue.trim()
+            if (port.isNotBlank()) "$host:$port" else host
+        }
         else -> stringResource(id = R.string.node_custom_add_title)
     }
 
@@ -190,6 +206,8 @@ fun CustomNodeEditorScreen(
                         hostValue = hostValue,
                         portValue = portValue,
                         qrErrorMessage = qrErrorMessage,
+                        routeThroughTor = routeThroughTor,
+                        useSsl = useSsl,
                         onNameChanged = onNameChanged,
                         onHostChanged = {
                             onClearQrError()
@@ -199,17 +217,24 @@ fun CustomNodeEditorScreen(
                             onClearQrError()
                             onPortChanged(it)
                         },
-                        onStartQrScan = onStartQrScan
+                        onStartQrScan = onStartQrScan,
+                        onRouteThroughTorChanged = onRouteThroughTorChanged,
+                        onUseSslChanged = onUseSslChanged
                     )
 
                     NodeAddressOption.ONION -> OnionInput(
                         nameValue = nameValue,
-                        value = onionValue,
+                        hostValue = onionHostValue,
+                        portValue = onionPortValue,
                         qrErrorMessage = qrErrorMessage,
                         onNameChanged = onNameChanged,
-                        onValueChanged = {
+                        onHostChanged = {
                             onClearQrError()
-                            onOnionChanged(it)
+                            onOnionHostChanged(it)
+                        },
+                        onPortChanged = {
+                            onClearQrError()
+                            onOnionPortChanged(it)
                         },
                         onStartQrScan = onStartQrScan
                     )
@@ -250,10 +275,14 @@ private fun HostPortInputs(
     hostValue: String,
     portValue: String,
     qrErrorMessage: String?,
+    routeThroughTor: Boolean,
+    useSsl: Boolean,
     onNameChanged: (String) -> Unit,
     onHostChanged: (String) -> Unit,
     onPortChanged: (String) -> Unit,
-    onStartQrScan: () -> Unit
+    onStartQrScan: () -> Unit,
+    onRouteThroughTorChanged: (Boolean) -> Unit,
+    onUseSslChanged: (Boolean) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedTextField(
@@ -299,16 +328,92 @@ private fun HostPortInputs(
             placeholder = { Text("50002") },
             modifier = Modifier.fillMaxWidth()
         )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f, fill = true)) {
+                Text(
+                    text = stringResource(id = R.string.node_custom_route_tor_label),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = stringResource(id = R.string.node_custom_route_tor_supporting),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = routeThroughTor,
+                onCheckedChange = onRouteThroughTorChanged
+            )
+        }
+
+        if (!routeThroughTor) {
+            Surface(
+                tonalElevation = 2.dp,
+                color = MaterialTheme.colorScheme.errorContainer,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(id = R.string.node_custom_direct_warning),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f, fill = true)) {
+                Text(
+                    text = stringResource(id = R.string.node_custom_use_ssl_label),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = stringResource(id = R.string.node_custom_use_ssl_supporting),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = useSsl,
+                onCheckedChange = onUseSslChanged
+            )
+        }
+
+        if (!useSsl) {
+            Surface(
+                tonalElevation = 2.dp,
+                color = MaterialTheme.colorScheme.errorContainer,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(id = R.string.node_custom_no_ssl_warning),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
+        }
     }
 }
 
 @Composable
 private fun OnionInput(
     nameValue: String,
-    value: String,
+    hostValue: String,
+    portValue: String,
     qrErrorMessage: String?,
     onNameChanged: (String) -> Unit,
-    onValueChanged: (String) -> Unit,
+    onHostChanged: (String) -> Unit,
+    onPortChanged: (String) -> Unit,
     onStartQrScan: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -336,10 +441,10 @@ private fun OnionInput(
             )
         }
         OutlinedTextField(
-            value = value,
-            onValueChange = onValueChanged,
+            value = hostValue,
+            onValueChange = onHostChanged,
             label = { Text(stringResource(id = R.string.onboarding_onion_label)) },
-            placeholder = { Text("example123.onion:50001") },
+            placeholder = { Text("example123.onion") },
             modifier = Modifier.fillMaxWidth(),
             trailingIcon = {
                 IconButton(onClick = onStartQrScan) {
@@ -351,6 +456,13 @@ private fun OnionInput(
             },
             supportingText = supportingText,
             isError = qrErrorMessage != null
+        )
+        OutlinedTextField(
+            value = portValue,
+            onValueChange = onPortChanged,
+            label = { Text(stringResource(id = R.string.onboarding_port_label)) },
+            placeholder = { Text("50001") },
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }

@@ -679,6 +679,12 @@
     <string name="node_custom_add_title">Add custom node</string>
     <string name="node_custom_name_label">Node name</string>
     <string name="node_custom_name_placeholder">My Electrum server</string>
+    <string name="node_custom_route_tor_label">Route traffic through Tor</string>
+    <string name="node_custom_route_tor_supporting">Recommended for public servers. Disable only when the node is reachable via a trusted LAN or WireGuard tunnel.</string>
+    <string name="node_custom_direct_warning">Direct connections bypass Tor and expose your IP address. Use this mode only when you control the network path.</string>
+    <string name="node_custom_use_ssl_label">Use SSL/TLS</string>
+    <string name="node_custom_use_ssl_supporting">Encrypt Electrum traffic with TLS. Disable only when the server expects plaintext TCP on a trusted link.</string>
+    <string name="node_custom_no_ssl_warning">Disabling SSL/TLS exposes wallet data to anyone on the network path. Only proceed when you fully control the connection.</string>
     <string name="node_section_public_title">Public nodes</string>
     <string name="node_section_public_description">Pick from privacy-audited Electrum servers.</string>
     <string name="node_public_empty_hint">No public nodes available for this network.</string>

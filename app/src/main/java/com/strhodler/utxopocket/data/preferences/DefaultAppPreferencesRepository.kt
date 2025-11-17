@@ -428,7 +428,15 @@ class DefaultAppPreferencesRepository @Inject constructor(
                 if (node.isValid()) node.copy(
                     host = node.host.trim(),
                     onion = node.onion.trim(),
-                    name = node.name.trim()
+                    name = node.name.trim(),
+                    routeThroughTor = when (node.addressOption) {
+                        NodeAddressOption.ONION -> true
+                        NodeAddressOption.HOST_PORT -> node.routeThroughTor
+                    },
+                    useSsl = when (node.addressOption) {
+                        NodeAddressOption.ONION -> false
+                        NodeAddressOption.HOST_PORT -> node.useSsl
+                    }
                 ) else null
             }
 
@@ -459,6 +467,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
                 node.port?.let { put("port", it) }
                 put("onion", node.onion)
                 put("name", node.name)
+                put("routeThroughTor", node.routeThroughTor)
+                put("useSsl", node.useSsl)
             }
             array.put(obj)
         }
@@ -479,6 +489,14 @@ class DefaultAppPreferencesRepository @Inject constructor(
                     val host = obj.optString("host")
                     val port = if (obj.has("port")) obj.optInt("port") else null
                     val onion = obj.optString("onion")
+                    val routeThroughTor = when (addressOption) {
+                        NodeAddressOption.ONION -> true
+                        NodeAddressOption.HOST_PORT -> obj.optBoolean("routeThroughTor", true)
+                    }
+                    val useSsl = when (addressOption) {
+                        NodeAddressOption.ONION -> false
+                        NodeAddressOption.HOST_PORT -> obj.optBoolean("useSsl", true)
+                    }
                     add(
                         CustomNode(
                             id = id,
@@ -486,7 +504,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
                             host = host,
                             port = if (obj.has("port")) port else null,
                             onion = onion,
-                            name = obj.optString("name")
+                            name = obj.optString("name"),
+                            routeThroughTor = routeThroughTor,
+                            useSsl = useSsl
                         )
                     )
                 }
@@ -510,7 +530,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
                             addressOption = NodeAddressOption.HOST_PORT,
                             host = trimmedHost,
                             port = port,
-                            name = trimmedHost
+                            name = trimmedHost,
+                            routeThroughTor = true,
+                            useSsl = true
                         )
                     )
                 } else {
@@ -526,7 +548,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
                             id = "legacy-onion-$trimmedOnion",
                             addressOption = NodeAddressOption.ONION,
                             onion = trimmedOnion,
-                            name = trimmedOnion
+                            name = trimmedOnion,
+                            routeThroughTor = true,
+                            useSsl = false
                         )
                     )
                 } else {

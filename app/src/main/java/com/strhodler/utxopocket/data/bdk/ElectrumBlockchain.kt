@@ -19,7 +19,7 @@ import org.bitcoindevkit.SyncScriptInspector
  */
 class ElectrumBlockchain(
     private val endpoint: ElectrumEndpoint,
-    private val proxy: SocksProxyConfig
+    private val proxy: SocksProxyConfig?
 ) : Closeable {
 
     data class Metadata(
@@ -159,10 +159,17 @@ class ElectrumBlockchain(
             client ?: createClient().also { client = it }
         }
 
-    private fun createClient(): ElectrumClient = ElectrumClient(
-        endpoint.url,
-        "${proxy.host}:${proxy.port}"
-    )
+    private fun createClient(): ElectrumClient = if (proxy != null) {
+        ElectrumClient(
+            endpoint.url,
+            "${proxy.host}:${proxy.port}"
+        )
+    } else {
+        ElectrumClient(
+            endpoint.url,
+            null
+        )
+    }
 
     private fun resetClient() {
         val cached = synchronized(clientLock) {

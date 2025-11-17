@@ -391,6 +391,12 @@
     <string name="node_switch_confirm_confirm">Cambiar nodo</string>
     <string name="node_custom_name_label">Nombre del nodo</string>
     <string name="node_custom_name_placeholder">Mi servidor Electrum</string>
+    <string name="node_custom_route_tor_label">Enviar el tráfico por Tor</string>
+    <string name="node_custom_route_tor_supporting">Recomendado para servidores públicos. Desactívalo solo si el nodo está disponible en una LAN o túnel WireGuard de confianza.</string>
+    <string name="node_custom_direct_warning">Las conexiones directas omiten Tor y pueden exponer tu dirección IP. Úsalas únicamente cuando controles todo el trayecto de red.</string>
+    <string name="node_custom_use_ssl_label">Usar SSL/TLS</string>
+    <string name="node_custom_use_ssl_supporting">Cifra el tráfico de Electrum con TLS. Desactívalo solo si el servidor espera TCP sin cifrar en un enlace de confianza.</string>
+    <string name="node_custom_no_ssl_warning">Al desactivar SSL/TLS los datos de la wallet quedan expuestos a cualquiera en la ruta de red. Continúa solo si controlas por completo la conexión.</string>
     <string name="settings_option_enabled">Activado</string>
     <string name="settings_option_disabled">Desactivado</string>
     <string name="settings_language_label">Idioma</string>

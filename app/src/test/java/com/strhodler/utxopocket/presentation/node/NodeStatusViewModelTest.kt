@@ -5,6 +5,8 @@ import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
+import com.strhodler.utxopocket.domain.model.DescriptorType
+import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
 import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
@@ -42,6 +44,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -213,10 +216,16 @@ class NodeStatusViewModelTest {
             descriptor: String,
             changeDescriptor: String?,
             network: BitcoinNetwork
-        ): DescriptorValidationResult = DescriptorValidationResult.Success
+        ): DescriptorValidationResult =
+            DescriptorValidationResult.Valid(
+                descriptor = descriptor,
+                changeDescriptor = changeDescriptor,
+                type = DescriptorType.OTHER,
+                hasWildcard = descriptor.contains("*")
+            )
 
         override suspend fun addWallet(request: WalletCreationRequest): WalletCreationResult =
-            WalletCreationResult.Error("not implemented")
+            WalletCreationResult.Failure("not implemented")
 
         override suspend fun deleteWallet(id: Long) = Unit
 
@@ -261,12 +270,12 @@ class NodeStatusViewModelTest {
 
     private class TestNodeConnectionTester : NodeConnectionTester {
         override suspend fun testHostPort(host: String, port: Int): NodeConnectionTestResult =
-            NodeConnectionTestResult.Success
+            NodeConnectionTestResult.Success()
 
         override suspend fun testOnion(onion: String): NodeConnectionTestResult =
-            NodeConnectionTestResult.Success
+            NodeConnectionTestResult.Success()
 
         override suspend fun test(node: CustomNode): NodeConnectionTestResult =
-            NodeConnectionTestResult.Success
+            NodeConnectionTestResult.Success()
     }
 }

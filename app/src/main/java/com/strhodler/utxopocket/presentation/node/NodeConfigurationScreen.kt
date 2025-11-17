@@ -88,7 +88,9 @@ fun NodeConfigurationRoute(
         onAddressOptionSelected = viewModel::onNodeAddressOptionSelected,
         onHostChanged = viewModel::onNewCustomHostChanged,
         onPortChanged = viewModel::onNewCustomPortChanged,
-        onOnionChanged = viewModel::onNewCustomOnionChanged
+        onOnionHostChanged = viewModel::onNewCustomOnionHostChanged,
+        onOnionPortChanged = viewModel::onNewCustomOnionPortChanged,
+        onUseSslChanged = viewModel::onCustomNodeUseSslToggled
     )
 
     fun applyActivation(target: NodeActivationTarget) {
@@ -161,7 +163,10 @@ fun NodeConfigurationRoute(
             nameValue = state.newCustomName,
             hostValue = state.newCustomHost,
             portValue = state.newCustomPort,
-            onionValue = state.newCustomOnion,
+            onionHostValue = state.newCustomOnionHost,
+            onionPortValue = state.newCustomOnionPort,
+            routeThroughTor = state.newCustomRouteThroughTor,
+            useSsl = state.newCustomUseSsl,
             isTesting = state.isTestingCustomNode,
             errorMessage = state.customNodeError,
             qrErrorMessage = qrEditorState.qrErrorMessage,
@@ -172,7 +177,10 @@ fun NodeConfigurationRoute(
             onNodeAddressOptionSelected = viewModel::onNodeAddressOptionSelected,
             onHostChanged = viewModel::onNewCustomHostChanged,
             onPortChanged = viewModel::onNewCustomPortChanged,
-            onOnionChanged = viewModel::onNewCustomOnionChanged,
+            onOnionHostChanged = viewModel::onNewCustomOnionHostChanged,
+            onOnionPortChanged = viewModel::onNewCustomOnionPortChanged,
+            onRouteThroughTorChanged = viewModel::onCustomNodeRouteThroughTorToggled,
+            onUseSslChanged = viewModel::onCustomNodeUseSslToggled,
             onPrimaryAction = if (isEditing) {
                 viewModel::onSaveCustomNodeEdits
             } else {

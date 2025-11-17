@@ -41,6 +41,7 @@ import com.strhodler.utxopocket.domain.model.DescriptorWarning
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
+import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.TransactionStructure
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.TransactionType
@@ -459,11 +460,18 @@ class DefaultWalletRepository @Inject constructor(
         var estimatedFeeRateSatPerVb: Double? =
             previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network }
         var lastWalletError: String? = null
+        var activeTransport: NodeTransport = NodeTransport.TOR
         try {
             ensureForeground()
-            val proxy = torManager.start().getOrElse { throw it }
+            val electrumEndpoint = blockchainFactory.endpointFor(network)
+            activeTransport = electrumEndpoint.transport
+            val proxy = if (activeTransport == NodeTransport.TOR) {
+                torManager.start().getOrElse { throw it }
+            } else {
+                null
+            }
             ensureForeground()
-            val session = blockchainFactory.create(network, proxy)
+            val session = blockchainFactory.create(electrumEndpoint, proxy)
             endpoint = session.endpoint.url
             if (previousEndpoint != endpoint) {
                 shouldSignalConnecting = true
@@ -480,9 +488,17 @@ class DefaultWalletRepository @Inject constructor(
                 )
             }
             if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Starting electrum sync via $endpoint using proxy ${proxy.host}:${proxy.port}")
+                if (activeTransport == NodeTransport.TOR && proxy != null) {
+                    Log.d(TAG, "Starting electrum sync via $endpoint using proxy ${proxy.host}:${proxy.port}")
+                } else {
+                    Log.d(TAG, "Starting electrum sync via $endpoint without Tor proxy")
+                }
             } else {
-                Log.d(TAG, "Starting electrum sync via Tor proxy")
+                Log.d(TAG, if (activeTransport == NodeTransport.TOR) {
+                    "Starting electrum sync via Tor proxy"
+                } else {
+                    "Starting electrum sync without Tor proxy"
+                })
             }
             session.blockchain.use { blockchain ->
                 ensureForeground()
@@ -627,7 +643,8 @@ class DefaultWalletRepository @Inject constructor(
                         invalidateWalletCache(entity.id)
                         val reason = error.toTorAwareMessage(
                             defaultMessage = error.message.orEmpty().ifBlank { "Wallet sync failed" },
-                            endpoint = endpoint
+                            endpoint = endpoint,
+                            usedTor = activeTransport == NodeTransport.TOR
                         )
                         if (lastWalletError == null) {
                             lastWalletError = reason
@@ -681,8 +698,9 @@ class DefaultWalletRepository @Inject constructor(
             throw e
         } catch (e: Exception) {
             val reason = e.toTorAwareMessage(
-                defaultMessage = e.message.orEmpty().ifBlank { "Tor or Electrum connection failed" },
-                endpoint = endpoint
+                defaultMessage = e.message.orEmpty().ifBlank { "Electrum connection failed" },
+                endpoint = endpoint,
+                usedTor = activeTransport == NodeTransport.TOR
             )
             nodeStatus.value = NodeStatusSnapshot(
                 status = NodeStatus.Error(reason),

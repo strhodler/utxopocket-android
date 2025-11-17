@@ -8,18 +8,18 @@ UtxoPocket is a watch-only Android wallet that treats privacy as a functional re
 - **Preferences** — Descriptor metadata, node settings, PIN material, and onboarding flags live in `Preferences DataStore`. Panic wipe clears the entire store and truncates the backing `user_preferences.preferences_pb` file to eliminate remnants.
 - **Panic wipe coverage** — `Settings → Danger Zone → Panic wipe` now invalidates every wallet cache, deletes all Room tables, removes encrypted BDK bundles, resets the SQLCipher database + key, clears DataStore, wipes Tor state (`torfiles`), and removes cache/ code-cache/ external-cache directories before restarting the app into the onboarding carousel.
 - **PIN gate** — Optional 6-digit PIN is stored as PBKDF2(HMAC-SHA256, 150k iterations, 256-bit key) plus per-user salt. Verification enforces exponential backoff and temporary lockouts; panic wipe removes the hash/salt/counters.
-- **Networking** — All Electrum traffic rides over the embedded Tor foreground service. If Tor cannot supply a proxy, syncs abort instead of falling back to clearnet. Users may pick bundled public nodes or define onion/custom endpoints per network.
+- **Networking** — Bundled public nodes and onion endpoints always ride over the embedded Tor foreground service. Custom host/IP nodes can opt into direct connections for LAN/WireGuard deployments; Tor is skipped when you select those entries. TLS is enforced by default on host/IP nodes, but advanced users can explicitly disable SSL/TLS when pointing at plaintext Electrum ports (the UI warns loudly). If Tor cannot supply a proxy for Tor-required nodes, syncs abort instead of falling back to clearnet. Users may pick bundled public nodes or define onion/custom endpoints per network.
 - **No telemetry** — The app does not ship analytics, crash reporters, or third-party ad SDKs. Logs stay local and are scoped to debugging Tor/node state.
 
 ## Threat Model Highlights
 - **Device loss/coercion** — Panic wipe is designed for “wipe it now” scenarios. Because SQLCipher, BDK bundles, preferences, and Tor state are deleted before the app restarts, no remaining artifact can resurrect wallet metadata.
 - **Offline brute force** — PIN protection slows shoulder-surf attackers using PBKDF2 + backoff, but secrets do not decrypt funds; descriptors remain public. Hardware signing remains the recommended second factor.
-- **Network observers** — Tor is required; there is no clearnet fallback. TLS validation leverages BDK’s Electrum client. Custom node entries allow onion-only setups to avoid exit nodes entirely.
+- **Network observers** — Tor remains mandatory for bundled public nodes and onion endpoints, while custom host/IP nodes can opt out for trusted LAN/WireGuard environments. TLS validation leverages BDK’s Electrum client. Custom node entries allow onion-only setups to avoid exit nodes entirely; direct hosts should only be used when the network path is already private.
 - **Data leakage** — The app sets `android:allowBackup="false"`, limits `FileProvider` scope, and keeps SQLCipher passphrases in encrypted preferences so Google backups or rooted filesystem snapshots cannot trivially recover wallet history.
 
 ## Runtime Permissions
 - **Internet (`android.permission.INTERNET`)** and **network state (`android.permission.ACCESS_NETWORK_STATE`)**
-  - Needed to route Electrum traffic through Tor and to react to connectivity changes; sync aborts instead of falling back to clearnet.
+  - Needed to route Electrum traffic through Tor (for bundled/onion nodes) or over direct sockets (for trusted LAN/IP nodes) and to react to connectivity changes; Tor-required syncs abort instead of falling back to clearnet.
 - **Foreground service (`android.permission.FOREGROUND_SERVICE`, `android.permission.FOREGROUND_SERVICE_DATA_SYNC`)**
   - Keeps the Tor proxy alive while backgrounded and surfaces the mandatory persistent notification.
 - **Camera (`android.permission.CAMERA`)**

@@ -4,6 +4,7 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
+import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -29,7 +30,8 @@ class ElectrumEndpointProvider @Inject constructor(
             ElectrumEndpoint(
                 url = selected.endpoint,
                 validateDomain = selected.endpoint.startsWith("ssl://"),
-                sync = syncPreferencesFor(network)
+                sync = syncPreferencesFor(network),
+                transport = NodeTransport.TOR
             )
         } else {
             defaultFallback(network)
@@ -46,10 +48,18 @@ class ElectrumEndpointProvider @Inject constructor(
                 val host = selectedNode.host.trim()
                 val port = selectedNode.port
                 if (host.isBlank() || port == null) null else {
+                    val transport = if (selectedNode.routeThroughTor) {
+                        NodeTransport.TOR
+                    } else {
+                        NodeTransport.DIRECT
+                    }
+                    val useSsl = selectedNode.useSsl
+                    val scheme = if (useSsl) "ssl" else "tcp"
                     ElectrumEndpoint(
-                        url = "ssl://$host:$port",
-                        validateDomain = true,
-                        sync = syncPreferencesFor(network)
+                        url = "$scheme://$host:$port",
+                        validateDomain = useSsl,
+                        sync = syncPreferencesFor(network),
+                        transport = transport
                     )
                 }
             }
@@ -62,7 +72,8 @@ class ElectrumEndpointProvider @Inject constructor(
                     ElectrumEndpoint(
                         url = "tcp://$onion",
                         validateDomain = false,
-                        sync = syncPreferencesFor(network)
+                        sync = syncPreferencesFor(network),
+                        transport = NodeTransport.TOR
                     )
                 }
             }
@@ -90,25 +101,29 @@ class ElectrumEndpointProvider @Inject constructor(
         BitcoinNetwork.MAINNET -> ElectrumEndpoint(
             url = "ssl://electrum.blockstream.info:60002",
             validateDomain = true,
-            sync = syncPreferencesFor(network)
+            sync = syncPreferencesFor(network),
+            transport = NodeTransport.TOR
         )
 
         BitcoinNetwork.TESTNET -> ElectrumEndpoint(
             url = "ssl://testnet.blockstream.info:60002",
             validateDomain = true,
-            sync = syncPreferencesFor(network)
+            sync = syncPreferencesFor(network),
+            transport = NodeTransport.TOR
         )
 
         BitcoinNetwork.TESTNET4 -> ElectrumEndpoint(
             url = "ssl://mempool.space:40002",
             validateDomain = true,
-            sync = syncPreferencesFor(network)
+            sync = syncPreferencesFor(network),
+            transport = NodeTransport.TOR
         )
 
         BitcoinNetwork.SIGNET -> ElectrumEndpoint(
             url = "ssl://signet-electrumx.wakiyamap.dev:50002",
             validateDomain = false,
-            sync = syncPreferencesFor(network)
+            sync = syncPreferencesFor(network),
+            transport = NodeTransport.TOR
         )
     }
 }
@@ -118,7 +133,8 @@ data class ElectrumEndpoint(
     val validateDomain: Boolean,
     val retry: Int = 5,
     val timeoutSeconds: Int = 15,
-    val sync: ElectrumSyncPreferences = ElectrumSyncPreferences.DEFAULT
+    val sync: ElectrumSyncPreferences = ElectrumSyncPreferences.DEFAULT,
+    val transport: NodeTransport = NodeTransport.TOR
 )
 
 data class ElectrumSyncPreferences(

@@ -23,7 +23,8 @@ class DefaultNodeConnectionTester @Inject constructor(
                 id = "temp-host-$host-$port",
                 addressOption = NodeAddressOption.HOST_PORT,
                 host = host,
-                port = port
+                port = port,
+                useSsl = true
             )
         )
 
@@ -32,7 +33,8 @@ class DefaultNodeConnectionTester @Inject constructor(
             CustomNode(
                 id = "temp-onion-$onion",
                 addressOption = NodeAddressOption.ONION,
-                onion = onion
+                onion = onion,
+                useSsl = false
             )
         )
 
@@ -43,7 +45,8 @@ class DefaultNodeConnectionTester @Inject constructor(
                 val port = node.port
                 require(host.isNotBlank()) { "Host cannot be blank" }
                 require(port != null) { "Port is required" }
-                "ssl://$host:$port"
+                val scheme = if (node.useSsl) "ssl" else "tcp"
+                "$scheme://$host:$port"
             }
 
             NodeAddressOption.ONION -> {
@@ -55,11 +58,15 @@ class DefaultNodeConnectionTester @Inject constructor(
             }
         }
 
-        val proxy = ensureProxy()
+        val requiresTor = when (node.addressOption) {
+            NodeAddressOption.ONION -> true
+            NodeAddressOption.HOST_PORT -> node.routeThroughTor
+        }
+        val proxy = if (requiresTor) ensureProxy() else null
         runCatching {
             ElectrumClient(
                 url = endpoint,
-                socks5 = proxy.toSocks5String()
+                socks5 = proxy?.toSocks5String()
             ).use { client ->
                 val version = runCatching {
                     client.serverFeatures().serverVersion
@@ -69,7 +76,8 @@ class DefaultNodeConnectionTester @Inject constructor(
         }.getOrElse { error ->
             val reason = error.toTorAwareMessage(
                 defaultMessage = error.message.orEmpty().ifBlank { "Unable to reach node" },
-                endpoint = endpoint
+                endpoint = endpoint,
+                usedTor = requiresTor
             )
             NodeConnectionTestResult.Failure(reason)
         }

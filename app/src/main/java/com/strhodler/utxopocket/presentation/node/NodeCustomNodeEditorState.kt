@@ -34,7 +34,9 @@ fun rememberNodeCustomNodeEditorState(
     onAddressOptionSelected: (NodeAddressOption) -> Unit,
     onHostChanged: (String) -> Unit,
     onPortChanged: (String) -> Unit,
-    onOnionChanged: (String) -> Unit
+    onOnionHostChanged: (String) -> Unit,
+    onOnionPortChanged: (String) -> Unit,
+    onUseSslChanged: (Boolean) -> Unit
 ): NodeCustomNodeEditorState {
     val permissionDeniedMessage = stringResource(id = R.string.node_scan_error_permission)
     val invalidNodeMessage = stringResource(id = R.string.node_scan_error_invalid)
@@ -62,13 +64,16 @@ fun rememberNodeCustomNodeEditorState(
                     }
                     onHostChanged(result.host)
                     onPortChanged(result.port)
+                    onUseSslChanged(result.useSsl)
                 }
 
                 is NodeQrParseResult.Onion -> {
                     if (nodeAddressOption != NodeAddressOption.ONION) {
                         onAddressOptionSelected(NodeAddressOption.ONION)
                     }
-                    onOnionChanged(normalizeOnionAddress(result.address))
+                    val (host, port) = parseOnionAddress(result.address)
+                    onOnionHostChanged(host)
+                    onOnionPortChanged(port)
                 }
 
                 is NodeQrParseResult.Error -> Unit
@@ -101,14 +106,14 @@ fun rememberNodeCustomNodeEditorState(
     )
 }
 
-private fun normalizeOnionAddress(raw: String): String {
+private fun parseOnionAddress(raw: String): Pair<String, String> {
     val sanitized = raw
         .removePrefix("tcp://")
         .removePrefix("ssl://")
         .trim()
-    return if (sanitized.contains(':')) {
-        sanitized
-    } else {
-        "$sanitized:${NodeStatusUiState.ONION_DEFAULT_PORT}"
-    }
+    val host = sanitized.substringBefore(':').trim()
+    val port = sanitized.substringAfter(':', missingDelimiterValue = "")
+        .trim()
+        .ifEmpty { NodeStatusUiState.ONION_DEFAULT_PORT.toString() }
+    return host to port.filter { it.isDigit() }
 }

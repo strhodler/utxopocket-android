@@ -16,7 +16,9 @@ data class CustomNode(
     val host: String = "",
     val port: Int? = null,
     val onion: String = "",
-    val name: String = ""
+    val name: String = "",
+    val routeThroughTor: Boolean = true,
+    val useSsl: Boolean = true
 ) {
     fun isValid(): Boolean = when (addressOption) {
         NodeAddressOption.HOST_PORT -> host.isNotBlank() && port != null

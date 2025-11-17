@@ -15,8 +15,10 @@ class BdkBlockchainFactory @Inject constructor(
     private val endpointProvider: ElectrumEndpointProvider
 ) {
 
-    suspend fun create(network: BitcoinNetwork, proxy: SocksProxyConfig): ElectrumSession {
-        val endpoint = endpointProvider.endpointFor(network)
+    suspend fun endpointFor(network: BitcoinNetwork): ElectrumEndpoint =
+        endpointProvider.endpointFor(network)
+
+    fun create(endpoint: ElectrumEndpoint, proxy: SocksProxyConfig?): ElectrumSession {
         val blockchain = ElectrumBlockchain(
             endpoint = endpoint,
             proxy = proxy

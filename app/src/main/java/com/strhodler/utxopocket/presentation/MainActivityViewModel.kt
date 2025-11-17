@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
+import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
@@ -12,7 +13,9 @@ import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
+import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
+import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
@@ -214,7 +217,9 @@ class MainActivityViewModel @Inject constructor(
     private suspend fun disconnectNodeSelection() {
         var clearedSelection = false
         nodeConfigurationRepository.updateNodeConfig { current ->
-            if (!current.hasActiveSelection()) {
+            val requiresTor = current.hasActiveSelection() &&
+                current.activeTransport() == NodeTransport.TOR
+            if (!requiresTor) {
                 return@updateNodeConfig current
             }
             clearedSelection = true
@@ -241,6 +246,26 @@ class MainActivityViewModel @Inject constructor(
         val isConnected = snapshotMatchesNetwork && nodeSnapshot.status is NodeStatus.Synced
         if (!isConnected) {
             walletRepository.refresh(preferredNetwork)
+        }
+    }
+
+    private fun NodeConfig.activeTransport(): NodeTransport? = when (connectionOption) {
+        NodeConnectionOption.PUBLIC -> if (selectedPublicNodeId != null) {
+            NodeTransport.TOR
+        } else {
+            null
+        }
+
+        NodeConnectionOption.CUSTOM -> {
+            val selected = customNodes.firstOrNull { it.id == selectedCustomNodeId } ?: return null
+            when (selected.addressOption) {
+                NodeAddressOption.ONION -> NodeTransport.TOR
+                NodeAddressOption.HOST_PORT -> if (selected.routeThroughTor) {
+                    NodeTransport.TOR
+                } else {
+                    NodeTransport.DIRECT
+                }
+            }
         }
     }
 }

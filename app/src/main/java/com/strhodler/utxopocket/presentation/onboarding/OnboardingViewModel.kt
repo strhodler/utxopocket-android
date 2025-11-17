@@ -187,7 +187,10 @@ class OnboardingViewModel @Inject constructor(
                 newCustomName = "",
                 newCustomHost = "",
                 newCustomPort = DEFAULT_SSL_PORT,
-                newCustomOnion = ""
+                newCustomOnionHost = "",
+                newCustomOnionPort = ONION_DEFAULT_PORT.toString(),
+                newCustomRouteThroughTor = true,
+                newCustomUseSsl = true
             )
         }
     }
@@ -201,7 +204,10 @@ class OnboardingViewModel @Inject constructor(
                 newCustomName = "",
                 newCustomHost = "",
                 newCustomPort = DEFAULT_SSL_PORT,
-                newCustomOnion = ""
+                newCustomOnionHost = "",
+                newCustomOnionPort = ONION_DEFAULT_PORT.toString(),
+                newCustomRouteThroughTor = true,
+                newCustomUseSsl = true
             )
         }
     }
@@ -237,10 +243,49 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    fun onNewCustomOnionChanged(value: String) {
+    fun onNewCustomOnionHostChanged(value: String) {
+        val sanitized = value
+            .removePrefix("tcp://")
+            .removePrefix("ssl://")
+        val hasPort = sanitized.contains(':')
+        val hostPart = sanitized.substringBefore(':')
+        val portDigits = sanitized.substringAfter(':', missingDelimiterValue = "")
+            .filter { it.isDigit() }
         _uiState.update {
             it.copy(
-                newCustomOnion = value,
+                newCustomOnionHost = hostPart,
+                newCustomOnionPort = if (hasPort) portDigits else it.newCustomOnionPort,
+                customNodeError = null,
+                customNodeSuccessMessage = null
+            )
+        }
+    }
+
+    fun onNewCustomOnionPortChanged(value: String) {
+        val digits = value.filter { it.isDigit() }
+        _uiState.update {
+            it.copy(
+                newCustomOnionPort = digits,
+                customNodeError = null,
+                customNodeSuccessMessage = null
+            )
+        }
+    }
+
+    fun onCustomNodeRouteThroughTorToggled(enabled: Boolean) {
+        _uiState.update {
+            it.copy(
+                newCustomRouteThroughTor = enabled,
+                customNodeError = null,
+                customNodeSuccessMessage = null
+            )
+        }
+    }
+
+    fun onCustomNodeUseSslToggled(enabled: Boolean) {
+        _uiState.update {
+            it.copy(
+                newCustomUseSsl = enabled,
                 customNodeError = null,
                 customNodeSuccessMessage = null
             )
@@ -250,6 +295,17 @@ class OnboardingViewModel @Inject constructor(
     fun onTestAndAddCustomNode() {
         val state = _uiState.value
         if (state.isTestingCustomNode) return
+
+        val trimmedName = state.newCustomName.trim()
+        if (trimmedName.isEmpty()) {
+            _uiState.update {
+                it.copy(
+                    customNodeError = "Name cannot be empty",
+                    customNodeSuccessMessage = null
+                )
+            }
+            return
+        }
 
         val (validationError, candidateNode) = when (state.nodeAddressOption) {
             NodeAddressOption.HOST_PORT -> {
@@ -263,30 +319,33 @@ class OnboardingViewModel @Inject constructor(
                         addressOption = NodeAddressOption.HOST_PORT,
                         host = host,
                         port = port,
-                        name = state.newCustomName.trim()
+                        name = trimmedName,
+                        routeThroughTor = state.newCustomRouteThroughTor,
+                        useSsl = state.newCustomUseSsl
                     )
                 }
             }
 
             NodeAddressOption.ONION -> {
-                val sanitized = state.newCustomOnion.trim()
+                val host = state.newCustomOnionHost.trim()
                     .removePrefix("tcp://")
                     .removePrefix("ssl://")
-                if (sanitized.isEmpty()) {
+                if (host.isEmpty()) {
                     "Onion address cannot be empty" to null
                 } else {
-                    val parts = sanitized.split(':')
-                    val address = parts.first().trim()
-                    val portPart = parts.getOrNull(1)?.trim().takeUnless { it.isNullOrEmpty() }
-                    val portValue = portPart?.toIntOrNull() ?: ONION_DEFAULT_PORT
+                    val portValue = state.newCustomOnionPort.trim()
+                        .ifBlank { ONION_DEFAULT_PORT.toString() }
+                        .toIntOrNull()
                     when {
-                        address.isEmpty() -> "Onion address cannot be empty" to null
+                        portValue == null -> "Enter a valid port" to null
                         portValue !in 1..65535 -> "Enter a valid port" to null
                         else -> null to CustomNode(
                             id = UUID.randomUUID().toString(),
                             addressOption = NodeAddressOption.ONION,
-                            onion = "$address:$portValue",
-                            name = state.newCustomName.trim()
+                            onion = "$host:$portValue",
+                            name = trimmedName,
+                            routeThroughTor = true,
+                            useSsl = false
                         )
                     }
                 }
@@ -327,10 +386,7 @@ class OnboardingViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            val result = when (newNode.addressOption) {
-                NodeAddressOption.HOST_PORT -> nodeConnectionTester.testHostPort(newNode.host.trim(), newNode.port!!)
-                NodeAddressOption.ONION -> nodeConnectionTester.testOnion(newNode.onion)
-            }
+            val result = nodeConnectionTester.test(newNode)
             when (result) {
                 is NodeConnectionTestResult.Success -> {
                     _uiState.update { current ->
@@ -345,7 +401,10 @@ class OnboardingViewModel @Inject constructor(
                             newCustomName = "",
                             newCustomHost = "",
                             newCustomPort = DEFAULT_SSL_PORT,
-                            newCustomOnion = "",
+                            newCustomOnionHost = "",
+                            newCustomOnionPort = ONION_DEFAULT_PORT.toString(),
+                            newCustomRouteThroughTor = true,
+                            newCustomUseSsl = true,
                             customNodeSuccessMessage = R.string.node_custom_success,
                             customNodeError = null
                         )
@@ -391,7 +450,10 @@ data class OnboardingUiState(
     val newCustomName: String = "",
     val newCustomHost: String = "",
     val newCustomPort: String = DEFAULT_SSL_PORT,
-    val newCustomOnion: String = "",
+    val newCustomOnionHost: String = "",
+    val newCustomOnionPort: String = "50001",
+    val newCustomRouteThroughTor: Boolean = true,
+    val newCustomUseSsl: Boolean = true,
     val isTestingCustomNode: Boolean = false,
     val isCustomNodeEditorVisible: Boolean = false,
     val customNodeError: String? = null,
