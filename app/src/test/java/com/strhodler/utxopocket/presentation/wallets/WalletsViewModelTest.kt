@@ -118,6 +118,36 @@ class WalletsViewModelTest {
         advanceUntilIdle()
         assertEquals(false, viewModel.uiState.value.hasActiveNodeSelection)
     }
+
+    @Test
+    fun torErrorsIgnoredForDirectCustomNodes() = runTest {
+        val nodeId = "direct-node"
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(
+                connectionOption = NodeConnectionOption.CUSTOM,
+                customNodes = listOf(
+                    CustomNode(
+                        id = nodeId,
+                        addressOption = NodeAddressOption.HOST_PORT,
+                        host = "electrum.example.com",
+                        port = 50002,
+                        name = "Direct",
+                        routeThroughTor = false,
+                        useSsl = true,
+                        network = BitcoinNetwork.TESTNET
+                    )
+                ),
+                selectedCustomNodeId = nodeId
+            )
+        }
+        torManager.setStatus(TorStatus.Error("Tor offline"))
+
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(false, state.torRequired)
+        assertEquals(null, state.errorMessage)
+    }
 }
 
 private class TestWalletRepository : WalletRepository {
@@ -213,8 +243,13 @@ private class TestWalletRepository : WalletRepository {
 
 private class TestTorManager : TorManager {
     private val proxy = SocksProxyConfig(host = "127.0.0.1", port = 9050)
-    override val status: StateFlow<TorStatus> = MutableStateFlow(TorStatus.Running(proxy))
+    private val mutableStatus = MutableStateFlow<TorStatus>(TorStatus.Running(proxy))
+    override val status: StateFlow<TorStatus> = mutableStatus
     override val latestLog: StateFlow<String> = MutableStateFlow("")
+
+    fun setStatus(value: TorStatus) {
+        mutableStatus.value = value
+    }
 
     override suspend fun start(config: TorConfig): Result<SocksProxyConfig> = Result.success(proxy)
 

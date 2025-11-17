@@ -129,6 +129,12 @@ fun NodeStatusRoute(
         viewModel.onSelectionNoticeConsumed()
     }
 
+    LaunchedEffect(state.customNodeSuccessMessage, state.customNodes.size) {
+        val messageRes = state.customNodeSuccessMessage ?: return@LaunchedEffect
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        snackbarHostState.showSnackbar(context.getString(messageRes))
+    }
+
     val editorVisible = state.isCustomNodeEditorVisible
     val isEditing = state.editingCustomNodeId != null
     val overviewTitle = stringResource(id = R.string.node_overview_title)
@@ -629,7 +635,6 @@ private fun NodeManagementContent(
             selectedCustomNodeId = state.selectedCustomNodeId,
             isNodeConnected = state.isNodeConnected,
             isNodeActivating = state.isNodeActivating,
-            customNodeSuccessMessage = state.customNodeSuccessMessage,
             onNetworkSelected = onNetworkSelected,
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,

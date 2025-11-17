@@ -11,6 +11,7 @@ import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
+import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
@@ -144,6 +145,7 @@ class WalletsViewModel @Inject constructor(
         val syncStatus = snapshot.syncStatus
         val torStatus = snapshot.torStatus
         val balanceUnit = snapshot.balanceUnit
+        val torRequired = snapshot.nodeConfig.requiresTor(data.network)
 
         val snapshotMatchesNetwork = nodeSnapshot.network == data.network
         val effectiveNodeStatus = if (snapshotMatchesNetwork) {
@@ -152,9 +154,10 @@ class WalletsViewModel @Inject constructor(
             NodeStatus.Idle
         }
         val isRefreshing = syncStatus.isRefreshing && syncStatus.network == data.network
+        val torError = if (torRequired && torStatus is TorStatus.Error) torStatus.message else null
         val errorMessage = when {
             snapshotMatchesNetwork && effectiveNodeStatus is NodeStatus.Error -> effectiveNodeStatus.message
-            torStatus is TorStatus.Error -> torStatus.message
+            torError != null -> torError
             else -> null
         }
         WalletsUiState(
@@ -163,13 +166,14 @@ class WalletsViewModel @Inject constructor(
             selectedNetwork = data.network,
             nodeStatus = effectiveNodeStatus,
             torStatus = torStatus,
+            torRequired = torRequired,
             balanceUnit = balanceUnit,
             totalBalanceSats = data.wallets.sumOf { it.balanceSats },
             blockHeight = if (snapshotMatchesNetwork) nodeSnapshot.blockHeight else null,
             feeRateSatPerVb = if (snapshotMatchesNetwork) nodeSnapshot.feeRateSatPerVb else null,
             errorMessage = errorMessage,
             walletAnimationsEnabled = animationsEnabled,
-            hasActiveNodeSelection = snapshot.nodeConfig.hasActiveSelection()
+            hasActiveNodeSelection = snapshot.nodeConfig.hasActiveSelection(data.network)
         )
     }.stateIn(
         scope = viewModelScope,
@@ -219,6 +223,7 @@ data class WalletsUiState(
     val selectedNetwork: BitcoinNetwork = BitcoinNetwork.DEFAULT,
     val nodeStatus: NodeStatus = NodeStatus.Idle,
     val torStatus: TorStatus = TorStatus.Connecting(),
+    val torRequired: Boolean = false,
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
     val totalBalanceSats: Long = 0,
     val blockHeight: Long? = null,

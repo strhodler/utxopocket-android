@@ -268,7 +268,6 @@ fun NodeConfigurationRoute(
             selectedCustomNodeId = state.selectedCustomNodeId,
             isNodeConnected = state.isNodeConnected,
             isNodeActivating = state.isNodeActivating,
-            customNodeSuccessMessage = state.customNodeSuccessMessage,
             onDismiss = onBack,
             onNetworkSelected = viewModel::onNetworkSelected,
             onPublicNodeSelected = onPublicNodeSelected@{ nodeId ->
@@ -320,7 +319,6 @@ fun NodeConfigurationScreen(
     selectedCustomNodeId: String?,
     isNodeConnected: Boolean,
     isNodeActivating: Boolean,
-    customNodeSuccessMessage: Int?,
     onDismiss: () -> Unit,
     onNetworkSelected: ((BitcoinNetwork) -> Unit)?,
     onPublicNodeSelected: (String) -> Unit,
@@ -350,7 +348,6 @@ fun NodeConfigurationScreen(
             selectedCustomNodeId = selectedCustomNodeId,
             isNodeConnected = isNodeConnected,
             isNodeActivating = isNodeActivating,
-            customNodeSuccessMessage = customNodeSuccessMessage,
             onNetworkSelected = onNetworkSelected,
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
@@ -372,7 +369,6 @@ fun NodeConfigurationContent(
     selectedCustomNodeId: String?,
     isNodeConnected: Boolean,
     isNodeActivating: Boolean,
-    customNodeSuccessMessage: Int?,
     onNetworkSelected: ((BitcoinNetwork) -> Unit)?,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
@@ -403,8 +399,7 @@ fun NodeConfigurationContent(
             onCustomNodeDetails = onCustomNodeDetails,
             onAddCustomNodeClick = onAddCustomNodeClick,
             onDisconnect = onDisconnectNode,
-            showTorReminder = showTorReminder,
-            successMessage = customNodeSuccessMessage
+            showTorReminder = showTorReminder
         )
     }
 }
@@ -486,11 +481,11 @@ private fun AvailableNodesSection(
     onCustomNodeDetails: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
     onDisconnect: (() -> Unit)?,
-    showTorReminder: Boolean,
-    successMessage: Int?
+    showTorReminder: Boolean
 ) {
     val publicTypeLabel = stringResource(id = R.string.node_item_type_public)
     val customTypeLabel = stringResource(id = R.string.node_item_type_custom)
+    val noTorLabel = stringResource(id = R.string.node_item_type_no_tor)
     val nodes = buildList {
         publicNodes.forEach { node ->
             add(
@@ -508,11 +503,16 @@ private fun AvailableNodesSection(
             )
         }
         customNodes.forEach { node ->
+            val typeLabel = if (node.routeThroughTor) {
+                customTypeLabel
+            } else {
+                "$customTypeLabel | $noTorLabel"
+            }
             add(
                 AvailableNodeItem(
                     title = node.displayLabel(),
                     subtitle = sanitizeEndpoint(node.endpointLabel()),
-                    typeLabel = customTypeLabel,
+                    typeLabel = typeLabel,
                     selected = activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
                     connected = (isNodeConnected || isNodeActivating) &&
                         activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
@@ -571,14 +571,6 @@ private fun AvailableNodesSection(
             Text(
                 text = stringResource(id = R.string.node_custom_add_open_button),
                 style = MaterialTheme.typography.titleSmall
-            )
-        }
-
-        successMessage?.let { messageRes ->
-            Text(
-                text = stringResource(id = messageRes),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary
             )
         }
 

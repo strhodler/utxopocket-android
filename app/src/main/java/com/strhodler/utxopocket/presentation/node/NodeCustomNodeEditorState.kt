@@ -9,6 +9,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.res.stringResource
@@ -94,7 +95,11 @@ fun rememberNodeCustomNodeEditorState(
         onSuccess = {
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
             coroutineScope.launch {
-                snackbarHostState.showSnackbar(scanSuccessMessage)
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = scanSuccessMessage,
+                    duration = SnackbarDuration.Short
+                )
             }
         }
     )

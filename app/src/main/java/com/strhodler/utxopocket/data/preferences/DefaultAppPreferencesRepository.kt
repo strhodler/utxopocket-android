@@ -469,6 +469,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
                 put("name", node.name)
                 put("routeThroughTor", node.routeThroughTor)
                 put("useSsl", node.useSsl)
+                node.network?.let { put("network", it.name) }
             }
             array.put(obj)
         }
@@ -497,6 +498,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
                         NodeAddressOption.ONION -> false
                         NodeAddressOption.HOST_PORT -> obj.optBoolean("useSsl", true)
                     }
+                    val networkName = obj.optString("network")
+                    val network = networkName.takeIf { it.isNotBlank() }?.let { raw ->
+                        runCatching { BitcoinNetwork.valueOf(raw) }.getOrNull()
+                    }
                     add(
                         CustomNode(
                             id = id,
@@ -506,7 +511,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
                             onion = onion,
                             name = obj.optString("name"),
                             routeThroughTor = routeThroughTor,
-                            useSsl = useSsl
+                            useSsl = useSsl,
+                            network = network
                         )
                     )
                 }

@@ -4,6 +4,7 @@ import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
+import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.domain.service.TorManager
 import javax.inject.Inject
@@ -24,7 +25,8 @@ class DefaultNodeConnectionTester @Inject constructor(
                 addressOption = NodeAddressOption.HOST_PORT,
                 host = host,
                 port = port,
-                useSsl = true
+                useSsl = true,
+                network = null
             )
         )
 
@@ -34,7 +36,8 @@ class DefaultNodeConnectionTester @Inject constructor(
                 id = "temp-onion-$onion",
                 addressOption = NodeAddressOption.ONION,
                 onion = onion,
-                useSsl = false
+                useSsl = false,
+                network = null
             )
         )
 
@@ -58,10 +61,7 @@ class DefaultNodeConnectionTester @Inject constructor(
             }
         }
 
-        val requiresTor = when (node.addressOption) {
-            NodeAddressOption.ONION -> true
-            NodeAddressOption.HOST_PORT -> node.routeThroughTor
-        }
+        val requiresTor = node.requiresTor()
         val proxy = if (requiresTor) ensureProxy() else null
         runCatching {
             ElectrumClient(

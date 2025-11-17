@@ -18,7 +18,8 @@ data class CustomNode(
     val onion: String = "",
     val name: String = "",
     val routeThroughTor: Boolean = true,
-    val useSsl: Boolean = true
+    val useSsl: Boolean = true,
+    val network: BitcoinNetwork? = null
 ) {
     fun isValid(): Boolean = when (addressOption) {
         NodeAddressOption.HOST_PORT -> host.isNotBlank() && port != null
@@ -67,3 +68,43 @@ fun NodeConfig.hasActiveSelection(): Boolean = when (connectionOption) {
     NodeConnectionOption.PUBLIC -> !selectedPublicNodeId.isNullOrBlank()
     NodeConnectionOption.CUSTOM -> !selectedCustomNodeId.isNullOrBlank()
 }
+
+fun NodeConfig.hasActiveSelection(network: BitcoinNetwork): Boolean = when (connectionOption) {
+    NodeConnectionOption.PUBLIC -> !selectedPublicNodeId.isNullOrBlank()
+    NodeConnectionOption.CUSTOM -> activeCustomNode(network) != null
+}
+
+fun NodeConfig.customNodesFor(network: BitcoinNetwork): List<CustomNode> =
+    customNodes.filter { node -> node.network == null || node.network == network }
+
+fun NodeConfig.activeCustomNode(network: BitcoinNetwork? = null): CustomNode? {
+    val scopedNodes = if (network != null) customNodesFor(network) else customNodes
+    return scopedNodes.firstOrNull { it.id == selectedCustomNodeId }
+}
+
+fun NodeConfig.activeTransport(network: BitcoinNetwork? = null): NodeTransport? = when (connectionOption) {
+    NodeConnectionOption.PUBLIC -> if (selectedPublicNodeId != null) {
+        NodeTransport.TOR
+    } else {
+        null
+    }
+
+    NodeConnectionOption.CUSTOM -> {
+        val selected = activeCustomNode(network) ?: return null
+        selected.activeTransport()
+    }
+}
+
+fun NodeConfig.requiresTor(network: BitcoinNetwork? = null): Boolean =
+    activeTransport(network) == NodeTransport.TOR
+
+fun CustomNode.activeTransport(): NodeTransport = when (addressOption) {
+    NodeAddressOption.ONION -> NodeTransport.TOR
+    NodeAddressOption.HOST_PORT -> if (routeThroughTor) {
+        NodeTransport.TOR
+    } else {
+        NodeTransport.DIRECT
+    }
+}
+
+fun CustomNode.requiresTor(): Boolean = activeTransport() == NodeTransport.TOR

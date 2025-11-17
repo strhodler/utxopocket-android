@@ -190,7 +190,8 @@ private fun WalletsContent(
     val showNodePrompt = state.wallets.isEmpty() && !state.hasActiveNodeSelection
 
     val torStatus = state.torStatus
-    val showTorBanner = torStatus is TorStatus.Stopped || torStatus is TorStatus.Error
+    val showTorBanner = state.torRequired &&
+        (torStatus is TorStatus.Stopped || torStatus is TorStatus.Error)
     val torBannerMessage = stringResource(id = R.string.wallets_tor_disconnected_banner)
 
     val hasWalletErrors = state.wallets.any { it.lastSyncStatus is NodeStatus.Error }

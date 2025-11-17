@@ -20,9 +20,10 @@ import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
-import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.domain.service.TorManager
+import com.strhodler.utxopocket.domain.model.customNodesFor
 import com.strhodler.utxopocket.presentation.settings.model.NodeSelectionFeedback
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import com.strhodler.utxopocket.presentation.settings.model.TransactionHealthParameterInputs
@@ -100,7 +101,7 @@ class SettingsViewModel @Inject constructor(
                     publicNodes.any { it.id == id }
                 }
 
-                val customNodes = nodeConfig.customNodes
+                val customNodes = nodeConfig.customNodesFor(network)
                 val selectedCustomId = nodeConfig.selectedCustomNodeId?.takeIf { id ->
                     customNodes.any { it.id == id }
                 }
@@ -624,8 +625,13 @@ class SettingsViewModel @Inject constructor(
     fun onDeleteCustomNode(nodeId: String) {
         viewModelScope.launch {
             var removedActive = false
+            var removedNode = false
             nodeConfigurationRepository.updateNodeConfig { current ->
                 val remaining = current.customNodes.filterNot { it.id == nodeId }
+                if (remaining.size == current.customNodes.size) {
+                    return@updateNodeConfig current
+                }
+                removedNode = true
                 removedActive = current.connectionOption == NodeConnectionOption.CUSTOM &&
                     current.selectedCustomNodeId == nodeId
                 val newSelected = current.selectedCustomNodeId?.takeIf { id ->
@@ -654,6 +660,14 @@ class SettingsViewModel @Inject constructor(
                         isTestingCustomNode = false,
                         customNodeError = null,
                         customNodeSuccessMessage = null
+                    )
+                }
+            }
+            if (removedNode) {
+                _uiState.update {
+                    it.copy(
+                        customNodeError = null,
+                        customNodeSuccessMessage = R.string.node_custom_deleted
                     )
                 }
             }
@@ -971,6 +985,11 @@ class SettingsViewModel @Inject constructor(
         if (existingId == null && trimmedName.isEmpty()) {
             return "Name cannot be empty" to null
         }
+        val targetNetwork = if (existingId != null) {
+            customNodes.firstOrNull { it.id == existingId }?.network ?: preferredNetwork
+        } else {
+            preferredNetwork
+        }
         return when (nodeAddressOption) {
             NodeAddressOption.HOST_PORT -> {
                 val host = newCustomHost.trim()
@@ -988,7 +1007,8 @@ class SettingsViewModel @Inject constructor(
                             port = portValue,
                             name = trimmedName,
                             routeThroughTor = newCustomRouteThroughTor,
-                            useSsl = newCustomUseSsl
+                            useSsl = newCustomUseSsl,
+                            network = targetNetwork
                         )
                     }
                 }
@@ -1013,7 +1033,8 @@ class SettingsViewModel @Inject constructor(
                             onion = "$host:$portValue",
                             name = trimmedName,
                             routeThroughTor = true,
-                            useSsl = false
+                            useSsl = false,
+                            network = targetNetwork
                         )
                     }
                 }
@@ -1028,7 +1049,8 @@ class SettingsViewModel @Inject constructor(
             onion == other.onion &&
             name == other.name &&
             routeThroughTor == other.routeThroughTor &&
-            useSsl == other.useSsl
+            useSsl == other.useSsl &&
+            network == other.network
 
     private fun String.onionHost(): String {
         if (isBlank()) return ""

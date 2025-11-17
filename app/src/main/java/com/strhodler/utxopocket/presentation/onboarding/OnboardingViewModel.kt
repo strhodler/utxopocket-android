@@ -10,6 +10,7 @@ import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
 import com.strhodler.utxopocket.domain.model.PublicNode
+import com.strhodler.utxopocket.domain.model.customNodesFor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
@@ -18,8 +19,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -36,36 +36,31 @@ class OnboardingViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            appPreferencesRepository.preferredNetwork.collectLatest { network ->
-                _uiState.update { state ->
-                    val nodes = nodeConfigurationRepository.publicNodesFor(network)
-                    val defaultNodeId = state.selectedPublicNodeId?.takeIf { id ->
-                        nodes.any { it.id == id }
-                    } ?: nodes.firstOrNull()?.id
-                    state.copy(
-                        network = network,
-                        publicNodes = nodes,
-                        selectedPublicNodeId = defaultNodeId
-                    )
+            combine(
+                appPreferencesRepository.preferredNetwork,
+                nodeConfigurationRepository.nodeConfig
+            ) { network, config -> network to config }
+                .collect { (network, config) ->
+                    val publicNodes = nodeConfigurationRepository.publicNodesFor(network)
+                    val selectedPublic = config.selectedPublicNodeId?.takeIf { id ->
+                        publicNodes.any { it.id == id }
+                    } ?: publicNodes.firstOrNull()?.id
+                    val customNodes = config.customNodesFor(network)
+                    val selectedCustom = config.selectedCustomNodeId?.takeIf { id ->
+                        customNodes.any { it.id == id }
+                    }
+                    _uiState.update { state ->
+                        state.copy(
+                            network = network,
+                            publicNodes = publicNodes,
+                            selectedPublicNodeId = selectedPublic,
+                            nodeConnectionOption = config.connectionOption,
+                            nodeAddressOption = config.addressOption,
+                            customNodes = customNodes,
+                            selectedCustomNodeId = selectedCustom
+                        )
+                    }
                 }
-            }
-        }
-
-        viewModelScope.launch {
-            val config = nodeConfigurationRepository.nodeConfig.first()
-            _uiState.update { state ->
-                val customNodes = config.customNodes
-                val selectedCustom = config.selectedCustomNodeId?.takeIf { id ->
-                    customNodes.any { it.id == id }
-                } ?: customNodes.firstOrNull()?.id
-                state.copy(
-                    nodeConnectionOption = config.connectionOption,
-                    nodeAddressOption = config.addressOption,
-                    customNodes = customNodes,
-                    selectedCustomNodeId = selectedCustom,
-                    selectedPublicNodeId = config.selectedPublicNodeId ?: state.selectedPublicNodeId
-                )
-            }
         }
     }
 
@@ -321,7 +316,8 @@ class OnboardingViewModel @Inject constructor(
                         port = port,
                         name = trimmedName,
                         routeThroughTor = state.newCustomRouteThroughTor,
-                        useSsl = state.newCustomUseSsl
+                        useSsl = state.newCustomUseSsl,
+                        network = state.network
                     )
                 }
             }
@@ -345,7 +341,8 @@ class OnboardingViewModel @Inject constructor(
                             onion = "$host:$portValue",
                             name = trimmedName,
                             routeThroughTor = true,
-                            useSsl = false
+                            useSsl = false,
+                            network = state.network
                         )
                     }
                 }

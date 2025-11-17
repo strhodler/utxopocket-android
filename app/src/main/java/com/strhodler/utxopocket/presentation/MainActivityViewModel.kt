@@ -13,9 +13,8 @@ import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
-import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
-import com.strhodler.utxopocket.domain.model.NodeTransport
+import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
@@ -81,15 +80,21 @@ class MainActivityViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            torManager.status.collect { status ->
-                val isRunning = status is TorStatus.Running
-                val shouldDisconnect = status is TorStatus.Stopped || status is TorStatus.Error
-                when {
-                    lastTorWasRunning && shouldDisconnect -> disconnectNodeSelection()
-                    !lastTorWasRunning && isRunning -> ensureNodeAutoConnect()
+            combine(
+                torManager.status,
+                nodeConfigurationRepository.nodeConfig,
+                appPreferencesRepository.preferredNetwork
+            ) { status, config, network -> Triple(status, config, network) }
+                .collect { (status, config, network) ->
+                    val configRequiresTor = config.requiresTor(network)
+                    val isRunning = status is TorStatus.Running
+                    val shouldDisconnect = status is TorStatus.Stopped || status is TorStatus.Error
+                    when {
+                        configRequiresTor && lastTorWasRunning && shouldDisconnect -> disconnectNodeSelection(network)
+                        configRequiresTor && !lastTorWasRunning && isRunning -> ensureNodeAutoConnect(config, network)
+                    }
+                    lastTorWasRunning = configRequiresTor && isRunning
                 }
-                lastTorWasRunning = isRunning
-            }
         }
     }
 
@@ -205,21 +210,17 @@ class MainActivityViewModel @Inject constructor(
         }
     }
 
-    private suspend fun ensureNodeAutoConnect() {
-        val config = nodeConfigurationRepository.nodeConfig.first()
-        if (!config.hasActiveSelection()) {
+    private suspend fun ensureNodeAutoConnect(config: NodeConfig, network: BitcoinNetwork) {
+        if (!config.hasActiveSelection(network)) {
             return
         }
-        val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
-        walletRepository.refresh(preferredNetwork)
+        walletRepository.refresh(network)
     }
 
-    private suspend fun disconnectNodeSelection() {
+    private suspend fun disconnectNodeSelection(network: BitcoinNetwork) {
         var clearedSelection = false
         nodeConfigurationRepository.updateNodeConfig { current ->
-            val requiresTor = current.hasActiveSelection() &&
-                current.activeTransport() == NodeTransport.TOR
-            if (!requiresTor) {
+            if (!current.requiresTor(network)) {
                 return@updateNodeConfig current
             }
             clearedSelection = true
@@ -230,42 +231,21 @@ class MainActivityViewModel @Inject constructor(
             )
         }
         if (clearedSelection) {
-            val network = appPreferencesRepository.preferredNetwork.first()
             walletRepository.refresh(network)
         }
     }
 
     private suspend fun resumeNodeIfNeeded() {
         val config = nodeConfigurationRepository.nodeConfig.first()
-        if (!config.hasActiveSelection()) {
+        val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
+        if (!config.hasActiveSelection(preferredNetwork)) {
             return
         }
-        val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
         val nodeSnapshot = walletRepository.observeNodeStatus().first()
         val snapshotMatchesNetwork = nodeSnapshot.network == preferredNetwork
         val isConnected = snapshotMatchesNetwork && nodeSnapshot.status is NodeStatus.Synced
         if (!isConnected) {
             walletRepository.refresh(preferredNetwork)
-        }
-    }
-
-    private fun NodeConfig.activeTransport(): NodeTransport? = when (connectionOption) {
-        NodeConnectionOption.PUBLIC -> if (selectedPublicNodeId != null) {
-            NodeTransport.TOR
-        } else {
-            null
-        }
-
-        NodeConnectionOption.CUSTOM -> {
-            val selected = customNodes.firstOrNull { it.id == selectedCustomNodeId } ?: return null
-            when (selected.addressOption) {
-                NodeAddressOption.ONION -> NodeTransport.TOR
-                NodeAddressOption.HOST_PORT -> if (selected.routeThroughTor) {
-                    NodeTransport.TOR
-                } else {
-                    NodeTransport.DIRECT
-                }
-            }
         }
     }
 }

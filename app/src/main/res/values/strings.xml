@@ -696,6 +696,7 @@
     <string name="node_section_available_empty">Add your first node to get started.</string>
     <string name="node_item_type_public">Public node</string>
     <string name="node_item_type_custom">Custom node</string>
+    <string name="node_item_type_no_tor">No Tor</string>
     <string name="node_connected_badge">Connected</string>
     <string name="node_active_indicator">Active node</string>
     <string name="node_switch_confirm_title">Switch node connection?</string>
@@ -705,9 +706,10 @@
     <string name="node_delete_content_description">Remove custom node</string>
     <string name="node_custom_add_button">Test &amp; add node</string>
     <string name="node_custom_testing">Testing connection…</string>
-    <string name="node_custom_success">Node added and verified</string>
+    <string name="node_custom_success">Node added</string>
     <string name="node_custom_save_button">Save changes</string>
     <string name="node_custom_updated">Node updated</string>
+    <string name="node_custom_deleted">Node removed</string>
     <string name="node_custom_delete_button">Delete node</string>
     <string name="node_custom_delete_confirm_title">Remove custom node?</string>
     <string name="node_custom_delete_confirm_message">Removing %1$s will disconnect it if active. Continue?</string>

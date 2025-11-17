@@ -378,7 +378,7 @@ class DefaultWalletRepository @Inject constructor(
     override suspend fun refresh(network: BitcoinNetwork) = withContext(ioDispatcher) {
         val config = nodeConfigurationRepository.nodeConfig.first()
         val previousSnapshot = nodeStatus.value
-        if (!config.hasActiveSelection()) {
+        if (!config.hasActiveSelection(network)) {
             syncStatus.value = SyncStatusSnapshot(isRefreshing = false, network = network)
             val snapshotMatchesNetwork = previousSnapshot.network == network
             nodeStatus.value = NodeStatusSnapshot(

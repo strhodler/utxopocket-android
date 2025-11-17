@@ -5,6 +5,8 @@ import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeTransport
+import com.strhodler.utxopocket.domain.model.customNodesFor
+import com.strhodler.utxopocket.domain.model.activeTransport
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -39,8 +41,9 @@ class ElectrumEndpointProvider @Inject constructor(
     }
 
     private fun customEndpoint(config: NodeConfig, network: BitcoinNetwork): ElectrumEndpoint? {
-        val selectedNode = config.customNodes.firstOrNull { it.id == config.selectedCustomNodeId }
-            ?: config.customNodes.firstOrNull()
+        val scopedNodes = config.customNodesFor(network)
+        val selectedNode = scopedNodes.firstOrNull { it.id == config.selectedCustomNodeId }
+            ?: scopedNodes.firstOrNull()
             ?: return null
 
         return when (selectedNode.addressOption) {
@@ -48,11 +51,7 @@ class ElectrumEndpointProvider @Inject constructor(
                 val host = selectedNode.host.trim()
                 val port = selectedNode.port
                 if (host.isBlank() || port == null) null else {
-                    val transport = if (selectedNode.routeThroughTor) {
-                        NodeTransport.TOR
-                    } else {
-                        NodeTransport.DIRECT
-                    }
+                    val transport = selectedNode.activeTransport()
                     val useSsl = selectedNode.useSsl
                     val scheme = if (useSsl) "ssl" else "tcp"
                     ElectrumEndpoint(
@@ -69,11 +68,12 @@ class ElectrumEndpointProvider @Inject constructor(
                     .removePrefix("tcp://")
                     .removePrefix("ssl://")
                 if (onion.isBlank()) null else {
+                    val transport = selectedNode.activeTransport()
                     ElectrumEndpoint(
                         url = "tcp://$onion",
                         validateDomain = false,
                         sync = syncPreferencesFor(network),
-                        transport = NodeTransport.TOR
+                        transport = transport
                     )
                 }
             }
