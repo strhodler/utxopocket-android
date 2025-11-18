@@ -394,10 +394,10 @@
     <string name="tor_overview_stop_error">No se pudo desconectar Tor. Inténtalo nuevamente.</string>
     <string name="tor_overview_start_error">No se pudo conectar con Tor. Inténtalo nuevamente.</string>
     <string name="node_overview_title">Centro del nodo</string>
-    <string name="node_overview_details_title">Detalles de conexión</string>
+    <string name="node_overview_details_empty">Este nodo no expone información de conexión.</string>
     <string name="node_overview_fee_rate_title">Tarifa sugerida</string>
     <string name="node_overview_fee_rate_hint">Última estimación en sats/vB reportada por tu nodo.</string>
-    <string name="node_overview_tab_status">Estado</string>
+    <string name="node_overview_tab_status">Detalles</string>
     <string name="node_overview_tab_management">Gestión</string>
     <string name="node_overview_network_title">Red activa</string>
     <string name="node_overview_network_action">Cambiar red</string>

@@ -694,7 +694,7 @@
     <string name="tor_status_proxy_endpoint">Proxy: %1$s:%2$d</string>
     <string name="settings_node_selection_feedback">Switching connection to %1$s</string>
     <string name="node_overview_title">Node control center</string>
-    <string name="node_overview_details_title">Connection details</string>
+    <string name="node_overview_details_empty">This node does not expose connection details.</string>
     <string name="node_overview_fee_rate_title">Suggested fee rate</string>
     <string name="node_overview_fee_rate_hint">Latest sats/vB estimate reported by your node.</string>
     <string name="node_section_available_title">Available nodes</string>
@@ -703,7 +703,7 @@
     <string name="node_item_type_public">Public node</string>
     <string name="node_item_type_custom">Custom node</string>
     <string name="node_item_type_no_tor">No Tor</string>
-    <string name="node_overview_tab_status">Status</string>
+    <string name="node_overview_tab_status">Details</string>
     <string name="node_overview_tab_management">Manage</string>
     <string name="node_overview_network_title">Active network</string>
     <string name="node_overview_network_action">Switch network</string>

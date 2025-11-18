@@ -596,16 +596,20 @@ private fun NodeOverviewContent(
 ) {
     val resources = LocalContext.current.resources
     val isConnected = status.nodeStatus == NodeStatus.Synced
+    val nodeDetails = if (isConnected) {
+        buildNodeDetails(
+            resources = resources,
+            blockHeight = status.nodeBlockHeight,
+            feeRate = status.nodeFeeRateSatPerVb,
+            serverInfo = status.nodeServerInfo
+        )
+    } else {
+        emptyList()
+    }
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = stringResource(id = R.string.node_overview_details_title),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 4.dp)
-        )
         if (!isConnected) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -620,13 +624,21 @@ private fun NodeOverviewContent(
                     modifier = Modifier.padding(16.dp)
                 )
             }
+        } else if (nodeDetails.isEmpty()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                tonalElevation = 1.dp,
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
+            ) {
+                Text(
+                    text = stringResource(id = R.string.node_overview_details_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
         } else {
-            val nodeDetails = buildNodeDetails(
-                resources = resources,
-                blockHeight = status.nodeBlockHeight,
-                feeRate = status.nodeFeeRateSatPerVb,
-                serverInfo = status.nodeServerInfo
-            )
             nodeDetails.forEach { (label, value) ->
                 NodeDetailCard(
                     label = label,
