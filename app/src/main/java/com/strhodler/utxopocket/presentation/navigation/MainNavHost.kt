@@ -68,7 +68,15 @@ fun MainNavHost(
                         null as String?
                     )
                 }
+                val createdMessageFlow = remember(backStackEntry) {
+                    backStackEntry.savedStateHandle.getStateFlow(
+                        WalletsNavigation.WalletCreatedMessageKey,
+                        null as String?
+                    )
+                }
                 val deletedMessage by deletedMessageFlow.collectAsState()
+                val createdMessage by createdMessageFlow.collectAsState()
+                val snackbarMessage = createdMessage ?: deletedMessage
                 WalletsRoute(
                     onAddWallet = { navController.navigate(WalletsNavigation.AddRoute) },
                     onOpenWiki = {
@@ -108,17 +116,40 @@ fun MainNavHost(
                             launchSingleTop = true
                         }
                     },
-                    snackbarMessage = deletedMessage,
+                    snackbarMessage = snackbarMessage,
                     onSnackbarConsumed = {
-                        backStackEntry.savedStateHandle[WalletsNavigation.WalletDeletedMessageKey] = null
+                        if (createdMessage != null) {
+                            backStackEntry.savedStateHandle[WalletsNavigation.WalletCreatedMessageKey] = null
+                        } else if (deletedMessage != null) {
+                            backStackEntry.savedStateHandle[WalletsNavigation.WalletDeletedMessageKey] = null
+                        }
                     }
                 )
             }
             composable(WalletsNavigation.AddRoute) {
                 AddWalletRoute(
                     onBack = { navController.popBackStack() },
-                    onWalletCreated = {
-                        navController.popBackStack(WalletsNavigation.ListRoute, inclusive = false)
+                    onWalletCreated = { message ->
+                        runCatching {
+                            navController.getBackStackEntry(WalletsNavigation.ListRoute).savedStateHandle[
+                                WalletsNavigation.WalletCreatedMessageKey
+                            ] = message
+                        }
+                        val popped = navController.popBackStack(WalletsNavigation.ListRoute, inclusive = false)
+                        if (!popped) {
+                            navController.navigate(MainDestination.Wallets.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                            runCatching {
+                                navController.getBackStackEntry(WalletsNavigation.ListRoute).savedStateHandle[
+                                    WalletsNavigation.WalletCreatedMessageKey
+                                ] = message
+                            }
+                        }
                     },
                     onDescriptorHelp = {
                         navController.navigate(

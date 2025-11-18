@@ -11,6 +11,7 @@ object WalletsNavigation {
     const val NodeStatusTabArg: String = "tab"
     const val TorStatusRoute: String = "wallets/tor-status"
     const val WalletDeletedMessageKey: String = "wallets_deleted_message"
+    const val WalletCreatedMessageKey: String = "wallets_created_message"
     const val WalletIdArg: String = "walletId"
     const val WalletNameArg: String = "walletName"
     const val TransactionDetailRoute: String = "wallets/detail/{walletId}/transaction/{txId}"
