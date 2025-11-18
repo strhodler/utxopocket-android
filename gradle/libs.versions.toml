@@ -5,7 +5,7 @@ coreKtx = "1.17.0"
 appcompat = "1.7.1"
 junit = "4.13.2"
 junitVersion = "1.3.0"
-androidxTestCore = "1.6.1"
+androidxTestCore = "1.7.0"
 ksp = "2.2.20-2.0.4"
 espressoCore = "3.7.0"
 vico = "2.3.6"
@@ -34,6 +34,7 @@ zxing = "4.3.0"
 splashscreen = "1.2.0"
 paging = "3.3.6"
 hummingbird = "1.7.4"
+markwon = "4.6.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -89,6 +90,7 @@ androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscree
 androidx-paging-runtime = { group = "androidx.paging", name = "paging-runtime", version.ref = "paging" }
 androidx-paging-compose = { group = "androidx.paging", name = "paging-compose", version.ref = "paging" }
 sparrow-hummingbird = { group = "com.sparrowwallet", name = "hummingbird", version.ref = "hummingbird" }
+markwon = { group = "io.noties.markwon", name = "core", version.ref = "markwon" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

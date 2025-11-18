@@ -162,54 +162,38 @@ class MarkdownWikiDataSource @Inject constructor(
     }
 
     private fun buildParagraphs(lines: List<String>): List<String> {
+        if (lines.isEmpty()) return emptyList()
         val paragraphs = mutableListOf<String>()
-        val builder = StringBuilder()
+        val buffer = StringBuilder()
+        var insideCodeBlock = false
+
+        fun flush() {
+            if (buffer.isNotEmpty()) {
+                paragraphs += buffer.toString().trimEnd('\n')
+                buffer.clear()
+            }
+        }
+
         lines.forEach { line ->
-            if (line.isBlank()) {
-                if (builder.isNotEmpty()) {
-                    paragraphs += builder.toString().trim()
-                    builder.clear()
+            val trimmed = line.trim()
+            val isFence = trimmed.startsWith("```")
+            when {
+                isFence -> {
+                    buffer.append(line).append('\n')
+                    if (insideCodeBlock) {
+                        insideCodeBlock = false
+                        flush()
+                    } else {
+                        insideCodeBlock = true
+                    }
                 }
-            } else {
-                builder.append(line).append('\n')
+                insideCodeBlock -> buffer.append(line).append('\n')
+                line.isBlank() -> flush()
+                else -> buffer.append(line).append('\n')
             }
         }
-        if (builder.isNotEmpty()) {
-            paragraphs += builder.toString().trim()
-        }
-        return paragraphs.map(::formatParagraph)
-    }
-
-    private fun formatParagraph(text: String): String {
-        if (text.isBlank()) return text
-        val lines = text.lines()
-        val normalized = lines.map { rawLine ->
-            val trimmed = rawLine.trimStart()
-            val formatted = when {
-                trimmed.startsWith("- [ ] ") -> "☐ ${trimmed.removePrefix("- [ ] ").trimStart()}"
-                trimmed.startsWith("- [x] ", ignoreCase = true) -> "☑ ${trimmed.removePrefix("- [x] ").trimStart()}"
-                trimmed.startsWith("- ") -> "• ${trimmed.removePrefix("- ").trimStart()}"
-                trimmed.startsWith("* ") -> "• ${trimmed.removePrefix("* ").trimStart()}"
-                NUMERIC_BULLET_REGEX.matches(trimmed) -> {
-                    val value = trimmed.replaceFirst(NUMERIC_PREFIX_REGEX, "")
-                    "• ${value.trimStart()}"
-                }
-                else -> rawLine
-            }
-            stripMarkdownFormatting(formatted)
-        }
-        return normalized.joinToString("\n").trimEnd()
-    }
-
-    private fun stripMarkdownFormatting(value: String): String {
-        var result = value
-        result = BOLD_ASTERISK_REGEX.replace(result) { match -> match.groupValues[1] }
-        result = BOLD_UNDERSCORE_REGEX.replace(result) { match -> match.groupValues[1] }
-        result = ITALIC_ASTERISK_REGEX.replace(result) { match -> match.groupValues[1] }
-        result = ITALIC_UNDERSCORE_REGEX.replace(result) { match -> match.groupValues[1] }
-        result = CODE_REGEX.replace(result) { match -> match.groupValues[1] }
-        result = LINK_REGEX.replace(result) { match -> match.groupValues[1] }
-        return result
+        flush()
+        return paragraphs
     }
 
     private data class FrontMatter(
@@ -236,13 +220,5 @@ class MarkdownWikiDataSource @Inject constructor(
         private const val WIKI_ROOT = "wiki"
         private const val FRONT_MATTER_DELIMITER = "---"
         private const val DEFAULT_CATEGORY_ID = "general"
-        private val NUMERIC_BULLET_REGEX = Regex("^\\d+\\.\\s+.*")
-        private val NUMERIC_PREFIX_REGEX = Regex("^\\d+\\.\\s+")
-        private val BOLD_ASTERISK_REGEX = Regex("\\*\\*(.*?)\\*\\*")
-        private val BOLD_UNDERSCORE_REGEX = Regex("__(.*?)__")
-        private val ITALIC_ASTERISK_REGEX = Regex("(?<!\\*)\\*(?!\\*)([^*]+?)\\*(?!\\*)")
-        private val ITALIC_UNDERSCORE_REGEX = Regex("(?<!_)_(?!_)([^_]+?)_(?!_)")
-        private val CODE_REGEX = Regex("`([^`]+)`")
-        private val LINK_REGEX = Regex("\\[(.*?)]\\((.*?)\\)")
     }
 }

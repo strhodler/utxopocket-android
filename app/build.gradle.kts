@@ -104,6 +104,7 @@ dependencies {
     implementation("com.github.mhiew:android-pdf-viewer:3.2.0-beta.1") {
         exclude(group = "com.android.support")
     }
+    implementation(libs.markwon)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

@@ -183,8 +183,32 @@ private fun listScore(
 }
 
 private fun String.normalizeForSearch(): String {
-    val normalized = Normalizer.normalize(this, Normalizer.Form.NFD)
+    val sanitized = stripMarkdownForSearch()
+    val normalized = Normalizer.normalize(sanitized, Normalizer.Form.NFD)
     return DIACRITICS_REGEX.replace(normalized, "").lowercase(Locale.ROOT)
 }
 
+private fun String.stripMarkdownForSearch(): String {
+    var result = this
+    result = CODE_BLOCK_REGEX.replace(result) { match -> match.groupValues[1] }
+    result = INLINE_CODE_REGEX.replace(result) { match -> match.groupValues[1] }
+    result = LINK_REGEX.replace(result) { match -> match.groupValues[1] }
+    result = BOLD_ASTERISK_REGEX.replace(result) { match -> match.groupValues[1] }
+    result = BOLD_UNDERSCORE_REGEX.replace(result) { match -> match.groupValues[1] }
+    result = ITALIC_ASTERISK_REGEX.replace(result) { match -> match.groupValues[1] }
+    result = ITALIC_UNDERSCORE_REGEX.replace(result) { match -> match.groupValues[1] }
+    result = HEADER_PREFIX_REGEX.replace(result, "")
+    result = LIST_PREFIX_REGEX.replace(result, "")
+    return result
+}
+
 private val DIACRITICS_REGEX = "\\p{Mn}+".toRegex()
+private val CODE_BLOCK_REGEX = Regex("```([\\s\\S]*?)```", RegexOption.MULTILINE)
+private val INLINE_CODE_REGEX = Regex("`([^`]+)`")
+private val LINK_REGEX = Regex("\\[(.*?)]\\((.*?)\\)")
+private val BOLD_ASTERISK_REGEX = Regex("\\*\\*(.*?)\\*\\*")
+private val BOLD_UNDERSCORE_REGEX = Regex("__(.*?)__")
+private val ITALIC_ASTERISK_REGEX = Regex("(?<!\\*)\\*(?!\\*)([^*]+?)\\*(?!\\*)")
+private val ITALIC_UNDERSCORE_REGEX = Regex("(?<!_)_(?!_)([^_]+?)_(?!_)")
+private val HEADER_PREFIX_REGEX = Regex("(?m)^#+\\s*")
+private val LIST_PREFIX_REGEX = Regex("(?m)^\\s*([-*+]\\s+|\\d+\\.\\s+)")

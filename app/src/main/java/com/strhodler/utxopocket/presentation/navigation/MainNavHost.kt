@@ -375,9 +375,7 @@ fun MainNavHost(
                 WikiDetailRoute(
                     onBack = { navController.popBackStack() },
                     onOpenTopic = { topicId ->
-                        navController.navigate(WikiNavigation.detailRoute(topicId)) {
-                            launchSingleTop = true
-                        }
+                        navController.navigate(WikiNavigation.detailRoute(topicId))
                     },
                     onOpenGlossaryEntry = { entryId ->
                         navController.navigate(GlossaryNavigation.detailRoute(entryId)) {
