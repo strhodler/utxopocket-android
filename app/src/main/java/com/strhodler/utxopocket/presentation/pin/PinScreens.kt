@@ -2,10 +2,9 @@ package com.strhodler.utxopocket.presentation.pin
 
 import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.components.DigitKey
@@ -121,101 +121,49 @@ fun PinSetupScreen(
         overlayContent = true
     )
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    PinScreenScaffold(
+        subtitle = currentSubtitle,
+        pin = when (step) {
+            PinSetupStep.Enter -> firstPin
+            PinSetupStep.Confirm -> confirmPin
+        },
+        isError = combinedError != null,
+        errorMessage = combinedError,
+        topPadding = SecondaryTopBarHeight + 16.dp,
+        keyboardEnabled = true,
+        onKeyPress = { key ->
+            when (key) {
+                is DigitKey.Number -> {
+                    when (step) {
+                        PinSetupStep.Enter -> if (firstPin.length < PIN_LENGTH) {
+                            firstPin += key.value
+                        }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .systemBarsPadding()
-                .padding(horizontal = 20.dp)
-                .padding(top = SecondaryTopBarHeight + 16.dp)
-                .padding(bottom = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(modifier = Modifier.weight(1f))
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = currentSubtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-                PinDisplay(
-                    pin = when (step) {
-                        PinSetupStep.Enter -> firstPin
-                        PinSetupStep.Confirm -> confirmPin
-                    },
-                    length = PIN_LENGTH,
-                    isError = combinedError != null
-                )
-                if (combinedError != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = combinedError,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .widthIn(max = 420.dp),
-                contentAlignment = Alignment.BottomCenter
-            ) {
-                VirtualDigitKeyboard(
-                    modifier = Modifier.heightIn(max = screenHeight * 0.5f),
-                    onKeyPress = { key ->
-                        when (key) {
-                            is DigitKey.Number -> {
-                                when (step) {
-                                    PinSetupStep.Enter -> if (firstPin.length < PIN_LENGTH) {
-                                        firstPin += key.value
-                                    }
-
-                                    PinSetupStep.Confirm -> if (confirmPin.length < PIN_LENGTH) {
-                                        confirmPin += key.value
-                                        if (localError != null) {
-                                            localError = null
-                                        }
-                                    }
-                                }
+                        PinSetupStep.Confirm -> if (confirmPin.length < PIN_LENGTH) {
+                            confirmPin += key.value
+                            if (localError != null) {
+                                localError = null
                             }
-
-                            DigitKey.Backspace -> {
-                                when (step) {
-                                    PinSetupStep.Enter -> if (firstPin.isNotEmpty()) {
-                                        firstPin = firstPin.dropLast(1)
-                                    }
-
-                                    PinSetupStep.Confirm -> if (confirmPin.isNotEmpty()) {
-                                        confirmPin = confirmPin.dropLast(1)
-                                    }
-                                }
-                            }
-
-                            DigitKey.Placeholder -> Unit
                         }
                     }
-                )
-            }
+                }
 
-            Spacer(modifier = Modifier.height(32.dp))
+                DigitKey.Backspace -> {
+                    when (step) {
+                        PinSetupStep.Enter -> if (firstPin.isNotEmpty()) {
+                            firstPin = firstPin.dropLast(1)
+                        }
+
+                        PinSetupStep.Confirm -> if (confirmPin.isNotEmpty()) {
+                            confirmPin = confirmPin.dropLast(1)
+                        }
+                    }
+                }
+
+                DigitKey.Placeholder -> Unit
+            }
         }
-    }
+    )
 }
 
 @SuppressLint("ConfigurationScreenWidthHeight")
@@ -263,16 +211,54 @@ fun PinVerificationScreen(
         }
     }
 
+    val topPadding = if (allowDismiss) {
+        SecondaryTopBarHeight + 16.dp
+    } else {
+        32.dp
+    }
+
+    PinScreenScaffold(
+        subtitle = description,
+        pin = pin,
+        isError = errorMessage != null,
+        errorMessage = errorMessage,
+        topPadding = topPadding,
+        keyboardEnabled = pin.length < PIN_LENGTH,
+        onKeyPress = { key ->
+            when (key) {
+                is DigitKey.Number -> if (pin.length < PIN_LENGTH) {
+                    pin += key.value
+                }
+
+                DigitKey.Backspace -> if (pin.isNotEmpty()) {
+                    pin = pin.dropLast(1)
+                }
+
+                DigitKey.Placeholder -> Unit
+            }
+        }
+    )
+}
+
+private enum class PinSetupStep {
+    Enter,
+    Confirm
+}
+@Composable
+private fun PinScreenScaffold(
+    subtitle: String,
+    pin: String,
+    isError: Boolean,
+    errorMessage: String?,
+    topPadding: Dp,
+    keyboardEnabled: Boolean,
+    onKeyPress: (DigitKey) -> Unit
+) {
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
         val screenHeight = LocalConfiguration.current.screenHeightDp.dp
-        val topPadding = if (allowDismiss) {
-            SecondaryTopBarHeight + 16.dp
-        } else {
-            32.dp
-        }
 
         Column(
             modifier = Modifier
@@ -290,7 +276,7 @@ fun PinVerificationScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = description,
+                    text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -299,9 +285,9 @@ fun PinVerificationScreen(
                 PinDisplay(
                     pin = pin,
                     length = PIN_LENGTH,
-                    isError = errorMessage != null
+                    isError = isError
                 )
-                if (errorMessage != null) {
+                if (!errorMessage.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = errorMessage,
@@ -322,29 +308,12 @@ fun PinVerificationScreen(
             ) {
                 VirtualDigitKeyboard(
                     modifier = Modifier.heightIn(max = screenHeight * 0.5f),
-                    onKeyPress = { key ->
-                        when (key) {
-                            is DigitKey.Number -> if (pin.length < PIN_LENGTH) {
-                                pin += key.value
-                            }
-
-                            DigitKey.Backspace -> if (pin.isNotEmpty()) {
-                                pin = pin.dropLast(1)
-                            }
-
-                            DigitKey.Placeholder -> Unit
-                        }
-                    },
-                    enabled = pin.length < PIN_LENGTH
+                    onKeyPress = onKeyPress,
+                    enabled = keyboardEnabled
                 )
             }
 
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
-}
-
-private enum class PinSetupStep {
-    Enter,
-    Confirm
 }

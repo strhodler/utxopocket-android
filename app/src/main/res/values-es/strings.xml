@@ -407,13 +407,24 @@
     <string name="node_custom_delete_confirm_title">¿Eliminar nodo personalizado?</string>
     <string name="node_custom_delete_confirm_message">Eliminar %1$s lo desconectará si está activo. ¿Quieres continuar?</string>
     <string name="node_custom_delete_confirm_confirm">Eliminar</string>
+    <string name="node_custom_info_button">Guía del nodo personalizado</string>
+    <string name="node_custom_info_title">Acceso a nodo personalizado</string>
+    <string name="node_custom_info_description">Host + Puerto acepta tanto dominios como direcciones IP. Revisa estas recomendaciones antes de ignorar Tor o SSL.</string>
+    <string name="node_custom_info_host_title">Host y puerto</string>
+    <string name="node_custom_info_host_body">Usa un nombre de dominio completo o una dirección IPv4/IPv6 más el puerto TCP que publica tu servidor Electrum.</string>
+    <string name="node_custom_info_tor_title">Bypass de Tor</string>
+    <string name="node_custom_info_tor_body">Tor oculta tu IP real. Desactívalo solo cuando el nodo esté disponible exclusivamente en una LAN o VPN que controlas, porque el modo directo expone tus metadatos.</string>
+    <string name="node_custom_info_ssl_title">SSL/TLS</string>
+    <string name="node_custom_info_ssl_body">Mantener SSL activo negocia tráfico de Electrum cifrado. Desactívalo únicamente cuando el servidor rechace TLS y solo si confías en toda la ruta de red.</string>
+    <string name="node_custom_info_local_title">Nodos locales y con túnel</string>
+    <string name="node_custom_info_local_body">Los nodos en 192.168.x.x, 10.x.x.x o detrás de túneles WireGuard/Tailscale necesitan que el túnel esté activo antes de probar la conexión. Combínalos con el bypass de Tor solo cuando sea necesario y conserva SSL salvo que el túnel termine dentro de tu nodo.</string>
     <string name="node_tor_reminder">Todas las conexiones se enrutan por Tor de forma predeterminada.</string>
     <string name="node_connection_standard">Host + Puerto</string>
     <string name="node_connection_onion">Onion</string>
     <string name="node_host_label">Host</string>
+    <string name="node_host_supporting">Introduce la URL o IP del servidor accesible desde este dispositivo (ej. electrum.example.com o 10.0.0.4).</string>
     <string name="node_port_label">Puerto</string>
     <string name="node_onion_label">Endpoint onion</string>
-    <string name="node_onion_hint">Incluye el puerto tras la dirección .onion (ej. nodo.onion:50001).</string>
     <string name="onboarding_finish">Empezar</string>
     <!-- Add wallet -->
     <string name="add_wallet_title">Añadir billetera</string>

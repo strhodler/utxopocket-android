@@ -269,14 +269,18 @@ private fun HostPortInputs(
         )
 
         val scanDescription = stringResource(id = R.string.node_scan_qr_content_description)
-        val qrSupportingText: (@Composable () -> Unit)? = qrErrorMessage?.let { error ->
-            {
-                Text(
-                    text = error,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
+        val hostSupportingText: @Composable () -> Unit = {
+            val text = qrErrorMessage ?: stringResource(id = R.string.node_host_supporting)
+            val color = if (qrErrorMessage != null) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
             }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                color = color
+            )
         }
         OutlinedTextField(
             value = hostValue,
@@ -292,7 +296,7 @@ private fun HostPortInputs(
                     )
                 }
             },
-            supportingText = qrSupportingText,
+            supportingText = hostSupportingText,
             isError = qrErrorMessage != null
         )
         OutlinedTextField(
@@ -401,18 +405,14 @@ private fun OnionInput(
         )
 
         val scanDescription = stringResource(id = R.string.node_scan_qr_content_description)
-        val supportingText: @Composable () -> Unit = {
-            val text = qrErrorMessage ?: stringResource(id = R.string.node_onion_hint)
-            val color = if (qrErrorMessage != null) {
-                MaterialTheme.colorScheme.error
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
+        val supportingText: (@Composable () -> Unit)? = qrErrorMessage?.let { error ->
+            {
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodySmall,
-                color = color
-            )
         }
         OutlinedTextField(
             value = hostValue,

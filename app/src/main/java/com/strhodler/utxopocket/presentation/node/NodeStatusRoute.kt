@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.Button
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -54,13 +56,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Divider
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -141,6 +146,7 @@ fun NodeStatusRoute(
         onUseSslChanged = viewModel::onCustomNodeUseSslToggled
     )
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showCustomNodeInfoSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.isCustomNodeEditorVisible) {
         if (!state.isCustomNodeEditorVisible) {
@@ -173,6 +179,14 @@ fun NodeStatusRoute(
             title = title,
             onBackClick = viewModel::onDismissCustomNodeEditor,
             actions = {
+                IconButton(
+                    onClick = { showCustomNodeInfoSheet = true }
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = stringResource(id = R.string.node_custom_info_button)
+                    )
+                }
                 if (isEditing) {
                     IconButton(
                         onClick = { showDeleteDialog = true }
@@ -282,6 +296,12 @@ fun NodeStatusRoute(
                         Text(text = stringResource(id = android.R.string.cancel))
                     }
                 }
+            )
+        }
+
+        if (showCustomNodeInfoSheet) {
+            CustomNodeGuidanceBottomSheet(
+                onDismiss = { showCustomNodeInfoSheet = false }
             )
         }
     } else {
@@ -1277,6 +1297,70 @@ private fun networkLabel(network: BitcoinNetwork): String = when (network) {
     BitcoinNetwork.TESTNET -> stringResource(id = R.string.network_testnet)
     BitcoinNetwork.TESTNET4 -> stringResource(id = R.string.network_testnet4)
     BitcoinNetwork.SIGNET -> stringResource(id = R.string.network_signet)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CustomNodeGuidanceBottomSheet(
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val configuration = LocalConfiguration.current
+    val maxSheetHeight = remember(configuration.screenHeightDp) {
+        configuration.screenHeightDp.dp * 0.9f
+    }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        CustomNodeGuidanceSheetContent(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = maxSheetHeight)
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 24.dp)
+        )
+    }
+}
+
+@Composable
+private fun CustomNodeGuidanceSheetContent(
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        Text(
+            text = stringResource(id = R.string.node_custom_info_title),
+            style = MaterialTheme.typography.titleLarge
+        )
+        Text(
+            text = stringResource(id = R.string.node_custom_info_description),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        val sections = listOf(
+            R.string.node_custom_info_host_title to R.string.node_custom_info_host_body,
+            R.string.node_custom_info_tor_title to R.string.node_custom_info_tor_body,
+            R.string.node_custom_info_ssl_title to R.string.node_custom_info_ssl_body,
+            R.string.node_custom_info_local_title to R.string.node_custom_info_local_body
+        )
+        sections.forEach { (titleRes, bodyRes) ->
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = stringResource(id = titleRes),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = stringResource(id = bodyRes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
 }
 
 private fun sanitizeEndpoint(endpoint: String): String =
