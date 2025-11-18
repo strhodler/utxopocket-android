@@ -39,6 +39,31 @@ data class TransactionHealthParameterInputs(
     val consolidationFeeRateThresholdSatPerVb: String = "",
     val consolidationHighFeeRateThresholdSatPerVb: String = ""
 ) {
+    fun valueFor(field: TransactionParameterField): String =
+        when (field) {
+            TransactionParameterField.ChangeExposureHighRatio -> changeExposureHighRatio
+            TransactionParameterField.ChangeExposureMediumRatio -> changeExposureMediumRatio
+            TransactionParameterField.LowFeeRateThreshold -> lowFeeRateThresholdSatPerVb
+            TransactionParameterField.HighFeeRateThreshold -> highFeeRateThresholdSatPerVb
+            TransactionParameterField.ConsolidationFeeRateThreshold -> consolidationFeeRateThresholdSatPerVb
+            TransactionParameterField.ConsolidationHighFeeRateThreshold -> consolidationHighFeeRateThresholdSatPerVb
+        }
+
+    fun withValue(
+        field: TransactionParameterField,
+        value: String
+    ): TransactionHealthParameterInputs =
+        when (field) {
+            TransactionParameterField.ChangeExposureHighRatio -> copy(changeExposureHighRatio = value)
+            TransactionParameterField.ChangeExposureMediumRatio -> copy(changeExposureMediumRatio = value)
+            TransactionParameterField.LowFeeRateThreshold -> copy(lowFeeRateThresholdSatPerVb = value)
+            TransactionParameterField.HighFeeRateThreshold -> copy(highFeeRateThresholdSatPerVb = value)
+            TransactionParameterField.ConsolidationFeeRateThreshold ->
+                copy(consolidationFeeRateThresholdSatPerVb = value)
+            TransactionParameterField.ConsolidationHighFeeRateThreshold ->
+                copy(consolidationHighFeeRateThresholdSatPerVb = value)
+        }
+
     companion object {
         fun from(parameters: TransactionHealthParameters): TransactionHealthParameterInputs =
             TransactionHealthParameterInputs(
@@ -59,6 +84,25 @@ data class UtxoHealthParameterInputs(
     val highValueThresholdSats: String = "",
     val wellDocumentedValueThresholdSats: String = ""
 ) {
+    fun valueFor(field: UtxoParameterField): String =
+        when (field) {
+            UtxoParameterField.AddressReuseHighThreshold -> addressReuseHighThreshold
+            UtxoParameterField.ChangeMinConfirmations -> changeMinConfirmations
+            UtxoParameterField.LongInactiveConfirmations -> longInactiveConfirmations
+            UtxoParameterField.HighValueThresholdSats -> highValueThresholdSats
+            UtxoParameterField.WellDocumentedValueThresholdSats -> wellDocumentedValueThresholdSats
+        }
+
+    fun withValue(field: UtxoParameterField, value: String): UtxoHealthParameterInputs =
+        when (field) {
+            UtxoParameterField.AddressReuseHighThreshold -> copy(addressReuseHighThreshold = value)
+            UtxoParameterField.ChangeMinConfirmations -> copy(changeMinConfirmations = value)
+            UtxoParameterField.LongInactiveConfirmations -> copy(longInactiveConfirmations = value)
+            UtxoParameterField.HighValueThresholdSats -> copy(highValueThresholdSats = value)
+            UtxoParameterField.WellDocumentedValueThresholdSats ->
+                copy(wellDocumentedValueThresholdSats = value)
+        }
+
     companion object {
         fun from(parameters: UtxoHealthParameters): UtxoHealthParameterInputs =
             UtxoHealthParameterInputs(

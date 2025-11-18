@@ -200,24 +200,7 @@ class SettingsViewModel @Inject constructor(
     fun onTransactionParameterChanged(field: TransactionParameterField, value: String) {
         val normalized = value.replace(',', '.')
         _uiState.update { current ->
-            val updatedInputs = when (field) {
-                TransactionParameterField.ChangeExposureHighRatio ->
-                    current.transactionHealthInputs.copy(changeExposureHighRatio = normalized)
-                TransactionParameterField.ChangeExposureMediumRatio ->
-                    current.transactionHealthInputs.copy(changeExposureMediumRatio = normalized)
-                TransactionParameterField.LowFeeRateThreshold ->
-                    current.transactionHealthInputs.copy(lowFeeRateThresholdSatPerVb = normalized)
-                TransactionParameterField.HighFeeRateThreshold ->
-                    current.transactionHealthInputs.copy(highFeeRateThresholdSatPerVb = normalized)
-                TransactionParameterField.ConsolidationFeeRateThreshold ->
-                    current.transactionHealthInputs.copy(
-                        consolidationFeeRateThresholdSatPerVb = normalized
-                    )
-                TransactionParameterField.ConsolidationHighFeeRateThreshold ->
-                    current.transactionHealthInputs.copy(
-                        consolidationHighFeeRateThresholdSatPerVb = normalized
-                    )
-            }
+            val updatedInputs = current.transactionHealthInputs.withValue(field, normalized)
             current.copy(
                 transactionHealthInputs = updatedInputs,
                 transactionInputsDirty = true,
@@ -230,18 +213,7 @@ class SettingsViewModel @Inject constructor(
     fun onUtxoParameterChanged(field: UtxoParameterField, value: String) {
         val digitsOnly = value.filter { it.isDigit() }
         _uiState.update { current ->
-            val updatedInputs = when (field) {
-                UtxoParameterField.AddressReuseHighThreshold ->
-                    current.utxoHealthInputs.copy(addressReuseHighThreshold = digitsOnly)
-                UtxoParameterField.ChangeMinConfirmations ->
-                    current.utxoHealthInputs.copy(changeMinConfirmations = digitsOnly)
-                UtxoParameterField.LongInactiveConfirmations ->
-                    current.utxoHealthInputs.copy(longInactiveConfirmations = digitsOnly)
-                UtxoParameterField.HighValueThresholdSats ->
-                    current.utxoHealthInputs.copy(highValueThresholdSats = digitsOnly)
-                UtxoParameterField.WellDocumentedValueThresholdSats ->
-                    current.utxoHealthInputs.copy(wellDocumentedValueThresholdSats = digitsOnly)
-            }
+            val updatedInputs = current.utxoHealthInputs.withValue(field, digitsOnly)
             current.copy(
                 utxoHealthInputs = updatedInputs,
                 utxoInputsDirty = true,
