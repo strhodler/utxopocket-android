@@ -1,5 +1,6 @@
 package com.strhodler.utxopocket.data.utxohealth
 
+import com.strhodler.utxopocket.domain.model.HealthScoreEngine
 import com.strhodler.utxopocket.domain.model.UtxoAnalysisContext
 import com.strhodler.utxopocket.domain.model.UtxoHealthBadge
 import com.strhodler.utxopocket.domain.model.UtxoHealthIndicator
@@ -28,9 +29,9 @@ class DefaultUtxoHealthAnalyzer @Inject constructor() : UtxoHealthAnalyzer {
             detectLongInactive(utxo, context.parameters)?.let { add(it) }
             detectWellDocumentedHighValue(utxo, context.parameters)?.let { add(it) }
         }
-        val finalScore = (BASE_SCORE + indicators.sumOf { it.delta }).coerceIn(0, BASE_SCORE)
+        val finalScore = HealthScoreEngine.calculateFinalScore(indicators)
         val badges = buildBadges(finalScore, indicators)
-        val pillarScores = calculatePillarScores(indicators)
+        val pillarScores = HealthScoreEngine.calculatePillarScores<UtxoHealthPillar>(indicators)
 
         return UtxoHealthResult(
             txid = utxo.txid,
@@ -192,23 +193,7 @@ class DefaultUtxoHealthAnalyzer @Inject constructor() : UtxoHealthAnalyzer {
         return badges.distinctBy { it.id }
     }
 
-    private fun calculatePillarScores(
-        indicators: List<UtxoHealthIndicator>
-    ): Map<UtxoHealthPillar, Int> {
-        if (indicators.isEmpty()) {
-            return UtxoHealthPillar.values().associateWith { BASE_SCORE }
-        }
-        val scores = UtxoHealthPillar.values().associateWithTo(mutableMapOf()) { BASE_SCORE }
-        indicators.forEach { indicator ->
-            val current = scores[indicator.pillar] ?: BASE_SCORE
-            scores[indicator.pillar] = (current + indicator.delta).coerceIn(0, BASE_SCORE)
-        }
-        return scores.toMap()
-    }
-
     private companion object {
-        private const val BASE_SCORE = 100
-
         private const val ADDRESS_REUSE_HIGH_PENALTY = -15
         private const val ADDRESS_REUSE_MEDIUM_PENALTY = -8
 

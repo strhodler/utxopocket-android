@@ -1,5 +1,6 @@
 package com.strhodler.utxopocket.data.wallethealth
 
+import com.strhodler.utxopocket.domain.model.HealthScoreEngine
 import com.strhodler.utxopocket.domain.model.TransactionHealthPillar
 import com.strhodler.utxopocket.domain.model.TransactionHealthResult
 import com.strhodler.utxopocket.domain.model.UtxoHealthPillar
@@ -12,7 +13,6 @@ import com.strhodler.utxopocket.domain.model.WalletHealthSeverity
 import com.strhodler.utxopocket.domain.service.WalletHealthAggregator
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.roundToInt
 
 @Singleton
 class DefaultWalletHealthAggregator @Inject constructor() : WalletHealthAggregator {
@@ -57,15 +57,12 @@ class DefaultWalletHealthAggregator @Inject constructor() : WalletHealthAggregat
             }
         }
 
-        val pillarScores = scoresByPillar.mapValues { (_, values) ->
-            if (values.isEmpty()) {
-                BASE_SCORE
-            } else {
-                values.average().roundToInt().coerceIn(0, BASE_SCORE)
-            }
-        }
+        val pillarScores = HealthScoreEngine.calculateAveragedPillarScores<WalletHealthPillar>(scoresByPillar)
 
-        val finalScore = calculateWeightedScore(pillarScores)
+        val finalScore = HealthScoreEngine.calculateWeightedScore(
+            pillarScores = pillarScores,
+            weights = PILLAR_WEIGHTS
+        )
 
         val badges = buildBadges(finalScore, pillarScores)
         val indicators = buildIndicators(transactions, utxos)
@@ -80,22 +77,6 @@ class DefaultWalletHealthAggregator @Inject constructor() : WalletHealthAggregat
         )
     }
 
-    private fun calculateWeightedScore(
-        pillarScores: Map<WalletHealthPillar, Int>
-    ): Int {
-        val privacy = pillarScores[WalletHealthPillar.PRIVACY] ?: BASE_SCORE
-        val inventory = pillarScores[WalletHealthPillar.INVENTORY] ?: BASE_SCORE
-        val efficiency = pillarScores[WalletHealthPillar.EFFICIENCY] ?: BASE_SCORE
-        val risk = pillarScores[WalletHealthPillar.RISK] ?: BASE_SCORE
-        val weighted = (
-            privacy * PRIVACY_WEIGHT +
-                inventory * INVENTORY_WEIGHT +
-                efficiency * EFFICIENCY_WEIGHT +
-                risk * RISK_WEIGHT
-            )
-        return weighted.roundToInt().coerceIn(0, BASE_SCORE)
-    }
-
     private fun buildBadges(
         finalScore: Int,
         pillarScores: Map<WalletHealthPillar, Int>
@@ -104,11 +85,11 @@ class DefaultWalletHealthAggregator @Inject constructor() : WalletHealthAggregat
         if (finalScore >= HEALTHY_THRESHOLD) {
             badges += WalletHealthBadge(id = "wallet_healthy", label = "Wallet posture OK")
         }
-        val riskScore = pillarScores[WalletHealthPillar.RISK] ?: BASE_SCORE
+        val riskScore = pillarScores[WalletHealthPillar.RISK] ?: HealthScoreEngine.DEFAULT_BASE_SCORE
         if (riskScore <= RISK_ALERT_THRESHOLD) {
             badges += WalletHealthBadge(id = "risk_watch", label = "Review risk signals")
         }
-        val inventoryScore = pillarScores[WalletHealthPillar.INVENTORY] ?: BASE_SCORE
+        val inventoryScore = pillarScores[WalletHealthPillar.INVENTORY] ?: HealthScoreEngine.DEFAULT_BASE_SCORE
         if (inventoryScore <= INVENTORY_ALERT_THRESHOLD) {
             badges += WalletHealthBadge(id = "inventory_attention", label = "Inventory requires maintenance")
         }
@@ -145,11 +126,12 @@ class DefaultWalletHealthAggregator @Inject constructor() : WalletHealthAggregat
     }
 
     private companion object {
-        private const val BASE_SCORE = 100
-        private const val PRIVACY_WEIGHT = 0.40
-        private const val INVENTORY_WEIGHT = 0.25
-        private const val EFFICIENCY_WEIGHT = 0.20
-        private const val RISK_WEIGHT = 0.15
+        private val PILLAR_WEIGHTS = mapOf(
+            WalletHealthPillar.PRIVACY to 0.40,
+            WalletHealthPillar.INVENTORY to 0.25,
+            WalletHealthPillar.EFFICIENCY to 0.20,
+            WalletHealthPillar.RISK to 0.15
+        )
         private const val HEALTHY_THRESHOLD = 85
         private const val RISK_ALERT_THRESHOLD = 60
         private const val INVENTORY_ALERT_THRESHOLD = 65
