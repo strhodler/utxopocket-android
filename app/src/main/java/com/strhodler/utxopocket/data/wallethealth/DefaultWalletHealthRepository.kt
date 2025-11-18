@@ -1,8 +1,10 @@
 package com.strhodler.utxopocket.data.wallethealth
 
 import com.strhodler.utxopocket.data.db.WalletDao
+import com.strhodler.utxopocket.data.db.WalletHealthEntity
 import com.strhodler.utxopocket.data.db.toDomain
 import com.strhodler.utxopocket.data.db.toEntity
+import com.strhodler.utxopocket.data.health.HealthResultStore
 import com.strhodler.utxopocket.di.IoDispatcher
 import com.strhodler.utxopocket.domain.model.WalletHealthResult
 import com.strhodler.utxopocket.domain.repository.WalletHealthRepository
@@ -11,26 +13,34 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 
 @Singleton
 class DefaultWalletHealthRepository @Inject constructor(
-    private val walletDao: WalletDao,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    walletDao: WalletDao,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher
 ) : WalletHealthRepository {
 
+    private val store = HealthResultStore<WalletHealthEntity, WalletHealthResult, Unit>(
+        observeQuery = { walletId ->
+            walletDao.observeWalletHealth(walletId)
+                .map { entity -> entity?.let(::listOf) ?: emptyList() }
+        },
+        entityToDomain = WalletHealthEntity::toDomain,
+        domainToEntity = { result, _ -> result.toEntity() },
+        replaceAction = { _, entities ->
+            val entity = entities.lastOrNull() ?: return@HealthResultStore
+            walletDao.upsertWalletHealth(entity)
+        },
+        clearAction = walletDao::clearWalletHealth,
+        filterResults = { results, _ -> results },
+        dispatcher = ioDispatcher
+    )
+
     override fun stream(walletId: Long): Flow<WalletHealthResult?> =
-        walletDao.observeWalletHealth(walletId).map { entity -> entity?.toDomain() }
+        store.stream(walletId, Unit).map { results -> results.firstOrNull() }
 
-    override suspend fun upsert(result: WalletHealthResult) {
-        withContext(ioDispatcher) {
-            walletDao.upsertWalletHealth(result.toEntity())
-        }
-    }
+    override suspend fun upsert(result: WalletHealthResult) =
+        store.replace(result.walletId, listOf(result))
 
-    override suspend fun clear(walletId: Long) {
-        withContext(ioDispatcher) {
-            walletDao.clearWalletHealth(walletId)
-        }
-    }
+    override suspend fun clear(walletId: Long) = store.clear(walletId)
 }
