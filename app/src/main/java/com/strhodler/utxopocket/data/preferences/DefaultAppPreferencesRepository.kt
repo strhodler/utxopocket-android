@@ -16,6 +16,7 @@ import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeAddressOption
+import com.strhodler.utxopocket.domain.model.NodeAccessScope
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.PublicNode
@@ -436,6 +437,14 @@ class DefaultAppPreferencesRepository @Inject constructor(
                     useSsl = when (node.addressOption) {
                         NodeAddressOption.ONION -> false
                         NodeAddressOption.HOST_PORT -> node.useSsl
+                    },
+                    accessScope = when (node.addressOption) {
+                        NodeAddressOption.ONION -> NodeAccessScope.PUBLIC
+                        NodeAddressOption.HOST_PORT -> if (node.routeThroughTor) {
+                            NodeAccessScope.PUBLIC
+                        } else {
+                            node.accessScope
+                        }
                     }
                 ) else null
             }
@@ -470,6 +479,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
                 put("routeThroughTor", node.routeThroughTor)
                 put("useSsl", node.useSsl)
                 node.network?.let { put("network", it.name) }
+                put("accessScope", node.accessScope.name)
             }
             array.put(obj)
         }
@@ -502,6 +512,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
                     val network = networkName.takeIf { it.isNotBlank() }?.let { raw ->
                         runCatching { BitcoinNetwork.valueOf(raw) }.getOrNull()
                     }
+                    val accessScopeRaw = obj.optString("accessScope")
+                    val accessScope = runCatching {
+                        NodeAccessScope.valueOf(accessScopeRaw)
+                    }.getOrDefault(NodeAccessScope.PUBLIC)
                     add(
                         CustomNode(
                             id = id,
@@ -512,7 +526,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
                             name = obj.optString("name"),
                             routeThroughTor = routeThroughTor,
                             useSsl = useSsl,
-                            network = network
+                            network = network,
+                            accessScope = accessScope
                         )
                     )
                 }
@@ -538,7 +553,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
                             port = port,
                             name = trimmedHost,
                             routeThroughTor = true,
-                            useSsl = true
+                            useSsl = true,
+                            accessScope = NodeAccessScope.PUBLIC
                         )
                     )
                 } else {
@@ -556,7 +572,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
                             onion = trimmedOnion,
                             name = trimmedOnion,
                             routeThroughTor = true,
-                            useSsl = false
+                            useSsl = false,
+                            accessScope = NodeAccessScope.PUBLIC
                         )
                     )
                 } else {

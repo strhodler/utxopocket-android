@@ -34,9 +34,11 @@ import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
+import com.strhodler.utxopocket.domain.model.ConnectivityState
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.service.ConnectivityMonitor
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -63,6 +65,7 @@ class NodeStatusViewModelTest {
     private lateinit var preferencesRepository: TestAppPreferencesRepository
     private lateinit var nodeConfigurationRepository: TestNodeConfigurationRepository
     private lateinit var walletRepository: TestWalletRepository
+    private lateinit var connectivityMonitor: TestConnectivityMonitor
     private lateinit var viewModel: NodeStatusViewModel
 
     @BeforeTest
@@ -72,11 +75,13 @@ class NodeStatusViewModelTest {
         preferencesRepository = TestAppPreferencesRepository()
         nodeConfigurationRepository = TestNodeConfigurationRepository()
         walletRepository = TestWalletRepository()
+        connectivityMonitor = TestConnectivityMonitor()
         viewModel = NodeStatusViewModel(
             appPreferencesRepository = preferencesRepository,
             nodeConfigurationRepository = nodeConfigurationRepository,
             nodeConnectionTester = TestNodeConnectionTester(),
-            walletRepository = walletRepository
+            walletRepository = walletRepository,
+            connectivityMonitor = connectivityMonitor
         )
     }
 
@@ -277,5 +282,12 @@ class NodeStatusViewModelTest {
 
         override suspend fun test(node: CustomNode): NodeConnectionTestResult =
             NodeConnectionTestResult.Success()
+    }
+
+    private class TestConnectivityMonitor : ConnectivityMonitor {
+        private val backing = MutableStateFlow(
+            ConnectivityState(isOnline = true, onLocalNetwork = true)
+        )
+        override val state: StateFlow<ConnectivityState> = backing
     }
 }

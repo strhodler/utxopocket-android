@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +22,8 @@ import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,9 +47,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.NodeAddressOption
+import com.strhodler.utxopocket.domain.model.NodeAccessScope
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun CustomNodeEditorScreen(
     showTabs: Boolean = true,
@@ -57,6 +62,7 @@ fun CustomNodeEditorScreen(
     onionPortValue: String,
     routeThroughTor: Boolean,
     useSsl: Boolean,
+    accessScope: NodeAccessScope,
     isTesting: Boolean,
     errorMessage: String?,
     qrErrorMessage: String?,
@@ -71,6 +77,7 @@ fun CustomNodeEditorScreen(
     onOnionPortChanged: (String) -> Unit,
     onRouteThroughTorChanged: (Boolean) -> Unit,
     onUseSslChanged: (Boolean) -> Unit,
+    onAccessScopeSelected: (NodeAccessScope) -> Unit,
     onPrimaryAction: () -> Unit,
     onStartQrScan: () -> Unit,
     onClearQrError: () -> Unit
@@ -178,6 +185,7 @@ fun CustomNodeEditorScreen(
                             qrErrorMessage = qrErrorMessage,
                             routeThroughTor = routeThroughTor,
                             useSsl = useSsl,
+                            accessScope = accessScope,
                             onNameChanged = onNameChanged,
                             onHostChanged = {
                                 onClearQrError()
@@ -189,7 +197,8 @@ fun CustomNodeEditorScreen(
                             },
                             onStartQrScan = onStartQrScan,
                             onRouteThroughTorChanged = onRouteThroughTorChanged,
-                            onUseSslChanged = onUseSslChanged
+                            onUseSslChanged = onUseSslChanged,
+                            onAccessScopeSelected = onAccessScopeSelected
                         )
 
                         NodeAddressOption.ONION -> OnionInput(
@@ -213,6 +222,7 @@ fun CustomNodeEditorScreen(
                         qrErrorMessage = qrErrorMessage,
                         routeThroughTor = routeThroughTor,
                         useSsl = useSsl,
+                        accessScope = accessScope,
                         onNameChanged = onNameChanged,
                         onHostChanged = {
                             onClearQrError()
@@ -224,7 +234,8 @@ fun CustomNodeEditorScreen(
                         },
                         onStartQrScan = onStartQrScan,
                         onRouteThroughTorChanged = onRouteThroughTorChanged,
-                        onUseSslChanged = onUseSslChanged
+                        onUseSslChanged = onUseSslChanged,
+                        onAccessScopeSelected = onAccessScopeSelected
                     )
 
                     NodeAddressOption.ONION -> OnionInput(
@@ -251,12 +262,14 @@ private fun HostPortInputs(
     qrErrorMessage: String?,
     routeThroughTor: Boolean,
     useSsl: Boolean,
+    accessScope: NodeAccessScope,
     onNameChanged: (String) -> Unit,
     onHostChanged: (String) -> Unit,
     onPortChanged: (String) -> Unit,
     onStartQrScan: () -> Unit,
     onRouteThroughTorChanged: (Boolean) -> Unit,
-    onUseSslChanged: (Boolean) -> Unit
+    onUseSslChanged: (Boolean) -> Unit,
+    onAccessScopeSelected: (NodeAccessScope) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedTextField(
@@ -380,6 +393,12 @@ private fun HostPortInputs(
                 )
             }
         }
+
+        AccessScopeSelector(
+            selectedScope = accessScope,
+            enabled = !routeThroughTor,
+            onScopeSelected = onAccessScopeSelected
+        )
     }
 }
 
@@ -437,6 +456,56 @@ private fun OnionInput(
             label = { Text(stringResource(id = R.string.node_port_label)) },
             placeholder = { Text("50001") },
             modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun AccessScopeSelector(
+    selectedScope: NodeAccessScope,
+    enabled: Boolean,
+    onScopeSelected: (NodeAccessScope) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = stringResource(id = R.string.node_custom_access_scope_label),
+            style = MaterialTheme.typography.bodyMedium
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            NodeAccessScope.values().forEach { scope ->
+                val labelRes = when (scope) {
+                    NodeAccessScope.LOCAL -> R.string.node_custom_access_scope_local
+                    NodeAccessScope.VPN -> R.string.node_custom_access_scope_vpn
+                    NodeAccessScope.PUBLIC -> R.string.node_custom_access_scope_public
+                }
+                FilterChip(
+                    selected = selectedScope == scope,
+                    onClick = { onScopeSelected(scope) },
+                    enabled = enabled,
+                    label = { Text(text = stringResource(id = labelRes)) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                )
+            }
+        }
+        val supporting = if (enabled) {
+            stringResource(id = R.string.node_custom_access_scope_supporting)
+        } else {
+            stringResource(id = R.string.node_custom_access_scope_disabled)
+        }
+        Text(
+            text = supporting,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.di
 
 import com.strhodler.utxopocket.data.bdk.DefaultWalletStorage
 import com.strhodler.utxopocket.data.bdk.WalletStorage
+import com.strhodler.utxopocket.data.connectivity.DefaultConnectivityMonitor
 import com.strhodler.utxopocket.data.node.DefaultNodeConnectionTester
 import com.strhodler.utxopocket.data.preferences.DefaultAppPreferencesRepository
 import com.strhodler.utxopocket.data.tor.DefaultTorManager
@@ -18,6 +19,7 @@ import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.domain.repository.TransactionHealthRepository
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.service.TransactionHealthAnalyzer
+import com.strhodler.utxopocket.domain.service.ConnectivityMonitor
 import com.strhodler.utxopocket.data.transactionhealth.DefaultTransactionHealthRepository
 import com.strhodler.utxopocket.data.utxohealth.DefaultUtxoHealthRepository
 import com.strhodler.utxopocket.data.wallethealth.DefaultWalletHealthAggregator
@@ -64,6 +66,12 @@ abstract class RepositoryModule {
     abstract fun bindNodeConnectionTester(
         impl: DefaultNodeConnectionTester
     ): NodeConnectionTester
+
+    @Binds
+    @Singleton
+    abstract fun bindConnectivityMonitor(
+        impl: DefaultConnectivityMonitor
+    ): ConnectivityMonitor
 
     @Binds
     @Singleton

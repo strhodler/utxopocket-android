@@ -1,6 +1,7 @@
 package com.strhodler.utxopocket.presentation.node
 
 import android.content.res.Resources
+import android.text.format.DateUtils
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -100,6 +101,7 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
 import com.strhodler.utxopocket.domain.model.NodeAddressOption
+import com.strhodler.utxopocket.domain.model.NodeAccessScope
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
@@ -132,6 +134,9 @@ fun NodeStatusRoute(
     val snackbarHostState = remember { SnackbarHostState() }
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
+    val verifyReachabilityAction = remember(viewModel) {
+        { viewModel.onVerifyReachabilityRequested() }
+    }
     val qrEditorState = rememberNodeCustomNodeEditorState(
         isEditorVisible = state.isCustomNodeEditorVisible,
         nodeConnectionOption = state.nodeConnectionOption,
@@ -222,6 +227,7 @@ fun NodeStatusRoute(
             onionPortValue = state.newCustomOnionPort,
             routeThroughTor = state.newCustomRouteThroughTor,
             useSsl = state.newCustomUseSsl,
+            accessScope = state.newCustomAccessScope,
             isTesting = state.isTestingCustomNode,
             errorMessage = state.customNodeError,
             qrErrorMessage = qrEditorState.qrErrorMessage,
@@ -236,6 +242,7 @@ fun NodeStatusRoute(
             onOnionPortChanged = viewModel::onNewCustomOnionPortChanged,
             onRouteThroughTorChanged = viewModel::onCustomNodeRouteThroughTorToggled,
             onUseSslChanged = viewModel::onCustomNodeUseSslToggled,
+            onAccessScopeSelected = viewModel::onCustomAccessScopeSelected,
             onPrimaryAction = if (isEditing) {
                 viewModel::onSaveCustomNodeEdits
             } else {
@@ -316,7 +323,8 @@ fun NodeStatusRoute(
             onAddCustomNodeClick = viewModel::onAddCustomNodeClicked,
             initialTabIndex = initialTabIndex,
             onDisconnect = viewModel::disconnectNode,
-            onConnectTor = onOpenTorStatus
+            onConnectTor = onOpenTorStatus,
+            onVerifyReachability = verifyReachabilityAction
         )
     }
 }
@@ -334,7 +342,8 @@ private fun NodeStatusScreen(
     onAddCustomNodeClick: () -> Unit,
     initialTabIndex: Int,
     onDisconnect: () -> Unit,
-    onConnectTor: () -> Unit
+    onConnectTor: () -> Unit,
+    onVerifyReachability: () -> Unit
 ) {
     val listState = rememberLazyListState()
     val tabs = remember { NodeStatusTab.values().toList() }
@@ -415,6 +424,11 @@ private fun NodeStatusScreen(
                         when (tab) {
                             NodeStatusTab.Overview -> NodeOverviewContent(
                                 status = status,
+                                reachabilityStatus = state.reachabilityStatus,
+                                isNodeStatusStale = state.isNodeStatusStale,
+                                lastSyncMillis = state.lastSyncCompletedAt,
+                                canManuallyVerify = state.canManuallyVerify,
+                                onVerifyReachability = onVerifyReachability,
                                 modifier = Modifier.fillMaxWidth()
                             )
 
@@ -612,6 +626,11 @@ private fun NodeStatusTabs(
 @Composable
 private fun NodeOverviewContent(
     status: StatusBarUiState,
+    reachabilityStatus: ReachabilityStatus,
+    isNodeStatusStale: Boolean,
+    lastSyncMillis: Long?,
+    canManuallyVerify: Boolean,
+    onVerifyReachability: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val resources = LocalContext.current.resources
@@ -630,6 +649,15 @@ private fun NodeOverviewContent(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        ReachabilityBanner(
+            status = reachabilityStatus,
+            isNodeStatusStale = isNodeStatusStale,
+            lastSyncMillis = lastSyncMillis,
+            canManuallyVerify = canManuallyVerify,
+            onVerifyReachability = onVerifyReachability,
+            modifier = Modifier.fillMaxWidth()
+        )
+
         if (!isConnected) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -703,6 +731,111 @@ private fun NodeManagementContent(
         )
     }
 }
+
+@Composable
+private fun ReachabilityBanner(
+    status: ReachabilityStatus,
+    isNodeStatusStale: Boolean,
+    lastSyncMillis: Long?,
+    canManuallyVerify: Boolean,
+    onVerifyReachability: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = MaterialTheme.colorScheme
+    val now = System.currentTimeMillis()
+    val (message, containerColor, contentColor, showVerify) = when (status) {
+        ReachabilityStatus.Checking -> Quad(
+            stringResource(id = R.string.node_reachability_checking),
+            colors.surfaceContainerHigh,
+            colors.onSurface,
+            false
+        )
+        is ReachabilityStatus.Warning -> Quad(
+            stringResource(id = status.messageRes),
+            colors.errorContainer,
+            colors.onErrorContainer,
+            true
+        )
+        is ReachabilityStatus.Failure -> Quad(
+            stringResource(id = R.string.node_reachability_failure, status.reason),
+            colors.errorContainer,
+            colors.onErrorContainer,
+            true
+        )
+        is ReachabilityStatus.Success -> {
+            val relativeTime = remember(status.timestampMillis) {
+                DateUtils.getRelativeTimeSpanString(
+                    status.timestampMillis,
+                    now,
+                    DateUtils.MINUTE_IN_MILLIS
+                ).toString()
+            }
+            Quad(
+                stringResource(id = R.string.node_reachability_success, relativeTime),
+                colors.surfaceContainerHigh,
+                colors.onSurface,
+                canManuallyVerify
+            )
+        }
+        ReachabilityStatus.Idle,
+        ReachabilityStatus.NotRequired -> {
+            if (isNodeStatusStale && lastSyncMillis != null) {
+                val relativeTime = remember(lastSyncMillis) {
+                    DateUtils.getRelativeTimeSpanString(
+                        lastSyncMillis,
+                        now,
+                        DateUtils.MINUTE_IN_MILLIS
+                    ).toString()
+                }
+                Quad(
+                    stringResource(id = R.string.node_state_stale_warning, relativeTime),
+                    colors.surfaceContainerHigh,
+                    colors.onSurface,
+                    canManuallyVerify
+                )
+            } else {
+                return
+            }
+        }
+    }
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = containerColor,
+        tonalElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = contentColor,
+                modifier = Modifier.weight(1f, fill = true)
+            )
+            if (showVerify && ! (status is ReachabilityStatus.Checking)) {
+                TextButton(
+                    onClick = onVerifyReachability,
+                    enabled = canManuallyVerify
+                ) {
+                    Text(text = stringResource(id = R.string.node_reachability_action_verify))
+                }
+            }
+        }
+    }
+}
+
+private data class Quad<A, B, C, D>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D
+)
 
 private enum class NodeStatusTab(
     @androidx.annotation.StringRes val labelRes: Int
@@ -1094,6 +1227,9 @@ private fun AvailableNodesSection(
     val publicTypeLabel = stringResource(id = R.string.node_item_type_public)
     val customTypeLabel = stringResource(id = R.string.node_item_type_custom)
     val noTorLabel = stringResource(id = R.string.node_item_type_no_tor)
+    val scopeLocalLabel = stringResource(id = R.string.node_item_scope_local)
+    val scopeVpnLabel = stringResource(id = R.string.node_item_scope_vpn)
+    val scopePublicLabel = stringResource(id = R.string.node_item_scope_public)
     val nodes = buildList {
         publicNodes.forEach { node ->
             add(
@@ -1111,11 +1247,16 @@ private fun AvailableNodesSection(
             )
         }
         customNodes.forEach { node ->
-            val typeLabel = if (node.routeThroughTor) {
-                customTypeLabel
-            } else {
-                "$customTypeLabel | $noTorLabel"
+            val scopeLabel = when (node.accessScope) {
+                NodeAccessScope.LOCAL -> scopeLocalLabel
+                NodeAccessScope.VPN -> scopeVpnLabel
+                NodeAccessScope.PUBLIC -> scopePublicLabel
             }
+            val typeSegments = mutableListOf(customTypeLabel, scopeLabel)
+            if (!node.routeThroughTor) {
+                typeSegments.add(noTorLabel)
+            }
+            val typeLabel = typeSegments.joinToString(separator = " | ")
             add(
                 AvailableNodeItem(
                     title = node.displayLabel(),

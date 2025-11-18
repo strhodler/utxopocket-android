@@ -10,6 +10,12 @@ enum class NodeAddressOption {
     ONION
 }
 
+enum class NodeAccessScope {
+    LOCAL,
+    VPN,
+    PUBLIC
+}
+
 data class CustomNode(
     val id: String,
     val addressOption: NodeAddressOption,
@@ -19,7 +25,8 @@ data class CustomNode(
     val name: String = "",
     val routeThroughTor: Boolean = true,
     val useSsl: Boolean = true,
-    val network: BitcoinNetwork? = null
+    val network: BitcoinNetwork? = null,
+    val accessScope: NodeAccessScope = NodeAccessScope.PUBLIC
 ) {
     fun isValid(): Boolean = when (addressOption) {
         NodeAddressOption.HOST_PORT -> host.isNotBlank() && port != null
