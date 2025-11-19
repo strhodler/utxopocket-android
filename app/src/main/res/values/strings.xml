@@ -387,7 +387,6 @@
     <string name="utxo_detail_health_unavailable">UTXO health data is not available for this entry.</string>
     <string name="status_tor">Tor</string>
     <string name="status_node">Node</string>
-    <string name="status_tor_action_description">Show Tor status</string>
     <string name="status_node_action_description">Show node status</string>
     <string name="tor_overview_title">Tor connectivity</string>
     <string name="tor_overview_details_title">Connection details</string>
@@ -727,6 +726,8 @@
     <string name="node_overview_details_empty">This node does not expose connection details.</string>
     <string name="node_overview_fee_rate_title">Suggested fee rate</string>
     <string name="node_overview_fee_rate_hint">Latest sats/vB estimate reported by your node.</string>
+    <string name="node_overview_tor_required">This connection routes through Tor.</string>
+    <string name="node_overview_tor_optional">This connection can run without Tor.</string>
     <string name="node_section_available_title">Available nodes</string>
     <string name="node_section_available_description">Switch between preset and custom nodes for this network.</string>
     <string name="node_section_available_empty">Add your first node to get started.</string>

@@ -10,7 +10,6 @@ import com.strhodler.utxopocket.domain.service.TorManager
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
@@ -21,8 +20,7 @@ class TorLifecycleController @Inject constructor(
     private val refreshWallets: suspend (BitcoinNetwork) -> Unit,
     private val nodeConfigFlow: Flow<NodeConfig>,
     private val networkFlow: Flow<BitcoinNetwork>,
-    private val networkStatusFlow: Flow<Boolean>,
-    private val torVisibilityState: MutableStateFlow<Boolean>
+    private val networkStatusFlow: Flow<Boolean>
 ) {
 
     private var lastTorWasRunning = false
@@ -55,7 +53,6 @@ class TorLifecycleController @Inject constructor(
         val torRunning = torStatus is TorStatus.Running
         val torConnecting = torStatus is TorStatus.Connecting
         val torActive = torRunning || torConnecting
-        torVisibilityState.value = requiresTor || torActive
 
         if (!snapshot.networkOnline) {
             cancelPendingTorStart()

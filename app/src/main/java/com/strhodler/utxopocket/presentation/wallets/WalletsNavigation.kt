@@ -9,7 +9,6 @@ object WalletsNavigation {
     const val DetailRoute: String = "wallets/detail/{walletId}?walletName={walletName}"
     const val NodeStatusRoute: String = "wallets/node-status"
     const val NodeStatusTabArg: String = "tab"
-    const val TorStatusRoute: String = "wallets/tor-status"
     const val WalletDeletedMessageKey: String = "wallets_deleted_message"
     const val WalletCreatedMessageKey: String = "wallets_created_message"
     const val WalletIdArg: String = "walletId"

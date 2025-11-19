@@ -31,7 +31,6 @@ import com.strhodler.utxopocket.presentation.settings.SettingsNavigation
 import com.strhodler.utxopocket.presentation.settings.HealthParametersRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsViewModel
-import com.strhodler.utxopocket.presentation.tor.TorStatusRoute
 import com.strhodler.utxopocket.presentation.wallets.WalletsRoute
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wallets.add.AddWalletRoute
@@ -107,7 +106,11 @@ fun MainNavHost(
                         }
                     },
                     onConnectTor = {
-                        navController.navigate(WalletsNavigation.TorStatusRoute) {
+                        navController.navigate(
+                            WalletsNavigation.nodeStatusRoute(
+                                WalletsNavigation.NodeStatusTabDestination.Overview
+                            )
+                        ) {
                             launchSingleTop = true
                         }
                     },
@@ -311,31 +314,15 @@ fun MainNavHost(
             )
         ) { backStackEntry ->
             val tabArg = backStackEntry.arguments?.getString(WalletsNavigation.NodeStatusTabArg)
-            val dynamicDefaultTab = if (statusBarState.nodeStatus == NodeStatus.Synced) {
-                WalletsNavigation.NodeStatusTabDestination.Overview
-            } else {
-                WalletsNavigation.NodeStatusTabDestination.Management
-            }
             val initialTabIndex = when (tabArg) {
-                WalletsNavigation.NodeStatusTabDestination.Management.argValue -> 1
-                WalletsNavigation.NodeStatusTabDestination.Overview.argValue -> 0
-                else -> if (dynamicDefaultTab == WalletsNavigation.NodeStatusTabDestination.Management) 1 else 0
+                WalletsNavigation.NodeStatusTabDestination.Management.argValue -> 0
+                WalletsNavigation.NodeStatusTabDestination.Overview.argValue -> 1
+                else -> 0
             }
             NodeStatusRoute(
                 status = statusBarState,
                 onBack = { navController.popBackStack() },
-                onOpenTorStatus = {
-                    navController.navigate(WalletsNavigation.TorStatusRoute) {
-                        launchSingleTop = true
-                    }
-                },
                 initialTabIndex = initialTabIndex
-            )
-        }
-        composable(WalletsNavigation.TorStatusRoute) {
-            TorStatusRoute(
-                status = statusBarState,
-                onBack = { navController.popBackStack() }
             )
         }
         navigation(

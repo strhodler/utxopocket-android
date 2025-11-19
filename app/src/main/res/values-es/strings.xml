@@ -373,7 +373,6 @@
     <string name="settings_language_value_es">Español</string>
     <string name="settings_wallet_animations_title">Animaciones de wallets</string>
     <string name="settings_wallet_animations_description">Controla el brillo y el balance animado en la lista de wallets.</string>
-    <string name="status_tor_action_description">Mostrar el estado de Tor</string>
     <string name="status_node_action_description">Mostrar el estado del nodo</string>
     <string name="tor_overview_title">Conectividad de Tor</string>
     <string name="tor_overview_details_title">Detalles de conexión</string>
@@ -406,6 +405,8 @@
     <string name="node_overview_details_empty">Este nodo no expone información de conexión.</string>
     <string name="node_overview_fee_rate_title">Tarifa sugerida</string>
     <string name="node_overview_fee_rate_hint">Última estimación en sats/vB reportada por tu nodo.</string>
+    <string name="node_overview_tor_required">Esta conexión usa Tor.</string>
+    <string name="node_overview_tor_optional">Esta conexión puede funcionar sin Tor.</string>
     <string name="node_overview_tab_status">Detalles</string>
     <string name="node_overview_tab_management">Gestión</string>
     <string name="node_overview_network_title">Red activa</string>

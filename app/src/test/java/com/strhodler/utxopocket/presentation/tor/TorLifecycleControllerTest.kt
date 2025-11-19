@@ -24,7 +24,6 @@ class TorLifecycleControllerTest {
     @Test
     fun startsTorBeforeRefreshingWallets() = runTest {
         val torManager = FakeTorManager()
-        val torVisibility = MutableStateFlow(false)
         val initialConfig = directCustomNodeConfig()
         val configFlow = MutableStateFlow(initialConfig)
         val networkFlow = MutableStateFlow(BitcoinNetwork.TESTNET)
@@ -36,20 +35,17 @@ class TorLifecycleControllerTest {
             refreshWallets = { network -> refreshCalls += network },
             nodeConfigFlow = configFlow,
             networkFlow = networkFlow,
-            networkStatusFlow = networkStatus,
-            torVisibilityState = torVisibility
+            networkStatusFlow = networkStatus
         )
 
         controller.start()
         advanceUntilIdle()
         assertEquals(0, torManager.startCount)
         assertTrue(refreshCalls.isEmpty())
-        assertEquals(false, torVisibility.value)
 
         configFlow.value = torPresetConfig()
         advanceUntilIdle()
         assertEquals(1, torManager.startCount)
-        assertEquals(true, torVisibility.value)
 
         torManager.emitStatus(TorStatus.Running(proxy))
         advanceUntilIdle()

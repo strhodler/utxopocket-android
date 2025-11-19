@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
+import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
@@ -12,6 +13,7 @@ import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
+import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
@@ -41,7 +43,7 @@ data class StatusBarUiState(
     val nodeServerInfo: ElectrumServerInfo? = null,
     val nodeLastSync: Long? = null,
     val network: BitcoinNetwork = BitcoinNetwork.DEFAULT,
-    val showTorStatus: Boolean = false,
+    val torRequired: Boolean = false,
     val isNetworkOnline: Boolean = true
 )
 
@@ -71,15 +73,13 @@ class MainActivityViewModel @Inject constructor(
     )
 
     private val lockState = MutableStateFlow(false)
-    private val torVisibility = MutableStateFlow(false)
     private val torLifecycleController = TorLifecycleController(
         scope = viewModelScope,
         torManager = torManager,
         refreshWallets = { network -> walletRepository.refresh(network) },
         nodeConfigFlow = nodeConfigurationRepository.nodeConfig,
         networkFlow = appPreferencesRepository.preferredNetwork,
-        networkStatusFlow = networkStatusMonitor.isOnline,
-        torVisibilityState = torVisibility
+        networkStatusFlow = networkStatusMonitor.isOnline
     )
 
     init {
@@ -104,7 +104,7 @@ class MainActivityViewModel @Inject constructor(
         appPreferencesRepository.appLanguage,
         pinEnabledState,
         lockState,
-        torVisibility,
+        nodeConfigurationRepository.nodeConfig,
         networkStatusMonitor.isOnline
     ) { values ->
         val onboarding = values[0] as Boolean
@@ -117,7 +117,7 @@ class MainActivityViewModel @Inject constructor(
         val appLanguage = values[7] as AppLanguage
         val pinEnabled = values[8] as Boolean
         val locked = values[9] as Boolean
-        val showTorStatus = values[10] as Boolean
+        val nodeConfig = values[10] as NodeConfig
         val isNetworkOnline = values[11] as Boolean
 
         val snapshotMatchesNetwork = nodeSnapshot.network == network
@@ -127,6 +127,7 @@ class MainActivityViewModel @Inject constructor(
             NodeStatus.Idle
         }
         val isSyncing = syncStatus.isRefreshing && syncStatus.network == network
+        val torRequired = nodeConfig.requiresTor(network)
 
         AppEntryUiState(
             isReady = true,
@@ -142,7 +143,7 @@ class MainActivityViewModel @Inject constructor(
                 nodeServerInfo = nodeSnapshot.serverInfo.takeIf { snapshotMatchesNetwork },
                 nodeLastSync = nodeSnapshot.lastSyncCompletedAt.takeIf { snapshotMatchesNetwork },
                 network = network,
-                showTorStatus = showTorStatus,
+                torRequired = torRequired,
                 isNetworkOnline = isNetworkOnline
             ),
             themePreference = themePreference,

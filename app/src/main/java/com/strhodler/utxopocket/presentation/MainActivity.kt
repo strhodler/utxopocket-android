@@ -81,9 +81,7 @@ import com.strhodler.utxopocket.presentation.pin.formatPinCountdownMessage
 import com.strhodler.utxopocket.presentation.pin.formatPinStaticError
 import com.strhodler.utxopocket.presentation.components.TopBarNodeStatusIcon
 import com.strhodler.utxopocket.presentation.components.TopBarStatusActionIcon
-import com.strhodler.utxopocket.presentation.components.TopBarTorStatusIcon
 import com.strhodler.utxopocket.presentation.components.nodeStatusIndicatorColor
-import com.strhodler.utxopocket.presentation.components.torStatusIndicatorColor
 import com.strhodler.utxopocket.presentation.format.formatBlockHeight
 import com.strhodler.utxopocket.presentation.format.formatFeeRateSatPerVb
 import com.strhodler.utxopocket.presentation.format.sanitizeFeeRateSatPerVb
@@ -200,23 +198,11 @@ class MainActivity : AppCompatActivity() {
                                             is MainTopBarState.Primary -> {
                                                 StatusBar(
                                                     state = uiState.status,
-                                                    onStatusClick = { detail ->
-                                                        when (detail) {
-                                                            StatusDetail.Tor -> {
-                                                                navController.navigate(
-                                                                    WalletsNavigation.TorStatusRoute
-                                                                ) {
-                                                                    launchSingleTop = true
-                                                                }
-                                                            }
-
-                                                            StatusDetail.Node -> {
-                                                                navController.navigate(
-                                                                    WalletsNavigation.nodeStatusRoute()
-                                                                ) {
-                                                                    launchSingleTop = true
-                                                                }
-                                                            }
+                                                    onNodeStatusClick = {
+                                                        navController.navigate(
+                                                            WalletsNavigation.nodeStatusRoute()
+                                                        ) {
+                                                            launchSingleTop = true
                                                         }
                                                     },
                                                     modifier = Modifier.windowInsetsPadding(
@@ -360,13 +346,11 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-private enum class StatusDetail { Tor, Node }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StatusBar(
     state: StatusBarUiState,
-    onStatusClick: (StatusDetail) -> Unit,
+    onNodeStatusClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
         val blockHeightLabel = state.nodeBlockHeight?.let { height ->
@@ -422,17 +406,8 @@ private fun StatusBar(
             },
             navigationIcon = {},
             actions = {
-                if (state.showTorStatus) {
-                    TopBarStatusActionIcon(
-                        onClick = { onStatusClick(StatusDetail.Tor) },
-                        indicatorColor = torStatusIndicatorColor(state.torStatus),
-                        contentDescription = stringResource(id = R.string.status_tor_action_description)
-                    ) {
-                        TopBarTorStatusIcon(state.torStatus)
-                    }
-                }
                 TopBarStatusActionIcon(
-                    onClick = { onStatusClick(StatusDetail.Node) },
+                    onClick = onNodeStatusClick,
                     indicatorColor = nodeStatusIndicatorColor(state.nodeStatus),
                     contentDescription = stringResource(id = R.string.status_node_action_description)
                 ) {
