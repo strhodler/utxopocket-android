@@ -256,6 +256,10 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun start(config: com.strhodler.utxopocket.domain.model.TorConfig): Result<com.strhodler.utxopocket.domain.model.SocksProxyConfig> =
             Result.success(currentProxy())
+        override suspend fun <T> withTorProxy(
+            config: com.strhodler.utxopocket.domain.model.TorConfig,
+            block: suspend (com.strhodler.utxopocket.domain.model.SocksProxyConfig) -> T
+        ): T = block(currentProxy())
         override suspend fun stop() = Unit
         override suspend fun renewIdentity(): Boolean = true
         override fun currentProxy(): com.strhodler.utxopocket.domain.model.SocksProxyConfig =

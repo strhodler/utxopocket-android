@@ -26,6 +26,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.net.InetSocketAddress
 import java.net.Proxy
 import javax.inject.Inject
@@ -39,6 +41,8 @@ class DefaultTorManager @Inject constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val startMutex = Mutex()
+    private val keepAliveCount = AtomicInteger(0)
+    private val pendingStop = AtomicBoolean(false)
 
     private val _status = MutableStateFlow<TorStatus>(TorStatus.Stopped)
     override val status: StateFlow<TorStatus> = _status.asStateFlow()
@@ -92,9 +96,34 @@ class DefaultTorManager @Inject constructor(
         return waitForRunning()
     }
 
+    override suspend fun <T> withTorProxy(
+        config: TorConfig,
+        block: suspend (SocksProxyConfig) -> T
+    ): T {
+        keepAliveCount.incrementAndGet()
+        val proxyResult = start(config)
+        val proxy = proxyResult.getOrNull()
+        if (proxy == null) {
+            releaseKeepAlive()
+            throw proxyResult.exceptionOrNull() ?: IllegalStateException("Unable to start Tor")
+        }
+        return try {
+            val result = block(proxy)
+            releaseKeepAlive()
+            result
+        } catch (error: Throwable) {
+            releaseKeepAlive()
+            throw error
+        }
+    }
+
     override suspend fun stop() {
-        sendAction(TorServiceActions.ACTION_STOP)
-        torRuntimeManager.stop()
+        if (keepAliveCount.get() > 0) {
+            pendingStop.set(true)
+            return
+        }
+        pendingStop.set(false)
+        performStop()
     }
 
     override suspend fun renewIdentity(): Boolean {
@@ -128,6 +157,20 @@ class DefaultTorManager @Inject constructor(
             this.action = action
         }
         ContextCompat.startForegroundService(context, intent)
+    }
+
+    private suspend fun releaseKeepAlive() {
+        val remaining = keepAliveCount.updateAndGet { current ->
+            if (current <= 0) 0 else current - 1
+        }
+        if (remaining == 0 && pendingStop.compareAndSet(true, false)) {
+            performStop()
+        }
+    }
+
+    private suspend fun performStop() {
+        sendAction(TorServiceActions.ACTION_STOP)
+        torRuntimeManager.stop()
     }
 
     private fun Proxy?.toSocksConfig(): SocksProxyConfig {

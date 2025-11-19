@@ -248,6 +248,11 @@ private class TestTorManager : TorManager {
 
     override suspend fun start(config: TorConfig): Result<SocksProxyConfig> = Result.success(proxy)
 
+    override suspend fun <T> withTorProxy(
+        config: TorConfig,
+        block: suspend (SocksProxyConfig) -> T
+    ): T = block(proxy)
+
     override suspend fun stop() = Unit
 
     override suspend fun renewIdentity(): Boolean = true

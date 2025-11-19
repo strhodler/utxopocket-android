@@ -10,6 +10,7 @@ import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.domain.service.TorManager
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.bitcoindevkit.ElectrumClient
@@ -44,11 +45,42 @@ class DefaultNodeConnectionTester @Inject constructor(
         val endpoint = normalized.endpoint
 
         val requiresTor = node.requiresTor()
-        val proxy = if (requiresTor) ensureProxy() else null
-        runCatching {
+        if (!requiresTor) {
+            return@withContext performConnectionTest(
+                endpoint = endpoint,
+                socksProxy = null,
+                usedTor = false
+            )
+        }
+
+        return@withContext try {
+            torManager.withTorProxy { proxy ->
+                performConnectionTest(
+                    endpoint = endpoint,
+                    socksProxy = proxy,
+                    usedTor = true
+                )
+            }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            val reason = error.toTorAwareMessage(
+                defaultMessage = error.message.orEmpty().ifBlank { DEFAULT_FAILURE_MESSAGE },
+                endpoint = endpoint,
+                usedTor = true
+            )
+            NodeConnectionTestResult.Failure(reason)
+        }
+    }
+
+    private fun performConnectionTest(
+        endpoint: String,
+        socksProxy: SocksProxyConfig?,
+        usedTor: Boolean
+    ): NodeConnectionTestResult {
+        return runCatching {
             ElectrumClient(
                 url = endpoint,
-                socks5 = proxy?.toSocks5String()
+                socks5 = socksProxy?.toSocks5String()
             ).use { client ->
                 val version = runCatching {
                     client.serverFeatures().serverVersion
@@ -57,16 +89,12 @@ class DefaultNodeConnectionTester @Inject constructor(
             }
         }.getOrElse { error ->
             val reason = error.toTorAwareMessage(
-                defaultMessage = error.message.orEmpty().ifBlank { "Unable to reach node" },
+                defaultMessage = error.message.orEmpty().ifBlank { DEFAULT_FAILURE_MESSAGE },
                 endpoint = endpoint,
-                usedTor = requiresTor
+                usedTor = usedTor
             )
             NodeConnectionTestResult.Failure(reason)
         }
-    }
-
-    private suspend fun ensureProxy(): SocksProxyConfig {
-        return torManager.start().getOrElse { throw it }
     }
 
     private fun SocksProxyConfig.toSocks5String(): String = "${this.host}:${this.port}"
@@ -80,3 +108,5 @@ class DefaultNodeConnectionTester @Inject constructor(
         ).url
     }
 }
+
+private const val DEFAULT_FAILURE_MESSAGE = "Unable to reach node"

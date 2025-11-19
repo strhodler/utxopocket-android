@@ -63,6 +63,11 @@ class TorLifecycleControllerTest {
             return Result.success(proxy)
         }
 
+        override suspend fun <T> withTorProxy(
+            config: TorConfig,
+            block: suspend (SocksProxyConfig) -> T
+        ): T = block(proxy)
+
         override suspend fun stop() {}
 
         override suspend fun renewIdentity(): Boolean = false
