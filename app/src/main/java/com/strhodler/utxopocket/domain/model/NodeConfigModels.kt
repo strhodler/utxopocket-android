@@ -10,26 +10,14 @@ enum class NodeConnectionOption {
     CUSTOM
 }
 
-enum class NodeAddressOption {
-    HOST_PORT,
-    ONION
-}
-
 data class CustomNode(
     val id: String,
     val endpoint: String,
     val name: String = "",
-    val preferredTransport: NodeTransport = NodeTransport.TOR,
     val network: BitcoinNetwork? = null
 ) {
     private val normalizedEndpoint: NormalizedEndpoint?
         get() = runCatching { NodeEndpointClassifier.normalize(endpoint) }.getOrNull()
-
-    val addressOption: NodeAddressOption
-        get() = when (normalizedEndpoint?.kind) {
-            EndpointKind.ONION -> NodeAddressOption.ONION
-            else -> NodeAddressOption.HOST_PORT
-        }
 
     private val endpointKind: EndpointKind?
         get() = normalizedEndpoint?.kind
@@ -41,18 +29,10 @@ data class CustomNode(
         get() = normalizedEndpoint?.port
 
     val onion: String
-        get() = if (addressOption == NodeAddressOption.ONION) {
-            normalizedEndpoint?.hostPort.orEmpty()
-        } else {
-            ""
-        }
+        get() = if (endpointKind == EndpointKind.ONION) normalizedEndpoint?.hostPort.orEmpty() else ""
 
     val routeThroughTor: Boolean
-        get() = when (endpointKind) {
-            EndpointKind.ONION -> true
-            EndpointKind.LOCAL -> false
-            else -> preferredTransport == NodeTransport.TOR
-        }
+        get() = activeTransport() == NodeTransport.TOR
 
     val useSsl: Boolean
         get() = normalizedEndpoint?.scheme != EndpointScheme.TCP
@@ -60,11 +40,7 @@ data class CustomNode(
     fun isValid(): Boolean = normalizedEndpoint != null
 
     fun displayLabel(): String {
-        val fallback = when (addressOption) {
-            NodeAddressOption.HOST_PORT -> endpointLabel()
-            NodeAddressOption.ONION -> endpointLabel()
-        }
-        return name.takeIf { it.isNotBlank() } ?: fallback
+        return name.takeIf { it.isNotBlank() } ?: endpointLabel()
     }
 
     fun endpointLabel(): String = normalizedEndpoint?.hostPort ?: endpoint.trim()
@@ -73,8 +49,7 @@ data class CustomNode(
         val parsed = normalizedEndpoint ?: return null
         return copy(
             endpoint = parsed.url,
-            name = name.trim(),
-            preferredTransport = preferredTransport
+            name = name.trim()
         )
     }
 }
@@ -88,7 +63,6 @@ data class PublicNode(
 
 data class NodeConfig(
     val connectionOption: NodeConnectionOption = NodeConnectionOption.PUBLIC,
-    val addressOption: NodeAddressOption = NodeAddressOption.HOST_PORT,
     val selectedPublicNodeId: String? = null,
     val customNodes: List<CustomNode> = emptyList(),
     val selectedCustomNodeId: String? = null
@@ -132,7 +106,8 @@ fun CustomNode.activeTransport(): NodeTransport =
     when (normalisedEndpointKind()) {
         EndpointKind.ONION -> NodeTransport.TOR
         EndpointKind.LOCAL -> NodeTransport.DIRECT
-        else -> preferredTransport
+        EndpointKind.PUBLIC,
+        null -> NodeTransport.TOR
     }
 
 fun CustomNode.requiresTor(): Boolean = activeTransport() == NodeTransport.TOR

@@ -149,7 +149,13 @@ private fun TorHeroHeader(
             tor.proxy.port
         )
     }
-    val latestLogEntry = remember(status.torLog) { latestTorLogEntry(status.torLog) }
+    val latestLogEntry = remember(status.torLog, heroTorStatus) {
+        if (heroTorStatus is TorStatus.Connecting) {
+            latestTorLogEntry(status.torLog)
+        } else {
+            null
+        }
+    }
     val (proxyBadgeLabel, proxyBadgePlaceholder) = when {
         proxyEndpoint != null -> proxyEndpoint to false
         heroTorStatus is TorStatus.Connecting -> stringResource(id = R.string.tor_overview_proxy_pending_chip) to true
@@ -202,14 +208,16 @@ private fun TorHeroHeader(
             )
         }
 
-        Text(
-            text = latestLogEntry ?: stringResource(id = R.string.tor_overview_latest_event_empty),
-            style = MaterialTheme.typography.bodySmall,
-            color = primaryContentColor.copy(alpha = 0.75f),
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
+        latestLogEntry?.let { log ->
+            Text(
+                text = log,
+                style = MaterialTheme.typography.bodySmall,
+                color = primaryContentColor.copy(alpha = 0.75f),
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
         val torConnected = heroTorStatus is TorStatus.Running
         val torConnecting = heroTorStatus is TorStatus.Connecting
         if (torConnected) {
@@ -488,9 +496,8 @@ private fun buildTorDetails(
     } else {
         null
     }
-    val latestLog = latestTorLogEntry(torLog)
 
-    return listOf(
+    val details = mutableListOf(
         TorDetail(
             label = resources.getString(R.string.tor_overview_proxy_label),
             value = proxyValue
@@ -499,12 +506,18 @@ private fun buildTorDetails(
             label = resources.getString(R.string.tor_overview_bootstrap_label),
             value = bootstrapValue,
             supportingText = bootstrapSupporting
-        ),
-        TorDetail(
+        )
+    )
+
+    if (torStatus is TorStatus.Connecting) {
+        val latestLog = latestTorLogEntry(torLog)
+        details += TorDetail(
             label = resources.getString(R.string.tor_overview_latest_event_label),
             value = latestLog ?: resources.getString(R.string.tor_overview_latest_event_empty)
         )
-    )
+    }
+
+    return details
 }
 
 private data class TorDetail(

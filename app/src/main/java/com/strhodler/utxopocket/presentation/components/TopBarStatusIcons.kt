@@ -125,7 +125,8 @@ fun TopBarNodeStatusIcon(status: NodeStatus) {
             modifier = Modifier.size(20.dp)
         )
 
-        NodeStatus.Connecting -> {
+        NodeStatus.Connecting,
+        NodeStatus.WaitingForTor -> {
             Box(contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
@@ -162,9 +163,7 @@ fun torStatusIndicatorColor(status: TorStatus): Color? = when (status) {
     else -> null
 }
 
-fun nodeStatusIndicatorColor(status: NodeStatus): Color? = when (status) {
-    NodeStatus.Synced -> ConnectedBadgeColor
-    else -> null
-}
+fun nodeStatusIndicatorColor(status: NodeStatus): Color? =
+    if (status == NodeStatus.Synced) ConnectedBadgeColor else null
 
 private val ConnectedBadgeColor = Color(0xFF2ECC71)

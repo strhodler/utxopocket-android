@@ -8,7 +8,6 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeConfig
-import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PublicNode
@@ -128,9 +127,8 @@ class WalletsViewModelTest {
                 customNodes = listOf(
                     CustomNode(
                         id = nodeId,
-                        endpoint = "ssl://electrum.example.com:50002",
-                        name = "Direct",
-                        preferredTransport = NodeTransport.DIRECT,
+                        endpoint = "ssl://192.168.0.10:50002",
+                        name = "Direct LAN",
                         network = BitcoinNetwork.TESTNET
                     )
                 ),

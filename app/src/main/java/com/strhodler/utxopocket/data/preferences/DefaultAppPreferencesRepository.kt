@@ -15,10 +15,8 @@ import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
-import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
-import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.node.EndpointScheme
 import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.domain.model.PublicNode
@@ -365,8 +363,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
             val updated = mutator(current).normalised()
 
             prefs[Keys.NODE_CONNECTION_OPTION] = updated.connectionOption.name
-            prefs[Keys.NODE_ADDRESS_OPTION] = updated.addressOption.name
-
             updated.selectedPublicNodeId?.let {
                 prefs[Keys.NODE_SELECTED_PUBLIC_ID] = it
             } ?: prefs.remove(Keys.NODE_SELECTED_PUBLIC_ID)
@@ -385,6 +381,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs.remove(Keys.NODE_CUSTOM_HOST)
             prefs.remove(Keys.NODE_CUSTOM_PORT)
             prefs.remove(Keys.NODE_CUSTOM_ONION)
+            prefs.remove(Keys.NODE_ADDRESS_OPTION)
         }
     }
 
@@ -392,10 +389,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val connectionOption = this[Keys.NODE_CONNECTION_OPTION]?.let {
             runCatching { NodeConnectionOption.valueOf(it) }.getOrNull()
         } ?: NodeConnectionOption.PUBLIC
-
-        val addressOption = this[Keys.NODE_ADDRESS_OPTION]?.let {
-            runCatching { NodeAddressOption.valueOf(it) }.getOrNull()
-        } ?: NodeAddressOption.HOST_PORT
 
         val customNodes = this[Keys.NODE_CUSTOM_LIST]
             ?.let(::decodeCustomNodes)
@@ -405,7 +398,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
         val legacyNodes = if (customNodes.isEmpty()) {
             legacyCustomNodes(
-                addressOption = addressOption,
                 host = this[Keys.NODE_CUSTOM_HOST],
                 port = this[Keys.NODE_CUSTOM_PORT],
                 onion = this[Keys.NODE_CUSTOM_ONION]
@@ -418,7 +410,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
         return NodeConfig(
             connectionOption = connectionOption,
-            addressOption = addressOption,
             selectedPublicNodeId = this[Keys.NODE_SELECTED_PUBLIC_ID],
             customNodes = combinedNodes,
             selectedCustomNodeId = selectedCustomId
@@ -453,7 +444,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
                 put("id", node.id)
                 put("endpoint", node.endpoint)
                 put("name", node.name)
-                put("preferredTransport", node.preferredTransport.name)
                 node.network?.let { put("network", it.name) }
             }
             array.put(obj)
@@ -468,11 +458,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
                 for (i in 0 until array.length()) {
                     val obj = array.getJSONObject(i)
                     val id = obj.optString("id").ifBlank { UUID.randomUUID().toString() }
-                    val endpoint = obj.optString("endpoint")
-                    val addressOptionValue = obj.optString("addressOption")
-                    val addressOption = runCatching {
-                        NodeAddressOption.valueOf(addressOptionValue)
-                    }.getOrNull()
+                    val storedEndpoint = obj.optString("endpoint")
                     val host = obj.optString("host")
                     val port = if (obj.has("port")) obj.optInt("port") else null
                     val onion = obj.optString("onion")
@@ -481,31 +467,19 @@ class DefaultAppPreferencesRepository @Inject constructor(
                     val network = networkName.takeIf { it.isNotBlank() }?.let { rawNetwork ->
                         runCatching { BitcoinNetwork.valueOf(rawNetwork) }.getOrNull()
                     }
-                    val transportName = obj.optString("preferredTransport")
-                    val resolvedTransport = runCatching {
-                        NodeTransport.valueOf(transportName)
-                    }.getOrNull()
-                    val fallbackTransport = when {
-                        addressOption == NodeAddressOption.ONION -> NodeTransport.TOR
-                        obj.has("routeThroughTor") -> if (obj.optBoolean("routeThroughTor", true)) {
-                            NodeTransport.TOR
-                        } else {
-                            NodeTransport.DIRECT
-                        }
-                        else -> NodeTransport.TOR
-                    }
                     val resolvedEndpoint = when {
-                        endpoint.isNotBlank() -> endpoint
-                        addressOption == NodeAddressOption.ONION -> buildLegacyEndpoint(
+                        storedEndpoint.isNotBlank() -> storedEndpoint
+                        onion.isNotBlank() -> buildLegacyEndpoint(
                             host = onion,
                             useSsl = false,
                             port = null
                         )
-                        else -> buildLegacyEndpoint(
+                        host.isNotBlank() -> buildLegacyEndpoint(
                             host = host,
                             useSsl = useSsl,
                             port = port
                         )
+                        else -> null
                     }
 
                     if (resolvedEndpoint.isNullOrBlank()) {
@@ -517,7 +491,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
                             id = id,
                             endpoint = resolvedEndpoint,
                             name = obj.optString("name"),
-                            preferredTransport = resolvedTransport ?: fallbackTransport,
                             network = network
                         )
                     )
@@ -553,62 +526,45 @@ class DefaultAppPreferencesRepository @Inject constructor(
     }
 
     private fun legacyCustomNodes(
-        addressOption: NodeAddressOption,
         host: String?,
         port: Int?,
         onion: String?
     ): List<CustomNode> {
-        return when (addressOption) {
-            NodeAddressOption.HOST_PORT -> {
-                val trimmedHost = host?.trim().orEmpty()
-                val endpoint = if (trimmedHost.isNotBlank() && port != null) {
-                    buildLegacyEndpoint(
-                        host = trimmedHost,
-                        useSsl = true,
-                        port = port
+        val trimmedOnion = onion?.trim().orEmpty()
+        if (trimmedOnion.isNotBlank()) {
+            val endpoint = buildLegacyEndpoint(
+                host = trimmedOnion,
+                useSsl = false,
+                port = null
+            )
+            if (endpoint != null) {
+                return listOf(
+                    CustomNode(
+                        id = "legacy-onion-$trimmedOnion",
+                        endpoint = endpoint,
+                        name = trimmedOnion
                     )
-                } else {
-                    null
-                }
-                if (endpoint != null) {
-                    listOf(
-                        CustomNode(
-                            id = "legacy-host-$trimmedHost-$port",
-                            endpoint = endpoint,
-                            name = trimmedHost,
-                            preferredTransport = NodeTransport.TOR
-                        )
-                    )
-                } else {
-                    emptyList()
-                }
-            }
-
-            NodeAddressOption.ONION -> {
-                val trimmedOnion = onion?.trim().orEmpty()
-                val endpoint = if (trimmedOnion.isNotBlank()) {
-                    buildLegacyEndpoint(
-                        host = trimmedOnion,
-                        useSsl = false,
-                        port = null
-                    )
-                } else {
-                    null
-                }
-                if (endpoint != null) {
-                    listOf(
-                        CustomNode(
-                            id = "legacy-onion-$trimmedOnion",
-                            endpoint = endpoint,
-                            name = trimmedOnion,
-                            preferredTransport = NodeTransport.TOR
-                        )
-                    )
-                } else {
-                    emptyList()
-                }
+                )
             }
         }
+        val trimmedHost = host?.trim().orEmpty()
+        if (trimmedHost.isNotBlank() && port != null) {
+            val endpoint = buildLegacyEndpoint(
+                host = trimmedHost,
+                useSsl = true,
+                port = port
+            )
+            if (endpoint != null) {
+                return listOf(
+                    CustomNode(
+                        id = "legacy-host-$trimmedHost-$port",
+                        endpoint = endpoint,
+                        name = trimmedHost
+                    )
+                )
+            }
+        }
+        return emptyList()
     }
 
     private fun purgePreferencesFile() {

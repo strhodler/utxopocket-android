@@ -44,6 +44,7 @@
     <string name="wallets_status">Estado: %1$s</string>
     <string name="wallets_state_idle">Inactivo</string>
     <string name="wallets_state_connecting">Conectando</string>
+    <string name="wallets_state_waiting_for_tor">Esperando Tor</string>
     <string name="wallets_state_syncing">Sincronizando…</string>
     <string name="wallets_state_synced">Sincronizado</string>
     <string name="wallets_state_error">Error</string>
@@ -111,7 +112,6 @@
     <string name="node_overview_disconnected_message">Conéctate a un nodo para ver el bloque reciente, tarifas y datos del servidor.</string>
     <string name="node_manage_prompt">Selecciona un nodo en la pestaña Gestionar para reconectar y reanudar la sincronización.</string>
     <string name="node_disconnect_action">Desconectar</string>
-    <string name="wallets_tor_disconnected_banner">Tor no está en ejecución. Conéctalo para reanudar la conexión con el nodo.</string>
 
     <!-- Wallet detail -->
     <string name="wallet_detail_title">Detalles de la billetera</string>
@@ -359,9 +359,10 @@
     <string name="node_custom_name_label">Nombre del nodo</string>
     <string name="node_custom_name_placeholder">Mi servidor Electrum</string>
     <string name="node_custom_edit_title">Editar nodo personalizado</string>
-    <string name="node_custom_route_tor_label">Enviar el tráfico por Tor</string>
-    <string name="node_custom_route_tor_supporting">Recomendado para servidores públicos. Desactívalo solo si el nodo está disponible en una LAN o túnel WireGuard de confianza.</string>
-    <string name="node_custom_direct_warning">Las conexiones directas omiten Tor y pueden exponer tu dirección IP. Úsalas únicamente cuando controles todo el trayecto de red.</string>
+    <string name="node_custom_transport_tor_label">Transporte Tor</string>
+    <string name="node_custom_transport_tor_supporting">El tráfico se encamina por Tor automáticamente para endpoints públicos y .onion.</string>
+    <string name="node_custom_transport_direct_label">Transporte directo</string>
+    <string name="node_custom_transport_direct_supporting">El tráfico permanece en tu LAN o VPN cuando el endpoint es local.</string>
     <string name="node_custom_use_ssl_label">Usar SSL/TLS</string>
     <string name="node_custom_use_ssl_supporting">Cifra el tráfico de Electrum con TLS. Desactívalo solo si el servidor espera TCP sin cifrar en un enlace de confianza.</string>
     <string name="node_custom_no_ssl_warning">Al desactivar SSL/TLS los datos de la wallet quedan expuestos a cualquiera en la ruta de red. Continúa solo si controlas por completo la conexión.</string>
@@ -393,6 +394,14 @@
     <string name="tor_connect_action">Conectar Tor</string>
     <string name="tor_overview_stop_error">No se pudo desconectar Tor. Inténtalo nuevamente.</string>
     <string name="tor_overview_start_error">No se pudo conectar con Tor. Inténtalo nuevamente.</string>
+    <string name="tor_status_banner_ready_title">Tor listo</string>
+    <string name="tor_status_banner_ready_supporting">Las sincronizaciones y llamadas Electrum usarán Tor automáticamente.</string>
+    <string name="tor_status_banner_connecting_title">Arrancando Tor (%1$d%%)…</string>
+    <string name="tor_status_banner_error_title">Error de Tor: %1$s</string>
+    <string name="tor_status_banner_stopped_title">Tor está desconectado. Inícialo antes de conectarte a un nodo.</string>
+    <string name="tor_status_banner_action">Abrir estado de Tor</string>
+    <string name="tor_status_banner_offline_title">Sin conexión de red</string>
+    <string name="tor_status_banner_offline_supporting">Activa Wi‑Fi o datos móviles antes de iniciar Tor.</string>
     <string name="node_overview_title">Centro del nodo</string>
     <string name="node_overview_details_empty">Este nodo no expone información de conexión.</string>
     <string name="node_overview_fee_rate_title">Tarifa sugerida</string>
@@ -413,7 +422,7 @@
     <string name="node_custom_info_host_title">Host y puerto</string>
     <string name="node_custom_info_host_body">Usa un nombre de dominio completo o una dirección IPv4/IPv6 más el puerto TCP que publica tu servidor Electrum.</string>
     <string name="node_custom_info_tor_title">Bypass de Tor</string>
-    <string name="node_custom_info_tor_body">Tor oculta tu IP real. Desactívalo solo cuando el nodo esté disponible exclusivamente en una LAN o VPN que controlas, porque el modo directo expone tus metadatos.</string>
+    <string name="node_custom_info_tor_body">Tor oculta tu IP real. Los endpoints públicos y .onion siempre usan Tor, mientras que los nodos en LAN o VPN se conectan de forma directa automáticamente.</string>
     <string name="node_custom_info_ssl_title">SSL/TLS</string>
     <string name="node_custom_info_ssl_body">Mantener SSL activo negocia tráfico de Electrum cifrado. Desactívalo únicamente cuando el servidor rechace TLS y solo si confías en toda la ruta de red.</string>
     <string name="node_custom_info_local_title">Nodos locales y con túnel</string>
@@ -488,7 +497,7 @@
 
     <!-- Node & reconnect -->
     <string name="node_custom_add_button">Probar y añadir nodo</string>
-    <string name="node_reconnect_tor_required">Conecta Tor antes de reconectar con tu nodo.</string>
+    <string name="node_reconnect_tor_required">Tor se iniciará automáticamente. Esto puede tardar unos segundos.</string>
     <string name="node_section_available_title">Nodos disponibles</string>
     <string name="node_section_available_description">Alterna entre los nodos preconfigurados y los tuyos para esta red.</string>
     <string name="node_section_available_empty">Añade tu primer nodo para empezar.</string>
@@ -496,6 +505,10 @@
     <string name="node_item_type_custom">Nodo personalizado</string>
     <string name="node_item_type_no_tor">Sin Tor</string>
     <string name="node_reconnect_waiting_for_tor">Esperando a que Tor termine de conectarse…</string>
+    <string name="node_reconnect_network_required">Conecta Wi‑Fi o datos móviles antes de reconectar.</string>
+    <string name="node_reconnect_select_node">Selecciona un nodo para reanudar la sincronización.</string>
+    <string name="node_preset_rotation_message">El preset %1$s no responde. Probando %2$s.</string>
+    <string name="node_preset_rotation_message_generic">El preset actual no responde. Probando %1$s.</string>
     <string name="node_scan_qr_content_description">Escanear QR del nodo</string>
     <string name="node_scan_error_permission">La cámara es necesaria para escanear códigos QR.</string>
     <string name="node_scan_error_invalid">No se detectó un endpoint de nodo válido en el código QR.</string>

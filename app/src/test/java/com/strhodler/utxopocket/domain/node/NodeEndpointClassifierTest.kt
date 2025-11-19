@@ -31,4 +31,18 @@ class NodeEndpointClassifierTest {
         assertEquals(EndpointKind.LOCAL, normalized.kind)
         assertTrue(NodeEndpointClassifier.detectKind("192.168.1.10") == EndpointKind.LOCAL)
     }
+
+    @Test
+    fun detectsLocalIpv6Addresses() {
+        val normalized = NodeEndpointClassifier.normalize("ssl://[fd12:3456::1]:50002")
+        assertEquals(EndpointKind.LOCAL, normalized.kind)
+        assertEquals("fd12:3456::1", normalized.host)
+        assertEquals("ssl://[fd12:3456::1]:50002", normalized.url)
+    }
+
+    @Test
+    fun detectsLocalHostnames() {
+        val normalized = NodeEndpointClassifier.normalize("ssl://mynode.local:50002")
+        assertEquals(EndpointKind.LOCAL, normalized.kind)
+    }
 }

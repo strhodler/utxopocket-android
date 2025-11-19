@@ -1,6 +1,8 @@
 package com.strhodler.utxopocket.data.bdk
 
+import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
+import com.strhodler.utxopocket.tor.TorProxyProvider
 import java.io.Closeable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -19,7 +21,8 @@ import org.bitcoindevkit.SyncScriptInspector
  */
 class ElectrumBlockchain(
     private val endpoint: ElectrumEndpoint,
-    private val proxy: SocksProxyConfig?
+    initialProxy: SocksProxyConfig?,
+    private val proxyProvider: TorProxyProvider?
 ) : Closeable {
 
     data class Metadata(
@@ -30,6 +33,7 @@ class ElectrumBlockchain(
 
     private val clientLock = Any()
     private var client: ElectrumClient? = null
+    private var activeProxy: SocksProxyConfig? = initialProxy
 
     private val maxAttempts: Int = endpoint.retry.coerceAtLeast(1)
 
@@ -156,26 +160,41 @@ class ElectrumBlockchain(
 
     private fun acquireClient(): ElectrumClient =
         synchronized(clientLock) {
-            client ?: createClient().also { client = it }
+            val nextProxy = proxyProvider?.currentProxy() ?: activeProxy
+            if (nextProxy != activeProxy) {
+                resetClientLocked()
+            }
+            val resolvedProxy = when {
+                endpoint.transport == NodeTransport.TOR && nextProxy == null ->
+                    throw TorProxyUnavailableException()
+                else -> nextProxy
+            }
+            activeProxy = resolvedProxy
+            client ?: createClient(resolvedProxy).also { client = it }
         }
 
-    private fun createClient(): ElectrumClient = if (proxy != null) {
-        ElectrumClient(
-            endpoint.url,
-            "${proxy.host}:${proxy.port}"
-        )
-    } else {
-        ElectrumClient(
-            endpoint.url,
-            null
-        )
+    private fun createClient(proxyConfig: SocksProxyConfig?): ElectrumClient =
+        if (proxyConfig != null) {
+            ElectrumClient(
+                endpoint.url,
+                "${proxyConfig.host}:${proxyConfig.port}"
+            )
+        } else {
+            ElectrumClient(
+                endpoint.url,
+                null
+            )
+        }
+
+    private fun resetClientLocked() {
+        client?.close()
+        client = null
     }
 
     private fun resetClient() {
-        val cached = synchronized(clientLock) {
-            client.also { client = null }
+        synchronized(clientLock) {
+            resetClientLocked()
         }
-        cached?.close()
     }
 
     private fun backoffDelayMillis(attempt: Int): Long {
@@ -187,3 +206,5 @@ class ElectrumBlockchain(
         resetClient()
     }
 }
+
+class TorProxyUnavailableException : IllegalStateException("Tor proxy unavailable")

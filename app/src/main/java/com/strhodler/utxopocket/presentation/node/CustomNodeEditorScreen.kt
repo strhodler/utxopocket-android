@@ -42,7 +42,6 @@ fun CustomNodeEditorScreen(
     endpointValue: String,
     endpointKind: EndpointKind?,
     portValue: String,
-    routeThroughTor: Boolean,
     useSsl: Boolean,
     isTesting: Boolean,
     errorMessage: String?,
@@ -53,7 +52,6 @@ fun CustomNodeEditorScreen(
     onNameChanged: (String) -> Unit,
     onEndpointChanged: (String) -> Unit,
     onPortChanged: (String) -> Unit,
-    onRouteThroughTorChanged: (Boolean) -> Unit,
     onUseSslChanged: (Boolean) -> Unit,
     onPrimaryAction: () -> Unit,
     onStartQrScan: () -> Unit,
@@ -124,6 +122,8 @@ fun CustomNodeEditorScreen(
             onStartQrScan = onStartQrScan
         )
 
+        val isOnion = endpointKind == EndpointKind.ONION
+
         OutlinedTextField(
             value = portValue,
             onValueChange = {
@@ -133,21 +133,19 @@ fun CustomNodeEditorScreen(
             label = { Text(text = stringResource(id = R.string.node_port_label)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
+            enabled = !isOnion,
             keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number)
         )
 
         EndpointKindHints(kind = endpointKind)
 
-            RouteThroughTorToggle(
-                kind = endpointKind,
-                checked = routeThroughTor,
-                onCheckedChange = onRouteThroughTorChanged
-            )
+        TransportModeBadge(kind = endpointKind)
 
-            UseSslToggle(
-                checked = useSsl,
-                onCheckedChange = onUseSslChanged
-            )
+        UseSslToggle(
+            checked = useSsl,
+            enabled = !isOnion,
+            onCheckedChange = onUseSslChanged
+        )
         }
     }
 }
@@ -229,44 +227,42 @@ private fun InfoCard(text: String, containerColor: Color) {
 }
 
 @Composable
-private fun RouteThroughTorToggle(
-    kind: EndpointKind?,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    val enabled = kind == null || kind == EndpointKind.PUBLIC
-    val subtitle = stringResource(id = R.string.node_custom_route_tor_supporting)
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+private fun TransportModeBadge(kind: EndpointKind?) {
+    val (labelRes, supportingRes) = when (kind) {
+        EndpointKind.LOCAL -> R.string.node_custom_transport_direct_label to
+            R.string.node_custom_transport_direct_supporting
+        else -> R.string.node_custom_transport_tor_label to
+            R.string.node_custom_transport_tor_supporting
+    }
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        shape = MaterialTheme.shapes.medium,
+        tonalElevation = 1.dp
     ) {
-        Column(modifier = Modifier.weight(1f, fill = true)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             Text(
-                text = stringResource(id = R.string.node_custom_route_tor_label),
-                style = MaterialTheme.typography.bodyMedium
+                text = stringResource(id = labelRes),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = subtitle,
+                text = stringResource(id = supportingRes),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            enabled = enabled
-        )
-    }
-
-    if (enabled && !checked) {
-        WarningCard(text = stringResource(id = R.string.node_custom_direct_warning))
     }
 }
 
 @Composable
 private fun UseSslToggle(
     checked: Boolean,
+    enabled: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
     val subtitle = stringResource(id = R.string.node_custom_use_ssl_supporting)
@@ -288,11 +284,12 @@ private fun UseSslToggle(
         }
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange
+            onCheckedChange = onCheckedChange,
+            enabled = enabled
         )
     }
 
-    if (!checked) {
+    if (enabled && !checked) {
         WarningCard(text = stringResource(id = R.string.node_custom_no_ssl_warning))
     }
 }

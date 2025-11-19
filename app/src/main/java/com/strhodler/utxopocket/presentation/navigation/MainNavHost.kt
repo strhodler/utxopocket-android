@@ -123,7 +123,8 @@ fun MainNavHost(
                         } else if (deletedMessage != null) {
                             backStackEntry.savedStateHandle[WalletsNavigation.WalletDeletedMessageKey] = null
                         }
-                    }
+                    },
+                    statusBarState = statusBarState
                 )
             }
             composable(WalletsNavigation.AddRoute) {

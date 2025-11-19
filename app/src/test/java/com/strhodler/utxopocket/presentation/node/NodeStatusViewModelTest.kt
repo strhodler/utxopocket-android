@@ -33,6 +33,7 @@ import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
+import com.strhodler.utxopocket.presentation.node.NodeStatusUiState
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
@@ -62,6 +63,7 @@ class NodeStatusViewModelTest {
     private lateinit var preferencesRepository: TestAppPreferencesRepository
     private lateinit var nodeConfigurationRepository: TestNodeConfigurationRepository
     private lateinit var walletRepository: TestWalletRepository
+    private lateinit var nodeConnectionTester: RecordingNodeConnectionTester
     private lateinit var viewModel: NodeStatusViewModel
 
     @BeforeTest
@@ -71,10 +73,11 @@ class NodeStatusViewModelTest {
         preferencesRepository = TestAppPreferencesRepository()
         nodeConfigurationRepository = TestNodeConfigurationRepository()
         walletRepository = TestWalletRepository()
+        nodeConnectionTester = RecordingNodeConnectionTester()
         viewModel = NodeStatusViewModel(
             appPreferencesRepository = preferencesRepository,
             nodeConfigurationRepository = nodeConfigurationRepository,
-            nodeConnectionTester = TestNodeConnectionTester(),
+            nodeConnectionTester = nodeConnectionTester,
             walletRepository = walletRepository
         )
     }
@@ -101,6 +104,29 @@ class NodeStatusViewModelTest {
         val updatedConfig = nodeConfigurationRepository.nodeConfig.value
         assertNull(updatedConfig.selectedPublicNodeId)
         assertEquals(listOf(BitcoinNetwork.TESTNET), walletRepository.refreshCalls)
+    }
+
+    @Test
+    fun onionEndpointsForcePortAndSslSettings() = runTest {
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onNewCustomEndpointChanged("abc123def.onion")
+        viewModel.onNewCustomPortChanged("1234")
+        viewModel.onCustomNodeUseSslToggled(true)
+
+        val state = viewModel.uiState.value
+        assertEquals(NodeStatusUiState.ONION_DEFAULT_PORT, state.newCustomPort)
+        assertEquals(false, state.newCustomUseSsl)
+    }
+
+    @Test
+    fun blankCustomNodeNameDefaultsToEndpointLabel() = runTest {
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onNewCustomEndpointChanged("ssl://example.com:50002")
+        viewModel.onNewCustomNameChanged("")
+        viewModel.onTestAndAddCustomNode()
+        advanceUntilIdle()
+
+        assertEquals("example.com:50002", nodeConnectionTester.lastNode?.name)
     }
 
     private class TestAppPreferencesRepository : AppPreferencesRepository {
@@ -267,14 +293,18 @@ class NodeStatusViewModelTest {
         override fun setSyncForegroundState(isForeground: Boolean) = Unit
     }
 
-    private class TestNodeConnectionTester : NodeConnectionTester {
+    private class RecordingNodeConnectionTester : NodeConnectionTester {
+        var lastNode: CustomNode? = null
+
         override suspend fun testHostPort(host: String, port: Int): NodeConnectionTestResult =
             NodeConnectionTestResult.Success()
 
         override suspend fun testOnion(onion: String): NodeConnectionTestResult =
             NodeConnectionTestResult.Success()
 
-        override suspend fun test(node: CustomNode): NodeConnectionTestResult =
-            NodeConnectionTestResult.Success()
+        override suspend fun test(node: CustomNode): NodeConnectionTestResult {
+            lastNode = node
+            return NodeConnectionTestResult.Success()
+        }
     }
 }

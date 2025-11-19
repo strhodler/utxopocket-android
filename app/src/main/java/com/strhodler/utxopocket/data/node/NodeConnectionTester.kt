@@ -2,7 +2,6 @@ package com.strhodler.utxopocket.data.node
 
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
-import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.node.EndpointScheme
@@ -28,8 +27,7 @@ class DefaultNodeConnectionTester @Inject constructor(
                     host = host.trim(),
                     port = port,
                     scheme = EndpointScheme.SSL
-                ),
-                preferredTransport = NodeTransport.TOR
+                )
             )
         )
 
@@ -37,8 +35,7 @@ class DefaultNodeConnectionTester @Inject constructor(
         test(
             CustomNode(
                 id = "temp-onion-$onion",
-                endpoint = buildOnionEndpoint(onion),
-                preferredTransport = NodeTransport.TOR
+                endpoint = buildOnionEndpoint(onion)
             )
         )
 

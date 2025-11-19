@@ -107,6 +107,7 @@ import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
+import com.strhodler.utxopocket.presentation.components.TorStatusBanner
 import com.strhodler.utxopocket.presentation.components.TopBarStatusActionIcon
 import com.strhodler.utxopocket.presentation.components.TopBarTorStatusIcon
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
@@ -224,7 +225,6 @@ fun NodeStatusRoute(
             endpointValue = state.newCustomEndpoint,
             endpointKind = state.newCustomEndpointKind,
             portValue = state.newCustomPort,
-            routeThroughTor = state.newCustomRouteThroughTor,
             useSsl = state.newCustomUseSsl,
             isTesting = state.isTestingCustomNode,
             errorMessage = state.customNodeError,
@@ -238,7 +238,6 @@ fun NodeStatusRoute(
                 viewModel.onNewCustomEndpointChanged(it)
             },
             onPortChanged = viewModel::onNewCustomPortChanged,
-            onRouteThroughTorChanged = viewModel::onCustomNodeRouteThroughTorToggled,
             onUseSslChanged = viewModel::onCustomNodeUseSslToggled,
             onPrimaryAction = if (isEditing) {
                 viewModel::onSaveCustomNodeEdits
@@ -313,6 +312,7 @@ fun NodeStatusRoute(
             onAddCustomNodeClick = viewModel::onAddCustomNodeClicked,
             initialTabIndex = initialTabIndex,
             onDisconnect = viewModel::disconnectNode,
+            onOpenTorStatus = onOpenTorStatus
         )
     }
 }
@@ -329,7 +329,8 @@ private fun NodeStatusScreen(
     onCustomNodeDetails: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
     initialTabIndex: Int,
-    onDisconnect: () -> Unit
+    onDisconnect: () -> Unit,
+    onOpenTorStatus: () -> Unit
 ) {
     val listState = rememberLazyListState()
     val tabs = remember { NodeStatusTab.values().toList() }
@@ -359,6 +360,18 @@ private fun NodeStatusScreen(
             contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
+            if (status.showTorStatus) {
+                item("tor_status_banner") {
+                    TorStatusBanner(
+                        status = status.torStatus,
+                        isNetworkOnline = status.isNetworkOnline,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .fillMaxWidth(),
+                        onClick = onOpenTorStatus
+                    )
+                }
+            }
             item("hero") {
                 NodeHeroHeader(
                     status = status,
@@ -449,13 +462,21 @@ private fun NodeHeroHeader(
     }
     val endpoint = status.nodeEndpoint?.let { formatEndpoint(it) }
     val networkLabel = networkLabel(status.network)
-    val showReconnect = status.nodeStatus == NodeStatus.Idle || status.nodeStatus is NodeStatus.Error
+    val showReconnect = status.nodeStatus == NodeStatus.Idle ||
+        status.nodeStatus == NodeStatus.WaitingForTor ||
+        status.nodeStatus is NodeStatus.Error
     val torStatus = status.torStatus
     val torRunning = torStatus is TorStatus.Running
     val torConnecting = torStatus is TorStatus.Connecting
     val reconnectInfoMessage = when {
-        showReconnect && torConnecting -> stringResource(id = R.string.node_reconnect_waiting_for_tor)
-        showReconnect && !torRunning -> stringResource(id = R.string.node_reconnect_tor_required)
+        showReconnect && !status.isNetworkOnline ->
+            stringResource(id = R.string.node_reconnect_network_required)
+        showReconnect && torConnecting ->
+            stringResource(id = R.string.node_reconnect_waiting_for_tor)
+        showReconnect && status.showTorStatus && !torRunning ->
+            stringResource(id = R.string.node_reconnect_tor_required)
+        showReconnect && status.nodeEndpoint.isNullOrBlank() ->
+            stringResource(id = R.string.node_reconnect_select_node)
         else -> null
     }
 
@@ -538,17 +559,9 @@ private fun NodeHeroHeader(
                         textAlign = TextAlign.Center
                     )
                 }
-                torConnecting -> {
+                reconnectInfoMessage != null -> {
                     Text(
-                        text = reconnectInfoMessage ?: stringResource(id = R.string.wallets_state_connecting),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = primaryContentColor,
-                        textAlign = TextAlign.Center
-                    )
-                }
-                !torRunning -> {
-                    Text(
-                        text = reconnectInfoMessage ?: stringResource(id = R.string.node_reconnect_tor_required),
+                        text = reconnectInfoMessage,
                         style = MaterialTheme.typography.bodyMedium,
                         color = primaryContentColor,
                         textAlign = TextAlign.Center
@@ -715,7 +728,8 @@ private fun NodeStatusIcon(
             modifier = Modifier.size(56.dp)
         )
 
-        NodeStatus.Connecting -> {
+        NodeStatus.Connecting,
+        NodeStatus.WaitingForTor -> {
             Box(modifier = Modifier.size(56.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(
                     modifier = Modifier.fillMaxSize(),
@@ -880,6 +894,7 @@ private fun buildNodeDetails(
 private fun nodeStatusMessage(status: NodeStatus): String = when (status) {
     NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
     NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
+    NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
     NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
     is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
 }
@@ -914,7 +929,8 @@ private fun statusThemeFor(
     )
     val (gradient, accent) = when (status) {
         NodeStatus.Synced -> connectedGradient to Color(0xFFFFE0B2)
-        NodeStatus.Connecting -> greyGradient to colorScheme.onSurface
+        NodeStatus.Connecting,
+        NodeStatus.WaitingForTor -> greyGradient to colorScheme.onSurface
         NodeStatus.Idle -> greyGradient to colorScheme.onSurface
         is NodeStatus.Error -> errorGradient to colorScheme.onError
     }

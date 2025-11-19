@@ -4,9 +4,13 @@ import android.content.Context
 import android.util.Log
 import android.os.SystemClock
 import com.strhodler.utxopocket.BuildConfig
+import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.data.bdk.BdkBlockchainFactory
 import com.strhodler.utxopocket.data.bdk.BdkManagedWallet
 import com.strhodler.utxopocket.data.bdk.BdkWalletFactory
+import com.strhodler.utxopocket.data.bdk.ElectrumEndpoint
+import com.strhodler.utxopocket.data.bdk.ElectrumEndpointSource
+import com.strhodler.utxopocket.data.bdk.TorProxyUnavailableException
 import com.strhodler.utxopocket.data.bdk.SyncCancellationSignal
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
@@ -44,6 +48,7 @@ import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.TransactionStructure
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
+import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.TransactionType
 import com.strhodler.utxopocket.domain.model.UtxoStatus
 import com.strhodler.utxopocket.domain.model.WalletAddress
@@ -68,6 +73,7 @@ import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsExcepti
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
+import com.strhodler.utxopocket.tor.TorProxyProvider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -107,6 +113,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlin.sequences.generateSequence
 
 private const val GENERIC_DESCRIPTOR_ERROR =
     "Invalid or malformed descriptor; review the imported descriptor or the compatibility wiki article."
@@ -115,6 +122,7 @@ private const val GENERIC_DESCRIPTOR_ERROR =
 class DefaultWalletRepository @Inject constructor(
     private val walletDao: WalletDao,
     private val torManager: TorManager,
+    private val torProxyProvider: TorProxyProvider,
     private val blockchainFactory: BdkBlockchainFactory,
     private val walletFactory: BdkWalletFactory,
     private val database: UtxoPocketDatabase,
@@ -159,6 +167,8 @@ class DefaultWalletRepository @Inject constructor(
     private var backgroundGraceExpiryMillis: Long = 0L
     @Volatile
     private var backgroundIdleJob: Job? = null
+    @Volatile
+    private var lastEndpointMetadata: EndpointAttemptMetadata? = null
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private data class CachedWallet(
@@ -182,6 +192,11 @@ class DefaultWalletRepository @Inject constructor(
             )
         }
     }
+
+    private data class EndpointAttemptMetadata(
+        val network: BitcoinNetwork,
+        val endpoint: ElectrumEndpoint
+    )
 
     private val walletCacheMutex = Mutex()
     private val walletCache = mutableMapOf<Long, CachedWallet>()
@@ -393,6 +408,7 @@ class DefaultWalletRepository @Inject constructor(
             return@withContext
         }
         syncStatus.value = SyncStatusSnapshot(isRefreshing = true, network = network)
+        val triedPresetKeys = mutableSetOf<String>()
         try {
             val policy = retryPolicyFor(network)
             var attempt = 0
@@ -413,7 +429,12 @@ class DefaultWalletRepository @Inject constructor(
                 } catch (error: Exception) {
                     val attemptIndex = attempt + 1
                     Log.w(TAG, "Node refresh attempt $attemptIndex failed for $network", error)
-                    if (attempt >= policy.maxAttempts - 1) {
+                    val exhaustedAttempts = attempt >= policy.maxAttempts - 1
+                    if (exhaustedAttempts) {
+                        if (handlePresetRotationOnFailure(network, triedPresetKeys)) {
+                            attempt = 0
+                            continue
+                        }
                         Log.w(TAG, "Node refresh giving up after ${policy.maxAttempts} attempts for $network", error)
                         return@withContext
                     }
@@ -438,6 +459,23 @@ class DefaultWalletRepository @Inject constructor(
             if (cancellationSignal.shouldCancel()) {
                 throw CancellationException("Sync cancelled while app is backgrounded on $network")
             }
+        }
+        fun signalWaitingForTor(endpointLabel: String?, torStatus: TorStatus? = null) {
+            val snapshotStatus = when (torStatus) {
+                is TorStatus.Error -> NodeStatus.Error(
+                    torStatus.message
+                )
+                else -> NodeStatus.WaitingForTor
+            }
+            nodeStatus.value = NodeStatusSnapshot(
+                status = snapshotStatus,
+                blockHeight = previousSnapshot.blockHeight.takeIf { previousSnapshot.network == network },
+                serverInfo = previousSnapshot.serverInfo.takeIf { previousSnapshot.network == network },
+                endpoint = endpointLabel ?: previousEndpoint,
+                lastSyncCompletedAt = lastSyncForNetwork,
+                network = network,
+                feeRateSatPerVb = previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network }
+            )
         }
 
         if (shouldSignalConnecting) {
@@ -464,9 +502,19 @@ class DefaultWalletRepository @Inject constructor(
         try {
             ensureForeground()
             val electrumEndpoint = blockchainFactory.endpointFor(network)
+            lastEndpointMetadata = EndpointAttemptMetadata(network, electrumEndpoint)
             activeTransport = electrumEndpoint.transport
             val proxy = if (activeTransport == NodeTransport.TOR) {
-                torManager.start().getOrElse { throw it }
+                val torStatus = torManager.status.value
+                if (torStatus !is TorStatus.Running) {
+                    signalWaitingForTor(previousEndpoint, torStatus)
+                    return
+                }
+                torProxyProvider.awaitProxy()
+                    ?: run {
+                        signalWaitingForTor(previousEndpoint, torStatus)
+                        return
+                    }
             } else {
                 null
             }
@@ -680,10 +728,15 @@ class DefaultWalletRepository @Inject constructor(
                     network = network,
                     feeRateSatPerVb = estimatedFeeRateSatPerVb
                 )
+                lastEndpointMetadata = null
                 if (hadWalletErrors) {
                     Log.w(TAG, "Wallet sync completed with errors. Check individual wallets for details.")
                 }
             }
+        } catch (e: TorProxyUnavailableException) {
+            signalWaitingForTor(endpoint, torManager.status.value)
+            Log.w(TAG, "Tor proxy unavailable while syncing $network, waiting for Tor", e)
+            return
         } catch (e: CancellationException) {
             Log.i(TAG, "Electrum sync cancelled because app entered background on $network")
             nodeStatus.value = NodeStatusSnapshot(
@@ -702,6 +755,12 @@ class DefaultWalletRepository @Inject constructor(
                 endpoint = endpoint,
                 usedTor = activeTransport == NodeTransport.TOR
             )
+            if (activeTransport == NodeTransport.TOR && e.isSocksError()) {
+                val restartResult = torProxyProvider.restart()
+                if (restartResult.isFailure) {
+                    Log.w(TAG, "Unable to restart Tor proxy after SOCKS failure", restartResult.exceptionOrNull())
+                }
+            }
             nodeStatus.value = NodeStatusSnapshot(
                 status = NodeStatus.Error(reason),
                 blockHeight = blockHeight,
@@ -714,6 +773,52 @@ class DefaultWalletRepository @Inject constructor(
             throw e
         }
     }
+
+    private suspend fun handlePresetRotationOnFailure(
+        network: BitcoinNetwork,
+        triedPresetKeys: MutableSet<String>
+    ): Boolean {
+        val metadata = lastEndpointMetadata ?: return false
+        if (metadata.network != network) {
+            return false
+        }
+        if (metadata.endpoint.source != ElectrumEndpointSource.PUBLIC) {
+            return false
+        }
+        val attemptKey = (metadata.endpoint.nodeId ?: metadata.endpoint.url).orEmpty()
+        if (!triedPresetKeys.add(attemptKey)) {
+            return false
+        }
+        val rotated = blockchainFactory.rotatePublicEndpoint(network, metadata.endpoint.nodeId) ?: return false
+        val previousSnapshot = nodeStatus.value
+        val previousLabel = metadata.endpoint.displayName ?: metadata.endpoint.url
+        val nextLabel = rotated.displayName ?: rotated.endpoint
+        val rotationMessage = if (metadata.endpoint.displayName.isNullOrBlank()) {
+            applicationContext.getString(
+                R.string.node_preset_rotation_message_generic,
+                nextLabel
+            )
+        } else {
+            applicationContext.getString(
+                R.string.node_preset_rotation_message,
+                previousLabel,
+                nextLabel
+            )
+        }
+        nodeStatus.value = previousSnapshot.copy(
+            status = NodeStatus.Error(rotationMessage)
+        )
+        Log.w(TAG, "Preset $previousLabel unreachable, rotating to ${rotated.displayName}")
+        return true
+    }
+
+    private fun Throwable.isSocksError(): Boolean =
+        generateSequence(this) { current ->
+            val cause = current.cause
+            if (cause != null && cause !== current) cause else null
+        }.any { throwable ->
+            throwable.message?.contains("SOCKS", ignoreCase = true) == true
+        }
 
     private fun captureTransactions(
         walletId: Long,

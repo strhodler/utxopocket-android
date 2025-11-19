@@ -21,7 +21,6 @@ data class NodeStatusUiState(
     val newCustomEndpoint: String = "",
     val newCustomEndpointKind: EndpointKind? = null,
     val newCustomPort: String = DEFAULT_PORT,
-    val newCustomRouteThroughTor: Boolean = true,
     val newCustomUseSsl: Boolean = true,
     val editingCustomNodeId: String? = null,
     val isCustomNodeEditorVisible: Boolean = false,

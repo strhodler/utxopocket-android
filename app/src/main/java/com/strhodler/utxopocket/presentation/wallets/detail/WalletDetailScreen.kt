@@ -2221,6 +2221,7 @@ private fun WalletErrorMessage(
 private fun nodeStatusLabel(status: NodeStatus): String = when (status) {
     NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
     NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
+    NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
     NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
     is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
 }

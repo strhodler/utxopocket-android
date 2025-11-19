@@ -75,9 +75,11 @@ import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
+import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.ConnectionIssueBanner
 import com.strhodler.utxopocket.presentation.components.ConnectionIssueBannerStyle
+import com.strhodler.utxopocket.presentation.components.TorStatusBanner
 import com.strhodler.utxopocket.presentation.components.RefreshableContent
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
@@ -101,6 +103,7 @@ fun WalletsRoute(
     onWalletSelected: (Long, String) -> Unit,
     snackbarMessage: String? = null,
     onSnackbarConsumed: () -> Unit = {},
+    statusBarState: StatusBarUiState,
     viewModel: WalletsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -115,7 +118,8 @@ fun WalletsRoute(
         onConnectTor = onConnectTor,
         onWalletSelected = onWalletSelected,
         snackbarMessage = snackbarMessage,
-        onSnackbarConsumed = onSnackbarConsumed
+        onSnackbarConsumed = onSnackbarConsumed,
+        isNetworkOnline = statusBarState.isNetworkOnline
     )
 }
 
@@ -131,6 +135,7 @@ fun WalletsScreen(
     onWalletSelected: (Long, String) -> Unit,
     snackbarMessage: String? = null,
     onSnackbarConsumed: () -> Unit = {},
+    isNetworkOnline: Boolean,
     modifier: Modifier = Modifier
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -162,9 +167,10 @@ fun WalletsScreen(
             onOpenWiki = onOpenWiki,
             onOpenWikiTopic = onOpenWikiTopic,
             onSelectNode = onSelectNode,
-             onConnectTor = onConnectTor,
+            onConnectTor = onConnectTor,
             onWalletSelected = onWalletSelected,
             onAddWallet = onAddWallet,
+            isNetworkOnline = isNetworkOnline,
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
@@ -182,17 +188,19 @@ private fun WalletsContent(
     onConnectTor: () -> Unit,
     onWalletSelected: (Long, String) -> Unit,
     onAddWallet: () -> Unit,
+    isNetworkOnline: Boolean,
     modifier: Modifier = Modifier
 ) {
     val pullToRefreshState = rememberPullToRefreshState()
-    val shouldShowPullToRefreshIndicator = !(state.isRefreshing && state.nodeStatus is NodeStatus.Connecting)
+    val shouldShowPullToRefreshIndicator = !(
+        state.isRefreshing &&
+            (state.nodeStatus is NodeStatus.Connecting || state.nodeStatus == NodeStatus.WaitingForTor)
+        )
     val canAddWallet = state.nodeStatus is NodeStatus.Synced
     val showNodePrompt = state.wallets.isEmpty() && state.nodeStatus !is NodeStatus.Synced
 
     val torStatus = state.torStatus
-    val showTorBanner = state.torRequired &&
-        (torStatus is TorStatus.Stopped || torStatus is TorStatus.Error)
-    val torBannerMessage = stringResource(id = R.string.wallets_tor_disconnected_banner)
+    val showTorStatusBanner = state.torRequired || torStatus !is TorStatus.Stopped
 
     val hasWalletErrors = state.wallets.any { it.lastSyncStatus is NodeStatus.Error }
     val sanitizedErrorMessage = state.errorMessage.takeUnless { hasWalletErrors }?.takeIf { it.isNotBlank() }
@@ -228,27 +236,25 @@ private fun WalletsContent(
                 .padding(vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            when {
-                showTorBanner -> {
-                    ConnectionIssueBanner(
-                        message = torBannerMessage,
-                        primaryLabel = stringResource(id = R.string.tor_connect_action),
-                        onPrimaryClick = onConnectTor,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .fillMaxWidth()
-                    )
-                }
-                connectionBannerMessage != null -> {
-                    ConnectionIssueBanner(
-                        message = connectionBannerMessage,
-                        primaryLabel = stringResource(id = R.string.wallets_manage_connection_action),
-                        onPrimaryClick = onSelectNode,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .fillMaxWidth()
-                    )
-                }
+            if (showTorStatusBanner) {
+                TorStatusBanner(
+                    status = torStatus,
+                    isNetworkOnline = isNetworkOnline,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth(),
+                    onClick = onConnectTor
+                )
+            }
+            if (connectionBannerMessage != null) {
+                ConnectionIssueBanner(
+                    message = connectionBannerMessage,
+                    primaryLabel = stringResource(id = R.string.wallets_manage_connection_action),
+                    onPrimaryClick = onSelectNode,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth()
+                )
             }
             WalletsList(
                 wallets = state.wallets,
@@ -702,6 +708,7 @@ private fun nodeStatusLabel(status: NodeStatus, isSyncing: Boolean): String {
     return when (status) {
         NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
         NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
+        NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
         NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
         is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
     }

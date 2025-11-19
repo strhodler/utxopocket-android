@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
-import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
@@ -13,12 +12,12 @@ import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
-import com.strhodler.utxopocket.domain.model.NodeConnectionOption
-import com.strhodler.utxopocket.domain.model.requiresTor
+import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.TorManager
+import com.strhodler.utxopocket.presentation.tor.TorLifecycleController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -42,7 +41,8 @@ data class StatusBarUiState(
     val nodeServerInfo: ElectrumServerInfo? = null,
     val nodeLastSync: Long? = null,
     val network: BitcoinNetwork = BitcoinNetwork.DEFAULT,
-    val showTorStatus: Boolean = false
+    val showTorStatus: Boolean = false,
+    val isNetworkOnline: Boolean = true
 )
 
 data class AppEntryUiState(
@@ -60,7 +60,8 @@ class MainActivityViewModel @Inject constructor(
     private val appPreferencesRepository: AppPreferencesRepository,
     private val torManager: TorManager,
     private val walletRepository: WalletRepository,
-    private val nodeConfigurationRepository: NodeConfigurationRepository
+    private val nodeConfigurationRepository: NodeConfigurationRepository,
+    networkStatusMonitor: NetworkStatusMonitor
 ) : ViewModel() {
 
     private val pinEnabledState = appPreferencesRepository.pinLockEnabled.stateIn(
@@ -71,8 +72,15 @@ class MainActivityViewModel @Inject constructor(
 
     private val lockState = MutableStateFlow(false)
     private val torVisibility = MutableStateFlow(false)
-    private var lastTorWasRunning = false
-    private var pendingTorStop: Job? = null
+    private val torLifecycleController = TorLifecycleController(
+        scope = viewModelScope,
+        torManager = torManager,
+        refreshWallets = { network -> walletRepository.refresh(network) },
+        nodeConfigFlow = nodeConfigurationRepository.nodeConfig,
+        networkFlow = appPreferencesRepository.preferredNetwork,
+        networkStatusFlow = networkStatusMonitor.isOnline,
+        torVisibilityState = torVisibility
+    )
 
     init {
         viewModelScope.launch {
@@ -82,39 +90,7 @@ class MainActivityViewModel @Inject constructor(
                 }
             }
         }
-
-        viewModelScope.launch {
-            combine(
-                torManager.status,
-                nodeConfigurationRepository.nodeConfig,
-                appPreferencesRepository.preferredNetwork
-            ) { status, config, network -> Triple(status, config, network) }
-                .collect { (status, config, network) ->
-                    val configRequiresTor = config.requiresTor(network)
-                    if (configRequiresTor) {
-                        pendingTorStop?.cancel()
-                        pendingTorStop = null
-                    }
-                    val isRunning = status is TorStatus.Running
-                    val isConnecting = status is TorStatus.Connecting
-                    val torActive = isRunning || isConnecting
-                    val shouldDisconnect = status is TorStatus.Stopped || status is TorStatus.Error
-                    if (!configRequiresTor && torActive) {
-                        if (pendingTorStop?.isActive != true) {
-                            pendingTorStop = viewModelScope.launch {
-                                torManager.stop()
-                                pendingTorStop = null
-                            }
-                        }
-                    }
-                    when {
-                        configRequiresTor && lastTorWasRunning && shouldDisconnect -> disconnectNodeSelection(network)
-                        configRequiresTor && !lastTorWasRunning && isRunning -> ensureNodeAutoConnect(config, network)
-                    }
-                    torVisibility.value = configRequiresTor || torActive
-                    lastTorWasRunning = configRequiresTor && isRunning
-                }
-        }
+        torLifecycleController.start()
     }
 
     val uiState: StateFlow<AppEntryUiState> = combine(
@@ -128,7 +104,8 @@ class MainActivityViewModel @Inject constructor(
         appPreferencesRepository.appLanguage,
         pinEnabledState,
         lockState,
-        torVisibility
+        torVisibility,
+        networkStatusMonitor.isOnline
     ) { values ->
         val onboarding = values[0] as Boolean
         val torStatus = values[1] as TorStatus
@@ -141,6 +118,7 @@ class MainActivityViewModel @Inject constructor(
         val pinEnabled = values[8] as Boolean
         val locked = values[9] as Boolean
         val showTorStatus = values[10] as Boolean
+        val isNetworkOnline = values[11] as Boolean
 
         val snapshotMatchesNetwork = nodeSnapshot.network == network
         val effectiveNodeStatus = if (snapshotMatchesNetwork) {
@@ -155,7 +133,7 @@ class MainActivityViewModel @Inject constructor(
             onboardingCompleted = onboarding,
             status = StatusBarUiState(
                 torStatus = torStatus,
-                torLog = torLog,
+                torLog = if (torStatus is TorStatus.Connecting) torLog else "",
                 nodeStatus = effectiveNodeStatus,
                 isSyncing = isSyncing,
                 nodeBlockHeight = nodeSnapshot.blockHeight.takeIf { snapshotMatchesNetwork },
@@ -164,7 +142,8 @@ class MainActivityViewModel @Inject constructor(
                 nodeServerInfo = nodeSnapshot.serverInfo.takeIf { snapshotMatchesNetwork },
                 nodeLastSync = nodeSnapshot.lastSyncCompletedAt.takeIf { snapshotMatchesNetwork },
                 network = network,
-                showTorStatus = showTorStatus
+                showTorStatus = showTorStatus,
+                isNetworkOnline = isNetworkOnline
             ),
             themePreference = themePreference,
             appLanguage = appLanguage,
@@ -211,10 +190,11 @@ class MainActivityViewModel @Inject constructor(
 
     fun onNetworkSelected(network: BitcoinNetwork) {
         val currentNetwork = uiState.value.status.network
-        if (
-            currentNetwork == network &&
-            (uiState.value.status.nodeStatus is NodeStatus.Connecting || uiState.value.status.isSyncing)
-        ) {
+        val status = uiState.value.status
+        val nodeBusy = status.nodeStatus is NodeStatus.Connecting ||
+            status.nodeStatus == NodeStatus.WaitingForTor ||
+            status.isSyncing
+        if (currentNetwork == network && nodeBusy) {
             return
         }
         viewModelScope.launch {
@@ -225,36 +205,15 @@ class MainActivityViewModel @Inject constructor(
 
     fun retryNodeConnection() {
         val status = uiState.value.status
-        if (status.nodeStatus is NodeStatus.Connecting || status.isSyncing) {
+        if (
+            status.nodeStatus is NodeStatus.Connecting ||
+            status.nodeStatus == NodeStatus.WaitingForTor ||
+            status.isSyncing
+        ) {
             return
         }
         viewModelScope.launch {
             walletRepository.refresh(status.network)
-        }
-    }
-
-    private suspend fun ensureNodeAutoConnect(config: NodeConfig, network: BitcoinNetwork) {
-        if (!config.hasActiveSelection(network)) {
-            return
-        }
-        walletRepository.refresh(network)
-    }
-
-    private suspend fun disconnectNodeSelection(network: BitcoinNetwork) {
-        var clearedSelection = false
-        nodeConfigurationRepository.updateNodeConfig { current ->
-            if (!current.requiresTor(network)) {
-                return@updateNodeConfig current
-            }
-            clearedSelection = true
-            current.copy(
-                connectionOption = NodeConnectionOption.PUBLIC,
-                selectedPublicNodeId = null,
-                selectedCustomNodeId = null
-            )
-        }
-        if (clearedSelection) {
-            walletRepository.refresh(network)
         }
     }
 
