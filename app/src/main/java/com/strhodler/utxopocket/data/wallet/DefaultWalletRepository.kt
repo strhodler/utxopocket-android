@@ -35,6 +35,7 @@ import com.strhodler.utxopocket.data.db.withSyncFailure
 import com.strhodler.utxopocket.data.db.withSyncResult
 import com.strhodler.utxopocket.data.db.updateSharedDescriptors
 import com.strhodler.utxopocket.data.node.toTorAwareMessage
+import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
 import com.strhodler.utxopocket.data.security.SqlCipherPassphraseProvider
 import com.strhodler.utxopocket.di.IoDispatcher
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
@@ -73,6 +74,7 @@ import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsExcepti
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
+import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.tor.TorProxyProvider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -129,6 +131,7 @@ class DefaultWalletRepository @Inject constructor(
     private val passphraseProvider: SqlCipherPassphraseProvider,
     private val appPreferencesRepository: AppPreferencesRepository,
     private val nodeConfigurationRepository: NodeConfigurationRepository,
+    private val networkStatusMonitor: NetworkStatusMonitor,
     @ApplicationContext private val applicationContext: Context,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : WalletRepository {
@@ -170,6 +173,21 @@ class DefaultWalletRepository @Inject constructor(
     @Volatile
     private var lastEndpointMetadata: EndpointAttemptMetadata? = null
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    @Volatile
+    private var lastObservedNetworkOnline: Boolean = true
+
+    init {
+        lastObservedNetworkOnline = networkStatusMonitor.isOnline.value
+        if (!lastObservedNetworkOnline) {
+            applyOfflineNodeStatus()
+        }
+        repositoryScope.launch {
+            networkStatusMonitor.isOnline
+                .collect { online ->
+                    handleNetworkConnectivityChange(online)
+                }
+        }
+    }
 
     private data class CachedWallet(
         val managed: BdkManagedWallet,
@@ -201,6 +219,34 @@ class DefaultWalletRepository @Inject constructor(
     private val walletCacheMutex = Mutex()
     private val walletCache = mutableMapOf<Long, CachedWallet>()
     private val deletingWallets = ConcurrentHashMap<Long, Boolean>()
+
+    private fun applyOfflineNodeStatus() {
+        syncStatus.value = syncStatus.value.copy(isRefreshing = false)
+        val snapshot = nodeStatus.value
+        nodeStatus.value = snapshot.copy(status = NodeStatus.Idle)
+    }
+
+    private suspend fun handleNetworkConnectivityChange(online: Boolean) {
+        if (!online) {
+            lastObservedNetworkOnline = false
+            applyOfflineNodeStatus()
+            return
+        }
+        val wasOffline = !lastObservedNetworkOnline
+        lastObservedNetworkOnline = true
+        if (!wasOffline) {
+            return
+        }
+        val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
+        val config = nodeConfigurationRepository.nodeConfig.first()
+        if (!config.hasActiveSelection(preferredNetwork)) {
+            return
+        }
+        if (config.requiresTor(preferredNetwork)) {
+            return
+        }
+        refresh(preferredNetwork)
+    }
 
     override fun observeWalletSummaries(network: BitcoinNetwork): Flow<List<WalletSummary>> =
         walletDao.observeWallets(network.name)
