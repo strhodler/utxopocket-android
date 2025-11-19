@@ -1,10 +1,12 @@
 package com.strhodler.utxopocket.data.node
 
 import com.strhodler.utxopocket.domain.model.CustomNode
-import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
+import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.requiresTor
+import com.strhodler.utxopocket.domain.node.EndpointScheme
+import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.domain.service.TorManager
 import javax.inject.Inject
@@ -22,11 +24,12 @@ class DefaultNodeConnectionTester @Inject constructor(
         test(
             CustomNode(
                 id = "temp-host-$host-$port",
-                addressOption = NodeAddressOption.HOST_PORT,
-                host = host,
-                port = port,
-                useSsl = true,
-                network = null
+                endpoint = NodeEndpointClassifier.buildUrl(
+                    host = host.trim(),
+                    port = port,
+                    scheme = EndpointScheme.SSL
+                ),
+                preferredTransport = NodeTransport.TOR
             )
         )
 
@@ -34,32 +37,14 @@ class DefaultNodeConnectionTester @Inject constructor(
         test(
             CustomNode(
                 id = "temp-onion-$onion",
-                addressOption = NodeAddressOption.ONION,
-                onion = onion,
-                useSsl = false,
-                network = null
+                endpoint = buildOnionEndpoint(onion),
+                preferredTransport = NodeTransport.TOR
             )
         )
 
     override suspend fun test(node: CustomNode): NodeConnectionTestResult = withContext(Dispatchers.IO) {
-        val endpoint = when (node.addressOption) {
-            NodeAddressOption.HOST_PORT -> {
-                val host = node.host.trim()
-                val port = node.port
-                require(host.isNotBlank()) { "Host cannot be blank" }
-                require(port != null) { "Port is required" }
-                val scheme = if (node.useSsl) "ssl" else "tcp"
-                "$scheme://$host:$port"
-            }
-
-            NodeAddressOption.ONION -> {
-                val onion = node.onion.trim()
-                    .removePrefix("tcp://")
-                    .removePrefix("ssl://")
-                require(onion.isNotBlank()) { "Onion endpoint cannot be blank" }
-                "tcp://$onion"
-            }
-        }
+        val normalized = node.normalizedCopy() ?: throw IllegalArgumentException("Invalid endpoint")
+        val endpoint = normalized.endpoint
 
         val requiresTor = node.requiresTor()
         val proxy = if (requiresTor) ensureProxy() else null
@@ -88,4 +73,13 @@ class DefaultNodeConnectionTester @Inject constructor(
     }
 
     private fun SocksProxyConfig.toSocks5String(): String = "${this.host}:${this.port}"
+
+    private fun buildOnionEndpoint(raw: String): String {
+        val sanitized = raw.removePrefix("tcp://")
+            .removePrefix("ssl://")
+        return NodeEndpointClassifier.normalize(
+            raw = "tcp://$sanitized",
+            defaultScheme = EndpointScheme.TCP
+        ).url
+    }
 }

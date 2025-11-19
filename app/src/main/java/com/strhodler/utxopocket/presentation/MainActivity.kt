@@ -426,12 +426,14 @@ private fun StatusBar(
             },
             navigationIcon = {},
             actions = {
-                StatusActionIcon(
-                    onClick = { onStatusClick(StatusDetail.Tor) },
-                    indicatorColor = torIndicatorColor(state.torStatus),
-                    contentDescription = stringResource(id = R.string.status_tor_action_description)
-                ) {
-                    TorStatusIcon(state.torStatus)
+                if (state.showTorStatus) {
+                    StatusActionIcon(
+                        onClick = { onStatusClick(StatusDetail.Tor) },
+                        indicatorColor = torIndicatorColor(state.torStatus),
+                        contentDescription = stringResource(id = R.string.status_tor_action_description)
+                    ) {
+                        TorStatusIcon(state.torStatus)
+                    }
                 }
                 StatusActionIcon(
                     onClick = { onStatusClick(StatusDetail.Node) },

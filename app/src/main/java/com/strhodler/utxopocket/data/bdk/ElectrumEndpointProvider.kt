@@ -1,12 +1,13 @@
 package com.strhodler.utxopocket.data.bdk
 
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
-import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.customNodesFor
 import com.strhodler.utxopocket.domain.model.activeTransport
+import com.strhodler.utxopocket.domain.node.EndpointScheme
+import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -46,38 +47,18 @@ class ElectrumEndpointProvider @Inject constructor(
             ?: scopedNodes.firstOrNull()
             ?: return null
 
-        return when (selectedNode.addressOption) {
-            NodeAddressOption.HOST_PORT -> {
-                val host = selectedNode.host.trim()
-                val port = selectedNode.port
-                if (host.isBlank() || port == null) null else {
-                    val transport = selectedNode.activeTransport()
-                    val useSsl = selectedNode.useSsl
-                    val scheme = if (useSsl) "ssl" else "tcp"
-                    ElectrumEndpoint(
-                        url = "$scheme://$host:$port",
-                        validateDomain = useSsl,
-                        sync = syncPreferencesFor(network),
-                        transport = transport
-                    )
-                }
-            }
+        val normalized = runCatching {
+            NodeEndpointClassifier.normalize(selectedNode.endpoint)
+        }.getOrElse { return null }
+        val transport = selectedNode.activeTransport()
+        val validateDomain = normalized.scheme == EndpointScheme.SSL
 
-            NodeAddressOption.ONION -> {
-                val onion = selectedNode.onion.trim()
-                    .removePrefix("tcp://")
-                    .removePrefix("ssl://")
-                if (onion.isBlank()) null else {
-                    val transport = selectedNode.activeTransport()
-                    ElectrumEndpoint(
-                        url = "tcp://$onion",
-                        validateDomain = false,
-                        sync = syncPreferencesFor(network),
-                        transport = transport
-                    )
-                }
-            }
-        }
+        return ElectrumEndpoint(
+            url = normalized.url,
+            validateDomain = validateDomain,
+            sync = syncPreferencesFor(network),
+            transport = transport
+        )
     }
 
     private fun syncPreferencesFor(network: BitcoinNetwork): ElectrumSyncPreferences =

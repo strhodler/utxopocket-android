@@ -14,8 +14,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.res.stringResource
 import com.strhodler.utxopocket.R
-import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
+import com.strhodler.utxopocket.presentation.node.NodeQrParseResult
 import kotlinx.coroutines.launch
 
 @Stable
@@ -29,15 +29,9 @@ data class NodeCustomNodeEditorState(
 fun rememberNodeCustomNodeEditorState(
     isEditorVisible: Boolean,
     nodeConnectionOption: NodeConnectionOption,
-    nodeAddressOption: NodeAddressOption,
     snackbarHostState: SnackbarHostState,
     onConnectionOptionSelected: (NodeConnectionOption) -> Unit,
-    onAddressOptionSelected: (NodeAddressOption) -> Unit,
-    onHostChanged: (String) -> Unit,
-    onPortChanged: (String) -> Unit,
-    onOnionHostChanged: (String) -> Unit,
-    onOnionPortChanged: (String) -> Unit,
-    onUseSslChanged: (Boolean) -> Unit
+    onQrParsed: (NodeQrParseResult) -> Unit
 ): NodeCustomNodeEditorState {
     val permissionDeniedMessage = stringResource(id = R.string.node_scan_error_permission)
     val invalidNodeMessage = stringResource(id = R.string.node_scan_error_invalid)
@@ -59,25 +53,9 @@ fun rememberNodeCustomNodeEditorState(
                 onConnectionOptionSelected(NodeConnectionOption.CUSTOM)
             }
             when (result) {
-                is NodeQrParseResult.HostPort -> {
-                    if (nodeAddressOption != NodeAddressOption.HOST_PORT) {
-                        onAddressOptionSelected(NodeAddressOption.HOST_PORT)
-                    }
-                    onHostChanged(result.host)
-                    onPortChanged(result.port)
-                    onUseSslChanged(result.useSsl)
-                }
-
-                is NodeQrParseResult.Onion -> {
-                    if (nodeAddressOption != NodeAddressOption.ONION) {
-                        onAddressOptionSelected(NodeAddressOption.ONION)
-                    }
-                    val (host, port) = parseOnionAddress(result.address)
-                    onOnionHostChanged(host)
-                    onOnionPortChanged(port)
-                }
-
-                is NodeQrParseResult.Error -> Unit
+                is NodeQrParseResult.HostPort,
+                is NodeQrParseResult.Onion -> onQrParsed(result)
+                is NodeQrParseResult.Error -> qrErrorMessage = result.reason
             }
         },
         onPermissionDenied = {
@@ -109,16 +87,4 @@ fun rememberNodeCustomNodeEditorState(
         startQrScan = startQrScan,
         clearQrError = { qrErrorMessage = null }
     )
-}
-
-private fun parseOnionAddress(raw: String): Pair<String, String> {
-    val sanitized = raw
-        .removePrefix("tcp://")
-        .removePrefix("ssl://")
-        .trim()
-    val host = sanitized.substringBefore(':').trim()
-    val port = sanitized.substringAfter(':', missingDelimiterValue = "")
-        .trim()
-        .ifEmpty { NodeStatusUiState.ONION_DEFAULT_PORT.toString() }
-    return host to port.filter { it.isDigit() }
 }

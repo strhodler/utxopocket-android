@@ -99,7 +99,6 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
-import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
@@ -135,15 +134,9 @@ fun NodeStatusRoute(
     val qrEditorState = rememberNodeCustomNodeEditorState(
         isEditorVisible = state.isCustomNodeEditorVisible,
         nodeConnectionOption = state.nodeConnectionOption,
-        nodeAddressOption = state.nodeAddressOption,
         snackbarHostState = snackbarHostState,
         onConnectionOptionSelected = viewModel::onNodeConnectionOptionSelected,
-        onAddressOptionSelected = viewModel::onNodeAddressOptionSelected,
-        onHostChanged = viewModel::onNewCustomHostChanged,
-        onPortChanged = viewModel::onNewCustomPortChanged,
-        onOnionHostChanged = viewModel::onNewCustomOnionHostChanged,
-        onOnionPortChanged = viewModel::onNewCustomOnionPortChanged,
-        onUseSslChanged = viewModel::onCustomNodeUseSslToggled
+        onQrParsed = viewModel::onCustomNodeQrParsed
     )
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showCustomNodeInfoSheet by remember { mutableStateOf(false) }
@@ -213,13 +206,9 @@ fun NodeStatusRoute(
             stringResource(id = R.string.node_custom_add_button)
         }
         CustomNodeEditorScreen(
-            showTabs = !isEditing,
-            nodeAddressOption = state.nodeAddressOption,
             nameValue = state.newCustomName,
-            hostValue = state.newCustomHost,
-            portValue = state.newCustomPort,
-            onionHostValue = state.newCustomOnionHost,
-            onionPortValue = state.newCustomOnionPort,
+            endpointValue = state.newCustomEndpoint,
+            endpointKind = state.newCustomEndpointKind,
             routeThroughTor = state.newCustomRouteThroughTor,
             useSsl = state.newCustomUseSsl,
             isTesting = state.isTestingCustomNode,
@@ -229,11 +218,10 @@ fun NodeStatusRoute(
             primaryActionLabel = primaryLabel,
             onDismiss = viewModel::onDismissCustomNodeEditor,
             onNameChanged = viewModel::onNewCustomNameChanged,
-            onNodeAddressOptionSelected = viewModel::onNodeAddressOptionSelected,
-            onHostChanged = viewModel::onNewCustomHostChanged,
-            onPortChanged = viewModel::onNewCustomPortChanged,
-            onOnionHostChanged = viewModel::onNewCustomOnionHostChanged,
-            onOnionPortChanged = viewModel::onNewCustomOnionPortChanged,
+            onEndpointChanged = {
+                qrEditorState.clearQrError()
+                viewModel.onNewCustomEndpointChanged(it)
+            },
             onRouteThroughTorChanged = viewModel::onCustomNodeRouteThroughTorToggled,
             onUseSslChanged = viewModel::onCustomNodeUseSslToggled,
             onPrimaryAction = if (isEditing) {
@@ -248,19 +236,11 @@ fun NodeStatusRoute(
         if (showDeleteDialog && isEditing) {
             val deleteLabelRaw = remember(
                 state.newCustomName,
-                state.nodeAddressOption,
-                state.newCustomHost,
-                state.newCustomPort,
-                state.newCustomOnionHost,
-                state.newCustomOnionPort
+                state.newCustomEndpoint
             ) {
                 buildCustomNodeLabel(
                     name = state.newCustomName,
-                    option = state.nodeAddressOption,
-                    host = state.newCustomHost,
-                    port = state.newCustomPort,
-                    onionHost = state.newCustomOnionHost,
-                    onionPort = state.newCustomOnionPort
+                    endpoint = state.newCustomEndpoint
                 )
             }
             val deleteLabel = if (deleteLabelRaw.isNotBlank()) {
@@ -937,35 +917,11 @@ private fun statusThemeFor(
 
 private fun buildCustomNodeLabel(
     name: String,
-    option: NodeAddressOption,
-    host: String,
-    port: String,
-    onionHost: String,
-    onionPort: String
+    endpoint: String
 ): String {
     val trimmedName = name.trim()
     if (trimmedName.isNotEmpty()) return trimmedName
-    return when (option) {
-        NodeAddressOption.HOST_PORT -> {
-            val trimmedHost = host.trim()
-            val trimmedPort = port.trim()
-            if (trimmedHost.isEmpty()) "" else if (trimmedPort.isNotEmpty()) {
-                "$trimmedHost:$trimmedPort"
-            } else {
-                trimmedHost
-            }
-        }
-
-        NodeAddressOption.ONION -> {
-            val trimmedHost = onionHost.trim()
-            val trimmedPort = onionPort.trim()
-            if (trimmedHost.isEmpty()) "" else if (trimmedPort.isNotEmpty()) {
-                "$trimmedHost:$trimmedPort"
-            } else {
-                trimmedHost
-            }
-        }
-    }
+    return endpoint.trim()
 }
 
 @Composable

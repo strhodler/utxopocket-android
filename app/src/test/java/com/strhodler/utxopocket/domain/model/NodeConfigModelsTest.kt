@@ -11,18 +11,14 @@ class NodeConfigModelsTest {
     fun requiresTorReflectsCustomNodeSettings() {
         val directNode = CustomNode(
             id = "direct",
-            addressOption = NodeAddressOption.HOST_PORT,
-            host = "example.com",
-            port = 50002,
-            routeThroughTor = false,
-            useSsl = true,
+            endpoint = "ssl://example.com:50002",
+            preferredTransport = NodeTransport.DIRECT,
             network = BitcoinNetwork.MAINNET
         )
-        val torNode = directNode.copy(id = "tor", routeThroughTor = true)
+        val torNode = directNode.copy(id = "tor", preferredTransport = NodeTransport.TOR)
         val onionNode = CustomNode(
             id = "onion",
-            addressOption = NodeAddressOption.ONION,
-            onion = "abc.onion:50001",
+            endpoint = "tcp://abc.onion:50001",
             network = BitcoinNetwork.MAINNET
         )
 
@@ -36,11 +32,8 @@ class NodeConfigModelsTest {
         val nodeId = "selected"
         val baseNode = CustomNode(
             id = nodeId,
-            addressOption = NodeAddressOption.HOST_PORT,
-            host = "example.com",
-            port = 50002,
-            routeThroughTor = false,
-            useSsl = true,
+            endpoint = "ssl://example.com:50002",
+            preferredTransport = NodeTransport.DIRECT,
             network = BitcoinNetwork.MAINNET
         )
         val config = NodeConfig(
@@ -53,9 +46,22 @@ class NodeConfigModelsTest {
         assertEquals(NodeTransport.DIRECT, config.activeTransport(BitcoinNetwork.MAINNET))
 
         val torConfig = config.copy(
-            customNodes = listOf(baseNode.copy(routeThroughTor = true))
+            customNodes = listOf(baseNode.copy(preferredTransport = NodeTransport.TOR))
         )
         assertTrue(torConfig.requiresTor(BitcoinNetwork.MAINNET))
         assertEquals(NodeTransport.TOR, torConfig.activeTransport(BitcoinNetwork.MAINNET))
+    }
+
+    @Test
+    fun localEndpointsAlwaysUseDirectTransport() {
+        val localNode = CustomNode(
+            id = "local",
+            endpoint = "ssl://192.168.0.2:60002",
+            preferredTransport = NodeTransport.TOR,
+            network = BitcoinNetwork.MAINNET
+        )
+
+        assertEquals(NodeTransport.DIRECT, localNode.activeTransport())
+        assertFalse(localNode.requiresTor())
     }
 }

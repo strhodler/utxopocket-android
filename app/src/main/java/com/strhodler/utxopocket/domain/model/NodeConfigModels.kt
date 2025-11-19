@@ -1,5 +1,10 @@
 package com.strhodler.utxopocket.domain.model
 
+import com.strhodler.utxopocket.domain.node.EndpointKind
+import com.strhodler.utxopocket.domain.node.EndpointScheme
+import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
+import com.strhodler.utxopocket.domain.node.NormalizedEndpoint
+
 enum class NodeConnectionOption {
     PUBLIC,
     CUSTOM
@@ -12,40 +17,65 @@ enum class NodeAddressOption {
 
 data class CustomNode(
     val id: String,
-    val addressOption: NodeAddressOption,
-    val host: String = "",
-    val port: Int? = null,
-    val onion: String = "",
+    val endpoint: String,
     val name: String = "",
-    val routeThroughTor: Boolean = true,
-    val useSsl: Boolean = true,
+    val preferredTransport: NodeTransport = NodeTransport.TOR,
     val network: BitcoinNetwork? = null
 ) {
-    fun isValid(): Boolean = when (addressOption) {
-        NodeAddressOption.HOST_PORT -> host.isNotBlank() && port != null
-        NodeAddressOption.ONION -> onion.isNotBlank()
-    }
+    private val normalizedEndpoint: NormalizedEndpoint?
+        get() = runCatching { NodeEndpointClassifier.normalize(endpoint) }.getOrNull()
+
+    val addressOption: NodeAddressOption
+        get() = when (normalizedEndpoint?.kind) {
+            EndpointKind.ONION -> NodeAddressOption.ONION
+            else -> NodeAddressOption.HOST_PORT
+        }
+
+    private val endpointKind: EndpointKind?
+        get() = normalizedEndpoint?.kind
+
+    val host: String
+        get() = normalizedEndpoint?.host.orEmpty()
+
+    val port: Int?
+        get() = normalizedEndpoint?.port
+
+    val onion: String
+        get() = if (addressOption == NodeAddressOption.ONION) {
+            normalizedEndpoint?.hostPort.orEmpty()
+        } else {
+            ""
+        }
+
+    val routeThroughTor: Boolean
+        get() = when (endpointKind) {
+            EndpointKind.ONION -> true
+            EndpointKind.LOCAL -> false
+            else -> preferredTransport == NodeTransport.TOR
+        }
+
+    val useSsl: Boolean
+        get() = normalizedEndpoint?.scheme != EndpointScheme.TCP
+
+    fun isValid(): Boolean = normalizedEndpoint != null
 
     fun displayLabel(): String {
         val fallback = when (addressOption) {
-            NodeAddressOption.HOST_PORT -> {
-                val trimmedHost = host.trim()
-                val portValue = port ?: return trimmedHost
-                "$trimmedHost:$portValue"
-            }
-            NodeAddressOption.ONION -> onion.trim()
+            NodeAddressOption.HOST_PORT -> endpointLabel()
+            NodeAddressOption.ONION -> endpointLabel()
         }
         return name.takeIf { it.isNotBlank() } ?: fallback
     }
 
-    fun endpointLabel(): String = when (addressOption) {
-        NodeAddressOption.HOST_PORT -> {
-            val trimmedHost = host.trim()
-            val portValue = port ?: return trimmedHost
-            "$trimmedHost:$portValue"
-        }
+    fun endpointLabel(): String = normalizedEndpoint?.hostPort ?: endpoint.trim()
 
-        NodeAddressOption.ONION -> onion.trim()
+    fun normalizedCopy(): CustomNode? {
+        val parsed = normalizedEndpoint ?: return null
+        return copy(
+            endpoint = parsed.url,
+            name = name.trim(),
+            preferredTransport = preferredTransport
+        )
     }
 }
 
@@ -98,13 +128,14 @@ fun NodeConfig.activeTransport(network: BitcoinNetwork? = null): NodeTransport? 
 fun NodeConfig.requiresTor(network: BitcoinNetwork? = null): Boolean =
     activeTransport(network) == NodeTransport.TOR
 
-fun CustomNode.activeTransport(): NodeTransport = when (addressOption) {
-    NodeAddressOption.ONION -> NodeTransport.TOR
-    NodeAddressOption.HOST_PORT -> if (routeThroughTor) {
-        NodeTransport.TOR
-    } else {
-        NodeTransport.DIRECT
+fun CustomNode.activeTransport(): NodeTransport =
+    when (normalisedEndpointKind()) {
+        EndpointKind.ONION -> NodeTransport.TOR
+        EndpointKind.LOCAL -> NodeTransport.DIRECT
+        else -> preferredTransport
     }
-}
 
 fun CustomNode.requiresTor(): Boolean = activeTransport() == NodeTransport.TOR
+
+private fun CustomNode.normalisedEndpointKind(): EndpointKind? =
+    runCatching { NodeEndpointClassifier.normalize(endpoint).kind }.getOrNull()
