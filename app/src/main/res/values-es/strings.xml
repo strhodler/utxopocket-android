@@ -418,6 +418,12 @@
     <string name="node_custom_info_ssl_body">Mantener SSL activo negocia tráfico de Electrum cifrado. Desactívalo únicamente cuando el servidor rechace TLS y solo si confías en toda la ruta de red.</string>
     <string name="node_custom_info_local_title">Nodos locales y con túnel</string>
     <string name="node_custom_info_local_body">Los nodos en 192.168.x.x, 10.x.x.x o detrás de túneles WireGuard/Tailscale necesitan que el túnel esté activo antes de probar la conexión. Combínalos con el bypass de Tor solo cuando sea necesario y conserva SSL salvo que el túnel termine dentro de tu nodo.</string>
+    <string name="node_custom_endpoint_label">Endpoint</string>
+    <string name="node_custom_endpoint_placeholder">xyz.onion, electrum.ex.com, 192.168.0.3</string>
+    <string name="node_custom_endpoint_supporting">Introduce un nombre de host o IP junto al puerto, o una dirección .onion completa. Prefija con ssl:// o tcp:// para forzar el protocolo.</string>
+    <string name="node_custom_endpoint_onion_hint">Los endpoints .onion siempre utilizan Tor y TCP sin cifrar.</string>
+    <string name="node_custom_endpoint_local_hint">Los endpoints locales/LAN omiten Tor automáticamente para evitar salir por nodos públicos.</string>
+    <string name="node_custom_direct_local_hint">Los nodos locales omiten Tor automáticamente. Asegúrate de confiar en la ruta LAN/VPN antes de continuar.</string>
     <string name="node_tor_reminder">Todas las conexiones se enrutan por Tor de forma predeterminada.</string>
     <string name="node_connection_standard">Host + Puerto</string>
     <string name="node_connection_onion">Onion</string>

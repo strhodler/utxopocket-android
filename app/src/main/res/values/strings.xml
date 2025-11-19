@@ -691,8 +691,8 @@
     <string name="node_custom_info_local_title">Local &amp; tunneled nodes</string>
     <string name="node_custom_info_local_body">Nodes on 192.168.x.x, 10.x.x.x, or behind WireGuard/Tailscale tunnels require that tunnel to be active before testing. Pair them with Tor bypass only when needed and keep SSL unless the tunnel terminates inside your node.</string>
     <string name="node_custom_endpoint_label">Endpoint</string>
-    <string name="node_custom_endpoint_placeholder">electrum.example.com:50002 or abc.onion:50001</string>
-    <string name="node_custom_endpoint_supporting">Provide a hostname/IP plus port or a full .onion address. Prefix with ssl:// or tcp:// to override the protocol.</string>
+    <string name="node_custom_endpoint_placeholder">xyz.onion, electrum.ex.com, 192.168.0.3</string>
+    <string name="node_custom_endpoint_supporting">Provide a hostname/IP or a full .onion address.</string>
     <string name="node_custom_endpoint_onion_hint">.onion endpoints always route through Tor and use plaintext TCP.</string>
     <string name="node_custom_endpoint_local_hint">Local/LAN endpoints bypass Tor automatically to avoid leaking traffic through exit nodes.</string>
     <string name="node_custom_direct_local_hint">Local nodes bypass Tor automatically. Ensure you trust the LAN/VPN path before proceeding.</string>

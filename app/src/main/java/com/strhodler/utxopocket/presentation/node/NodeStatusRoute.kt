@@ -107,12 +107,15 @@ import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
+import com.strhodler.utxopocket.presentation.components.TopBarStatusActionIcon
+import com.strhodler.utxopocket.presentation.components.TopBarTorStatusIcon
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.components.WalletColorTheme
 import com.strhodler.utxopocket.presentation.wallets.components.onGradient
 import com.strhodler.utxopocket.presentation.wallets.components.walletCardBackground
 import com.strhodler.utxopocket.presentation.wallets.components.walletShimmer
 import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
+import com.strhodler.utxopocket.presentation.components.torStatusIndicatorColor
 import java.text.DateFormat
 import java.text.NumberFormat
 import java.util.Date
@@ -195,7 +198,18 @@ fun NodeStatusRoute(
     } else {
         SetSecondaryTopBar(
             title = overviewTitle,
-            onBackClick = onBack
+            onBackClick = onBack,
+            actions = {
+                if (status.showTorStatus) {
+                    TopBarStatusActionIcon(
+                        onClick = onOpenTorStatus,
+                        indicatorColor = torStatusIndicatorColor(status.torStatus),
+                        contentDescription = stringResource(id = R.string.status_tor_action_description)
+                    ) {
+                        TopBarTorStatusIcon(status.torStatus)
+                    }
+                }
+            }
         )
     }
 
@@ -209,6 +223,7 @@ fun NodeStatusRoute(
             nameValue = state.newCustomName,
             endpointValue = state.newCustomEndpoint,
             endpointKind = state.newCustomEndpointKind,
+            portValue = state.newCustomPort,
             routeThroughTor = state.newCustomRouteThroughTor,
             useSsl = state.newCustomUseSsl,
             isTesting = state.isTestingCustomNode,
@@ -222,6 +237,7 @@ fun NodeStatusRoute(
                 qrEditorState.clearQrError()
                 viewModel.onNewCustomEndpointChanged(it)
             },
+            onPortChanged = viewModel::onNewCustomPortChanged,
             onRouteThroughTorChanged = viewModel::onCustomNodeRouteThroughTorToggled,
             onUseSslChanged = viewModel::onCustomNodeUseSslToggled,
             onPrimaryAction = if (isEditing) {
@@ -240,7 +256,8 @@ fun NodeStatusRoute(
             ) {
                 buildCustomNodeLabel(
                     name = state.newCustomName,
-                    endpoint = state.newCustomEndpoint
+                    endpoint = state.newCustomEndpoint,
+                    port = state.newCustomPort
                 )
             }
             val deleteLabel = if (deleteLabelRaw.isNotBlank()) {
@@ -296,7 +313,6 @@ fun NodeStatusRoute(
             onAddCustomNodeClick = viewModel::onAddCustomNodeClicked,
             initialTabIndex = initialTabIndex,
             onDisconnect = viewModel::disconnectNode,
-            onConnectTor = onOpenTorStatus
         )
     }
 }
@@ -313,8 +329,7 @@ private fun NodeStatusScreen(
     onCustomNodeDetails: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
     initialTabIndex: Int,
-    onDisconnect: () -> Unit,
-    onConnectTor: () -> Unit
+    onDisconnect: () -> Unit
 ) {
     val listState = rememberLazyListState()
     val tabs = remember { NodeStatusTab.values().toList() }
@@ -348,7 +363,6 @@ private fun NodeStatusScreen(
                 NodeHeroHeader(
                     status = status,
                     onDisconnect = onDisconnect,
-                    onConnectTor = onConnectTor,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -421,8 +435,7 @@ private fun NodeStatusScreen(
 private fun NodeHeroHeader(
     status: StatusBarUiState,
     modifier: Modifier = Modifier,
-    onDisconnect: (() -> Unit)? = null,
-    onConnectTor: (() -> Unit)? = null
+    onDisconnect: (() -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val theme = remember(status.nodeStatus) { statusThemeFor(status.nodeStatus, colorScheme) }
@@ -534,16 +547,12 @@ private fun NodeHeroHeader(
                     )
                 }
                 !torRunning -> {
-                    TextButton(
-                        onClick = { onConnectTor?.invoke() },
-                        enabled = onConnectTor != null,
-                        colors = ButtonDefaults.textButtonColors(contentColor = primaryContentColor)
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.tor_connect_action),
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    }
+                    Text(
+                        text = reconnectInfoMessage ?: stringResource(id = R.string.node_reconnect_tor_required),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = primaryContentColor,
+                        textAlign = TextAlign.Center
+                    )
                 }
                 else -> {
                     Text(
@@ -917,11 +926,20 @@ private fun statusThemeFor(
 
 private fun buildCustomNodeLabel(
     name: String,
-    endpoint: String
+    endpoint: String,
+    port: String
 ): String {
     val trimmedName = name.trim()
     if (trimmedName.isNotEmpty()) return trimmedName
-    return endpoint.trim()
+    val host = endpoint.trim()
+    val portValue = port.trim()
+    return if (host.isEmpty()) {
+        ""
+    } else if (portValue.isNotEmpty()) {
+        "$host:$portValue"
+    } else {
+        host
+    }
 }
 
 @Composable

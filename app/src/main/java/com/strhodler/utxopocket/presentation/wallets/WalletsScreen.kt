@@ -187,7 +187,7 @@ private fun WalletsContent(
     val pullToRefreshState = rememberPullToRefreshState()
     val shouldShowPullToRefreshIndicator = !(state.isRefreshing && state.nodeStatus is NodeStatus.Connecting)
     val canAddWallet = state.nodeStatus is NodeStatus.Synced
-    val showNodePrompt = state.wallets.isEmpty() && !state.hasActiveNodeSelection
+    val showNodePrompt = state.wallets.isEmpty() && state.nodeStatus !is NodeStatus.Synced
 
     val torStatus = state.torStatus
     val showTorBanner = state.torRequired &&

@@ -20,6 +20,7 @@ data class NodeStatusUiState(
     val newCustomName: String = "",
     val newCustomEndpoint: String = "",
     val newCustomEndpointKind: EndpointKind? = null,
+    val newCustomPort: String = DEFAULT_PORT,
     val newCustomRouteThroughTor: Boolean = true,
     val newCustomUseSsl: Boolean = true,
     val editingCustomNodeId: String? = null,
@@ -29,7 +30,12 @@ data class NodeStatusUiState(
     @StringRes val customNodeSuccessMessage: Int? = null,
     val selectionNotice: NodeSelectionNotice? = null,
     val customNodeHasChanges: Boolean = false
-)
+) {
+    companion object {
+        const val DEFAULT_PORT: String = "50002"
+        const val ONION_DEFAULT_PORT: String = "50001"
+    }
+}
 
 data class NodeSelectionNotice(
     @StringRes val messageRes: Int = R.string.settings_node_selection_feedback,

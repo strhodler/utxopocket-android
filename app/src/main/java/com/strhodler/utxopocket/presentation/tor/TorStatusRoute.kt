@@ -75,7 +75,6 @@ fun TorStatusRoute(
         status = status,
         actionsState = actionsState,
         onRenewIdentity = viewModel::onRenewIdentity,
-        onStopTor = viewModel::onStopTor,
         onStartTor = viewModel::onStartTor
     )
 }
@@ -85,7 +84,6 @@ private fun TorStatusScreen(
     status: StatusBarUiState,
     actionsState: TorStatusActionUiState,
     onRenewIdentity: () -> Unit,
-    onStopTor: () -> Unit,
     onStartTor: () -> Unit
 ) {
     val listState = rememberLazyListState()
@@ -104,7 +102,6 @@ private fun TorStatusScreen(
                     status = status,
                     actionsState = actionsState,
                     onRenewIdentity = onRenewIdentity,
-                    onStopTor = onStopTor,
                     onStartTor = onStartTor,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -130,7 +127,6 @@ private fun TorHeroHeader(
     status: StatusBarUiState,
     actionsState: TorStatusActionUiState,
     onRenewIdentity: () -> Unit,
-    onStopTor: () -> Unit,
     onStartTor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -221,7 +217,7 @@ private fun TorHeroHeader(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val renewEnabled = !actionsState.isRenewing && !actionsState.isStopping
+                val renewEnabled = !actionsState.isRenewing
                 TextButton(
                     onClick = onRenewIdentity,
                     enabled = renewEnabled,
@@ -239,28 +235,6 @@ private fun TorHeroHeader(
                     } else {
                         Text(
                             text = stringResource(id = R.string.settings_tor_renew_identity),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = primaryContentColor
-                        )
-                    }
-                }
-                TextButton(
-                    onClick = onStopTor,
-                    enabled = !actionsState.isStopping,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = primaryContentColor,
-                        disabledContentColor = primaryContentColor.copy(alpha = 0.5f)
-                    )
-                ) {
-                    if (actionsState.isStopping) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = primaryContentColor
-                        )
-                    } else {
-                        Text(
-                            text = stringResource(id = R.string.tor_disconnect_action),
                             style = MaterialTheme.typography.labelLarge,
                             color = primaryContentColor
                         )
