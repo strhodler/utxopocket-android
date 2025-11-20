@@ -24,7 +24,8 @@ data class NodeStatusUiState(
     val customNodeError: String? = null,
     @StringRes val customNodeSuccessMessage: Int? = null,
     val selectionNotice: NodeSelectionNotice? = null,
-    val customNodeHasChanges: Boolean = false
+    val customNodeHasChanges: Boolean = false,
+    val customNodeFormValid: Boolean = false
 ) {
     companion object {
         const val ONION_DEFAULT_PORT: String = "50001"

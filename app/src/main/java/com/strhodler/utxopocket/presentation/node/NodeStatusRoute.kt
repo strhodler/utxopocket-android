@@ -36,13 +36,11 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.Wifi
-import androidx.compose.material3.Button
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -68,6 +66,7 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -105,6 +104,7 @@ import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
+import com.strhodler.utxopocket.presentation.common.AddActionFab
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
@@ -209,6 +209,11 @@ fun NodeStatusRoute(
         } else {
             stringResource(id = R.string.node_custom_add_button)
         }
+        val isPrimaryActionEnabled = if (isEditing) {
+            state.customNodeHasChanges
+        } else {
+            state.customNodeFormValid
+        }
         CustomNodeEditorScreen(
             nameValue = state.newCustomName,
             onionValue = state.newCustomOnion,
@@ -216,7 +221,7 @@ fun NodeStatusRoute(
             isTesting = state.isTestingCustomNode,
             errorMessage = state.customNodeError,
             qrErrorMessage = qrEditorState.qrErrorMessage,
-            isPrimaryActionEnabled = state.customNodeHasChanges,
+            isPrimaryActionEnabled = isPrimaryActionEnabled,
             primaryActionLabel = primaryLabel,
             onDismiss = viewModel::onDismissCustomNodeEditor,
             onNameChanged = viewModel::onNewCustomNameChanged,
@@ -328,6 +333,23 @@ private fun NodeStatusScreen(
         initialPage = initialTabIndex.coerceIn(0, tabs.lastIndex),
         pageCount = { tabs.size }
     )
+    val selectedNodeName = remember(state.selectedPublicNodeId, state.selectedCustomNodeId, state.publicNodes, state.customNodes) {
+        state.activeNodeLabel()
+    }
+    val heroTitleOverride = remember(status.nodeStatus, selectedNodeName) {
+        when (status.nodeStatus) {
+            NodeStatus.Synced,
+            NodeStatus.Connecting,
+            NodeStatus.WaitingForTor,
+            is NodeStatus.Error -> selectedNodeName
+            else -> null
+        }
+    }
+    LaunchedEffect(status.nodeStatus) {
+        if (status.nodeStatus == NodeStatus.Connecting) {
+            listState.animateScrollToItem(0)
+        }
+    }
     LaunchedEffect(initialTabIndex) {
         val target = initialTabIndex.coerceIn(0, tabs.lastIndex)
         if (pagerState.currentPage != target) {
@@ -337,13 +359,25 @@ private fun NodeStatusScreen(
     val pagerScope = rememberCoroutineScope()
     val configuration = LocalConfiguration.current
 
+    val manageTabIndex = NodeStatusTab.Management.ordinal
+    val showManageFab by remember {
+        derivedStateOf { pagerState.currentPage == manageTabIndex }
+    }
     Scaffold(
         snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
+        floatingActionButton = {
+            if (showManageFab) {
+                AddActionFab(
+                    onClick = onAddCustomNodeClick,
+                    contentDescription = stringResource(id = R.string.node_custom_add_open_button)
+                )
+            }
+        },
         contentWindowInsets = ScreenScaffoldInsets
     ) { innerPadding ->
         val contentPadding = PaddingValues(bottom = 32.dp)
         val topContentPadding = 0.dp
-        val pagerHeight = remember(configuration.screenHeightDp, topContentPadding) {
+        val pagerMinHeight = remember(configuration.screenHeightDp, topContentPadding) {
             val screenHeight = configuration.screenHeightDp.dp
             (screenHeight - topContentPadding - NodeTabsHeight).coerceAtLeast(280.dp)
         }
@@ -359,6 +393,7 @@ private fun NodeStatusScreen(
             item("hero") {
                 NodeHeroHeader(
                     status = status,
+                    nodeTitleOverride = heroTitleOverride,
                     onDisconnect = onDisconnect,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -393,14 +428,12 @@ private fun NodeStatusScreen(
                     state = pagerState,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(pagerHeight)
+                        .heightIn(min = pagerMinHeight)
                 ) { page ->
                     val tab = tabs[page]
-                    val scrollState = rememberScrollState()
                     Column(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(scrollState)
+                            .fillMaxWidth()
                             .padding(horizontal = 16.dp)
                     ) {
                         when (tab) {
@@ -420,7 +453,6 @@ private fun NodeStatusScreen(
                                 onPublicNodeSelected = onPublicNodeSelected,
                                 onCustomNodeSelected = onCustomNodeSelected,
                                 onCustomNodeDetails = onCustomNodeDetails,
-                                onAddCustomNodeClick = onAddCustomNodeClick,
                                 onDisconnect = onDisconnect
                             )
                         }
@@ -435,6 +467,7 @@ private fun NodeStatusScreen(
 @Composable
 private fun NodeHeroHeader(
     status: StatusBarUiState,
+    nodeTitleOverride: String? = null,
     modifier: Modifier = Modifier,
     onDisconnect: (() -> Unit)? = null
 ) {
@@ -481,13 +514,15 @@ private fun NodeHeroHeader(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        val nodeTitle = nodeTitleOverride?.takeIf { it.isNotBlank() }
+            ?: stringResource(id = R.string.status_node)
         NodeStatusIcon(status.nodeStatus, tint = primaryContentColor)
         Column(
             verticalArrangement = Arrangement.spacedBy(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = stringResource(id = R.string.status_node),
+                text = nodeTitle,
                 style = MaterialTheme.typography.titleLarge,
                 color = primaryContentColor,
                 textAlign = TextAlign.Center
@@ -892,7 +927,6 @@ private fun NodeManagementContent(
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
-    onAddCustomNodeClick: () -> Unit,
     onDisconnect: () -> Unit
 ) {
     Column(
@@ -913,7 +947,6 @@ private fun NodeManagementContent(
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
             onCustomNodeDetails = onCustomNodeDetails,
-            onAddCustomNodeClick = onAddCustomNodeClick,
             onDisconnectNode = onDisconnect,
             showTorReminder = false
         )
@@ -1172,6 +1205,16 @@ private fun buildCustomNodeLabel(
     }
 }
 
+private fun NodeStatusUiState.activeNodeLabel(): String? {
+    val customLabel = selectedCustomNodeId?.let { id ->
+        customNodes.firstOrNull { it.id == id }?.displayLabel()
+    }?.takeUnless { it.isNullOrBlank() }
+    val publicLabel = selectedPublicNodeId?.let { id ->
+        publicNodes.firstOrNull { it.id == id }?.displayName
+    }?.takeUnless { it.isNullOrBlank() }
+    return customLabel ?: publicLabel
+}
+
 @Composable
 private fun NodeConfigurationContent(
     network: BitcoinNetwork,
@@ -1187,7 +1230,6 @@ private fun NodeConfigurationContent(
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
-    onAddCustomNodeClick: () -> Unit,
     onDisconnectNode: (() -> Unit)? = null,
     showTorReminder: Boolean = true
 ) {
@@ -1212,7 +1254,6 @@ private fun NodeConfigurationContent(
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
             onCustomNodeDetails = onCustomNodeDetails,
-            onAddCustomNodeClick = onAddCustomNodeClick,
             onDisconnect = onDisconnectNode,
             showTorReminder = showTorReminder
         )
@@ -1294,20 +1335,20 @@ private fun AvailableNodesSection(
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
-    onAddCustomNodeClick: () -> Unit,
     onDisconnect: (() -> Unit)?,
     showTorReminder: Boolean
 ) {
     val publicTypeLabel = stringResource(id = R.string.node_item_type_public)
     val customTypeLabel = stringResource(id = R.string.node_item_type_custom)
     val noTorLabel = stringResource(id = R.string.node_item_type_no_tor)
+    val torLabel = stringResource(id = R.string.status_tor)
     val nodes = buildList {
         publicNodes.forEach { node ->
             add(
                 AvailableNodeItem(
                     title = node.displayName,
                     subtitle = sanitizeEndpoint(node.endpoint),
-                    typeLabel = publicTypeLabel,
+                    typeLabels = listOf(publicTypeLabel, torLabel),
                     selected = activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
                     connected = (isNodeConnected || isNodeActivating) &&
                         activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
@@ -1318,16 +1359,19 @@ private fun AvailableNodesSection(
             )
         }
         customNodes.forEach { node ->
-            val typeLabel = if (node.routeThroughTor) {
-                customTypeLabel
-            } else {
-                "$customTypeLabel | $noTorLabel"
+            val labels = buildList {
+                add(customTypeLabel)
+                if (node.routeThroughTor) {
+                    add(torLabel)
+                } else {
+                    add(noTorLabel)
+                }
             }
             add(
                 AvailableNodeItem(
                     title = node.displayLabel(),
                     subtitle = sanitizeEndpoint(node.endpointLabel()),
-                    typeLabel = typeLabel,
+                    typeLabels = labels,
                     selected = activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
                     connected = (isNodeConnected || isNodeActivating) &&
                         activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
@@ -1362,7 +1406,7 @@ private fun AvailableNodesSection(
                     NodeListItem(
                         title = item.title,
                         subtitle = item.subtitle,
-                        typeLabel = item.typeLabel,
+                        typeLabels = item.typeLabels,
                         selected = item.selected,
                         connected = item.connected,
                         onActivate = item.onActivate,
@@ -1375,21 +1419,6 @@ private fun AvailableNodesSection(
             }
         }
 
-        Button(
-            onClick = onAddCustomNodeClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = AddCustomNodeButtonMinHeight),
-            contentPadding = AddCustomNodeButtonContentPadding
-        ) {
-            Icon(imageVector = Icons.Outlined.Add, contentDescription = null)
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = stringResource(id = R.string.node_custom_add_open_button),
-                style = MaterialTheme.typography.titleSmall
-            )
-        }
-
         if (showTorReminder) {
             Text(
                 text = stringResource(id = R.string.node_tor_reminder),
@@ -1400,15 +1429,11 @@ private fun AvailableNodesSection(
     }
 }
 
-private val AddCustomNodeButtonMinHeight = 56.dp
-private val AddCustomNodeButtonContentPadding =
-    PaddingValues(horizontal = 24.dp, vertical = 16.dp)
-
 @Composable
 private fun NodeListItem(
     title: String,
     subtitle: String?,
-    typeLabel: String? = null,
+    typeLabels: List<String> = emptyList(),
     selected: Boolean,
     connected: Boolean,
     onActivate: () -> Unit,
@@ -1420,7 +1445,7 @@ private fun NodeListItem(
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         val supportingContent: (@Composable (() -> Unit))? =
-            if (subtitle != null || typeLabel != null) {
+            if (subtitle != null || typeLabels.isNotEmpty()) {
                 {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         subtitle?.let {
@@ -1432,12 +1457,13 @@ private fun NodeListItem(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                        typeLabel?.let {
+                        val typeLabelText = typeLabels.filter { it.isNotBlank() }.joinToString(" | ")
+                        if (typeLabelText.isNotBlank()) {
                             Text(
-                                text = it,
+                                text = typeLabelText,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
@@ -1493,7 +1519,7 @@ private fun NodeListItem(
 private data class AvailableNodeItem(
     val title: String,
     val subtitle: String,
-    val typeLabel: String,
+    val typeLabels: List<String>,
     val selected: Boolean,
     val connected: Boolean,
     val onActivate: () -> Unit,

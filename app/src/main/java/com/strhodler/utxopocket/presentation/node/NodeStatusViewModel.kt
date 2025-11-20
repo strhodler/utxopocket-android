@@ -302,7 +302,7 @@ class NodeStatusViewModel @Inject constructor(
     fun onNewCustomPortChanged(value: String) {
         val digits = value.filter { it.isDigit() }
         val cleaned = digits.ifBlank { NodeStatusUiState.ONION_DEFAULT_PORT }
-        _uiState.update {
+        updateEditorState {
             it.copy(
                 newCustomPort = cleaned,
                 customNodeError = null,
@@ -404,7 +404,8 @@ class NodeStatusViewModel @Inject constructor(
                             newCustomOnion = "",
                             newCustomPort = NodeStatusUiState.ONION_DEFAULT_PORT,
                             customNodeError = null,
-                            customNodeHasChanges = false
+                            customNodeHasChanges = false,
+                            customNodeFormValid = false
                         )
                     }
                     walletRepository.refresh(_uiState.value.preferredNetwork)
@@ -471,7 +472,8 @@ class NodeStatusViewModel @Inject constructor(
                     newCustomName = "",
                     newCustomOnion = "",
                     newCustomPort = NodeStatusUiState.ONION_DEFAULT_PORT,
-                    customNodeHasChanges = false
+                    customNodeHasChanges = false,
+                    customNodeFormValid = false
                 )
             }
         }
@@ -480,19 +482,30 @@ class NodeStatusViewModel @Inject constructor(
     private fun updateEditorState(transform: (NodeStatusUiState) -> NodeStatusUiState) {
         _uiState.update { current ->
             val updated = transform(current)
-            updated.copy(customNodeHasChanges = updated.computeEditorHasChanges())
+            val editorState = updated.computeEditorState()
+            updated.copy(
+                customNodeHasChanges = editorState.hasChanges,
+                customNodeFormValid = editorState.formValid
+            )
         }
     }
 
-    private fun NodeStatusUiState.computeEditorHasChanges(): Boolean {
+    private fun NodeStatusUiState.computeEditorState(): EditorState {
         val candidate = buildCustomNodeCandidate(editingCustomNodeId).second
-        return if (editingCustomNodeId == null) {
-            candidate != null
-        } else {
-            val original = customNodes.firstOrNull { it.id == editingCustomNodeId } ?: return false
-            candidate != null && !candidate.isEquivalentTo(original)
+        val formValid = candidate != null
+        if (editingCustomNodeId == null) {
+            return EditorState(formValid = formValid, hasChanges = formValid)
         }
+        val original = customNodes.firstOrNull { it.id == editingCustomNodeId }
+            ?: return EditorState(formValid = formValid, hasChanges = false)
+        val hasChanges = candidate != null && !candidate.isEquivalentTo(original)
+        return EditorState(formValid = formValid, hasChanges = hasChanges)
     }
+
+    private data class EditorState(
+        val formValid: Boolean,
+        val hasChanges: Boolean
+    )
 
     private fun NodeStatusUiState.buildCustomNodeCandidate(existingId: String?): Pair<String?, CustomNode?> {
         val input = newCustomOnion.trim()
@@ -575,7 +588,7 @@ class NodeStatusViewModel @Inject constructor(
             else -> currentPort
         }.ifBlank { NodeStatusUiState.ONION_DEFAULT_PORT }
 
-        _uiState.update {
+        updateEditorState {
             it.copy(
                 newCustomOnion = host,
                 newCustomPort = resolvedPort,

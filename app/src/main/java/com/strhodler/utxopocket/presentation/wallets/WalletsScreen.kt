@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -57,6 +56,7 @@ import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.WalletSummary
+import com.strhodler.utxopocket.presentation.common.AddActionFab
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.StatusBarUiState
@@ -137,12 +137,20 @@ fun WalletsScreen(
     }
 
     var snackbarBottomInset by remember { mutableStateOf(0.dp) }
+    val canAddWallet = state.nodeStatus is NodeStatus.Synced
     Scaffold(
         modifier = modifier.fillMaxSize(),
         snackbarHost = {
             DismissibleSnackbarHost(
                 hostState = snackbarHostState,
                 bottomInset = snackbarBottomInset
+            )
+        },
+        floatingActionButton = {
+            AddActionFab(
+                onClick = onAddWallet,
+                contentDescription = stringResource(id = R.string.wallets_add_wallet_action),
+                enabled = canAddWallet
             )
         },
         contentWindowInsets = ScreenScaffoldInsets
@@ -156,7 +164,6 @@ fun WalletsScreen(
             onSelectNode = onSelectNode,
             onConnectTor = onConnectTor,
             onWalletSelected = onWalletSelected,
-            onAddWallet = onAddWallet,
             isNetworkOnline = isNetworkOnline,
             modifier = Modifier
                 .fillMaxSize()
@@ -174,7 +181,6 @@ private fun WalletsContent(
     onSelectNode: () -> Unit,
     onConnectTor: () -> Unit,
     onWalletSelected: (Long, String) -> Unit,
-    onAddWallet: () -> Unit,
     isNetworkOnline: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -335,7 +341,6 @@ private fun WalletsContent(
                 totalBalanceSats = state.totalBalanceSats,
                 onSelectNode = onSelectNode,
                 onWalletSelected = onWalletSelected,
-                onAddWallet = onAddWallet,
                 canAddWallet = canAddWallet,
                 showNodePrompt = showNodePrompt,
                 walletAnimationsEnabled = state.walletAnimationsEnabled,
@@ -355,7 +360,6 @@ private fun WalletsList(
     totalBalanceSats: Long,
     onSelectNode: () -> Unit,
     onWalletSelected: (Long, String) -> Unit,
-    onAddWallet: () -> Unit,
     canAddWallet: Boolean,
     showNodePrompt: Boolean,
     walletAnimationsEnabled: Boolean,
@@ -378,7 +382,6 @@ private fun WalletsList(
             } else {
                 EmptyState(
                     onOpenWiki = onOpenWiki,
-                    onAddWallet = onAddWallet,
                     canAddWallet = canAddWallet,
                     modifier = centerModifier
                 )
@@ -415,12 +418,7 @@ private fun WalletsList(
                 )
             }
             item(key = "wallets-add-descriptor") {
-                AddDescriptorCtaButton(
-                    enabled = canAddWallet,
-                    onClick = onAddWallet
-                )
                 if (!canAddWallet) {
-                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = stringResource(id = R.string.wallets_add_wallet_disabled_hint),
                         style = MaterialTheme.typography.bodySmall,
@@ -428,6 +426,8 @@ private fun WalletsList(
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center
                     )
+                } else {
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
             }
         }
@@ -440,30 +440,6 @@ private object BalanceHeaderMetrics {
     val CONTENT_HORIZONTAL_PADDING = 16.dp
     val CONTENT_TOP_PADDING = 8.dp
     val CONTENT_BOTTOM_PADDING = 24.dp
-}
-
-private val AddDescriptorCtaMinHeight = 56.dp
-private val AddDescriptorCtaContentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp)
-
-@Composable
-private fun AddDescriptorCtaButton(
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier.fillMaxWidth()
-) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.heightIn(min = AddDescriptorCtaMinHeight),
-        contentPadding = AddDescriptorCtaContentPadding
-    ) {
-        Icon(imageVector = Icons.Outlined.Add, contentDescription = null)
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = stringResource(id = R.string.wallets_add_wallet_action),
-            style = MaterialTheme.typography.titleSmall
-        )
-    }
 }
 
 private val WalletCardCornerRadius = 12.dp
@@ -685,7 +661,6 @@ private fun NodeSelectionPrompt(
 @Composable
 private fun EmptyState(
     onOpenWiki: () -> Unit,
-    onAddWallet: () -> Unit,
     canAddWallet: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -707,13 +682,6 @@ private fun EmptyState(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(16.dp))
-            AddDescriptorCtaButton(
-                enabled = canAddWallet,
-                onClick = onAddWallet,
-                modifier = Modifier
-                    .widthIn(max = 360.dp)
-                    .fillMaxWidth()
-            )
             if (!canAddWallet) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(

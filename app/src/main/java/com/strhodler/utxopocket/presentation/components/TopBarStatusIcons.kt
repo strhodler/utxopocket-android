@@ -92,7 +92,12 @@ fun TopBarNodeStatusIcon(status: NodeStatus) {
     }
 }
 
-fun nodeStatusIndicatorColor(status: NodeStatus): Color? =
-    if (status == NodeStatus.Synced) ConnectedBadgeColor else null
+fun nodeStatusIndicatorColor(status: NodeStatus): Color? = when (status) {
+    NodeStatus.Synced -> ConnectedBadgeColor
+    NodeStatus.Idle,
+    is NodeStatus.Error -> DisconnectedBadgeColor
+    else -> null
+}
 
 private val ConnectedBadgeColor = Color(0xFF2ECC71)
+private val DisconnectedBadgeColor = Color(0xFFE53935)

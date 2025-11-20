@@ -24,10 +24,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 
@@ -127,8 +125,6 @@ fun CustomNodeEditorScreen(
                 keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number)
             )
 
-            OnionEndpointHints()
-
             TransportModeBadge()
         }
     }
@@ -172,33 +168,6 @@ private fun OnionField(
             )
         }
     )
-}
-
-@Composable
-private fun OnionEndpointHints() {
-    InfoCard(
-        text = stringResource(id = R.string.node_custom_endpoint_onion_hint),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
-    )
-}
-
-@Composable
-private fun InfoCard(text: String, containerColor: Color) {
-    Surface(
-        color = containerColor,
-        shape = MaterialTheme.shapes.medium,
-        tonalElevation = 1.dp
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            textAlign = TextAlign.Start
-        )
-    }
 }
 
 @Composable
