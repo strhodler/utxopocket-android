@@ -281,6 +281,7 @@ fun WalletDetailRoute(
     SetSecondaryTopBar(
         title = displayTitle,
         onBackClick = onBack,
+        nodeStatusActionFirst = true,
         actions = {
             if (canDelete) {
                 IconButton(onClick = { menuExpanded = true }) {
@@ -470,6 +471,7 @@ fun WalletDetailRoute(
                 onAddressSelected = onAddressSelected,
                 onReceiveAddressCopied = viewModel::onReceiveAddressCopied,
                 onBalanceRangeSelected = viewModel::onBalanceRangeSelected,
+                onToggleBalanceUnit = viewModel::toggleBalanceUnit,
                 onOpenWikiTopic = onOpenWikiTopic,
                 outerListState = outerListState,
                 selectedTab = selectedTab,

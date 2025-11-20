@@ -435,6 +435,18 @@ class WalletDetailViewModel @Inject constructor(
         refreshAddresses()
     }
 
+    fun toggleBalanceUnit() {
+        viewModelScope.launch {
+            val current = uiState.value.balanceUnit
+            val next = when (current) {
+                BalanceUnit.BTC -> BalanceUnit.SATS
+                BalanceUnit.SATS -> BalanceUnit.BTC
+                else -> BalanceUnit.DEFAULT
+            }
+            appPreferencesRepository.setBalanceUnit(next)
+        }
+    }
+
     fun onReceiveAddressCopied(address: WalletAddress) {
         viewModelScope.launch {
             runCatching {

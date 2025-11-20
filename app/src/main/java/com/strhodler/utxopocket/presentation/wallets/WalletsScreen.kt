@@ -1,5 +1,6 @@
 package com.strhodler.utxopocket.presentation.wallets
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -106,7 +107,8 @@ fun WalletsRoute(
         onWalletSelected = onWalletSelected,
         snackbarMessage = snackbarMessage,
         onSnackbarConsumed = onSnackbarConsumed,
-        isNetworkOnline = statusBarState.isNetworkOnline
+        isNetworkOnline = statusBarState.isNetworkOnline,
+        onToggleBalanceUnit = viewModel::toggleBalanceUnit
     )
 }
 
@@ -123,6 +125,7 @@ fun WalletsScreen(
     snackbarMessage: String? = null,
     onSnackbarConsumed: () -> Unit = {},
     isNetworkOnline: Boolean,
+    onToggleBalanceUnit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -158,6 +161,7 @@ fun WalletsScreen(
             onWalletSelected = onWalletSelected,
             onAddWallet = onAddWallet,
             isNetworkOnline = isNetworkOnline,
+            onToggleBalanceUnit = onToggleBalanceUnit,
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
@@ -176,6 +180,7 @@ private fun WalletsContent(
     onWalletSelected: (Long, String) -> Unit,
     onAddWallet: () -> Unit,
     isNetworkOnline: Boolean,
+    onToggleBalanceUnit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val pullToRefreshState = rememberPullToRefreshState()
@@ -325,7 +330,8 @@ private fun WalletsContent(
                 walletAnimationsEnabled = state.walletAnimationsEnabled,
                 isRefreshing = state.isRefreshing,
                 modifier = Modifier.weight(1f, fill = true),
-                additionalBottomPadding = if (bannerContent != null) AddWalletBottomSpacer else 0.dp
+                additionalBottomPadding = if (bannerContent != null) AddWalletBottomSpacer else 0.dp,
+                onToggleBalanceUnit = onToggleBalanceUnit
             )
         }
 
@@ -357,7 +363,8 @@ private fun WalletsList(
     walletAnimationsEnabled: Boolean,
     isRefreshing: Boolean,
     additionalBottomPadding: Dp = 0.dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onToggleBalanceUnit: () -> Unit
 ) {
     if (wallets.isEmpty()) {
         Box(
@@ -398,7 +405,8 @@ private fun WalletsList(
                 WalletsBalanceHeader(
                     totalBalanceSats = totalBalanceSats,
                     balanceUnit = balanceUnit,
-                    animationsEnabled = walletAnimationsEnabled
+                    animationsEnabled = walletAnimationsEnabled,
+                    onToggleBalanceUnit = onToggleBalanceUnit
                 )
             }
             items(wallets, key = { it.id }) { wallet ->
@@ -583,7 +591,8 @@ private fun WalletsBalanceHeader(
     totalBalanceSats: Long,
     balanceUnit: BalanceUnit,
     modifier: Modifier = Modifier,
-    animationsEnabled: Boolean
+    animationsEnabled: Boolean,
+    onToggleBalanceUnit: () -> Unit
 ) {
     Surface(
         modifier = modifier
@@ -610,7 +619,8 @@ private fun WalletsBalanceHeader(
                     fontWeight = FontWeight.Medium
                 ),
                 monospaced = true,
-                animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0
+                animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0,
+                modifier = Modifier.clickable(onClick = onToggleBalanceUnit)
             )
         }
     }

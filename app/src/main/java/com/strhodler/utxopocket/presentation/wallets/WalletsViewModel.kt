@@ -187,6 +187,18 @@ class WalletsViewModel @Inject constructor(
         }
     }
 
+    fun toggleBalanceUnit() {
+        viewModelScope.launch {
+            val current = uiState.value.balanceUnit
+            val next = when (current) {
+                BalanceUnit.BTC -> BalanceUnit.SATS
+                BalanceUnit.SATS -> BalanceUnit.BTC
+                else -> BalanceUnit.DEFAULT
+            }
+            appPreferencesRepository.setBalanceUnit(next)
+        }
+    }
+
     private data class WalletData(
         val network: BitcoinNetwork,
         val wallets: List<WalletSummary>

@@ -230,7 +230,8 @@ class MainActivity : AppCompatActivity() {
                                                     ),
                                                     containerColor = topBarState.containerColor,
                                                     contentColor = topBarState.contentColor,
-                                                    tonalElevation = topBarState.tonalElevation
+                                                    tonalElevation = topBarState.tonalElevation,
+                                                    nodeStatusActionFirst = topBarState.nodeStatusActionFirst
                                                 )
                                             }
 
@@ -435,7 +436,8 @@ private fun StatusBar(
         modifier: Modifier = Modifier,
         containerColor: Color? = null,
         contentColor: Color? = null,
-        tonalElevation: Dp = 3.dp
+        tonalElevation: Dp = 3.dp,
+        nodeStatusActionFirst: Boolean = false
     ) {
         val resolvedContainer = containerColor ?: MaterialTheme.colorScheme.surface
         val resolvedContent = contentColor ?: contentColorFor(resolvedContainer)
@@ -474,13 +476,24 @@ private fun StatusBar(
                     }
                 },
                 actions = {
-                    actions()
-                    TopBarStatusActionIcon(
-                        onClick = onNodeStatusClick,
-                        indicatorColor = nodeStatusIndicatorColor(nodeStatus),
-                        contentDescription = stringResource(id = R.string.status_node_action_description)
-                    ) {
-                        TopBarNodeStatusIcon(nodeStatus)
+                    if (nodeStatusActionFirst) {
+                        TopBarStatusActionIcon(
+                            onClick = onNodeStatusClick,
+                            indicatorColor = nodeStatusIndicatorColor(nodeStatus),
+                            contentDescription = stringResource(id = R.string.status_node_action_description)
+                        ) {
+                            TopBarNodeStatusIcon(nodeStatus)
+                        }
+                        actions()
+                    } else {
+                        actions()
+                        TopBarStatusActionIcon(
+                            onClick = onNodeStatusClick,
+                            indicatorColor = nodeStatusIndicatorColor(nodeStatus),
+                            contentDescription = stringResource(id = R.string.status_node_action_description)
+                        ) {
+                            TopBarNodeStatusIcon(nodeStatus)
+                        }
                     }
                 },
                 colors = topBarColors,

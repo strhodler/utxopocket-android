@@ -406,9 +406,6 @@ private fun NodeStatusScreen(
                     )
                 }
             }
-            item("tabs_spacing") {
-                Spacer(modifier = Modifier.height(16.dp))
-            }
             item("pager") {
                 HorizontalPager(
                     state = pagerState,
@@ -443,7 +440,7 @@ private fun NodeStatusScreen(
                                 onDisconnect = onDisconnect
                             )
                         }
-                        Spacer(modifier = Modifier.height(32.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
             }

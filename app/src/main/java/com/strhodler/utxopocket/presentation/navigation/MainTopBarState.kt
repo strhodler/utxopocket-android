@@ -30,7 +30,8 @@ sealed interface MainTopBarState {
         val containerColor: Color? = null,
         val contentColor: Color? = null,
         val tonalElevation: Dp = 3.dp,
-        val overlayContent: Boolean = false
+        val overlayContent: Boolean = false,
+        val nodeStatusActionFirst: Boolean = false
     ) : MainTopBarState
 }
 
@@ -86,7 +87,8 @@ fun SetSecondaryTopBar(
     containerColor: Color? = null,
     contentColor: Color? = null,
     tonalElevation: Dp = 3.dp,
-    overlayContent: Boolean = false
+    overlayContent: Boolean = false,
+    nodeStatusActionFirst: Boolean = false
 ) {
     MainTopBarStateEffect(
         MainTopBarState.Secondary(
@@ -96,7 +98,8 @@ fun SetSecondaryTopBar(
             containerColor = containerColor,
             contentColor = contentColor,
             tonalElevation = tonalElevation,
-            overlayContent = overlayContent
+            overlayContent = overlayContent,
+            nodeStatusActionFirst = nodeStatusActionFirst
         )
     )
 }
