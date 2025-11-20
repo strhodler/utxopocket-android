@@ -154,6 +154,15 @@ class MainActivity : AppCompatActivity() {
                             currentRoute != null &&
                                 currentRoute in bottomBarVisibleRoutes &&
                                 bottomBarVisibilityController.isVisible
+                        val onNodeStatusClick = remember(navController) {
+                            {
+                                navController.navigate(
+                                    WalletsNavigation.nodeStatusRoute()
+                                ) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        }
 
                         if (!uiState.appLocked && (pinErrorMessage != null || pinLockoutExpiry != null)) {
                             pinErrorMessage = null
@@ -198,13 +207,7 @@ class MainActivity : AppCompatActivity() {
                                             is MainTopBarState.Primary -> {
                                                 StatusBar(
                                                     state = uiState.status,
-                                                    onNodeStatusClick = {
-                                                        navController.navigate(
-                                                            WalletsNavigation.nodeStatusRoute()
-                                                        ) {
-                                                            launchSingleTop = true
-                                                        }
-                                                    },
+                                                    onNodeStatusClick = onNodeStatusClick,
                                                     modifier = Modifier.windowInsetsPadding(
                                                         WindowInsets.safeDrawing.only(
                                                             WindowInsetsSides.Top
@@ -217,6 +220,8 @@ class MainActivity : AppCompatActivity() {
                                                 SecondaryTopBar(
                                                     title = topBarState.title,
                                                     onBackClick = topBarState.onBackClick,
+                                                    nodeStatus = uiState.status.nodeStatus,
+                                                    onNodeStatusClick = onNodeStatusClick,
                                                     actions = topBarState.actions,
                                                     modifier = Modifier.windowInsetsPadding(
                                                         WindowInsets.safeDrawing.only(
@@ -424,6 +429,8 @@ private fun StatusBar(
     private fun SecondaryTopBar(
         title: String,
         onBackClick: () -> Unit,
+        nodeStatus: NodeStatus,
+        onNodeStatusClick: () -> Unit,
         actions: @Composable RowScope.() -> Unit,
         modifier: Modifier = Modifier,
         containerColor: Color? = null,
@@ -466,7 +473,16 @@ private fun StatusBar(
                         )
                     }
                 },
-                actions = actions,
+                actions = {
+                    actions()
+                    TopBarStatusActionIcon(
+                        onClick = onNodeStatusClick,
+                        indicatorColor = nodeStatusIndicatorColor(nodeStatus),
+                        contentDescription = stringResource(id = R.string.status_node_action_description)
+                    ) {
+                        TopBarNodeStatusIcon(nodeStatus)
+                    }
+                },
                 colors = topBarColors,
                 windowInsets = WindowInsets(left = 0.dp, top = 0.dp, right = 0.dp, bottom = 0.dp)
             )

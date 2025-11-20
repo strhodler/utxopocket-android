@@ -553,28 +553,6 @@ private fun WalletCard(
                     }
                 )
             }
-            if (syncStatus is NodeStatus.Error) {
-                val errorText = remember(syncStatus.message) {
-                    sanitizeWalletErrorMessage(syncStatus.message)
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Warning,
-                        contentDescription = stringResource(id = R.string.wallets_sync_error_icon_description),
-                        tint = errorIndicatorColor
-                    )
-                    Text(
-                        text = errorText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = contentColor,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
         }
     }
 }

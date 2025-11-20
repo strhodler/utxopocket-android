@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import com.strhodler.utxopocket.presentation.common.PortraitCaptureActivity
 
 @Composable
 fun rememberNodeQrScanner(
@@ -61,5 +62,6 @@ private fun defaultScanOptions(): ScanOptions = ScanOptions().apply {
     setDesiredBarcodeFormats(ScanOptions.QR_CODE)
     setBeepEnabled(false)
     setBarcodeImageEnabled(false)
+    setCaptureActivity(PortraitCaptureActivity::class.java)
     setOrientationLocked(true)
 }
