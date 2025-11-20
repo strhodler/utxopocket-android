@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,6 +28,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
@@ -565,38 +567,41 @@ fun SettingsScreen(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = stringResource(id = R.string.settings_title),
-            style = MaterialTheme.typography.headlineSmall
+        val languageLabel = rememberLanguageLabeler()
+        val unitLabel = rememberUnitLabeler()
+        val themeLabel = rememberThemePreferenceLabeler()
+        val interfaceSummary = stringResource(
+            id = R.string.settings_interface_nav_description,
+            languageLabel(state.appLanguage),
+            unitLabel(state.preferredUnit),
+            themeLabel(state.themePreference)
         )
-        Text(
-            text = stringResource(id = R.string.settings_sections_overview_description),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+        val pinStatus = stringResource(
+            id = if (state.pinEnabled) {
+                R.string.settings_security_pin_enabled
+            } else {
+                R.string.settings_security_pin_disabled
+            }
         )
-
-        SettingsCard(title = stringResource(id = R.string.settings_sections_overview)) {
-            val languageLabel = rememberLanguageLabeler()
-            val unitLabel = rememberUnitLabeler()
-            val themeLabel = rememberThemePreferenceLabeler()
-            val interfaceSummary = stringResource(
-                id = R.string.settings_interface_nav_description,
-                languageLabel(state.appLanguage),
-                unitLabel(state.preferredUnit),
-                themeLabel(state.themePreference)
-            )
+        val walletHealthStatus = stringResource(
+            id = if (state.walletHealthEnabled) {
+                R.string.settings_wallet_health_on
+            } else {
+                R.string.settings_wallet_health_off
+            }
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
             SettingsNavigationRow(
                 title = stringResource(id = R.string.settings_section_interface),
                 supportingText = interfaceSummary,
-                onClick = onOpenInterfaceSettings
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            val pinStatus = stringResource(
-                id = if (state.pinEnabled) {
-                    R.string.settings_security_pin_enabled
-                } else {
-                    R.string.settings_security_pin_disabled
-                }
+                onClick = onOpenInterfaceSettings,
+                showDivider = true,
+                dividerPadding = PaddingValues(horizontal = 0.dp)
             )
             SettingsNavigationRow(
                 title = stringResource(id = R.string.settings_section_security),
@@ -604,15 +609,9 @@ fun SettingsScreen(
                     id = R.string.settings_security_nav_description,
                     pinStatus
                 ),
-                onClick = onOpenSecuritySettings
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            val walletHealthStatus = stringResource(
-                id = if (state.walletHealthEnabled) {
-                    R.string.settings_wallet_health_on
-                } else {
-                    R.string.settings_wallet_health_off
-                }
+                onClick = onOpenSecuritySettings,
+                showDivider = true,
+                dividerPadding = PaddingValues(horizontal = 0.dp)
             )
             SettingsNavigationRow(
                 title = stringResource(id = R.string.settings_section_wallet),
@@ -620,7 +619,8 @@ fun SettingsScreen(
                     id = R.string.settings_wallet_nav_description,
                     walletHealthStatus
                 ),
-                onClick = onOpenWalletSettings
+                onClick = onOpenWalletSettings,
+                dividerPadding = PaddingValues(horizontal = 0.dp)
             )
         }
     }
@@ -891,12 +891,13 @@ private fun SettingsCard(
 private fun SettingsNavigationRow(
     title: String,
     supportingText: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    showDivider: Boolean = false,
+    dividerPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     ListItem(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick),
         headlineContent = {
             Text(text = title, style = MaterialTheme.typography.bodyLarge)
@@ -917,6 +918,14 @@ private fun SettingsNavigationRow(
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     )
+    if (showDivider) {
+        Divider(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(dividerPadding),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+        )
+    }
 }
 
 @Composable

@@ -1522,7 +1522,10 @@ private fun NodeListItem(
             )
         )
         if (showDivider) {
-            Divider(modifier = Modifier.padding(horizontal = 16.dp))
+            Divider(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
         }
     }
 }

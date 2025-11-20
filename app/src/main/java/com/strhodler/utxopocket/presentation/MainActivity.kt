@@ -396,7 +396,7 @@ private fun StatusBar(
                 ) {
                     Text(
                         text = stringResource(id = R.string.app_name),
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         textAlign = TextAlign.Start
                     )
                     Text(
