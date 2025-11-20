@@ -24,6 +24,9 @@ class ElectrumBlockchain(
     initialProxy: SocksProxyConfig?,
     private val proxyProvider: TorProxyProvider?
 ) : Closeable {
+    companion object {
+        private const val SATS_PER_VB_MULTIPLIER = 100_000.0 // BTC/kB -> sat/vB
+    }
 
     data class Metadata(
         val serverInfo: ServerFeaturesRes?,
@@ -42,10 +45,12 @@ class ElectrumBlockchain(
         val headers = runCatching { client.blockHeadersSubscribe() }.getOrNull()
         val feeRateSatPerVb = runCatching { client.estimateFee(1u) }
             .getOrNull()
-            ?.takeIf { value ->
-                !value.isNaN() &&
-                    !value.isInfinite() &&
-                    value > 0.0
+            ?.let { btcPerKb ->
+                if (btcPerKb.isNaN() || btcPerKb.isInfinite() || btcPerKb <= 0.0) {
+                    null
+                } else {
+                    btcPerKb * SATS_PER_VB_MULTIPLIER
+                }
             }
         Metadata(
             serverInfo = serverInfo,

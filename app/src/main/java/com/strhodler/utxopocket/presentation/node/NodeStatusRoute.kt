@@ -37,6 +37,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -66,7 +67,6 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -104,7 +104,6 @@ import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
-import com.strhodler.utxopocket.presentation.common.AddActionFab
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
@@ -358,21 +357,8 @@ private fun NodeStatusScreen(
     }
     val pagerScope = rememberCoroutineScope()
     val configuration = LocalConfiguration.current
-
-    val manageTabIndex = NodeStatusTab.Management.ordinal
-    val showManageFab by remember {
-        derivedStateOf { pagerState.currentPage == manageTabIndex }
-    }
     Scaffold(
         snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
-        floatingActionButton = {
-            if (showManageFab) {
-                AddActionFab(
-                    onClick = onAddCustomNodeClick,
-                    contentDescription = stringResource(id = R.string.node_custom_add_open_button)
-                )
-            }
-        },
         contentWindowInsets = ScreenScaffoldInsets
     ) { innerPadding ->
         val contentPadding = PaddingValues(bottom = 32.dp)
@@ -453,6 +439,7 @@ private fun NodeStatusScreen(
                                 onPublicNodeSelected = onPublicNodeSelected,
                                 onCustomNodeSelected = onCustomNodeSelected,
                                 onCustomNodeDetails = onCustomNodeDetails,
+                                onAddCustomNodeClick = onAddCustomNodeClick,
                                 onDisconnect = onDisconnect
                             )
                         }
@@ -927,6 +914,7 @@ private fun NodeManagementContent(
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
+    onAddCustomNodeClick: () -> Unit,
     onDisconnect: () -> Unit
 ) {
     Column(
@@ -947,6 +935,7 @@ private fun NodeManagementContent(
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
             onCustomNodeDetails = onCustomNodeDetails,
+            onAddCustomNodeClick = onAddCustomNodeClick,
             onDisconnectNode = onDisconnect,
             showTorReminder = false
         )
@@ -1230,6 +1219,7 @@ private fun NodeConfigurationContent(
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
+    onAddCustomNodeClick: () -> Unit,
     onDisconnectNode: (() -> Unit)? = null,
     showTorReminder: Boolean = true
 ) {
@@ -1254,6 +1244,7 @@ private fun NodeConfigurationContent(
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
             onCustomNodeDetails = onCustomNodeDetails,
+            onAddCustomNodeClick = onAddCustomNodeClick,
             onDisconnect = onDisconnectNode,
             showTorReminder = showTorReminder
         )
@@ -1335,6 +1326,7 @@ private fun AvailableNodesSection(
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
+    onAddCustomNodeClick: () -> Unit,
     onDisconnect: (() -> Unit)?,
     showTorReminder: Boolean
 ) {
@@ -1419,6 +1411,21 @@ private fun AvailableNodesSection(
             }
         }
 
+        Button(
+            onClick = onAddCustomNodeClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = AddCustomNodeButtonMinHeight),
+            contentPadding = AddCustomNodeButtonContentPadding
+        ) {
+            Icon(imageVector = Icons.Outlined.Add, contentDescription = null)
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = stringResource(id = R.string.node_custom_add_open_button),
+                style = MaterialTheme.typography.titleSmall
+            )
+        }
+
         if (showTorReminder) {
             Text(
                 text = stringResource(id = R.string.node_tor_reminder),
@@ -1428,6 +1435,10 @@ private fun AvailableNodesSection(
         }
     }
 }
+
+private val AddCustomNodeButtonMinHeight = 56.dp
+private val AddCustomNodeButtonContentPadding =
+    PaddingValues(horizontal = 24.dp, vertical = 16.dp)
 
 @Composable
 private fun NodeListItem(
