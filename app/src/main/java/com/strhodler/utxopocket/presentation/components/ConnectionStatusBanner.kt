@@ -24,13 +24,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-enum class ConnectionIssueBannerStyle {
+enum class ConnectionStatusBannerStyle {
     Neutral,
     Error
 }
 
 @Composable
-fun ConnectionIssueBanner(
+fun ConnectionStatusBanner(
     message: String,
     primaryLabel: String,
     onPrimaryClick: () -> Unit,
@@ -38,23 +38,23 @@ fun ConnectionIssueBanner(
     primaryEnabled: Boolean = true,
     secondaryLabel: String? = null,
     onSecondaryClick: (() -> Unit)? = null,
-    style: ConnectionIssueBannerStyle = ConnectionIssueBannerStyle.Neutral
+    style: ConnectionStatusBannerStyle = ConnectionStatusBannerStyle.Neutral
 ) {
     val containerColor = when (style) {
-        ConnectionIssueBannerStyle.Neutral -> MaterialTheme.colorScheme.surfaceContainerHigh
-        ConnectionIssueBannerStyle.Error -> MaterialTheme.colorScheme.errorContainer
+        ConnectionStatusBannerStyle.Neutral -> MaterialTheme.colorScheme.surfaceContainerHigh
+        ConnectionStatusBannerStyle.Error -> MaterialTheme.colorScheme.errorContainer
     }
     val textColor = when (style) {
-        ConnectionIssueBannerStyle.Neutral -> MaterialTheme.colorScheme.onSurface
-        ConnectionIssueBannerStyle.Error -> MaterialTheme.colorScheme.onErrorContainer
+        ConnectionStatusBannerStyle.Neutral -> MaterialTheme.colorScheme.onSurface
+        ConnectionStatusBannerStyle.Error -> MaterialTheme.colorScheme.onErrorContainer
     }
     val primaryColor = when (style) {
-        ConnectionIssueBannerStyle.Neutral -> MaterialTheme.colorScheme.primary
-        ConnectionIssueBannerStyle.Error -> MaterialTheme.colorScheme.onErrorContainer
+        ConnectionStatusBannerStyle.Neutral -> MaterialTheme.colorScheme.primary
+        ConnectionStatusBannerStyle.Error -> MaterialTheme.colorScheme.onErrorContainer
     }
     val secondaryColor = when (style) {
-        ConnectionIssueBannerStyle.Neutral -> MaterialTheme.colorScheme.onSurfaceVariant
-        ConnectionIssueBannerStyle.Error -> MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+        ConnectionStatusBannerStyle.Neutral -> MaterialTheme.colorScheme.onSurfaceVariant
+        ConnectionStatusBannerStyle.Error -> MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
     }
 
     Surface(
@@ -71,7 +71,7 @@ fun ConnectionIssueBanner(
         ) {
             Text(
                 text = message,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = textColor
             )
             Row(
