@@ -42,30 +42,6 @@ class ElectrumEndpointProviderTest {
     }
 
     @Test
-    fun localNodesBypassTorEvenWhenPreferredTor() = runTest {
-        val localNode = CustomNode(
-            id = "lan",
-            endpoint = "ssl://192.168.0.2:60002",
-            network = BitcoinNetwork.MAINNET
-        )
-        val provider = ElectrumEndpointProvider(
-            FakeNodeConfigRepository(
-                NodeConfig(
-                    connectionOption = NodeConnectionOption.CUSTOM,
-                    customNodes = listOf(localNode),
-                    selectedCustomNodeId = localNode.id
-                )
-            )
-        )
-
-        val endpoint = provider.endpointFor(BitcoinNetwork.MAINNET)
-
-        assertEquals("ssl://192.168.0.2:60002", endpoint.url)
-        assertEquals(NodeTransport.DIRECT, endpoint.transport)
-        assertEquals(true, endpoint.validateDomain)
-    }
-
-    @Test
     fun rotatesToNextPresetWhenRequested() = runTest {
         val publicNodes = listOf(
             PublicNode(

@@ -22,7 +22,6 @@ import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.presentation.tor.TorLifecycleController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -63,7 +62,7 @@ class MainActivityViewModel @Inject constructor(
     private val torManager: TorManager,
     private val walletRepository: WalletRepository,
     private val nodeConfigurationRepository: NodeConfigurationRepository,
-    networkStatusMonitor: NetworkStatusMonitor
+    private val networkStatusMonitor: NetworkStatusMonitor
 ) : ViewModel() {
 
     private val pinEnabledState = appPreferencesRepository.pinLockEnabled.stateIn(

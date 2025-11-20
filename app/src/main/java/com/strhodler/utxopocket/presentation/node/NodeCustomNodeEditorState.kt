@@ -35,6 +35,7 @@ fun rememberNodeCustomNodeEditorState(
 ): NodeCustomNodeEditorState {
     val permissionDeniedMessage = stringResource(id = R.string.node_scan_error_permission)
     val invalidNodeMessage = stringResource(id = R.string.node_scan_error_invalid)
+    val onionOnlyMessage = stringResource(id = R.string.node_scan_error_onion_only)
     val scanSuccessMessage = stringResource(id = R.string.qr_scan_success)
     val coroutineScope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
@@ -49,12 +50,21 @@ fun rememberNodeCustomNodeEditorState(
     val startQrScan = rememberNodeQrScanner(
         onParsed = { result ->
             qrErrorMessage = null
-            if (nodeConnectionOption != NodeConnectionOption.CUSTOM) {
-                onConnectionOptionSelected(NodeConnectionOption.CUSTOM)
-            }
             when (result) {
-                is NodeQrParseResult.HostPort,
-                is NodeQrParseResult.Onion -> onQrParsed(result)
+                is NodeQrParseResult.Onion -> {
+                    if (nodeConnectionOption != NodeConnectionOption.CUSTOM) {
+                        onConnectionOptionSelected(NodeConnectionOption.CUSTOM)
+                    }
+                    onQrParsed(result)
+                }
+
+                is NodeQrParseResult.HostPort -> {
+                    qrErrorMessage = onionOnlyMessage
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar(onionOnlyMessage)
+                    }
+                }
+
                 is NodeQrParseResult.Error -> qrErrorMessage = result.reason
             }
         },

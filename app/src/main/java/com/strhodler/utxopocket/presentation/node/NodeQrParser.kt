@@ -5,7 +5,7 @@ package com.strhodler.utxopocket.presentation.node
  */
 sealed class NodeQrParseResult {
     data class HostPort(val host: String, val port: String, val useSsl: Boolean) : NodeQrParseResult()
-    data class Onion(val address: String) : NodeQrParseResult()
+    data class Onion(val host: String, val port: String?) : NodeQrParseResult()
     data class Error(val reason: String) : NodeQrParseResult()
 }
 
@@ -60,7 +60,7 @@ fun parseNodeQrContent(raw: String): NodeQrParseResult {
     return when {
         tokens.size == 1 -> {
             if (looksLikeOnion) {
-                NodeQrParseResult.Onion(host.lowercase())
+                NodeQrParseResult.Onion(host.lowercase(), null)
             } else {
                 NodeQrParseResult.Error("Missing port in QR code")
             }
@@ -80,9 +80,14 @@ fun parseNodeQrContent(raw: String): NodeQrParseResult {
 
             return if (looksLikeOnion) {
                 if (port.isEmpty()) {
-                    NodeQrParseResult.Onion(host.lowercase())
+                    NodeQrParseResult.Onion(host.lowercase(), null)
                 } else {
-                    NodeQrParseResult.Onion("${host.lowercase()}:$port")
+                    val digits = port.filter { it.isDigit() }
+                    if (digits.isEmpty()) {
+                        NodeQrParseResult.Error("Invalid port in QR code")
+                    } else {
+                        NodeQrParseResult.Onion(host.lowercase(), digits)
+                    }
                 }
             } else {
                 if (port.isEmpty()) {

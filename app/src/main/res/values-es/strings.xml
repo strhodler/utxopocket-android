@@ -360,12 +360,7 @@
     <string name="node_custom_name_placeholder">Mi servidor Electrum</string>
     <string name="node_custom_edit_title">Editar nodo personalizado</string>
     <string name="node_custom_transport_tor_label">Transporte Tor</string>
-    <string name="node_custom_transport_tor_supporting">El tráfico se encamina por Tor automáticamente para endpoints públicos y .onion.</string>
-    <string name="node_custom_transport_direct_label">Transporte directo</string>
-    <string name="node_custom_transport_direct_supporting">El tráfico permanece en tu LAN o VPN cuando el endpoint es local.</string>
-    <string name="node_custom_use_ssl_label">Usar SSL/TLS</string>
-    <string name="node_custom_use_ssl_supporting">Cifra el tráfico de Electrum con TLS. Desactívalo solo si el servidor espera TCP sin cifrar en un enlace de confianza.</string>
-    <string name="node_custom_no_ssl_warning">Al desactivar SSL/TLS los datos de la wallet quedan expuestos a cualquiera en la ruta de red. Continúa solo si controlas por completo la conexión.</string>
+    <string name="node_custom_transport_tor_supporting">Los nodos personalizados requieren Tor. Al cambiar entre presets u onions, Tor se mantiene activo hasta que te desconectes.</string>
     <string name="settings_option_enabled">Activado</string>
     <string name="settings_option_disabled">Desactivado</string>
     <string name="settings_language_label">Idioma</string>
@@ -419,21 +414,19 @@
     <string name="node_custom_delete_confirm_confirm">Eliminar</string>
     <string name="node_custom_info_button">Guía del nodo personalizado</string>
     <string name="node_custom_info_title">Acceso a nodo personalizado</string>
-    <string name="node_custom_info_description">Host + Puerto acepta tanto dominios como direcciones IP. Revisa estas recomendaciones antes de ignorar Tor o SSL.</string>
-    <string name="node_custom_info_host_title">Host y puerto</string>
-    <string name="node_custom_info_host_body">Usa un nombre de dominio completo o una dirección IPv4/IPv6 más el puerto TCP que publica tu servidor Electrum.</string>
-    <string name="node_custom_info_tor_title">Bypass de Tor</string>
-    <string name="node_custom_info_tor_body">Tor oculta tu IP real. Los endpoints públicos y .onion siempre usan Tor, mientras que los nodos en LAN o VPN se conectan de forma directa automáticamente.</string>
-    <string name="node_custom_info_ssl_title">SSL/TLS</string>
-    <string name="node_custom_info_ssl_body">Mantener SSL activo negocia tráfico de Electrum cifrado. Desactívalo únicamente cuando el servidor rechace TLS y solo si confías en toda la ruta de red.</string>
-    <string name="node_custom_info_local_title">Nodos locales y con túnel</string>
-    <string name="node_custom_info_local_body">Los nodos en 192.168.x.x, 10.x.x.x o detrás de túneles WireGuard/Tailscale necesitan que el túnel esté activo antes de probar la conexión. Combínalos con el bypass de Tor solo cuando sea necesario y conserva SSL salvo que el túnel termine dentro de tu nodo.</string>
-    <string name="node_custom_endpoint_label">Endpoint</string>
-    <string name="node_custom_endpoint_placeholder">xyz.onion, electrum.ex.com, 192.168.0.3</string>
-    <string name="node_custom_endpoint_supporting">Introduce un nombre de host o IP junto al puerto, o una dirección .onion completa. Prefija con ssl:// o tcp:// para forzar el protocolo.</string>
-    <string name="node_custom_endpoint_onion_hint">Los endpoints .onion siempre utilizan Tor y TCP sin cifrar.</string>
-    <string name="node_custom_endpoint_local_hint">Los endpoints locales/LAN omiten Tor automáticamente para evitar salir por nodos públicos.</string>
-    <string name="node_custom_direct_local_hint">Los nodos locales omiten Tor automáticamente. Asegúrate de confiar en la ruta LAN/VPN antes de continuar.</string>
+    <string name="node_custom_info_description">Los nodos personalizados ahora aceptan únicamente endpoints .onion. Revisa estas notas antes de probar tu servicio oculto.</string>
+    <string name="node_custom_info_host_title">Host .onion</string>
+    <string name="node_custom_info_host_body">Pega el nombre .onion. Si el QR o enlace incluye “:puerto”, rellenaremos el campo Puerto automáticamente. De lo contrario se usa el puerto Electrum por defecto (50001).</string>
+    <string name="node_custom_info_tor_title">Enrutamiento Tor</string>
+    <string name="node_custom_info_tor_body">Todos los nodos públicos y personalizados se enrutan por Tor. Tor permanece activo mientras haya un nodo seleccionado y se detiene cuando te desconectas.</string>
+    <string name="node_custom_info_ssl_title">Transporte TCP</string>
+    <string name="node_custom_info_ssl_body">El tráfico de Electrum viaja como TCP en claro dentro del túnel Tor. Se eliminaron los interruptores SSL/TLS para evitar fugas por clearnet y mantener un flujo coherente.</string>
+    <string name="node_custom_info_local_title">Consejos de respaldo</string>
+    <string name="node_custom_info_local_body">Mantén al menos un servidor predefinido disponible para recuperar la conexión si tu endpoint .onion está fuera de línea. Verifica que tu servicio oculto responda antes de cambiar.</string>
+    <string name="node_custom_endpoint_label">Dirección .onion</string>
+    <string name="node_custom_endpoint_placeholder">abc123def.onion</string>
+    <string name="node_custom_endpoint_supporting">Introduce el host .onion (con o sin “:puerto”). El campo Puerto reflejará lo que incluyas aquí.</string>
+    <string name="node_custom_endpoint_onion_hint">Los nodos personalizados deben usar direcciones .onion. Todo el tráfico viaja por Tor usando TCP en claro.</string>
     <string name="node_tor_reminder">Todas las conexiones se enrutan por Tor de forma predeterminada.</string>
     <string name="node_connection_standard">Host + Puerto</string>
     <string name="node_connection_onion">Onion</string>
@@ -513,6 +506,7 @@
     <string name="node_scan_qr_content_description">Escanear QR del nodo</string>
     <string name="node_scan_error_permission">La cámara es necesaria para escanear códigos QR.</string>
     <string name="node_scan_error_invalid">No se detectó un endpoint de nodo válido en el código QR.</string>
+    <string name="node_scan_error_onion_only">Solo se admiten direcciones .onion. Proporciona una URL .onion.</string>
 
     <!-- Onboarding slides -->
     <string name="onboarding_slide_watch_title">Inteligencia watch-only</string>

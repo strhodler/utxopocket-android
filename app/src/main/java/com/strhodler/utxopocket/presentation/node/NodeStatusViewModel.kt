@@ -9,10 +9,8 @@ import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
-import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.customNodesFor
-import com.strhodler.utxopocket.domain.node.EndpointKind
 import com.strhodler.utxopocket.domain.node.EndpointScheme
 import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
@@ -21,6 +19,7 @@ import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.presentation.node.NodeQrParseResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -201,17 +200,9 @@ class NodeStatusViewModel @Inject constructor(
                 customNodeError = null,
                 customNodeSuccessMessage = null,
                 newCustomName = node.name,
-                newCustomEndpoint = normalized?.host ?: node.endpointLabel(),
-                newCustomEndpointKind = normalized?.kind,
-                newCustomPort = when (normalized?.kind) {
-                    EndpointKind.ONION -> NodeStatusUiState.ONION_DEFAULT_PORT
-                    else -> normalized?.port?.takeIf { it > 0 }?.toString()
-                        ?: NodeStatusUiState.DEFAULT_PORT
-                },
-                newCustomUseSsl = when (normalized?.kind) {
-                    EndpointKind.ONION -> false
-                    else -> normalized?.scheme != EndpointScheme.TCP
-                },
+                newCustomOnion = normalized?.host ?: node.endpointLabel(),
+                newCustomPort = normalized?.port?.takeIf { it > 0 }?.toString()
+                    ?: NodeStatusUiState.ONION_DEFAULT_PORT,
                 isTestingCustomNode = false
             )
         }
@@ -246,13 +237,11 @@ class NodeStatusViewModel @Inject constructor(
                         isCustomNodeEditorVisible = false,
                         editingCustomNodeId = null,
                         newCustomName = "",
-                newCustomEndpoint = "",
-                newCustomEndpointKind = null,
-                newCustomPort = NodeStatusUiState.DEFAULT_PORT,
-                newCustomUseSsl = true,
-                isTestingCustomNode = false,
-                customNodeError = null,
-                customNodeSuccessMessage = null
+                        newCustomOnion = "",
+                        newCustomPort = NodeStatusUiState.ONION_DEFAULT_PORT,
+                        isTestingCustomNode = false,
+                        customNodeError = null,
+                        customNodeSuccessMessage = null
                     )
                 }
             }
@@ -275,10 +264,8 @@ class NodeStatusViewModel @Inject constructor(
                 customNodeError = null,
                 customNodeSuccessMessage = null,
                 newCustomName = "",
-                newCustomEndpoint = "",
-                newCustomEndpointKind = null,
-                newCustomPort = NodeStatusUiState.DEFAULT_PORT,
-                newCustomUseSsl = true,
+                newCustomOnion = "",
+                newCustomPort = NodeStatusUiState.ONION_DEFAULT_PORT,
                 isTestingCustomNode = false
             )
         }
@@ -292,10 +279,8 @@ class NodeStatusViewModel @Inject constructor(
                 customNodeError = null,
                 isTestingCustomNode = false,
                 newCustomName = "",
-                newCustomEndpoint = "",
-                newCustomEndpointKind = null,
-                newCustomPort = NodeStatusUiState.DEFAULT_PORT,
-                newCustomUseSsl = true
+                newCustomOnion = "",
+                newCustomPort = NodeStatusUiState.ONION_DEFAULT_PORT
             )
         }
     }
@@ -310,51 +295,35 @@ class NodeStatusViewModel @Inject constructor(
         }
     }
 
-    fun onNewCustomEndpointChanged(value: String) {
-        applyEndpointInput(value)
+    fun onNewCustomOnionChanged(value: String) {
+        applyOnionInput(value)
     }
 
     fun onNewCustomPortChanged(value: String) {
-        if (_uiState.value.newCustomEndpointKind == EndpointKind.ONION) {
-            return
-        }
         val digits = value.filter { it.isDigit() }
-        val currentHost = _uiState.value.newCustomEndpoint
-        applyEndpointInput(currentHost, portOverride = digits)
-    }
-
-    fun onCustomNodeUseSslToggled(enabled: Boolean) {
-        if (_uiState.value.newCustomEndpointKind == EndpointKind.ONION) {
-            return
+        val cleaned = digits.ifBlank { NodeStatusUiState.ONION_DEFAULT_PORT }
+        _uiState.update {
+            it.copy(
+                newCustomPort = cleaned,
+                customNodeError = null,
+                customNodeSuccessMessage = null
+            )
         }
-        val current = _uiState.value
-        applyEndpointInput(current.newCustomEndpoint, useSslOverride = enabled)
     }
 
     fun onCustomNodeQrParsed(result: NodeQrParseResult) {
         when (result) {
-            is NodeQrParseResult.HostPort -> {
-                applyEndpointInput(
-                    raw = result.host,
-                    portOverride = result.port,
-                    useSslOverride = result.useSsl
+            is NodeQrParseResult.HostPort -> _uiState.update {
+                it.copy(
+                    customNodeError = "Only onion endpoints are supported",
+                    customNodeSuccessMessage = null
                 )
             }
 
             is NodeQrParseResult.Onion -> {
-                val sanitized = result.address
-                    .removePrefix("tcp://")
-                    .removePrefix("ssl://")
-                val normalized = runCatching {
-                    NodeEndpointClassifier.normalize(
-                        raw = "tcp://$sanitized",
-                        defaultScheme = EndpointScheme.TCP
-                    )
-                }.getOrNull()
-                applyEndpointInput(
-                    raw = normalized?.host ?: sanitized.substringBefore(':'),
-                    portOverride = normalized?.port?.takeIf { it > 0 }?.toString(),
-                    useSslOverride = false
+                applyOnionInput(
+                    raw = result.host,
+                    portOverride = result.port
                 )
             }
 
@@ -432,10 +401,8 @@ class NodeStatusViewModel @Inject constructor(
                             editingCustomNodeId = null,
                             customNodeSuccessMessage = R.string.node_custom_success,
                             newCustomName = "",
-                            newCustomEndpoint = "",
-                            newCustomEndpointKind = null,
-                            newCustomPort = NodeStatusUiState.DEFAULT_PORT,
-                            newCustomUseSsl = true,
+                            newCustomOnion = "",
+                            newCustomPort = NodeStatusUiState.ONION_DEFAULT_PORT,
                             customNodeError = null,
                             customNodeHasChanges = false
                         )
@@ -502,10 +469,8 @@ class NodeStatusViewModel @Inject constructor(
                     isCustomNodeEditorVisible = false,
                     editingCustomNodeId = null,
                     newCustomName = "",
-                    newCustomEndpoint = "",
-                    newCustomEndpointKind = null,
-                    newCustomPort = NodeStatusUiState.DEFAULT_PORT,
-                    newCustomUseSsl = true,
+                    newCustomOnion = "",
+                    newCustomPort = NodeStatusUiState.ONION_DEFAULT_PORT,
                     customNodeHasChanges = false
                 )
             }
@@ -530,14 +495,32 @@ class NodeStatusViewModel @Inject constructor(
     }
 
     private fun NodeStatusUiState.buildCustomNodeCandidate(existingId: String?): Pair<String?, CustomNode?> {
-        val hostInput = newCustomEndpoint.trim()
-        if (hostInput.isEmpty()) {
-            return "Host cannot be empty" to null
+        val input = newCustomOnion.trim()
+        if (input.isEmpty()) {
+            return "Onion host cannot be empty" to null
         }
-        val portDigits = when (newCustomEndpointKind) {
-            EndpointKind.ONION -> NodeStatusUiState.ONION_DEFAULT_PORT
+        val sanitized = input
+            .removePrefix("ssl://")
+            .removePrefix("tcp://")
+            .substringBefore("/")
+            .trim()
+            .lowercase(Locale.US)
+        if (sanitized.isEmpty()) {
+            return "Onion host cannot be empty" to null
+        }
+        val parts = sanitized.split(':', limit = 2)
+        val hostOnly = parts[0].trim()
+        if (hostOnly.isEmpty()) {
+            return "Onion host cannot be empty" to null
+        }
+        if (!NodeEndpointClassifier.isOnionAddress(hostOnly)) {
+            return "Only .onion hosts are supported" to null
+        }
+        val inlinePortDigits = parts.getOrNull(1)?.filter { it.isDigit() }
+        val portDigits = when {
+            !inlinePortDigits.isNullOrEmpty() -> inlinePortDigits
             else -> newCustomPort.filter { it.isDigit() }
-        }
+        }.ifEmpty { NodeStatusUiState.ONION_DEFAULT_PORT }
         val portValue = portDigits.toIntOrNull()
         if (portValue == null || portValue !in 1..65535) {
             return "Enter a valid port" to null
@@ -547,22 +530,17 @@ class NodeStatusViewModel @Inject constructor(
         } else {
             preferredNetwork
         }
-        val resolvedScheme = when (newCustomEndpointKind) {
-            EndpointKind.ONION -> EndpointScheme.TCP
-            else -> if (newCustomUseSsl) EndpointScheme.SSL else EndpointScheme.TCP
-        }
-        val sanitizedHost = hostInput
-            .removePrefix("ssl://")
-            .removePrefix("tcp://")
-            .substringBefore('/')
-            .trim()
         val prepared = runCatching {
-            NodeEndpointClassifier.buildUrl(sanitizedHost, portValue, resolvedScheme)
+            NodeEndpointClassifier.buildUrl(
+                host = hostOnly,
+                port = portValue,
+                scheme = EndpointScheme.TCP
+            )
         }.getOrElse { error ->
             return (error.message ?: "Invalid host") to null
         }
         val normalized = runCatching {
-            NodeEndpointClassifier.normalize(prepared, resolvedScheme)
+            NodeEndpointClassifier.normalize(prepared, EndpointScheme.TCP)
         }.getOrElse { error ->
             return (error.message ?: "Invalid endpoint") to null
         }
@@ -575,42 +553,32 @@ class NodeStatusViewModel @Inject constructor(
         )
     }
 
-    private fun applyEndpointInput(
+    private fun applyOnionInput(
         raw: String,
-        portOverride: String? = null,
-        useSslOverride: Boolean? = null
+        portOverride: String? = null
     ) {
-        val state = _uiState.value
         val trimmed = raw.trim()
-        val desiredUseSsl = useSslOverride ?: state.newCustomUseSsl
-        val defaultScheme = if (desiredUseSsl) EndpointScheme.SSL else EndpointScheme.TCP
-        val baseInput = if (trimmed.contains("://")) trimmed else "${defaultScheme.protocol}://$trimmed"
-        val normalized = runCatching {
-            NodeEndpointClassifier.normalize(baseInput, defaultScheme)
-        }.getOrNull()
-        val resolvedKind = normalized?.kind
-        val enforcedUseSsl = resolvedKind == EndpointKind.ONION
-        val resolvedUseSsl = if (enforcedUseSsl) false else desiredUseSsl
-        val normalizedPort = normalized?.port?.takeIf { it > 0 }?.toString()
-        val fallbackPort = when (resolvedKind) {
-            EndpointKind.ONION -> NodeStatusUiState.ONION_DEFAULT_PORT
-            else -> NodeStatusUiState.DEFAULT_PORT
-        }
-        val rawPort = when {
-            resolvedKind == EndpointKind.ONION -> NodeStatusUiState.ONION_DEFAULT_PORT
-            portOverride != null -> portOverride
-            normalizedPort != null -> normalizedPort
-            else -> state.newCustomPort
-        }
-        val resolvedPort = rawPort.filter { it.isDigit() }.ifEmpty { fallbackPort }
-        val hostDisplay = normalized?.host ?: trimmed
+        val sanitized = trimmed
+            .removePrefix("ssl://")
+            .removePrefix("tcp://")
+            .substringBefore("/")
+            .trim()
+        val lower = sanitized.lowercase(Locale.US)
+        val parts = lower.split(':', limit = 2)
+        val host = parts.getOrNull(0).orEmpty()
+        val portDigitsFromHost = parts.getOrNull(1)?.filter { it.isDigit() }
+        val overrideDigits = portOverride?.filter { it.isDigit() }
+        val currentPort = _uiState.value.newCustomPort
+        val resolvedPort = when {
+            !overrideDigits.isNullOrEmpty() -> overrideDigits
+            !portDigitsFromHost.isNullOrEmpty() -> portDigitsFromHost
+            else -> currentPort
+        }.ifBlank { NodeStatusUiState.ONION_DEFAULT_PORT }
 
         _uiState.update {
             it.copy(
-                newCustomEndpoint = hostDisplay,
-                newCustomEndpointKind = resolvedKind,
-                newCustomPort = if (resolvedKind == EndpointKind.ONION) NodeStatusUiState.ONION_DEFAULT_PORT else resolvedPort,
-                newCustomUseSsl = resolvedUseSsl,
+                newCustomOnion = host,
+                newCustomPort = resolvedPort,
                 customNodeError = null,
                 customNodeSuccessMessage = null
             )

@@ -211,10 +211,8 @@ fun NodeStatusRoute(
         }
         CustomNodeEditorScreen(
             nameValue = state.newCustomName,
-            endpointValue = state.newCustomEndpoint,
-            endpointKind = state.newCustomEndpointKind,
+            onionValue = state.newCustomOnion,
             portValue = state.newCustomPort,
-            useSsl = state.newCustomUseSsl,
             isTesting = state.isTestingCustomNode,
             errorMessage = state.customNodeError,
             qrErrorMessage = qrEditorState.qrErrorMessage,
@@ -222,12 +220,11 @@ fun NodeStatusRoute(
             primaryActionLabel = primaryLabel,
             onDismiss = viewModel::onDismissCustomNodeEditor,
             onNameChanged = viewModel::onNewCustomNameChanged,
-            onEndpointChanged = {
+            onOnionChanged = {
                 qrEditorState.clearQrError()
-                viewModel.onNewCustomEndpointChanged(it)
+                viewModel.onNewCustomOnionChanged(it)
             },
             onPortChanged = viewModel::onNewCustomPortChanged,
-            onUseSslChanged = viewModel::onCustomNodeUseSslToggled,
             onPrimaryAction = if (isEditing) {
                 viewModel::onSaveCustomNodeEdits
             } else {
@@ -240,11 +237,11 @@ fun NodeStatusRoute(
         if (showDeleteDialog && isEditing) {
             val deleteLabelRaw = remember(
                 state.newCustomName,
-                state.newCustomEndpoint
+                state.newCustomOnion
             ) {
                 buildCustomNodeLabel(
                     name = state.newCustomName,
-                    endpoint = state.newCustomEndpoint,
+                    onion = state.newCustomOnion,
                     port = state.newCustomPort
                 )
             }
@@ -416,6 +413,7 @@ private fun NodeStatusScreen(
                             )
 
                             NodeStatusTab.Management -> NodeManagementContent(
+                                isNetworkOnline = status.isNetworkOnline,
                                 state = state,
                                 modifier = Modifier.fillMaxWidth(),
                                 onNetworkSelected = onNetworkSelected,
@@ -887,6 +885,7 @@ private fun TorDetailCard(
 
 @Composable
 private fun NodeManagementContent(
+    isNetworkOnline: Boolean,
     state: NodeStatusUiState,
     modifier: Modifier = Modifier,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
@@ -909,6 +908,7 @@ private fun NodeManagementContent(
             selectedCustomNodeId = state.selectedCustomNodeId,
             isNodeConnected = state.isNodeConnected,
             isNodeActivating = state.isNodeActivating,
+            isNetworkOnline = isNetworkOnline,
             onNetworkSelected = onNetworkSelected,
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
@@ -1156,12 +1156,12 @@ private fun statusThemeFor(
 
 private fun buildCustomNodeLabel(
     name: String,
-    endpoint: String,
+    onion: String,
     port: String
 ): String {
     val trimmedName = name.trim()
     if (trimmedName.isNotEmpty()) return trimmedName
-    val host = endpoint.trim()
+    val host = onion.trim()
     val portValue = port.trim()
     return if (host.isEmpty()) {
         ""
@@ -1182,6 +1182,7 @@ private fun NodeConfigurationContent(
     selectedCustomNodeId: String?,
     isNodeConnected: Boolean,
     isNodeActivating: Boolean,
+    isNetworkOnline: Boolean,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
@@ -1207,6 +1208,7 @@ private fun NodeConfigurationContent(
             activeOption = nodeConnectionOption,
             isNodeConnected = isNodeConnected,
             isNodeActivating = isNodeActivating,
+            isNetworkOnline = isNetworkOnline,
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
             onCustomNodeDetails = onCustomNodeDetails,
@@ -1288,6 +1290,7 @@ private fun AvailableNodesSection(
     activeOption: NodeConnectionOption,
     isNodeConnected: Boolean,
     isNodeActivating: Boolean,
+    isNetworkOnline: Boolean,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
@@ -1365,6 +1368,7 @@ private fun AvailableNodesSection(
                         onActivate = item.onActivate,
                         onDetailsClick = item.onDetailsClick,
                         onDeactivate = item.onDeactivate,
+                        isNetworkOnline = isNetworkOnline,
                         showDivider = index < nodes.lastIndex
                     )
                 }
@@ -1411,7 +1415,8 @@ private fun NodeListItem(
     onDetailsClick: () -> Unit,
     onDeactivate: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    showDivider: Boolean = false
+    showDivider: Boolean = false,
+    isNetworkOnline: Boolean = true
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         val supportingContent: (@Composable (() -> Unit))? =
@@ -1455,6 +1460,7 @@ private fun NodeListItem(
             trailingContent = {
                 Switch(
                     checked = connected,
+                    enabled = isNetworkOnline,
                     onCheckedChange = { checked ->
                         when {
                             checked && !connected -> onActivate()

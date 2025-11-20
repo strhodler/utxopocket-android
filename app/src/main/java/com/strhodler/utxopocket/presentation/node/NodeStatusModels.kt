@@ -6,8 +6,6 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.PublicNode
-import com.strhodler.utxopocket.domain.node.EndpointKind
-
 data class NodeStatusUiState(
     val preferredNetwork: BitcoinNetwork = BitcoinNetwork.DEFAULT,
     val nodeConnectionOption: NodeConnectionOption = NodeConnectionOption.PUBLIC,
@@ -18,10 +16,8 @@ data class NodeStatusUiState(
     val isNodeConnected: Boolean = false,
     val isNodeActivating: Boolean = false,
     val newCustomName: String = "",
-    val newCustomEndpoint: String = "",
-    val newCustomEndpointKind: EndpointKind? = null,
+    val newCustomOnion: String = "",
     val newCustomPort: String = DEFAULT_PORT,
-    val newCustomUseSsl: Boolean = true,
     val editingCustomNodeId: String? = null,
     val isCustomNodeEditorVisible: Boolean = false,
     val isTestingCustomNode: Boolean = false,
@@ -31,8 +27,8 @@ data class NodeStatusUiState(
     val customNodeHasChanges: Boolean = false
 ) {
     companion object {
-        const val DEFAULT_PORT: String = "50002"
         const val ONION_DEFAULT_PORT: String = "50001"
+        const val DEFAULT_PORT: String = ONION_DEFAULT_PORT
     }
 }
 

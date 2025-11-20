@@ -118,31 +118,6 @@ class WalletsViewModelTest {
         assertEquals(false, viewModel.uiState.value.hasActiveNodeSelection)
     }
 
-    @Test
-    fun torErrorsIgnoredForDirectCustomNodes() = runTest {
-        val nodeId = "direct-node"
-        nodeConfigurationRepository.updateNodeConfig {
-            it.copy(
-                connectionOption = NodeConnectionOption.CUSTOM,
-                customNodes = listOf(
-                    CustomNode(
-                        id = nodeId,
-                        endpoint = "ssl://192.168.0.10:50002",
-                        name = "Direct LAN",
-                        network = BitcoinNetwork.TESTNET
-                    )
-                ),
-                selectedCustomNodeId = nodeId
-            )
-        }
-        torManager.setStatus(TorStatus.Error("Tor offline"))
-
-        advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        assertEquals(false, state.torRequired)
-        assertEquals(null, state.errorMessage)
-    }
 }
 
 private class TestWalletRepository : WalletRepository {

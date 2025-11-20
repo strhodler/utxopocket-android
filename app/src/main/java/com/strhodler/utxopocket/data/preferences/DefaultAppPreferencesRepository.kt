@@ -17,6 +17,7 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
+import com.strhodler.utxopocket.domain.node.EndpointKind
 import com.strhodler.utxopocket.domain.node.EndpointScheme
 import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.domain.model.PublicNode
@@ -459,32 +460,16 @@ class DefaultAppPreferencesRepository @Inject constructor(
                     val obj = array.getJSONObject(i)
                     val id = obj.optString("id").ifBlank { UUID.randomUUID().toString() }
                     val storedEndpoint = obj.optString("endpoint")
-                    val host = obj.optString("host")
-                    val port = if (obj.has("port")) obj.optInt("port") else null
-                    val onion = obj.optString("onion")
-                    val useSsl = obj.optBoolean("useSsl", true)
+                    val onion = obj.optString("onion").ifBlank { null }
                     val networkName = obj.optString("network")
                     val network = networkName.takeIf { it.isNotBlank() }?.let { rawNetwork ->
                         runCatching { BitcoinNetwork.valueOf(rawNetwork) }.getOrNull()
                     }
                     val resolvedEndpoint = when {
-                        storedEndpoint.isNotBlank() -> storedEndpoint
-                        onion.isNotBlank() -> buildLegacyEndpoint(
-                            host = onion,
-                            useSsl = false,
-                            port = null
-                        )
-                        host.isNotBlank() -> buildLegacyEndpoint(
-                            host = host,
-                            useSsl = useSsl,
-                            port = port
-                        )
+                        storedEndpoint.isNotBlank() -> sanitizeEndpoint(storedEndpoint)
+                        !onion.isNullOrBlank() -> buildLegacyOnionEndpoint(onion)
                         else -> null
-                    }
-
-                    if (resolvedEndpoint.isNullOrBlank()) {
-                        continue
-                    }
+                    } ?: continue
 
                     add(
                         CustomNode(
@@ -499,30 +484,27 @@ class DefaultAppPreferencesRepository @Inject constructor(
         }.getOrElse { emptyList() }
     }
 
-    private fun buildLegacyEndpoint(
-        host: String,
-        useSsl: Boolean,
-        port: Int?
-    ): String? {
-        val trimmedHost = host.trim()
-        if (trimmedHost.isEmpty()) {
-            return null
-        }
-        val (resolvedHost, resolvedPort) = if (port != null) {
-            trimmedHost to port
-        } else {
-            val segments = trimmedHost.split(':', limit = 2)
-            if (segments.size == 2) {
-                val parsedPort = segments[1].toIntOrNull() ?: return null
-                segments[0] to parsedPort
-            } else {
-                return null
-            }
-        }
-        val scheme = if (useSsl) EndpointScheme.SSL else EndpointScheme.TCP
-        return runCatching {
-            NodeEndpointClassifier.buildUrl(resolvedHost, resolvedPort, scheme)
-        }.getOrNull()
+    private fun sanitizeEndpoint(endpoint: String): String? {
+        val normalized = runCatching {
+            NodeEndpointClassifier.normalize(endpoint)
+        }.getOrNull() ?: return null
+        return normalized.takeIf { it.kind == EndpointKind.ONION }?.url
+    }
+
+    private fun buildLegacyOnionEndpoint(value: String): String? {
+        if (value.isBlank()) return null
+        val sanitized = value
+            .removePrefix("ssl://")
+            .removePrefix("tcp://")
+            .trim()
+        val prepared = "tcp://$sanitized"
+        val normalized = runCatching {
+            NodeEndpointClassifier.normalize(
+                raw = prepared,
+                defaultScheme = EndpointScheme.TCP
+            )
+        }.getOrNull() ?: return null
+        return normalized.takeIf { it.kind == EndpointKind.ONION }?.url
     }
 
     private fun legacyCustomNodes(
@@ -531,40 +513,17 @@ class DefaultAppPreferencesRepository @Inject constructor(
         onion: String?
     ): List<CustomNode> {
         val trimmedOnion = onion?.trim().orEmpty()
-        if (trimmedOnion.isNotBlank()) {
-            val endpoint = buildLegacyEndpoint(
-                host = trimmedOnion,
-                useSsl = false,
-                port = null
-            )
-            if (endpoint != null) {
-                return listOf(
-                    CustomNode(
-                        id = "legacy-onion-$trimmedOnion",
-                        endpoint = endpoint,
-                        name = trimmedOnion
-                    )
-                )
-            }
+        if (trimmedOnion.isBlank()) {
+            return emptyList()
         }
-        val trimmedHost = host?.trim().orEmpty()
-        if (trimmedHost.isNotBlank() && port != null) {
-            val endpoint = buildLegacyEndpoint(
-                host = trimmedHost,
-                useSsl = true,
-                port = port
+        val endpoint = buildLegacyOnionEndpoint(trimmedOnion) ?: return emptyList()
+        return listOf(
+            CustomNode(
+                id = "legacy-onion-$trimmedOnion",
+                endpoint = endpoint,
+                name = trimmedOnion
             )
-            if (endpoint != null) {
-                return listOf(
-                    CustomNode(
-                        id = "legacy-host-$trimmedHost-$port",
-                        endpoint = endpoint,
-                        name = trimmedHost
-                    )
-                )
-            }
-        }
-        return emptyList()
+        )
     }
 
     private fun purgePreferencesFile() {

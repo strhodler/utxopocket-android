@@ -47,6 +47,9 @@ data class CustomNode(
 
     fun normalizedCopy(): CustomNode? {
         val parsed = normalizedEndpoint ?: return null
+        if (parsed.kind != EndpointKind.ONION) {
+            return null
+        }
         return copy(
             endpoint = parsed.url,
             name = name.trim()
@@ -103,12 +106,7 @@ fun NodeConfig.requiresTor(network: BitcoinNetwork? = null): Boolean =
     activeTransport(network) == NodeTransport.TOR
 
 fun CustomNode.activeTransport(): NodeTransport =
-    when (normalisedEndpointKind()) {
-        EndpointKind.ONION -> NodeTransport.TOR
-        EndpointKind.LOCAL -> NodeTransport.DIRECT
-        EndpointKind.PUBLIC,
-        null -> NodeTransport.TOR
-    }
+    NodeTransport.TOR
 
 fun CustomNode.requiresTor(): Boolean = activeTransport() == NodeTransport.TOR
 

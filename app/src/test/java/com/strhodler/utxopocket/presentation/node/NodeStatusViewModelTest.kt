@@ -107,26 +107,25 @@ class NodeStatusViewModelTest {
     }
 
     @Test
-    fun onionEndpointsForcePortAndSslSettings() = runTest {
+    fun onionEndpointsUpdatePortFromInlineValue() = runTest {
         viewModel.onAddCustomNodeClicked()
-        viewModel.onNewCustomEndpointChanged("abc123def.onion")
-        viewModel.onNewCustomPortChanged("1234")
-        viewModel.onCustomNodeUseSslToggled(true)
+        viewModel.onNewCustomOnionChanged("abc123def.onion:60002")
 
         val state = viewModel.uiState.value
-        assertEquals(NodeStatusUiState.ONION_DEFAULT_PORT, state.newCustomPort)
-        assertEquals(false, state.newCustomUseSsl)
+        assertEquals("abc123def.onion", state.newCustomOnion)
+        assertEquals("60002", state.newCustomPort)
     }
 
     @Test
     fun blankCustomNodeNameDefaultsToEndpointLabel() = runTest {
         viewModel.onAddCustomNodeClicked()
-        viewModel.onNewCustomEndpointChanged("ssl://example.com:50002")
+        viewModel.onNewCustomOnionChanged("example123.onion")
+        viewModel.onNewCustomPortChanged("60001")
         viewModel.onNewCustomNameChanged("")
         viewModel.onTestAndAddCustomNode()
         advanceUntilIdle()
 
-        assertEquals("example.com:50002", nodeConnectionTester.lastNode?.name)
+        assertEquals("example123.onion:60001", nodeConnectionTester.lastNode?.name)
     }
 
     private class TestAppPreferencesRepository : AppPreferencesRepository {
@@ -295,12 +294,6 @@ class NodeStatusViewModelTest {
 
     private class RecordingNodeConnectionTester : NodeConnectionTester {
         var lastNode: CustomNode? = null
-
-        override suspend fun testHostPort(host: String, port: Int): NodeConnectionTestResult =
-            NodeConnectionTestResult.Success()
-
-        override suspend fun testOnion(onion: String): NodeConnectionTestResult =
-            NodeConnectionTestResult.Success()
 
         override suspend fun test(node: CustomNode): NodeConnectionTestResult {
             lastNode = node

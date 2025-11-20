@@ -3,12 +3,12 @@ package com.strhodler.utxopocket.presentation.node
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.QrCode
@@ -21,28 +21,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
-import com.strhodler.utxopocket.domain.node.EndpointKind
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomNodeEditorScreen(
     nameValue: String,
-    endpointValue: String,
-    endpointKind: EndpointKind?,
+    onionValue: String,
     portValue: String,
-    useSsl: Boolean,
     isTesting: Boolean,
     errorMessage: String?,
     qrErrorMessage: String?,
@@ -50,9 +44,8 @@ fun CustomNodeEditorScreen(
     primaryActionLabel: String,
     onDismiss: () -> Unit,
     onNameChanged: (String) -> Unit,
-    onEndpointChanged: (String) -> Unit,
+    onOnionChanged: (String) -> Unit,
     onPortChanged: (String) -> Unit,
-    onUseSslChanged: (Boolean) -> Unit,
     onPrimaryAction: () -> Unit,
     onStartQrScan: () -> Unit,
     onClearQrError: () -> Unit
@@ -112,46 +105,37 @@ fun CustomNodeEditorScreen(
                 singleLine = true
             )
 
-        EndpointField(
-            value = endpointValue,
-            qrErrorMessage = qrErrorMessage,
-            onValueChange = {
-                onClearQrError()
-                onEndpointChanged(it)
-            },
-            onStartQrScan = onStartQrScan
-        )
+            OnionField(
+                value = onionValue,
+                qrErrorMessage = qrErrorMessage,
+                onValueChange = {
+                    onClearQrError()
+                    onOnionChanged(it)
+                },
+                onStartQrScan = onStartQrScan
+            )
 
-        val isOnion = endpointKind == EndpointKind.ONION
+            OutlinedTextField(
+                value = portValue,
+                onValueChange = {
+                    onClearQrError()
+                    onPortChanged(it)
+                },
+                label = { Text(text = stringResource(id = R.string.node_port_label)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number)
+            )
 
-        OutlinedTextField(
-            value = portValue,
-            onValueChange = {
-                onClearQrError()
-                onPortChanged(it)
-            },
-            label = { Text(text = stringResource(id = R.string.node_port_label)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = !isOnion,
-            keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number)
-        )
+            OnionEndpointHints()
 
-        EndpointKindHints(kind = endpointKind)
-
-        TransportModeBadge(kind = endpointKind)
-
-        UseSslToggle(
-            checked = useSsl,
-            enabled = !isOnion,
-            onCheckedChange = onUseSslChanged
-        )
+            TransportModeBadge()
         }
     }
 }
 
 @Composable
-private fun EndpointField(
+private fun OnionField(
     value: String,
     qrErrorMessage: String?,
     onValueChange: (String) -> Unit,
@@ -178,7 +162,7 @@ private fun EndpointField(
                 )
             }
         },
-        minLines = 4,
+        minLines = 2,
         maxLines = Int.MAX_VALUE,
         supportingText = {
             Text(
@@ -191,20 +175,11 @@ private fun EndpointField(
 }
 
 @Composable
-private fun EndpointKindHints(kind: EndpointKind?) {
-    when (kind) {
-        EndpointKind.ONION -> InfoCard(
-            text = stringResource(id = R.string.node_custom_endpoint_onion_hint),
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
-        )
-
-        EndpointKind.LOCAL -> InfoCard(
-            text = stringResource(id = R.string.node_custom_endpoint_local_hint),
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
-        )
-
-        else -> Unit
-    }
+private fun OnionEndpointHints() {
+    InfoCard(
+        text = stringResource(id = R.string.node_custom_endpoint_onion_hint),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+    )
 }
 
 @Composable
@@ -227,13 +202,7 @@ private fun InfoCard(text: String, containerColor: Color) {
 }
 
 @Composable
-private fun TransportModeBadge(kind: EndpointKind?) {
-    val (labelRes, supportingRes) = when (kind) {
-        EndpointKind.LOCAL -> R.string.node_custom_transport_direct_label to
-            R.string.node_custom_transport_direct_supporting
-        else -> R.string.node_custom_transport_tor_label to
-            R.string.node_custom_transport_tor_supporting
-    }
+private fun TransportModeBadge() {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
         shape = MaterialTheme.shapes.medium,
@@ -246,66 +215,15 @@ private fun TransportModeBadge(kind: EndpointKind?) {
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = stringResource(id = labelRes),
+                text = stringResource(id = R.string.node_custom_transport_tor_label),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = stringResource(id = supportingRes),
+                text = stringResource(id = R.string.node_custom_transport_tor_supporting),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-    }
-}
-
-@Composable
-private fun UseSslToggle(
-    checked: Boolean,
-    enabled: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    val subtitle = stringResource(id = R.string.node_custom_use_ssl_supporting)
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column(modifier = Modifier.weight(1f, fill = true)) {
-            Text(
-                text = stringResource(id = R.string.node_custom_use_ssl_label),
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            enabled = enabled
-        )
-    }
-
-    if (enabled && !checked) {
-        WarningCard(text = stringResource(id = R.string.node_custom_no_ssl_warning))
-    }
-}
-
-@Composable
-private fun WarningCard(text: String) {
-    Surface(
-        tonalElevation = 2.dp,
-        color = MaterialTheme.colorScheme.errorContainer,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onErrorContainer,
-            modifier = Modifier.padding(12.dp)
-        )
     }
 }

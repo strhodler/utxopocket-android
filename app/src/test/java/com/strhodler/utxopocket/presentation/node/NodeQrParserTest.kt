@@ -62,7 +62,8 @@ class NodeQrParserTest {
         val result = parseNodeQrContent("example123.onion")
 
         val onion = assertIs<NodeQrParseResult.Onion>(result)
-        assertEquals("example123.onion", onion.address)
+        assertEquals("example123.onion", onion.host)
+        assertEquals(null, onion.port)
     }
 
     @Test
@@ -70,7 +71,8 @@ class NodeQrParserTest {
         val result = parseNodeQrContent("example123.onion:50001")
 
         val onion = assertIs<NodeQrParseResult.Onion>(result)
-        assertEquals("example123.onion:50001", onion.address)
+        assertEquals("example123.onion", onion.host)
+        assertEquals("50001", onion.port)
     }
 
     @Test

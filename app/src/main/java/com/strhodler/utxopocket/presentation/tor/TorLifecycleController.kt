@@ -12,7 +12,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class TorLifecycleController @Inject constructor(
     private val scope: CoroutineScope,
@@ -24,8 +26,11 @@ class TorLifecycleController @Inject constructor(
 ) {
 
     private var lastTorWasRunning = false
+    private var pendingTorRestart = false
+    private var lastNetworkOnline = true
     private var pendingTorStop: Job? = null
     private var pendingTorStart: Job? = null
+    private var pendingTorRestartJob: Job? = null
 
     fun start() {
         scope.launch {
@@ -56,8 +61,14 @@ class TorLifecycleController @Inject constructor(
 
         if (!snapshot.networkOnline) {
             cancelPendingTorStart()
+            pendingTorRestart = requiresTor && torActive
             lastTorWasRunning = torRunning && requiresTor
+            lastNetworkOnline = false
             return
+        }
+
+        if (requiresTor && pendingTorRestart) {
+            ensureTorRestarted()
         }
 
         if (requiresTor && (torStatus is TorStatus.Stopped || torStatus is TorStatus.Error)) {
@@ -72,16 +83,23 @@ class TorLifecycleController @Inject constructor(
             cancelPendingTorStop()
         }
 
+        val recoveredFromOffline = !lastNetworkOnline
         val shouldTriggerRefresh = requiresTor &&
             torRunning &&
-            !lastTorWasRunning &&
-            snapshot.config.hasActiveSelection(snapshot.network)
+            snapshot.config.hasActiveSelection(snapshot.network) &&
+            (!lastTorWasRunning || recoveredFromOffline || pendingTorRestart) &&
+            pendingTorRestartJob?.isActive != true &&
+            !pendingTorRestart
         if (shouldTriggerRefresh) {
             scope.launch {
                 refreshWallets(snapshot.network)
             }
         }
         lastTorWasRunning = requiresTor && torRunning
+        if (torRunning) {
+            pendingTorRestart = false
+        }
+        lastNetworkOnline = true
     }
 
     private fun scheduleTorStop() {
@@ -111,10 +129,38 @@ class TorLifecycleController @Inject constructor(
         }
     }
 
+    private fun ensureTorRestarted() {
+        if (pendingTorRestartJob?.isActive == true) return
+        pendingTorRestartJob = scope.launch {
+            pendingTorRestart = true
+            runCatching { torManager.stop() }
+                .onFailure { error ->
+                    Log.w(TAG, "Unable to stop Tor for restart after network recovery", error)
+                }
+            waitForTorState { state ->
+                state is TorStatus.Stopped || state is TorStatus.Error
+            }
+            runCatching { torManager.start() }
+                .onFailure { error ->
+                    Log.w(TAG, "Unable to start Tor after restart attempt", error)
+                }
+            val ready = waitForTorState { state ->
+                state is TorStatus.Running || state is TorStatus.Error || state is TorStatus.Stopped
+            }
+            pendingTorRestart = ready !is TorStatus.Running
+            pendingTorRestartJob = null
+        }
+    }
+
     private fun cancelPendingTorStart() {
         pendingTorStart?.cancel()
         pendingTorStart = null
     }
+
+    private suspend fun waitForTorState(predicate: (TorStatus) -> Boolean): TorStatus? =
+        withTimeoutOrNull(RESTART_TIMEOUT_MILLIS) {
+            torManager.status.first { state -> predicate(state) }
+        }
 
     private data class TorLifecycleSnapshot(
         val status: TorStatus,
@@ -125,5 +171,6 @@ class TorLifecycleController @Inject constructor(
 
     private companion object {
         private const val TAG = "TorLifecycleController"
+        private const val RESTART_TIMEOUT_MILLIS = 30_000L
     }
 }

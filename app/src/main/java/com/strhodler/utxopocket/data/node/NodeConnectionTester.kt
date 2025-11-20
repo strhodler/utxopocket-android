@@ -4,8 +4,6 @@ import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.requiresTor
-import com.strhodler.utxopocket.domain.node.EndpointScheme
-import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.domain.service.TorManager
 import javax.inject.Inject
@@ -20,38 +18,9 @@ class DefaultNodeConnectionTester @Inject constructor(
     private val torManager: TorManager
 ) : NodeConnectionTester {
 
-    override suspend fun testHostPort(host: String, port: Int): NodeConnectionTestResult =
-        test(
-            CustomNode(
-                id = "temp-host-$host-$port",
-                endpoint = NodeEndpointClassifier.buildUrl(
-                    host = host.trim(),
-                    port = port,
-                    scheme = EndpointScheme.SSL
-                )
-            )
-        )
-
-    override suspend fun testOnion(onion: String): NodeConnectionTestResult =
-        test(
-            CustomNode(
-                id = "temp-onion-$onion",
-                endpoint = buildOnionEndpoint(onion)
-            )
-        )
-
     override suspend fun test(node: CustomNode): NodeConnectionTestResult = withContext(Dispatchers.IO) {
         val normalized = node.normalizedCopy() ?: throw IllegalArgumentException("Invalid endpoint")
         val endpoint = normalized.endpoint
-
-        val requiresTor = node.requiresTor()
-        if (!requiresTor) {
-            return@withContext performConnectionTest(
-                endpoint = endpoint,
-                socksProxy = null,
-                usedTor = false
-            )
-        }
 
         return@withContext try {
             torManager.withTorProxy { proxy ->
@@ -98,15 +67,6 @@ class DefaultNodeConnectionTester @Inject constructor(
     }
 
     private fun SocksProxyConfig.toSocks5String(): String = "${this.host}:${this.port}"
-
-    private fun buildOnionEndpoint(raw: String): String {
-        val sanitized = raw.removePrefix("tcp://")
-            .removePrefix("ssl://")
-        return NodeEndpointClassifier.normalize(
-            raw = "tcp://$sanitized",
-            defaultScheme = EndpointScheme.TCP
-        ).url
-    }
 }
 
 private const val DEFAULT_FAILURE_MESSAGE = "Unable to reach node"

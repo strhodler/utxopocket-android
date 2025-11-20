@@ -34,7 +34,7 @@ class TorProxyProvider @Inject constructor(
                     is TorStatus.Running -> _proxy.value = status.proxy
                     TorStatus.Stopped -> _proxy.value = null
                     is TorStatus.Error -> _proxy.value = null
-                    is TorStatus.Connecting -> Unit
+                    is TorStatus.Connecting -> _proxy.value = null
                 }
             }
         }
