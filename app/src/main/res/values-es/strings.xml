@@ -69,10 +69,20 @@
 
     <!-- Settings -->
     <string name="settings_title">Ajustes</string>
+    <string name="settings_sections_overview">Categorías</string>
+    <string name="settings_sections_overview_description">Abre las pantallas dedicadas para billetera, seguridad e interfaz.</string>
     <string name="settings_section_security">Seguridad</string>
+    <string name="settings_security_nav_description">%1$s, borrado de emergencia</string>
+    <string name="settings_security_pin_enabled">PIN activado</string>
+    <string name="settings_security_pin_disabled">PIN desactivado</string>
     <string name="settings_section_privacy_analysis">Privacidad y análisis</string>
     <string name="settings_section_utxo_management">Gestión de UTXO</string>
+    <string name="settings_section_wallet">Billetera</string>
+    <string name="settings_wallet_nav_description">%1$s, umbral de polvo</string>
+    <string name="settings_wallet_health_on">Salud de billetera activa</string>
+    <string name="settings_wallet_health_off">Salud de billetera inactiva</string>
     <string name="settings_section_interface">Interfaz</string>
+    <string name="settings_interface_nav_description">%1$s · %2$s · %3$s</string>
     <string name="settings_unit_btc">BTC</string>
     <string name="settings_unit_sats">sats</string>
     <string name="settings_display_unit_label">Unidades de visualización</string>
@@ -82,10 +92,13 @@
     <string name="settings_theme_system">Sistema (%1$s)</string>
     <string name="settings_theme_value_light">Claro</string>
     <string name="settings_theme_value_dark">Oscuro</string>
+    <string name="settings_interface_screen_description">Configura el idioma principal, las unidades y el tema de la app.</string>
+    <string name="settings_wallet_screen_description">Controla los avisos de salud y las herramientas avanzadas de UTXO.</string>
+    <string name="settings_security_screen_description">Administra el bloqueo con PIN y ejecuta el borrado de pánico.</string>
 
     <!-- Node configuration (additional) -->
-    <string name="node_custom_add_open_button">Añadir nodo personalizado</string>
-    <string name="node_custom_add_title">Añadir nodo personalizado</string>
+    <string name="node_custom_add_open_button">Añadir nodo</string>
+    <string name="node_custom_add_title">Añadir nodo</string>
     <string name="node_custom_testing">Probando conexión…</string>
     <string name="node_custom_success">Nodo añadido</string>
     <string name="node_custom_deleted">Nodo eliminado</string>
@@ -358,7 +371,7 @@
     <string name="snackbar_dismiss_action">Cerrar notificación</string>
     <string name="node_custom_name_label">Nombre del nodo</string>
     <string name="node_custom_name_placeholder">Mi servidor Electrum</string>
-    <string name="node_custom_edit_title">Editar nodo personalizado</string>
+    <string name="node_custom_edit_title">Editar nodo</string>
     <string name="node_custom_transport_tor_label">Transporte Tor</string>
     <string name="node_custom_transport_tor_supporting">Los nodos personalizados requieren Tor. Al cambiar entre presets u onions, Tor se mantiene activo hasta que te desconectes.</string>
     <string name="settings_option_enabled">Activado</string>
@@ -490,7 +503,7 @@
     <string name="more_item_wiki_supporting">Explora temas educativos de Bitcoin y UtxoPocket incluidos offline.</string>
 
     <!-- Node & reconnect -->
-    <string name="node_custom_add_button">Probar y añadir nodo</string>
+    <string name="node_custom_add_button">Añadir nodo</string>
     <string name="node_reconnect_tor_required">Tor se iniciará automáticamente. Esto puede tardar unos segundos.</string>
     <string name="node_section_available_title">Nodos disponibles</string>
     <string name="node_section_available_description">Alterna entre los nodos preconfigurados y los tuyos para esta red.</string>

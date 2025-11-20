@@ -27,9 +27,12 @@ import com.strhodler.utxopocket.presentation.more.MoreNavigation
 import com.strhodler.utxopocket.presentation.more.MoreRoute
 import com.strhodler.utxopocket.presentation.more.PdfViewerRoute
 import com.strhodler.utxopocket.presentation.node.NodeStatusRoute
+import com.strhodler.utxopocket.presentation.settings.InterfaceSettingsRoute
+import com.strhodler.utxopocket.presentation.settings.SecuritySettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsNavigation
 import com.strhodler.utxopocket.presentation.settings.HealthParametersRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsRoute
+import com.strhodler.utxopocket.presentation.settings.WalletSettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsViewModel
 import com.strhodler.utxopocket.presentation.wallets.WalletsRoute
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
@@ -285,11 +288,53 @@ fun MainNavHost(
         }
         composable(MainDestination.Settings.route) {
             SettingsRoute(
+                onOpenInterfaceSettings = {
+                    navController.navigate(SettingsNavigation.InterfaceRoute)
+                },
+                onOpenWalletSettings = {
+                    navController.navigate(SettingsNavigation.WalletRoute)
+                },
+                onOpenSecuritySettings = {
+                    navController.navigate(SettingsNavigation.SecurityRoute)
+                }
+            )
+        }
+        composable(SettingsNavigation.InterfaceRoute) { backStackEntry ->
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(MainDestination.Settings.route)
+            }
+            val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
+            InterfaceSettingsRoute(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(SettingsNavigation.WalletRoute) { backStackEntry ->
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(MainDestination.Settings.route)
+            }
+            val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
+            WalletSettingsRoute(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
                 onOpenWikiTopic = { topicId ->
                     navController.navigate(WikiNavigation.detailRoute(topicId)) {
                         launchSingleTop = true
                     }
+                },
+                onOpenHealthParameters = {
+                    navController.navigate(SettingsNavigation.HealthParametersRoute)
                 }
+            )
+        }
+        composable(SettingsNavigation.SecurityRoute) { backStackEntry ->
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(MainDestination.Settings.route)
+            }
+            val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
+            SecuritySettingsRoute(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
             )
         }
         composable(SettingsNavigation.HealthParametersRoute) { backStackEntry ->

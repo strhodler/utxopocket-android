@@ -57,6 +57,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.ArrowDropUp
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Help
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -74,7 +75,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
-import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.presentation.MainActivity
@@ -90,6 +90,7 @@ import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
+import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.settings.model.TransactionParameterField
 import com.strhodler.utxopocket.presentation.settings.model.UtxoParameterField
 import com.strhodler.utxopocket.presentation.settings.model.TransactionHealthParameterInputs
@@ -100,31 +101,62 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsRoute(
-    onOpenWikiTopic: (String) -> Unit,
+    onOpenInterfaceSettings: () -> Unit,
+    onOpenWalletSettings: () -> Unit,
+    onOpenSecuritySettings: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var showPinSetup by rememberSaveable { mutableStateOf(false) }
-    var showPinDisable by rememberSaveable { mutableStateOf(false) }
-    var pinSetupError by remember { mutableStateOf<String?>(null) }
-    var pinDisableError by remember { mutableStateOf<String?>(null) }
-    var pinDisableLockoutExpiry by remember { mutableStateOf<Long?>(null) }
-    var pinDisableLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
-    val genericSetupErrorText = stringResource(id = R.string.pin_setup_error_generic)
-    val snackbarHostState = remember { SnackbarHostState() }
-    val context = LocalContext.current
-    val resourcesState = rememberUpdatedState(context.resources)
-    var showWalletHealthDependencyDialog by remember { mutableStateOf(false) }
-    var pendingWalletHealthDisableTarget by remember { mutableStateOf<WalletHealthDisableTarget?>(null) }
-    val panicSuccessMessage = stringResource(id = R.string.settings_panic_success_message)
-    val panicFailureMessage = stringResource(id = R.string.settings_panic_failure_message)
-    val panicInProgressLabel = stringResource(id = R.string.settings_panic_wiping)
-    var showPanicFirstConfirmation by rememberSaveable { mutableStateOf(false) }
-    var showPanicFinalConfirmation by rememberSaveable { mutableStateOf(false) }
-    var isPanicInProgress by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
 
     SetPrimaryTopBar()
+
+    SettingsScreen(
+        state = state,
+        onOpenInterfaceSettings = onOpenInterfaceSettings,
+        onOpenWalletSettings = onOpenWalletSettings,
+        onOpenSecuritySettings = onOpenSecuritySettings,
+        modifier = Modifier.fillMaxSize()
+    )
+}
+
+@Composable
+fun InterfaceSettingsRoute(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    SetSecondaryTopBar(
+        title = stringResource(id = R.string.settings_section_interface),
+        onBackClick = onBack
+    )
+
+    Scaffold(
+        contentWindowInsets = ScreenScaffoldInsets
+    ) { innerPadding ->
+        InterfaceSettingsScreen(
+            state = state,
+            onLanguageSelected = viewModel::onLanguageSelected,
+            onUnitSelected = viewModel::onUnitSelected,
+            onThemeSelected = viewModel::onThemeSelected,
+            onWalletAnimationsToggled = viewModel::onWalletAnimationsToggled,
+            modifier = Modifier
+                .fillMaxSize()
+                .applyScreenPadding(innerPadding)
+        )
+    }
+}
+
+@Composable
+fun WalletSettingsRoute(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit,
+    onOpenWikiTopic: (String) -> Unit,
+    onOpenHealthParameters: () -> Unit
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var showWalletHealthDependencyDialog by remember { mutableStateOf(false) }
+    var pendingWalletHealthDisableTarget by remember { mutableStateOf<WalletHealthDisableTarget?>(null) }
 
     val handleTransactionAnalysisToggle: (Boolean) -> Unit = { enabled ->
         if (!enabled && state.walletHealthEnabled) {
@@ -150,89 +182,27 @@ fun SettingsRoute(
         }
     }
 
-    LaunchedEffect(pinDisableLockoutExpiry, pinDisableLockoutType) {
-        val expiry = pinDisableLockoutExpiry
-        val type = pinDisableLockoutType
-        if (expiry == null || type == null) return@LaunchedEffect
-        while (true) {
-            val remaining = expiry - System.currentTimeMillis()
-            if (remaining <= 0L) {
-                pinDisableError = null
-                pinDisableLockoutExpiry = null
-                pinDisableLockoutType = null
-                break
-            }
-            pinDisableError = formatPinCountdownMessage(
-                resourcesState.value,
-                type,
-                remaining
-            )
-            delay(1_000)
-        }
-    }
+    SetSecondaryTopBar(
+        title = stringResource(id = R.string.settings_section_wallet),
+        onBackClick = onBack
+    )
 
-    LaunchedEffect(state.pinEnabled) {
-        if (state.pinEnabled) {
-            showPinSetup = false
-            pinSetupError = null
-        } else {
-            showPinDisable = false
-            pinDisableError = null
-            pinDisableLockoutExpiry = null
-            pinDisableLockoutType = null
-        }
-    }
-
-    LaunchedEffect(state.healthParameterMessageRes) {
-        val messageRes = state.healthParameterMessageRes ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(
-            message = context.getString(messageRes),
-            duration = SnackbarDuration.Short
-        )
-        viewModel.onHealthParameterMessageConsumed()
-    }
-
-    var snackbarBottomInset by remember { mutableStateOf(0.dp) }
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        snackbarHost = {
-            DismissibleSnackbarHost(
-                hostState = snackbarHostState,
-                bottomInset = snackbarBottomInset
-            )
-        },
         contentWindowInsets = ScreenScaffoldInsets
     ) { innerPadding ->
-        snackbarBottomInset = innerPadding.calculateBottomPadding()
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
         ) {
-            SettingsScreen(
+            WalletSettingsScreen(
                 state = state,
-                onLanguageSelected = viewModel::onLanguageSelected,
-                onUnitSelected = viewModel::onUnitSelected,
-                onThemeSelected = viewModel::onThemeSelected,
-                onWalletAnimationsToggled = viewModel::onWalletAnimationsToggled,
                 onTransactionAnalysisToggled = handleTransactionAnalysisToggle,
                 onUtxoHealthToggled = handleUtxoHealthToggle,
                 onWalletHealthToggled = handleWalletHealthToggle,
                 onDustThresholdChanged = viewModel::onDustThresholdChanged,
-                onPinToggleRequested = { enabled ->
-                    if (enabled) {
-                        pinSetupError = null
-                        showPinSetup = true
-                    } else {
-                        pinDisableError = null
-                        pinDisableLockoutExpiry = null
-                        pinDisableLockoutType = null
-                        showPinDisable = true
-                    }
-                },
-                onTriggerPanicWipe = { showPanicFirstConfirmation = true },
-                panicEnabled = !isPanicInProgress,
                 onOpenWikiTopic = onOpenWikiTopic,
+                onOpenHealthParameters = onOpenHealthParameters,
                 modifier = Modifier.fillMaxSize()
             )
 
@@ -294,92 +264,193 @@ fun SettingsRoute(
                     }
                 )
             }
+        }
+    }
+}
 
-    if (showPanicFirstConfirmation) {
-        AlertDialog(
-            onDismissRequest = { if (!isPanicInProgress) showPanicFirstConfirmation = false },
-            title = { Text(text = stringResource(id = R.string.settings_panic_confirm_title)) },
-            text = { Text(text = stringResource(id = R.string.settings_panic_confirm_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showPanicFirstConfirmation = false
-                        showPanicFinalConfirmation = true
-                    }
-                ) {
-                    Text(text = stringResource(id = R.string.settings_panic_confirm_continue))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPanicFirstConfirmation = false }) {
-                    Text(text = stringResource(id = R.string.settings_panic_cancel))
-                }
+@Composable
+fun SecuritySettingsRoute(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var showPinSetup by rememberSaveable { mutableStateOf(false) }
+    var showPinDisable by rememberSaveable { mutableStateOf(false) }
+    var pinSetupError by remember { mutableStateOf<String?>(null) }
+    var pinDisableError by remember { mutableStateOf<String?>(null) }
+    var pinDisableLockoutExpiry by remember { mutableStateOf<Long?>(null) }
+    var pinDisableLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
+    val genericSetupErrorText = stringResource(id = R.string.pin_setup_error_generic)
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val resourcesState = rememberUpdatedState(context.resources)
+    val panicSuccessMessage = stringResource(id = R.string.settings_panic_success_message)
+    val panicFailureMessage = stringResource(id = R.string.settings_panic_failure_message)
+    val panicInProgressLabel = stringResource(id = R.string.settings_panic_wiping)
+    var showPanicFirstConfirmation by rememberSaveable { mutableStateOf(false) }
+    var showPanicFinalConfirmation by rememberSaveable { mutableStateOf(false) }
+    var isPanicInProgress by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(pinDisableLockoutExpiry, pinDisableLockoutType) {
+        val expiry = pinDisableLockoutExpiry
+        val type = pinDisableLockoutType
+        if (expiry == null || type == null) return@LaunchedEffect
+        while (true) {
+            val remaining = expiry - System.currentTimeMillis()
+            if (remaining <= 0L) {
+                pinDisableError = null
+                pinDisableLockoutExpiry = null
+                pinDisableLockoutType = null
+                break
             }
-        )
+            pinDisableError = formatPinCountdownMessage(
+                resourcesState.value,
+                type,
+                remaining
+            )
+            delay(1_000)
+        }
     }
 
-    if (showPanicFinalConfirmation) {
-        AlertDialog(
-            onDismissRequest = { if (!isPanicInProgress) showPanicFinalConfirmation = false },
-            title = { Text(text = stringResource(id = R.string.settings_panic_final_title)) },
-            text = { Text(text = stringResource(id = R.string.settings_panic_final_message)) },
-            confirmButton = {
-                TextButton(
-                    enabled = !isPanicInProgress,
-                    onClick = {
-                        if (!isPanicInProgress) {
-                            isPanicInProgress = true
-                            viewModel.wipeAllWalletData { success ->
-                                isPanicInProgress = false
-                                if (success) {
-                                    showPanicFinalConfirmation = false
-                                    showPanicFirstConfirmation = false
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            message = panicSuccessMessage,
-                                            duration = SnackbarDuration.Long,
-                                            withDismissAction = true
-                                        )
-                                        restartApplication(context)
-                                    }
-                                } else {
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            message = panicFailureMessage,
-                                            duration = SnackbarDuration.Long
-                                        )
+    LaunchedEffect(state.pinEnabled) {
+        if (state.pinEnabled) {
+            showPinSetup = false
+            pinSetupError = null
+        } else {
+            showPinDisable = false
+            pinDisableError = null
+            pinDisableLockoutExpiry = null
+            pinDisableLockoutType = null
+        }
+    }
+
+    SetSecondaryTopBar(
+        title = stringResource(id = R.string.settings_section_security),
+        onBackClick = onBack
+    )
+
+    var snackbarBottomInset by remember { mutableStateOf(0.dp) }
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        snackbarHost = {
+            DismissibleSnackbarHost(
+                hostState = snackbarHostState,
+                bottomInset = snackbarBottomInset
+            )
+        },
+        contentWindowInsets = ScreenScaffoldInsets
+    ) { innerPadding ->
+        snackbarBottomInset = innerPadding.calculateBottomPadding()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .applyScreenPadding(innerPadding)
+        ) {
+            SecuritySettingsScreen(
+                state = state,
+                onPinToggleRequested = { enabled ->
+                    if (enabled) {
+                        pinSetupError = null
+                        showPinSetup = true
+                    } else {
+                        pinDisableError = null
+                        pinDisableLockoutExpiry = null
+                        pinDisableLockoutType = null
+                        showPinDisable = true
+                    }
+                },
+                onTriggerPanicWipe = { showPanicFirstConfirmation = true },
+                panicEnabled = !isPanicInProgress,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            if (showPanicFirstConfirmation) {
+                AlertDialog(
+                    onDismissRequest = { if (!isPanicInProgress) showPanicFirstConfirmation = false },
+                    title = { Text(text = stringResource(id = R.string.settings_panic_confirm_title)) },
+                    text = { Text(text = stringResource(id = R.string.settings_panic_confirm_message)) },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showPanicFirstConfirmation = false
+                                showPanicFinalConfirmation = true
+                            }
+                        ) {
+                            Text(text = stringResource(id = R.string.settings_panic_confirm_continue))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showPanicFirstConfirmation = false }) {
+                            Text(text = stringResource(id = R.string.settings_panic_cancel))
+                        }
+                    }
+                )
+            }
+
+            if (showPanicFinalConfirmation) {
+                AlertDialog(
+                    onDismissRequest = { if (!isPanicInProgress) showPanicFinalConfirmation = false },
+                    title = { Text(text = stringResource(id = R.string.settings_panic_final_title)) },
+                    text = { Text(text = stringResource(id = R.string.settings_panic_final_message)) },
+                    confirmButton = {
+                        TextButton(
+                            enabled = !isPanicInProgress,
+                            onClick = {
+                                if (!isPanicInProgress) {
+                                    isPanicInProgress = true
+                                    viewModel.wipeAllWalletData { success ->
+                                        isPanicInProgress = false
+                                        if (success) {
+                                            showPanicFinalConfirmation = false
+                                            showPanicFirstConfirmation = false
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar(
+                                                    message = panicSuccessMessage,
+                                                    duration = SnackbarDuration.Long,
+                                                    withDismissAction = true
+                                                )
+                                                restartApplication(context)
+                                            }
+                                        } else {
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar(
+                                                    message = panicFailureMessage,
+                                                    duration = SnackbarDuration.Long
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
-                        }
-                    }
-                ) {
-                    if (isPanicInProgress) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp
-                            )
-                            Text(text = panicInProgressLabel)
+                            if (isPanicInProgress) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Text(text = panicInProgressLabel)
+                                }
+                            } else {
+                                Text(text = stringResource(id = R.string.settings_panic_confirm_action))
+                            }
                         }
-                    } else {
-                        Text(text = stringResource(id = R.string.settings_panic_confirm_action))
+                    },
+                    dismissButton = {
+                        TextButton(
+                            enabled = !isPanicInProgress,
+                            onClick = { showPanicFinalConfirmation = false }
+                        ) {
+                            Text(text = stringResource(id = R.string.settings_panic_cancel))
+                        }
                     }
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    enabled = !isPanicInProgress,
-                    onClick = { showPanicFinalConfirmation = false }
-                ) {
-                    Text(text = stringResource(id = R.string.settings_panic_cancel))
-                }
+                )
             }
-        )
-    }
 
             if (showPinSetup) {
                 PinSetupScreen(
@@ -482,18 +553,9 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 @Composable
 fun SettingsScreen(
     state: SettingsUiState,
-    onLanguageSelected: (AppLanguage) -> Unit,
-    onUnitSelected: (BalanceUnit) -> Unit,
-    onThemeSelected: (ThemePreference) -> Unit,
-    onWalletAnimationsToggled: (Boolean) -> Unit,
-    onTransactionAnalysisToggled: (Boolean) -> Unit,
-    onUtxoHealthToggled: (Boolean) -> Unit,
-    onWalletHealthToggled: (Boolean) -> Unit,
-    onDustThresholdChanged: (String) -> Unit,
-    onPinToggleRequested: (Boolean) -> Unit,
-    onTriggerPanicWipe: () -> Unit,
-    panicEnabled: Boolean,
-    onOpenWikiTopic: (String) -> Unit,
+    onOpenInterfaceSettings: () -> Unit,
+    onOpenWalletSettings: () -> Unit,
+    onOpenSecuritySettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -507,16 +569,161 @@ fun SettingsScreen(
             text = stringResource(id = R.string.settings_title),
             style = MaterialTheme.typography.headlineSmall
         )
+        Text(
+            text = stringResource(id = R.string.settings_sections_overview_description),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
-        SettingsCard(title = stringResource(id = R.string.settings_section_security)) {
-            SettingsSwitchRow(
-                title = stringResource(id = R.string.settings_pin_title),
-                checked = state.pinEnabled,
-                onCheckedChange = onPinToggleRequested,
-                supportingText = stringResource(id = R.string.settings_pin_subtitle)
+        SettingsCard(title = stringResource(id = R.string.settings_sections_overview)) {
+            val languageLabel = rememberLanguageLabeler()
+            val unitLabel = rememberUnitLabeler()
+            val themeLabel = rememberThemePreferenceLabeler()
+            val interfaceSummary = stringResource(
+                id = R.string.settings_interface_nav_description,
+                languageLabel(state.appLanguage),
+                unitLabel(state.preferredUnit),
+                themeLabel(state.themePreference)
+            )
+            SettingsNavigationRow(
+                title = stringResource(id = R.string.settings_section_interface),
+                supportingText = interfaceSummary,
+                onClick = onOpenInterfaceSettings
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            val pinStatus = stringResource(
+                id = if (state.pinEnabled) {
+                    R.string.settings_security_pin_enabled
+                } else {
+                    R.string.settings_security_pin_disabled
+                }
+            )
+            SettingsNavigationRow(
+                title = stringResource(id = R.string.settings_section_security),
+                supportingText = stringResource(
+                    id = R.string.settings_security_nav_description,
+                    pinStatus
+                ),
+                onClick = onOpenSecuritySettings
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            val walletHealthStatus = stringResource(
+                id = if (state.walletHealthEnabled) {
+                    R.string.settings_wallet_health_on
+                } else {
+                    R.string.settings_wallet_health_off
+                }
+            )
+            SettingsNavigationRow(
+                title = stringResource(id = R.string.settings_section_wallet),
+                supportingText = stringResource(
+                    id = R.string.settings_wallet_nav_description,
+                    walletHealthStatus
+                ),
+                onClick = onOpenWalletSettings
             )
         }
+    }
+}
 
+@Composable
+private fun InterfaceSettingsScreen(
+    state: SettingsUiState,
+    onLanguageSelected: (AppLanguage) -> Unit,
+    onUnitSelected: (BalanceUnit) -> Unit,
+    onThemeSelected: (ThemePreference) -> Unit,
+    onWalletAnimationsToggled: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val languageLabel = rememberLanguageLabeler()
+    val unitLabel = rememberUnitLabeler()
+    val themeLabel = rememberThemePreferenceLabeler()
+    val animationsLabel = rememberAnimationsLabeler()
+    val languageOptions = remember { AppLanguage.entries.toList() }
+    val unitOptions = remember { BalanceUnit.entries.toList() }
+    val themeOptions = remember { ThemePreference.entries.toList() }
+    val animationOptions = remember { listOf(true, false) }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = stringResource(id = R.string.settings_section_interface),
+            style = MaterialTheme.typography.headlineSmall
+        )
+        Text(
+            text = stringResource(id = R.string.settings_interface_screen_description),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        SettingsCard(title = stringResource(id = R.string.settings_section_interface)) {
+            SettingsSelectRow(
+                title = stringResource(id = R.string.settings_language_label),
+                selectedLabel = languageLabel(state.appLanguage),
+                options = languageOptions,
+                optionLabel = languageLabel,
+                onOptionSelected = onLanguageSelected
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            SettingsSelectRow(
+                title = stringResource(id = R.string.settings_display_unit_label),
+                selectedLabel = unitLabel(state.preferredUnit),
+                options = unitOptions,
+                optionLabel = unitLabel,
+                onOptionSelected = onUnitSelected
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            SettingsSelectRow(
+                title = stringResource(id = R.string.settings_theme_label),
+                selectedLabel = themeLabel(state.themePreference),
+                options = themeOptions,
+                optionLabel = themeLabel,
+                onOptionSelected = onThemeSelected
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            SettingsSelectRow(
+                title = stringResource(id = R.string.settings_wallet_animations_title),
+                selectedLabel = animationsLabel(state.walletAnimationsEnabled),
+                options = animationOptions,
+                optionLabel = animationsLabel,
+                onOptionSelected = onWalletAnimationsToggled,
+                supportingText = stringResource(id = R.string.settings_wallet_animations_description)
+            )
+        }
+    }
+}
+
+@Composable
+private fun WalletSettingsScreen(
+    state: SettingsUiState,
+    onTransactionAnalysisToggled: (Boolean) -> Unit,
+    onUtxoHealthToggled: (Boolean) -> Unit,
+    onWalletHealthToggled: (Boolean) -> Unit,
+    onDustThresholdChanged: (String) -> Unit,
+    onOpenWikiTopic: (String) -> Unit,
+    onOpenHealthParameters: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = stringResource(id = R.string.settings_section_wallet),
+            style = MaterialTheme.typography.headlineSmall
+        )
+        Text(
+            text = stringResource(id = R.string.settings_wallet_screen_description),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         SettingsCard(
             title = stringResource(id = R.string.settings_section_privacy_analysis),
             headerAction = {
@@ -557,6 +764,10 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Spacer(modifier = Modifier.height(8.dp))
+            TextButton(onClick = onOpenHealthParameters) {
+                Text(text = stringResource(id = R.string.settings_health_parameters_cta))
+            }
         }
 
         SettingsCard(title = stringResource(id = R.string.settings_section_utxo_management)) {
@@ -587,81 +798,41 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
 
-        SettingsCard(title = stringResource(id = R.string.settings_section_interface)) {
-            val englishLabel = stringResource(id = R.string.settings_language_value_en)
-            val spanishLabel = stringResource(id = R.string.settings_language_value_es)
-            val languageLabel: (AppLanguage) -> String = { language ->
-                when (language) {
-                    AppLanguage.EN -> englishLabel
-                    AppLanguage.ES -> spanishLabel
-                }
-            }
-            val languageOptions = remember { AppLanguage.entries.toList() }
-            SettingsSelectRow(
-                title = stringResource(id = R.string.settings_language_label),
-                selectedLabel = languageLabel(state.appLanguage),
-                options = languageOptions,
-                optionLabel = languageLabel,
-                onOptionSelected = onLanguageSelected
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            val btcLabel = stringResource(id = R.string.settings_unit_btc)
-            val satsLabel = stringResource(id = R.string.settings_unit_sats)
-            val unitLabel: (BalanceUnit) -> String = { unit ->
-                when (unit) {
-                    BalanceUnit.BTC -> btcLabel
-                    BalanceUnit.SATS -> satsLabel
-                }
-            }
-            val unitOptions = remember { BalanceUnit.entries.toList() }
-            SettingsSelectRow(
-                title = stringResource(id = R.string.settings_display_unit_label),
-                selectedLabel = unitLabel(state.preferredUnit),
-                options = unitOptions,
-                optionLabel = unitLabel,
-                onOptionSelected = onUnitSelected
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            val systemInDarkTheme = isSystemInDarkTheme()
-            val lightLabel = stringResource(id = R.string.settings_theme_value_light)
-            val darkLabel = stringResource(id = R.string.settings_theme_value_dark)
-            val systemLabel = stringResource(
-                id = R.string.settings_theme_system,
-                if (systemInDarkTheme) darkLabel else lightLabel
-            )
-            val themeOptions = remember { ThemePreference.entries.toList() }
-            val themeLabel: (ThemePreference) -> String = { preference ->
-                when (preference) {
-                    ThemePreference.SYSTEM -> systemLabel
-                    ThemePreference.LIGHT -> lightLabel
-                    ThemePreference.DARK -> darkLabel
-                }
-            }
-            SettingsSelectRow(
-                title = stringResource(id = R.string.settings_theme_label),
-                selectedLabel = themeLabel(state.themePreference),
-                options = themeOptions,
-                optionLabel = themeLabel,
-                onOptionSelected = onThemeSelected
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            val enabledLabel = stringResource(id = R.string.settings_option_enabled)
-            val disabledLabel = stringResource(id = R.string.settings_option_disabled)
-            val walletAnimationOptions = remember { listOf(true, false) }
-            val walletAnimationsLabel: (Boolean) -> String = { enabled ->
-                if (enabled) enabledLabel else disabledLabel
-            }
-            SettingsSelectRow(
-                title = stringResource(id = R.string.settings_wallet_animations_title),
-                selectedLabel = walletAnimationsLabel(state.walletAnimationsEnabled),
-                options = walletAnimationOptions,
-                optionLabel = walletAnimationsLabel,
-                onOptionSelected = onWalletAnimationsToggled,
-                supportingText = stringResource(id = R.string.settings_wallet_animations_description)
+@Composable
+private fun SecuritySettingsScreen(
+    state: SettingsUiState,
+    onPinToggleRequested: (Boolean) -> Unit,
+    onTriggerPanicWipe: () -> Unit,
+    panicEnabled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = stringResource(id = R.string.settings_section_security),
+            style = MaterialTheme.typography.headlineSmall
+        )
+        Text(
+            text = stringResource(id = R.string.settings_security_screen_description),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        SettingsCard(title = stringResource(id = R.string.settings_section_security)) {
+            SettingsSwitchRow(
+                title = stringResource(id = R.string.settings_pin_title),
+                checked = state.pinEnabled,
+                onCheckedChange = onPinToggleRequested,
+                supportingText = stringResource(id = R.string.settings_pin_subtitle)
             )
         }
-
         SettingsCard(title = stringResource(id = R.string.settings_danger_zone_title)) {
             Text(
                 text = stringResource(id = R.string.settings_panic_description),
@@ -682,7 +853,6 @@ fun SettingsScreen(
             }
         }
     }
-
 }
 
 @Composable
@@ -715,6 +885,38 @@ private fun SettingsCard(
             content()
         }
     }
+}
+
+@Composable
+private fun SettingsNavigationRow(
+    title: String,
+    supportingText: String,
+    onClick: () -> Unit
+) {
+    ListItem(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(onClick = onClick),
+        headlineContent = {
+            Text(text = title, style = MaterialTheme.typography.bodyLarge)
+        },
+        supportingContent = {
+            Text(
+                text = supportingText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        trailingContent = {
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    )
 }
 
 @Composable
@@ -835,6 +1037,63 @@ private fun <T> SettingsSelectRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+@Composable
+private fun rememberLanguageLabeler(): (AppLanguage) -> String {
+    val englishLabel = stringResource(id = R.string.settings_language_value_en)
+    val spanishLabel = stringResource(id = R.string.settings_language_value_es)
+    return remember(englishLabel, spanishLabel) {
+        { language ->
+            when (language) {
+                AppLanguage.EN -> englishLabel
+                AppLanguage.ES -> spanishLabel
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberUnitLabeler(): (BalanceUnit) -> String {
+    val btcLabel = stringResource(id = R.string.settings_unit_btc)
+    val satsLabel = stringResource(id = R.string.settings_unit_sats)
+    return remember(btcLabel, satsLabel) {
+        { unit ->
+            when (unit) {
+                BalanceUnit.BTC -> btcLabel
+                BalanceUnit.SATS -> satsLabel
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberThemePreferenceLabeler(): (ThemePreference) -> String {
+    val systemInDarkTheme = isSystemInDarkTheme()
+    val lightLabel = stringResource(id = R.string.settings_theme_value_light)
+    val darkLabel = stringResource(id = R.string.settings_theme_value_dark)
+    val systemLabel = stringResource(
+        id = R.string.settings_theme_system,
+        if (systemInDarkTheme) darkLabel else lightLabel
+    )
+    return remember(systemLabel, lightLabel, darkLabel) {
+        { preference ->
+            when (preference) {
+                ThemePreference.SYSTEM -> systemLabel
+                ThemePreference.LIGHT -> lightLabel
+                ThemePreference.DARK -> darkLabel
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberAnimationsLabeler(): (Boolean) -> String {
+    val enabledLabel = stringResource(id = R.string.settings_option_enabled)
+    val disabledLabel = stringResource(id = R.string.settings_option_disabled)
+    return remember(enabledLabel, disabledLabel) {
+        { enabled -> if (enabled) enabledLabel else disabledLabel }
     }
 }
 
