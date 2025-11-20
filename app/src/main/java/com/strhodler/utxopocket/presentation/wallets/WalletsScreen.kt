@@ -79,6 +79,7 @@ import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.ConnectionIssueBanner
 import com.strhodler.utxopocket.presentation.components.ConnectionIssueBannerStyle
+import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.components.TorStatusBanner
 import com.strhodler.utxopocket.presentation.components.RefreshableContent
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
@@ -89,9 +90,13 @@ import com.strhodler.utxopocket.presentation.wallets.components.toTheme
 import com.strhodler.utxopocket.presentation.wallets.components.walletCardBackground
 import com.strhodler.utxopocket.presentation.wallets.components.walletShimmer
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
+import androidx.compose.material.icons.outlined.Router
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 private const val TestnetFaucetsTopicId = "testnet-faucets"
 private const val DefaultBalanceAnimationDuration = 220
+private val BannerReservedHeight: Dp = 72.dp
 
 @Composable
 fun WalletsRoute(
@@ -201,15 +206,13 @@ private fun WalletsContent(
 
     val torStatus = state.torStatus
     val showTorStatusBanner = state.torRequired || torStatus !is TorStatus.Stopped
-
+    val isNodeConnected = state.nodeStatus is NodeStatus.Synced
+    val isNodeConnecting = state.nodeStatus is NodeStatus.Connecting
     val hasWalletErrors = state.wallets.any { it.lastSyncStatus is NodeStatus.Error }
     val sanitizedErrorMessage = state.errorMessage.takeUnless { hasWalletErrors }?.takeIf { it.isNotBlank() }
-    val showDisconnectedBanner = state.nodeStatus == NodeStatus.Idle
-    val connectionBannerMessage = when {
-        sanitizedErrorMessage != null -> sanitizedErrorMessage
-        showDisconnectedBanner -> stringResource(id = R.string.wallets_node_disconnected_banner)
-        else -> null
-    }
+    val showDisconnectedBanner = !isNodeConnected &&
+        state.nodeStatus !is NodeStatus.Connecting &&
+        !state.isRefreshing
 
     RefreshableContent(
         isRefreshing = state.isRefreshing,
@@ -236,24 +239,77 @@ private fun WalletsContent(
                 .padding(vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (showTorStatusBanner) {
-                TorStatusBanner(
-                    status = torStatus,
-                    isNetworkOnline = isNetworkOnline,
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .fillMaxWidth(),
-                    onClick = onConnectTor
-                )
+            val banner: (@Composable () -> Unit)? = when {
+                !isNetworkOnline -> {
+                    {
+                        TorStatusBanner(
+                            status = torStatus,
+                            isNetworkOnline = false,
+                            onClick = onConnectTor
+                        )
+                    }
+                }
+                showTorStatusBanner && torStatus !is TorStatus.Running -> {
+                    {
+                        TorStatusBanner(
+                            status = torStatus,
+                            isNetworkOnline = true,
+                            onClick = onConnectTor
+                        )
+                    }
+                }
+                isNodeConnecting -> {
+                    {
+                        ActionableStatusBanner(
+                            title = stringResource(id = R.string.wallets_node_connecting_banner),
+                            supporting = stringResource(id = R.string.wallets_manage_connection_action),
+                            icon = Icons.Outlined.Router,
+                            onClick = onSelectNode
+                        )
+                    }
+                }
+                showDisconnectedBanner -> {
+                    sanitizedErrorMessage?.let { message ->
+                        {
+                            ConnectionIssueBanner(
+                                message = message,
+                                primaryLabel = stringResource(id = R.string.wallets_manage_connection_action),
+                                onPrimaryClick = onSelectNode,
+                                style = ConnectionIssueBannerStyle.Error
+                            )
+                        }
+                    } ?: run {
+                        {
+                            val (title, supporting) =
+                                stringResource(id = R.string.wallets_node_disconnected_banner) to
+                                    stringResource(id = R.string.wallets_manage_connection_action)
+                            ActionableStatusBanner(
+                                title = title,
+                                supporting = supporting,
+                                icon = Icons.Outlined.Router,
+                                onClick = onSelectNode
+                            )
+                        }
+                    }
+                }
+                else -> null
             }
-            if (connectionBannerMessage != null) {
-                ConnectionIssueBanner(
-                    message = connectionBannerMessage,
-                    primaryLabel = stringResource(id = R.string.wallets_manage_connection_action),
-                    onPrimaryClick = onSelectNode,
+
+            if (!isNodeConnected) {
+                Box(
                     modifier = Modifier
                         .padding(horizontal = 16.dp)
                         .fillMaxWidth()
+                        .heightIn(min = BannerReservedHeight)
+                ) {
+                    banner?.invoke()
+                }
+            } else {
+                Spacer(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth()
+                        .height(BannerReservedHeight)
                 )
             }
             WalletsList(

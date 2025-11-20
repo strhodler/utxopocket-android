@@ -69,7 +69,8 @@
     <string name="wallets_node_prompt_description">Choose the node you want to sync with before adding descriptors.</string>
     <string name="wallets_node_prompt_action">Select node</string>
     <string name="wallets_node_prompt_wiki_cta">Learn how to connect via Tor</string>
-    <string name="wallets_node_disconnected_banner">No node connection. Manage your nodes to resume syncing.</string>
+    <string name="wallets_node_disconnected_banner">No node connection</string>
+    <string name="wallets_node_connecting_banner">Connecting to node</string>
     <string name="wallets_manage_connection_action">Manage connection</string>
     <string name="wallets_add_wallet_secondary">Add wallet</string>
     <string name="wallets_empty_add_action">Add wallet</string>
@@ -414,7 +415,7 @@
     <string name="tor_status_banner_stopped_title">Tor disconnected. Start Tor before connecting to nodes.</string>
     <string name="tor_status_banner_action">Open Tor status</string>
     <string name="tor_status_banner_offline_title">No network connection</string>
-    <string name="tor_status_banner_offline_supporting">Connect Wi‑Fi or mobile data before starting Tor.</string>
+    <string name="tor_status_banner_offline_supporting">Connect Wi‑Fi or mobile data.</string>
     <string name="status_block_height_short">Block %1$s</string>
     <string name="status_fee_rate_short">%1$s sat/vB</string>
     <string name="status_node_block_height_label">Block height</string>

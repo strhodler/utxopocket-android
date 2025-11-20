@@ -395,7 +395,7 @@
     <string name="tor_status_banner_stopped_title">Tor está desconectado. Inícialo antes de conectarte a un nodo.</string>
     <string name="tor_status_banner_action">Abrir estado de Tor</string>
     <string name="tor_status_banner_offline_title">Sin conexión de red</string>
-    <string name="tor_status_banner_offline_supporting">Activa Wi‑Fi o datos móviles antes de iniciar Tor.</string>
+    <string name="tor_status_banner_offline_supporting">Activa Wi‑Fi o datos móviles.</string>
     <string name="node_overview_title">Centro del nodo</string>
     <string name="node_overview_details_empty">Este nodo no expone información de conexión.</string>
     <string name="node_overview_fee_rate_title">Tarifa sugerida</string>
@@ -811,7 +811,8 @@
 
     <!-- Wiki CTA in wallets list -->
     <string name="wallets_node_prompt_wiki_cta">Aprende a conectarte vía Tor</string>
-    <string name="wallets_node_disconnected_banner">Sin conexión de nodo. Gestiona tus nodos para reanudar la sincronización.</string>
+    <string name="wallets_node_disconnected_banner">Sin conexión de nodo</string>
+    <string name="wallets_node_connecting_banner">Conectando al nodo</string>
     <string name="wallets_manage_connection_action">Gestionar conexión</string>
 
     <!-- Wallet descriptor types (duplicated mapping for detail lists) -->

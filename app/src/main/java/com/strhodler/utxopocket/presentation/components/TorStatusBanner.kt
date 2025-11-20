@@ -92,7 +92,7 @@ fun TorStatusBanner(
         is TorStatus.Error,
         TorStatus.Stopped -> if (showChevron) bannerState.supporting else null
         else -> bannerState.supporting
-    }
+    } ?: ""
     val clickableModifier = if (onClick != null) {
         modifier
             .fillMaxWidth()
@@ -127,18 +127,18 @@ fun TorStatusBanner(
                     text = bannerState.title,
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = bannerState.content,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                supportingText?.takeIf { it.isNotBlank() }?.let { supporting ->
-                    Text(
-                        text = supporting,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = bannerState.content.copy(alpha = 0.8f),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                Text(
+                    text = supportingText.ifBlank { " " },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = bannerState.content.copy(
+                        alpha = if (supportingText.isBlank()) 0f else 0.8f
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
             if (showChevron) {
                 Spacer(modifier = Modifier.width(4.dp))
