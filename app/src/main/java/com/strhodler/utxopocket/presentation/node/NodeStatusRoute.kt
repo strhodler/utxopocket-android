@@ -356,17 +356,12 @@ private fun NodeStatusScreen(
         }
     }
     val pagerScope = rememberCoroutineScope()
-    val configuration = LocalConfiguration.current
     Scaffold(
         snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
         contentWindowInsets = ScreenScaffoldInsets
     ) { innerPadding ->
         val contentPadding = PaddingValues(bottom = 32.dp)
-        val topContentPadding = 0.dp
-        val pagerMinHeight = remember(configuration.screenHeightDp, topContentPadding) {
-            val screenHeight = configuration.screenHeightDp.dp
-            (screenHeight - topContentPadding - NodeTabsHeight).coerceAtLeast(280.dp)
-        }
+        val pagerMinHeight = NodePagerMinHeight
 
         LazyColumn(
             modifier = Modifier
@@ -406,6 +401,9 @@ private fun NodeStatusScreen(
                     )
                 }
             }
+            item("tabs_spacing") {
+                Spacer(modifier = Modifier.height(NodeTabsContentSpacing))
+            }
             item("pager") {
                 HorizontalPager(
                     state = pagerState,
@@ -440,7 +438,6 @@ private fun NodeStatusScreen(
                                 onDisconnect = onDisconnect
                             )
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
             }
@@ -947,6 +944,8 @@ private enum class NodeStatusTab(
 }
 
 private val NodeTabsHeight = 48.dp
+private val NodeTabsContentSpacing = 12.dp
+private val NodePagerMinHeight = 200.dp
 
 @Composable
 private fun NodeStatusIcon(
