@@ -64,7 +64,8 @@
     <string name="wallets_empty_description">Add your first wallet to start tracking balances.</string>
     <string name="wallets_empty_wiki_cta">Visit the Wiki to learn more about Bitcoin.</string>
     <string name="wallets_add_wallet_action">Add wallet</string>
-    <string name="wallets_add_wallet_disabled_hint">Connect to the node before adding a wallet.</string>
+    <string name="wallets_add_wallet_disabled_hint">Select a node before adding a wallet.</string>
+    <string name="wallets_add_wallet_pending_sync_hint">New wallets will sync once the node reconnects.</string>
     <string name="wallets_node_prompt_title">Select a node to get started</string>
     <string name="wallets_node_prompt_description">Choose the node you want to sync with before adding descriptors.</string>
     <string name="wallets_node_prompt_action">Select node</string>

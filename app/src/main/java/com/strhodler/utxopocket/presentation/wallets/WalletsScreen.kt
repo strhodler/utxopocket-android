@@ -188,8 +188,8 @@ private fun WalletsContent(
         state.isRefreshing &&
             (state.nodeStatus is NodeStatus.Connecting || state.nodeStatus == NodeStatus.WaitingForTor)
         )
-    val canAddWallet = state.nodeStatus is NodeStatus.Synced
-    val showNodePrompt = state.wallets.isEmpty() && state.nodeStatus !is NodeStatus.Synced
+    val canAddWallet = state.hasActiveNodeSelection
+    val showNodePrompt = state.wallets.isEmpty() && !state.hasActiveNodeSelection
 
     val torStatus = state.torStatus
     val showTorStatusBanner = state.torRequired || torStatus !is TorStatus.Stopped
@@ -200,6 +200,7 @@ private fun WalletsContent(
     val showDisconnectedBanner = !isNodeConnected &&
         state.nodeStatus !is NodeStatus.Connecting &&
         !state.isRefreshing
+    val showPendingSyncHint = canAddWallet && !isNodeConnected
 
     val banner: (@Composable () -> Unit)? = when {
         !isNetworkOnline -> {
@@ -326,6 +327,7 @@ private fun WalletsContent(
                 onWalletSelected = onWalletSelected,
                 onAddWallet = onAddWallet,
                 canAddWallet = canAddWallet,
+                showPendingSyncHint = showPendingSyncHint,
                 showNodePrompt = showNodePrompt,
                 walletAnimationsEnabled = state.walletAnimationsEnabled,
                 isRefreshing = state.isRefreshing,
@@ -359,6 +361,7 @@ private fun WalletsList(
     onWalletSelected: (Long, String) -> Unit,
     onAddWallet: () -> Unit,
     canAddWallet: Boolean,
+    showPendingSyncHint: Boolean,
     showNodePrompt: Boolean,
     walletAnimationsEnabled: Boolean,
     isRefreshing: Boolean,
@@ -384,6 +387,7 @@ private fun WalletsList(
                     onOpenWiki = onOpenWiki,
                     onAddWallet = onAddWallet,
                     canAddWallet = canAddWallet,
+                    showPendingSyncHint = showPendingSyncHint,
                     modifier = centerModifier
                 )
             }
@@ -428,6 +432,15 @@ private fun WalletsList(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = stringResource(id = R.string.wallets_add_wallet_disabled_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                } else if (showPendingSyncHint) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(id = R.string.wallets_add_wallet_pending_sync_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.fillMaxWidth(),
@@ -672,6 +685,7 @@ private fun EmptyState(
     onOpenWiki: () -> Unit,
     onAddWallet: () -> Unit,
     canAddWallet: Boolean,
+    showPendingSyncHint: Boolean,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -703,6 +717,17 @@ private fun EmptyState(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = stringResource(id = R.string.wallets_add_wallet_disabled_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
+            } else if (showPendingSyncHint) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(id = R.string.wallets_add_wallet_pending_sync_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

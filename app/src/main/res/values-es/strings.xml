@@ -364,7 +364,8 @@
     <string name="disclaimer_point_security_storage">Seguridad y almacenamiento: los datos locales están cifrados, pero un dispositivo comprometido o una mala configuración pueden exponerlos. Eres responsable de tu configuración, copias de seguridad y controles de acceso.</string>
     <string name="disclaimer_point_network_trust">Red y modelo de confianza: todo el tráfico se encamina por Tor hacia los servidores Electrum que elijas. Las respuestas del servidor pueden ser maliciosas o inexactas; verifica con tu propio nodo cuando sea posible.</string>
     <string name="disclaimer_footer">Al usar UtxoPocket aceptas estos términos y utilizas el software bajo tu propio riesgo.</string>
-    <string name="wallets_add_wallet_disabled_hint">Conecta el nodo antes de añadir una billetera.</string>
+    <string name="wallets_add_wallet_disabled_hint">Selecciona un nodo antes de añadir una billetera.</string>
+    <string name="wallets_add_wallet_pending_sync_hint">Las billeteras nuevas se sincronizarán cuando el nodo se conecte.</string>
     <string name="wallets_node_prompt_title">Selecciona un nodo para comenzar</string>
     <string name="wallets_node_prompt_description">Elige el nodo con el que deseas sincronizarte antes de añadir descriptores.</string>
     <string name="wallets_node_prompt_action">Seleccionar nodo</string>
