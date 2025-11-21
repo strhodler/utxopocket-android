@@ -16,6 +16,9 @@ import com.strhodler.utxopocket.domain.model.hasActiveSelection
 import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.DEFAULT_PIN_AUTO_LOCK_MINUTES
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_PIN_AUTO_LOCK_MINUTES
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_PIN_AUTO_LOCK_MINUTES
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.TorManager
@@ -30,6 +33,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.minutes
 
 data class StatusBarUiState(
     val torStatus: TorStatus = TorStatus.Connecting(),
@@ -70,6 +74,16 @@ class MainActivityViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = false
     )
+    private val pinLastUnlockedState = appPreferencesRepository.pinLastUnlockedAt.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = null
+    )
+    private val pinAutoLockMinutesState = appPreferencesRepository.pinAutoLockTimeoutMinutes.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = DEFAULT_PIN_AUTO_LOCK_MINUTES
+    )
 
     private val lockState = MutableStateFlow(false)
     private val torLifecycleController = TorLifecycleController(
@@ -89,7 +103,19 @@ class MainActivityViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            combine(
+                pinEnabledState,
+                pinLastUnlockedState,
+                pinAutoLockMinutesState
+            ) { enabled, lastUnlocked, timeoutMinutes ->
+                shouldLockNow(enabled, lastUnlocked, timeoutMinutes)
+            }.collect { shouldLock ->
+                lockState.value = shouldLock
+            }
+        }
         torLifecycleController.start()
+        refreshLockState()
     }
 
     val uiState: StateFlow<AppEntryUiState> = combine(
@@ -157,9 +183,7 @@ class MainActivityViewModel @Inject constructor(
     )
 
     fun onAppForegrounded() {
-        if (pinEnabledState.value) {
-            lockState.value = true
-        }
+        refreshLockState()
         walletRepository.setSyncForegroundState(true)
         viewModelScope.launch {
             resumeNodeIfNeeded()
@@ -167,9 +191,6 @@ class MainActivityViewModel @Inject constructor(
     }
 
     fun onAppBackgrounded() {
-        if (pinEnabledState.value) {
-            lockState.value = true
-        }
         walletRepository.setSyncForegroundState(false)
     }
 
@@ -182,6 +203,7 @@ class MainActivityViewModel @Inject constructor(
             }
             val result = appPreferencesRepository.verifyPin(pin)
             if (result is PinVerificationResult.Success) {
+                appPreferencesRepository.markPinUnlocked()
                 lockState.value = false
             }
             onResult(result)
@@ -229,5 +251,40 @@ class MainActivityViewModel @Inject constructor(
         if (!isConnected) {
             walletRepository.refresh(preferredNetwork)
         }
+    }
+
+    private fun refreshLockState() {
+        viewModelScope.launch {
+            val shouldLock = shouldLockNow(
+                pinEnabled = pinEnabledState.value,
+                lastUnlockedAt = pinLastUnlockedState.value,
+                timeoutMinutes = pinAutoLockMinutesState.value
+            )
+            lockState.value = shouldLock
+        }
+    }
+
+    private fun shouldLockNow(
+        pinEnabled: Boolean,
+        lastUnlockedAt: Long?,
+        timeoutMinutes: Int
+    ): Boolean {
+        if (!pinEnabled) return false
+        val timeout = timeoutMinutes.coerceIn(
+            MIN_PIN_AUTO_LOCK_MINUTES,
+            MAX_PIN_AUTO_LOCK_MINUTES
+        )
+        val lastUnlock = lastUnlockedAt ?: return true
+        if (timeout == 0) {
+            val elapsedSinceUnlock = System.currentTimeMillis() - lastUnlock
+            return elapsedSinceUnlock >= IMMEDIATE_TIMEOUT_GRACE_MS
+        }
+        val timeoutMillis = timeout.minutes.inWholeMilliseconds
+        val elapsed = System.currentTimeMillis() - lastUnlock
+        return elapsed >= timeoutMillis
+    }
+
+    private companion object {
+        private const val IMMEDIATE_TIMEOUT_GRACE_MS = 1_000L
     }
 }

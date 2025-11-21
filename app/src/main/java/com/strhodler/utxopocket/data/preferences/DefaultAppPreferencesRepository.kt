@@ -70,6 +70,20 @@ class DefaultAppPreferencesRepository @Inject constructor(
     override val pinLockEnabled: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.PIN_ENABLED] ?: false }
 
+    override val pinAutoLockTimeoutMinutes: Flow<Int> =
+        dataStore.data.map { prefs ->
+            val stored = prefs[Keys.PIN_AUTO_LOCK_MINUTES]
+            stored?.coerceIn(
+                AppPreferencesRepository.MIN_PIN_AUTO_LOCK_MINUTES,
+                AppPreferencesRepository.MAX_PIN_AUTO_LOCK_MINUTES
+            ) ?: AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES
+        }
+
+    override val pinLastUnlockedAt: Flow<Long?> =
+        dataStore.data.map { prefs ->
+            prefs[Keys.PIN_LAST_UNLOCKED_AT]?.takeIf { it > 0L }
+        }
+
     override val themePreference: Flow<ThemePreference> =
         dataStore.data.map { prefs ->
             prefs[Keys.THEME_PREFERENCE]?.let { value ->
@@ -170,6 +184,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         require(normalised.length == PIN_LENGTH) { "PIN must be $PIN_LENGTH digits" }
         val salt = generateSalt()
         val derivedHash = derivePinHash(normalised, salt, PIN_KDF_ITERATIONS)
+        val now = System.currentTimeMillis()
         dataStore.edit { prefs ->
             prefs[Keys.PIN_HASH] = derivedHash.toBase64()
             prefs[Keys.PIN_SALT] = salt.toBase64()
@@ -178,6 +193,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs[Keys.PIN_LOCKED_UNTIL] = 0L
             prefs.remove(Keys.PIN_LAST_FAILURE)
             prefs[Keys.PIN_ENABLED] = true
+            prefs[Keys.PIN_LAST_UNLOCKED_AT] = now
+            if (prefs[Keys.PIN_AUTO_LOCK_MINUTES] == null) {
+                prefs[Keys.PIN_AUTO_LOCK_MINUTES] = AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES
+            }
         }
     }
 
@@ -190,6 +209,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs.remove(Keys.PIN_LOCKED_UNTIL)
             prefs.remove(Keys.PIN_LAST_FAILURE)
             prefs[Keys.PIN_ENABLED] = false
+            prefs.remove(Keys.PIN_LAST_UNLOCKED_AT)
         }
     }
 
@@ -220,6 +240,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
                 prefs[Keys.PIN_FAILED_ATTEMPTS] = 0
                 prefs[Keys.PIN_LOCKED_UNTIL] = 0L
                 prefs.remove(Keys.PIN_LAST_FAILURE)
+                prefs[Keys.PIN_LAST_UNLOCKED_AT] = now
             }
             return PinVerificationResult.Success
         }
@@ -241,6 +262,22 @@ class DefaultAppPreferencesRepository @Inject constructor(
             attempts = nextAttempts,
             lockDurationMillis = backoffDuration
         )
+    }
+
+    override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) {
+        val clamped = minutes.coerceIn(
+            AppPreferencesRepository.MIN_PIN_AUTO_LOCK_MINUTES,
+            AppPreferencesRepository.MAX_PIN_AUTO_LOCK_MINUTES
+        )
+        dataStore.edit { prefs ->
+            prefs[Keys.PIN_AUTO_LOCK_MINUTES] = clamped
+        }
+    }
+
+    override suspend fun markPinUnlocked(timestampMillis: Long) {
+        dataStore.edit { prefs ->
+            prefs[Keys.PIN_LAST_UNLOCKED_AT] = timestampMillis
+        }
     }
 
     override suspend fun setThemePreference(themePreference: ThemePreference) {
@@ -558,6 +595,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val PIN_FAILED_ATTEMPTS = intPreferencesKey("pin_failed_attempts")
         val PIN_LOCKED_UNTIL = longPreferencesKey("pin_locked_until")
         val PIN_LAST_FAILURE = longPreferencesKey("pin_last_failure")
+        val PIN_AUTO_LOCK_MINUTES = intPreferencesKey("pin_auto_lock_minutes")
+        val PIN_LAST_UNLOCKED_AT = longPreferencesKey("pin_last_unlocked_at")
         val NODE_CONNECTION_OPTION = stringPreferencesKey("node_connection_option")
         val NODE_ADDRESS_OPTION = stringPreferencesKey("node_address_option")
         val NODE_SELECTED_PUBLIC_ID = stringPreferencesKey("node_selected_public_id")

@@ -10,6 +10,8 @@ import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_PIN_AUTO_LOCK_MINUTES
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_PIN_AUTO_LOCK_MINUTES
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import com.strhodler.utxopocket.presentation.settings.model.TransactionHealthParameterInputs
@@ -43,6 +45,7 @@ class SettingsViewModel @Inject constructor(
                 appPreferencesRepository.balanceUnit,
                 appPreferencesRepository.walletAnimationsEnabled,
                 appPreferencesRepository.advancedMode,
+                appPreferencesRepository.pinAutoLockTimeoutMinutes,
                 appPreferencesRepository.transactionAnalysisEnabled,
                 appPreferencesRepository.utxoHealthEnabled,
                 appPreferencesRepository.walletHealthEnabled,
@@ -56,12 +59,13 @@ class SettingsViewModel @Inject constructor(
                 val balanceUnit = values[3] as BalanceUnit
                 val walletAnimationsEnabled = values[4] as Boolean
                 val advancedMode = values[5] as Boolean
-                val transactionAnalysisEnabled = values[6] as Boolean
-                val utxoHealthEnabled = values[7] as Boolean
-                val walletHealthEnabled = values[8] as Boolean
-                val dustThreshold = values[9] as Long
-                val transactionParameters = values[10] as TransactionHealthParameters
-                val utxoParameters = values[11] as UtxoHealthParameters
+                val pinAutoLockTimeoutMinutes = values[6] as Int
+                val transactionAnalysisEnabled = values[7] as Boolean
+                val utxoHealthEnabled = values[8] as Boolean
+                val walletHealthEnabled = values[9] as Boolean
+                val dustThreshold = values[10] as Long
+                val transactionParameters = values[11] as TransactionHealthParameters
+                val utxoParameters = values[12] as UtxoHealthParameters
                 val previous = _uiState.value
 
                 val walletHealthToggleEnabled = transactionAnalysisEnabled && utxoHealthEnabled
@@ -75,6 +79,7 @@ class SettingsViewModel @Inject constructor(
                     preferredUnit = balanceUnit,
                     advancedMode = advancedMode,
                     walletAnimationsEnabled = walletAnimationsEnabled,
+                    pinAutoLockTimeoutMinutes = pinAutoLockTimeoutMinutes,
                     transactionAnalysisEnabled = transactionAnalysisEnabled,
                     utxoHealthEnabled = utxoHealthEnabled,
                     walletHealthEnabled = normalizedWalletHealthEnabled,
@@ -411,6 +416,28 @@ class SettingsViewModel @Inject constructor(
             val result = appPreferencesRepository.verifyPin(pin)
             if (result is PinVerificationResult.Success) {
                 appPreferencesRepository.clearPin()
+            }
+            onResult(result)
+        }
+    }
+
+    fun onPinAutoLockTimeoutSelected(minutes: Int) {
+        val clamped = minutes.coerceIn(
+            MIN_PIN_AUTO_LOCK_MINUTES,
+            MAX_PIN_AUTO_LOCK_MINUTES
+        )
+        _uiState.update { it.copy(pinAutoLockTimeoutMinutes = clamped) }
+        viewModelScope.launch {
+            appPreferencesRepository.setPinAutoLockTimeoutMinutes(clamped)
+            appPreferencesRepository.markPinUnlocked()
+        }
+    }
+
+    fun verifyPinForAdvanced(pin: String, onResult: (PinVerificationResult) -> Unit) {
+        viewModelScope.launch {
+            val result = appPreferencesRepository.verifyPin(pin)
+            if (result is PinVerificationResult.Success) {
+                appPreferencesRepository.markPinUnlocked()
             }
             onResult(result)
         }

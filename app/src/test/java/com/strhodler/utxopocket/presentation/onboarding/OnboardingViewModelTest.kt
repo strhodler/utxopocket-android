@@ -72,6 +72,9 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val walletAnimationsEnabled: Flow<Boolean> = MutableStateFlow(true)
     override val walletBalanceRange: Flow<BalanceRange> = MutableStateFlow(BalanceRange.LastYear)
     override val advancedMode: Flow<Boolean> = MutableStateFlow(false)
+    override val pinAutoLockTimeoutMinutes: Flow<Int> =
+        MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
+    override val pinLastUnlockedAt: Flow<Long?> = MutableStateFlow(null)
     override val dustThresholdSats: Flow<Long> = MutableStateFlow(0L)
     override val transactionAnalysisEnabled: Flow<Boolean> = MutableStateFlow(true)
     override val utxoHealthEnabled: Flow<Boolean> = MutableStateFlow(true)
@@ -92,6 +95,10 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override suspend fun clearPin() = Unit
 
     override suspend fun verifyPin(pin: String): PinVerificationResult = PinVerificationResult.NotConfigured
+
+    override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) = Unit
+
+    override suspend fun markPinUnlocked(timestampMillis: Long) = Unit
 
     override suspend fun setThemePreference(themePreference: ThemePreference) = Unit
 

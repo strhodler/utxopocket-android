@@ -7,6 +7,7 @@ import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.model.WalletDefaults
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 
 data class SettingsUiState(
     val appLanguage: AppLanguage = AppLanguage.EN,
@@ -19,6 +20,7 @@ data class SettingsUiState(
     val walletHealthEnabled: Boolean = false,
     val walletHealthToggleEnabled: Boolean = true,
     val pinEnabled: Boolean = false,
+    val pinAutoLockTimeoutMinutes: Int = AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES,
     val dustThresholdSats: Long = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS,
     val dustThresholdInput: String = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS.toString(),
     val transactionHealthParameters: TransactionHealthParameters = TransactionHealthParameters(),

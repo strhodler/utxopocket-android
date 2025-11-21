@@ -36,14 +36,25 @@ sealed interface MainTopBarState {
 }
 
 class MainTopBarStateHolder {
+    private val stack: MutableList<MainTopBarState> = mutableListOf(MainTopBarState.Primary)
     var state: MainTopBarState by mutableStateOf(
         MainTopBarState.Primary,
         neverEqualPolicy()
     )
         private set
 
-    fun update(newState: MainTopBarState) {
+    fun push(newState: MainTopBarState) {
+        stack.add(newState)
         state = newState
+    }
+
+    fun pop(stateToPop: MainTopBarState) {
+        if (stack.isNotEmpty() && stack.last() == stateToPop) {
+            stack.removeAt(stack.lastIndex)
+        } else if (stack.isEmpty()) {
+            stack.add(MainTopBarState.Primary)
+        }
+        state = stack.lastOrNull() ?: MainTopBarState.Primary
     }
 }
 
@@ -60,12 +71,8 @@ fun rememberMainTopBarStateHolder(): MainTopBarStateHolder = remember {
 fun MainTopBarStateEffect(state: MainTopBarState) {
     val holder = LocalMainTopBarStateHolder.current
     DisposableEffect(state) {
-        holder.update(state)
-        onDispose {
-            if (holder.state == state) {
-                holder.update(MainTopBarState.Primary)
-            }
-        }
+        holder.push(state)
+        onDispose { holder.pop(state) }
     }
 }
 

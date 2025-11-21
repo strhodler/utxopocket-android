@@ -143,6 +143,9 @@ class NodeStatusViewModelTest {
         override val walletBalanceRange: StateFlow<BalanceRange> =
             MutableStateFlow(BalanceRange.LastYear)
         override val advancedMode: StateFlow<Boolean> = MutableStateFlow(false)
+        override val pinAutoLockTimeoutMinutes: StateFlow<Int> =
+            MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
+        override val pinLastUnlockedAt: StateFlow<Long?> = MutableStateFlow(null)
         override val dustThresholdSats: StateFlow<Long> = MutableStateFlow(0L)
         override val transactionAnalysisEnabled: StateFlow<Boolean> = MutableStateFlow(true)
         override val utxoHealthEnabled: StateFlow<Boolean> = MutableStateFlow(true)
@@ -161,6 +164,8 @@ class NodeStatusViewModelTest {
         override suspend fun setPin(pin: String) = Unit
         override suspend fun clearPin() = Unit
         override suspend fun verifyPin(pin: String) = PinVerificationResult.NotConfigured
+        override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) = Unit
+        override suspend fun markPinUnlocked(timestampMillis: Long) = Unit
         override suspend fun setThemePreference(themePreference: ThemePreference) = Unit
         override suspend fun setAppLanguage(language: AppLanguage) = Unit
         override suspend fun setBalanceUnit(unit: BalanceUnit) = Unit

@@ -549,6 +549,14 @@
     <string name="settings_wallet_health_subtitle">Combine transaction and UTXO insights into a wallet-wide score.</string>
     <string name="settings_wallet_health_dependencies">Turn on transaction and UTXO analysis to enable Wallet health.</string>
     <string name="settings_privacy_analysis_help_content_description">Open wallet health help</string>
+    <string name="settings_pin_advanced_title">Advanced</string>
+    <string name="settings_pin_advanced_subtitle">Adjust auto-lock when the app is protected with a PIN.</string>
+    <string name="settings_pin_advanced_unlock">Unlock advanced settings</string>
+    <string name="settings_pin_timeout_title">Auto-lock after</string>
+    <string name="settings_pin_timeout_immediately_label">Immediately</string>
+    <string name="settings_pin_timeout_minutes_label">%d min</string>
+    <string name="settings_pin_advanced_gate_title">Advanced security</string>
+    <string name="settings_pin_advanced_gate_description">Confirm your PIN to adjust the auto-lock timer.</string>
     <string name="settings_danger_zone_title">Danger zone</string>
     <string name="settings_panic_description">Erase every wallet, transaction, UTXO, and health record stored on this device.</string>
     <string name="settings_panic_action">Erase all wallet data</string>

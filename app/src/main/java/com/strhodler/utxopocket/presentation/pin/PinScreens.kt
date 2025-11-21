@@ -33,6 +33,7 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.components.DigitKey
 import com.strhodler.utxopocket.presentation.components.VirtualDigitKeyboard
 import com.strhodler.utxopocket.presentation.navigation.HideMainBottomBar
+import com.strhodler.utxopocket.presentation.navigation.SetHiddenTopBar
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import kotlinx.coroutines.delay
 
@@ -177,6 +178,9 @@ fun PinVerificationScreen(
     onPinVerified: (String) -> Unit
 ) {
     HideMainBottomBar()
+    if (!allowDismiss) {
+        SetHiddenTopBar()
+    }
 
     var pin by rememberSaveable { mutableStateOf("") }
 
