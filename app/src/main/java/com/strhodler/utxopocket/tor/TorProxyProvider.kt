@@ -56,8 +56,12 @@ class TorProxyProvider @Inject constructor(
         }
     }
 
-    suspend fun restart(): Result<SocksProxyConfig> =
-        torManager.start().onSuccess { proxy -> _proxy.value = proxy }
+    suspend fun restart(): Result<SocksProxyConfig> {
+        runCatching { torManager.stop() }
+        val result = torManager.start()
+        result.onSuccess { proxy -> _proxy.value = proxy }
+        return result
+    }
 
     fun shutdown() {
         scope.cancel()

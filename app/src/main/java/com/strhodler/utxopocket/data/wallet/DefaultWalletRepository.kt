@@ -807,10 +807,10 @@ class DefaultWalletRepository @Inject constructor(
                 endpoint = endpoint,
                 usedTor = activeTransport == NodeTransport.TOR
             )
-            if (activeTransport == NodeTransport.TOR && e.isSocksError()) {
+            if (activeTransport == NodeTransport.TOR && (e.isSocksError() || e.isConnectionRefused())) {
                 val restartResult = torProxyProvider.restart()
                 if (restartResult.isFailure) {
-                    Log.w(TAG, "Unable to restart Tor proxy after SOCKS failure", restartResult.exceptionOrNull())
+                    Log.w(TAG, "Unable to restart Tor proxy after connection failure", restartResult.exceptionOrNull())
                 }
             }
             nodeStatus.value = NodeStatusSnapshot(
@@ -870,6 +870,18 @@ class DefaultWalletRepository @Inject constructor(
             if (cause != null && cause !== current) cause else null
         }.any { throwable ->
             throwable.message?.contains("SOCKS", ignoreCase = true) == true
+        }
+
+    private fun Throwable.isConnectionRefused(): Boolean =
+        generateSequence(this) { current ->
+            val cause = current.cause
+            if (cause != null && cause !== current) cause else null
+        }.any { throwable ->
+            throwable.message?.contains("Connection refused", ignoreCase = true) == true ||
+                throwable.message?.contains("os error 111", ignoreCase = true) == true ||
+                throwable is java.net.ConnectException ||
+                (throwable is java.net.SocketException &&
+                    throwable.message?.contains("ECONNREFUSED", ignoreCase = true) == true)
         }
 
     private fun captureTransactions(
