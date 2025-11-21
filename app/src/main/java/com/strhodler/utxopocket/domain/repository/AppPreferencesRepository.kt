@@ -20,6 +20,8 @@ interface AppPreferencesRepository {
     val walletAnimationsEnabled: Flow<Boolean>
     val walletBalanceRange: Flow<BalanceRange>
     val advancedMode: Flow<Boolean>
+    val pinAutoLockTimeoutMinutes: Flow<Int>
+    val pinLastUnlockedAt: Flow<Long?>
     val dustThresholdSats: Flow<Long>
     val transactionAnalysisEnabled: Flow<Boolean>
     val utxoHealthEnabled: Flow<Boolean>
@@ -32,6 +34,8 @@ interface AppPreferencesRepository {
     suspend fun setPin(pin: String)
     suspend fun clearPin()
     suspend fun verifyPin(pin: String): PinVerificationResult
+    suspend fun setPinAutoLockTimeoutMinutes(minutes: Int)
+    suspend fun markPinUnlocked(timestampMillis: Long = System.currentTimeMillis())
     suspend fun setThemePreference(themePreference: ThemePreference)
     suspend fun setAppLanguage(language: AppLanguage)
     suspend fun setBalanceUnit(unit: BalanceUnit)
@@ -47,4 +51,10 @@ interface AppPreferencesRepository {
     suspend fun resetTransactionHealthParameters()
     suspend fun resetUtxoHealthParameters()
     suspend fun wipeAll()
+
+    companion object {
+        const val MIN_PIN_AUTO_LOCK_MINUTES = 0
+        const val MAX_PIN_AUTO_LOCK_MINUTES = 15
+        const val DEFAULT_PIN_AUTO_LOCK_MINUTES = 5
+    }
 }

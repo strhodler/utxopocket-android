@@ -15,9 +15,11 @@ import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
-import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
+import com.strhodler.utxopocket.domain.node.EndpointKind
+import com.strhodler.utxopocket.domain.node.EndpointScheme
+import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.WalletDefaults
@@ -67,6 +69,20 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     override val pinLockEnabled: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.PIN_ENABLED] ?: false }
+
+    override val pinAutoLockTimeoutMinutes: Flow<Int> =
+        dataStore.data.map { prefs ->
+            val stored = prefs[Keys.PIN_AUTO_LOCK_MINUTES]
+            stored?.coerceIn(
+                AppPreferencesRepository.MIN_PIN_AUTO_LOCK_MINUTES,
+                AppPreferencesRepository.MAX_PIN_AUTO_LOCK_MINUTES
+            ) ?: AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES
+        }
+
+    override val pinLastUnlockedAt: Flow<Long?> =
+        dataStore.data.map { prefs ->
+            prefs[Keys.PIN_LAST_UNLOCKED_AT]?.takeIf { it > 0L }
+        }
 
     override val themePreference: Flow<ThemePreference> =
         dataStore.data.map { prefs ->
@@ -168,6 +184,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         require(normalised.length == PIN_LENGTH) { "PIN must be $PIN_LENGTH digits" }
         val salt = generateSalt()
         val derivedHash = derivePinHash(normalised, salt, PIN_KDF_ITERATIONS)
+        val now = System.currentTimeMillis()
         dataStore.edit { prefs ->
             prefs[Keys.PIN_HASH] = derivedHash.toBase64()
             prefs[Keys.PIN_SALT] = salt.toBase64()
@@ -176,6 +193,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs[Keys.PIN_LOCKED_UNTIL] = 0L
             prefs.remove(Keys.PIN_LAST_FAILURE)
             prefs[Keys.PIN_ENABLED] = true
+            prefs[Keys.PIN_LAST_UNLOCKED_AT] = now
+            if (prefs[Keys.PIN_AUTO_LOCK_MINUTES] == null) {
+                prefs[Keys.PIN_AUTO_LOCK_MINUTES] = AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES
+            }
         }
     }
 
@@ -188,6 +209,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs.remove(Keys.PIN_LOCKED_UNTIL)
             prefs.remove(Keys.PIN_LAST_FAILURE)
             prefs[Keys.PIN_ENABLED] = false
+            prefs.remove(Keys.PIN_LAST_UNLOCKED_AT)
         }
     }
 
@@ -218,6 +240,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
                 prefs[Keys.PIN_FAILED_ATTEMPTS] = 0
                 prefs[Keys.PIN_LOCKED_UNTIL] = 0L
                 prefs.remove(Keys.PIN_LAST_FAILURE)
+                prefs[Keys.PIN_LAST_UNLOCKED_AT] = now
             }
             return PinVerificationResult.Success
         }
@@ -239,6 +262,22 @@ class DefaultAppPreferencesRepository @Inject constructor(
             attempts = nextAttempts,
             lockDurationMillis = backoffDuration
         )
+    }
+
+    override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) {
+        val clamped = minutes.coerceIn(
+            AppPreferencesRepository.MIN_PIN_AUTO_LOCK_MINUTES,
+            AppPreferencesRepository.MAX_PIN_AUTO_LOCK_MINUTES
+        )
+        dataStore.edit { prefs ->
+            prefs[Keys.PIN_AUTO_LOCK_MINUTES] = clamped
+        }
+    }
+
+    override suspend fun markPinUnlocked(timestampMillis: Long) {
+        dataStore.edit { prefs ->
+            prefs[Keys.PIN_LAST_UNLOCKED_AT] = timestampMillis
+        }
     }
 
     override suspend fun setThemePreference(themePreference: ThemePreference) {
@@ -362,8 +401,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
             val updated = mutator(current).normalised()
 
             prefs[Keys.NODE_CONNECTION_OPTION] = updated.connectionOption.name
-            prefs[Keys.NODE_ADDRESS_OPTION] = updated.addressOption.name
-
             updated.selectedPublicNodeId?.let {
                 prefs[Keys.NODE_SELECTED_PUBLIC_ID] = it
             } ?: prefs.remove(Keys.NODE_SELECTED_PUBLIC_ID)
@@ -382,6 +419,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs.remove(Keys.NODE_CUSTOM_HOST)
             prefs.remove(Keys.NODE_CUSTOM_PORT)
             prefs.remove(Keys.NODE_CUSTOM_ONION)
+            prefs.remove(Keys.NODE_ADDRESS_OPTION)
         }
     }
 
@@ -389,10 +427,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val connectionOption = this[Keys.NODE_CONNECTION_OPTION]?.let {
             runCatching { NodeConnectionOption.valueOf(it) }.getOrNull()
         } ?: NodeConnectionOption.PUBLIC
-
-        val addressOption = this[Keys.NODE_ADDRESS_OPTION]?.let {
-            runCatching { NodeAddressOption.valueOf(it) }.getOrNull()
-        } ?: NodeAddressOption.HOST_PORT
 
         val customNodes = this[Keys.NODE_CUSTOM_LIST]
             ?.let(::decodeCustomNodes)
@@ -402,7 +436,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
         val legacyNodes = if (customNodes.isEmpty()) {
             legacyCustomNodes(
-                addressOption = addressOption,
                 host = this[Keys.NODE_CUSTOM_HOST],
                 port = this[Keys.NODE_CUSTOM_PORT],
                 onion = this[Keys.NODE_CUSTOM_ONION]
@@ -415,7 +448,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
         return NodeConfig(
             connectionOption = connectionOption,
-            addressOption = addressOption,
             selectedPublicNodeId = this[Keys.NODE_SELECTED_PUBLIC_ID],
             customNodes = combinedNodes,
             selectedCustomNodeId = selectedCustomId
@@ -424,13 +456,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     private fun NodeConfig.normalised(): NodeConfig {
         val sanitizedCustomNodes = customNodes
-            .mapNotNull { node ->
-                if (node.isValid()) node.copy(
-                    host = node.host.trim(),
-                    onion = node.onion.trim(),
-                    name = node.name.trim()
-                ) else null
-            }
+            .mapNotNull { node -> node.normalizedCopy() }
 
         val resolvedSelectedCustomId = selectedCustomNodeId?.takeIf { id ->
             sanitizedCustomNodes.any { it.id == id }
@@ -454,11 +480,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
         nodes.forEach { node ->
             val obj = JSONObject().apply {
                 put("id", node.id)
-                put("addressOption", node.addressOption.name)
-                put("host", node.host)
-                node.port?.let { put("port", it) }
-                put("onion", node.onion)
+                put("endpoint", node.endpoint)
                 put("name", node.name)
+                node.network?.let { put("network", it.name) }
             }
             array.put(obj)
         }
@@ -471,22 +495,25 @@ class DefaultAppPreferencesRepository @Inject constructor(
             buildList {
                 for (i in 0 until array.length()) {
                     val obj = array.getJSONObject(i)
-                    val option = obj.optString("addressOption")
-                    val addressOption = runCatching {
-                        NodeAddressOption.valueOf(option)
-                    }.getOrDefault(NodeAddressOption.HOST_PORT)
                     val id = obj.optString("id").ifBlank { UUID.randomUUID().toString() }
-                    val host = obj.optString("host")
-                    val port = if (obj.has("port")) obj.optInt("port") else null
-                    val onion = obj.optString("onion")
+                    val storedEndpoint = obj.optString("endpoint")
+                    val onion = obj.optString("onion").ifBlank { null }
+                    val networkName = obj.optString("network")
+                    val network = networkName.takeIf { it.isNotBlank() }?.let { rawNetwork ->
+                        runCatching { BitcoinNetwork.valueOf(rawNetwork) }.getOrNull()
+                    }
+                    val resolvedEndpoint = when {
+                        storedEndpoint.isNotBlank() -> sanitizeEndpoint(storedEndpoint)
+                        !onion.isNullOrBlank() -> buildLegacyOnionEndpoint(onion)
+                        else -> null
+                    } ?: continue
+
                     add(
                         CustomNode(
                             id = id,
-                            addressOption = addressOption,
-                            host = host,
-                            port = if (obj.has("port")) port else null,
-                            onion = onion,
-                            name = obj.optString("name")
+                            endpoint = resolvedEndpoint,
+                            name = obj.optString("name"),
+                            network = network
                         )
                     )
                 }
@@ -494,46 +521,46 @@ class DefaultAppPreferencesRepository @Inject constructor(
         }.getOrElse { emptyList() }
     }
 
+    private fun sanitizeEndpoint(endpoint: String): String? {
+        val normalized = runCatching {
+            NodeEndpointClassifier.normalize(endpoint)
+        }.getOrNull() ?: return null
+        return normalized.takeIf { it.kind == EndpointKind.ONION }?.url
+    }
+
+    private fun buildLegacyOnionEndpoint(value: String): String? {
+        if (value.isBlank()) return null
+        val sanitized = value
+            .removePrefix("ssl://")
+            .removePrefix("tcp://")
+            .trim()
+        val prepared = "tcp://$sanitized"
+        val normalized = runCatching {
+            NodeEndpointClassifier.normalize(
+                raw = prepared,
+                defaultScheme = EndpointScheme.TCP
+            )
+        }.getOrNull() ?: return null
+        return normalized.takeIf { it.kind == EndpointKind.ONION }?.url
+    }
+
     private fun legacyCustomNodes(
-        addressOption: NodeAddressOption,
         host: String?,
         port: Int?,
         onion: String?
     ): List<CustomNode> {
-        return when (addressOption) {
-            NodeAddressOption.HOST_PORT -> {
-                val trimmedHost = host?.trim().orEmpty()
-                if (trimmedHost.isNotBlank() && port != null) {
-                    listOf(
-                        CustomNode(
-                            id = "legacy-host-$trimmedHost-$port",
-                            addressOption = NodeAddressOption.HOST_PORT,
-                            host = trimmedHost,
-                            port = port,
-                            name = trimmedHost
-                        )
-                    )
-                } else {
-                    emptyList()
-                }
-            }
-
-            NodeAddressOption.ONION -> {
-                val trimmedOnion = onion?.trim().orEmpty()
-                if (trimmedOnion.isNotBlank()) {
-                    listOf(
-                        CustomNode(
-                            id = "legacy-onion-$trimmedOnion",
-                            addressOption = NodeAddressOption.ONION,
-                            onion = trimmedOnion,
-                            name = trimmedOnion
-                        )
-                    )
-                } else {
-                    emptyList()
-                }
-            }
+        val trimmedOnion = onion?.trim().orEmpty()
+        if (trimmedOnion.isBlank()) {
+            return emptyList()
         }
+        val endpoint = buildLegacyOnionEndpoint(trimmedOnion) ?: return emptyList()
+        return listOf(
+            CustomNode(
+                id = "legacy-onion-$trimmedOnion",
+                endpoint = endpoint,
+                name = trimmedOnion
+            )
+        )
     }
 
     private fun purgePreferencesFile() {
@@ -568,6 +595,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val PIN_FAILED_ATTEMPTS = intPreferencesKey("pin_failed_attempts")
         val PIN_LOCKED_UNTIL = longPreferencesKey("pin_locked_until")
         val PIN_LAST_FAILURE = longPreferencesKey("pin_last_failure")
+        val PIN_AUTO_LOCK_MINUTES = intPreferencesKey("pin_auto_lock_minutes")
+        val PIN_LAST_UNLOCKED_AT = longPreferencesKey("pin_last_unlocked_at")
         val NODE_CONNECTION_OPTION = stringPreferencesKey("node_connection_option")
         val NODE_ADDRESS_OPTION = stringPreferencesKey("node_address_option")
         val NODE_SELECTED_PUBLIC_ID = stringPreferencesKey("node_selected_public_id")

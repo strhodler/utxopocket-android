@@ -13,10 +13,10 @@ keywords: [tor, node, electrum, connectivity, networking]
 ## Tor-first requirements
 - UtxoPocket routes every RPC and Electrum call through its embedded Tor daemon. Wait until the status bar shows Tor as “Running” before attempting to add or switch nodes—otherwise connection requests are blocked.
 - If your device is offline or Tor cannot bootstrap, the node picker disables custom endpoints. Fix Tor first (renew identity, toggle airplane mode, or check captive portals) and then retry.
-- Keep onion endpoints handy. Clearnet hosts defeat the privacy guarantees promised in the README and may be rejected in future builds.
+- Keep onion endpoints handy. Clearnet hosts defeat the privacy guarantees promised in the README and are now rejected entirely.
 
 ## Adding or switching nodes
-- Use `More → Network` to select a bundled public Electrum server or point to your own. Custom entries need the onion hostname, port, and whether SSL is required.
+- Use `More → Network` to select a bundled public Electrum server or point to your own. Custom entries need the onion hostname and port; Tor handles the transport so no SSL toggle is exposed.
 - The wallet refuses to add a node when Tor is offline. This prevents accidental clearnet leaks and keeps behavior consistent across devices.
 - After selecting a node, pull to refresh on the home screen so the wallet replays discovery using the new backend. Expect a short lock while descriptors rescan.
 

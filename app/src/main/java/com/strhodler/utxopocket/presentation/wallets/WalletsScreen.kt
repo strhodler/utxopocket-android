@@ -1,6 +1,5 @@
 package com.strhodler.utxopocket.presentation.wallets
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,33 +11,29 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -46,21 +41,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -75,9 +60,11 @@ import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
+import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
-import com.strhodler.utxopocket.presentation.components.ConnectionIssueBanner
-import com.strhodler.utxopocket.presentation.components.ConnectionIssueBannerStyle
+import com.strhodler.utxopocket.presentation.components.ConnectionStatusBanner
+import com.strhodler.utxopocket.presentation.components.ConnectionStatusBannerStyle
+import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.components.RefreshableContent
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
@@ -87,9 +74,12 @@ import com.strhodler.utxopocket.presentation.wallets.components.toTheme
 import com.strhodler.utxopocket.presentation.wallets.components.walletCardBackground
 import com.strhodler.utxopocket.presentation.wallets.components.walletShimmer
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Router
+import androidx.compose.ui.unit.Dp
 
-private const val TestnetFaucetsTopicId = "testnet-faucets"
 private const val DefaultBalanceAnimationDuration = 220
+private val AddWalletBottomSpacer: Dp = 64.dp
 
 @Composable
 fun WalletsRoute(
@@ -101,6 +91,7 @@ fun WalletsRoute(
     onWalletSelected: (Long, String) -> Unit,
     snackbarMessage: String? = null,
     onSnackbarConsumed: () -> Unit = {},
+    statusBarState: StatusBarUiState,
     viewModel: WalletsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -115,7 +106,9 @@ fun WalletsRoute(
         onConnectTor = onConnectTor,
         onWalletSelected = onWalletSelected,
         snackbarMessage = snackbarMessage,
-        onSnackbarConsumed = onSnackbarConsumed
+        onSnackbarConsumed = onSnackbarConsumed,
+        isNetworkOnline = statusBarState.isNetworkOnline,
+        onToggleBalanceUnit = viewModel::toggleBalanceUnit
     )
 }
 
@@ -131,6 +124,8 @@ fun WalletsScreen(
     onWalletSelected: (Long, String) -> Unit,
     snackbarMessage: String? = null,
     onSnackbarConsumed: () -> Unit = {},
+    isNetworkOnline: Boolean,
+    onToggleBalanceUnit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -162,9 +157,11 @@ fun WalletsScreen(
             onOpenWiki = onOpenWiki,
             onOpenWikiTopic = onOpenWikiTopic,
             onSelectNode = onSelectNode,
-             onConnectTor = onConnectTor,
+            onConnectTor = onConnectTor,
             onWalletSelected = onWalletSelected,
             onAddWallet = onAddWallet,
+            isNetworkOnline = isNetworkOnline,
+            onToggleBalanceUnit = onToggleBalanceUnit,
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
@@ -182,25 +179,117 @@ private fun WalletsContent(
     onConnectTor: () -> Unit,
     onWalletSelected: (Long, String) -> Unit,
     onAddWallet: () -> Unit,
+    isNetworkOnline: Boolean,
+    onToggleBalanceUnit: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val pullToRefreshState = rememberPullToRefreshState()
-    val shouldShowPullToRefreshIndicator = !(state.isRefreshing && state.nodeStatus is NodeStatus.Connecting)
+    val shouldShowPullToRefreshIndicator = !(
+        state.isRefreshing &&
+            (state.nodeStatus is NodeStatus.Connecting || state.nodeStatus == NodeStatus.WaitingForTor)
+        )
     val canAddWallet = state.nodeStatus is NodeStatus.Synced
-    val showNodePrompt = state.wallets.isEmpty() && !state.hasActiveNodeSelection
+    val showNodePrompt = state.wallets.isEmpty() && state.nodeStatus !is NodeStatus.Synced
 
     val torStatus = state.torStatus
-    val showTorBanner = torStatus is TorStatus.Stopped || torStatus is TorStatus.Error
-    val torBannerMessage = stringResource(id = R.string.wallets_tor_disconnected_banner)
-
+    val showTorStatusBanner = state.torRequired || torStatus !is TorStatus.Stopped
+    val isNodeConnected = state.nodeStatus is NodeStatus.Synced
+    val isNodeConnecting = state.nodeStatus is NodeStatus.Connecting
     val hasWalletErrors = state.wallets.any { it.lastSyncStatus is NodeStatus.Error }
     val sanitizedErrorMessage = state.errorMessage.takeUnless { hasWalletErrors }?.takeIf { it.isNotBlank() }
-    val showDisconnectedBanner = state.nodeStatus == NodeStatus.Idle
-    val connectionBannerMessage = when {
-        sanitizedErrorMessage != null -> sanitizedErrorMessage
-        showDisconnectedBanner -> stringResource(id = R.string.wallets_node_disconnected_banner)
+    val showDisconnectedBanner = !isNodeConnected &&
+        state.nodeStatus !is NodeStatus.Connecting &&
+        !state.isRefreshing
+
+    val banner: (@Composable () -> Unit)? = when {
+        !isNetworkOnline -> {
+            {
+                val scheme = MaterialTheme.colorScheme
+                ActionableStatusBanner(
+                    title = stringResource(id = R.string.tor_status_banner_offline_title),
+                    supporting = stringResource(id = R.string.tor_status_banner_offline_supporting),
+                    icon = Icons.Outlined.Warning,
+                    containerColor = scheme.surfaceContainerHigh,
+                    contentColor = scheme.onSurface,
+                    onClick = onConnectTor
+                )
+            }
+        }
+        showTorStatusBanner && torStatus !is TorStatus.Running -> {
+            {
+                val scheme = MaterialTheme.colorScheme
+                when (torStatus) {
+                    is TorStatus.Connecting -> ActionableStatusBanner(
+                        title = stringResource(
+                            id = R.string.tor_status_banner_connecting_title,
+                            torStatus.progress.coerceIn(0, 100)
+                        ),
+                        supporting = torStatus.message ?: stringResource(id = R.string.tor_status_banner_action),
+                        icon = Icons.Outlined.Info,
+                        containerColor = scheme.surfaceContainerHigh,
+                        contentColor = scheme.onSurface,
+                        onClick = onConnectTor
+                    )
+
+                    is TorStatus.Error -> ActionableStatusBanner(
+                        title = stringResource(id = R.string.tor_status_banner_error_title, torStatus.message),
+                        supporting = stringResource(id = R.string.tor_status_banner_action),
+                        icon = Icons.Outlined.Warning,
+                        containerColor = scheme.errorContainer,
+                        contentColor = scheme.onErrorContainer,
+                        onClick = onConnectTor
+                    )
+
+                    TorStatus.Stopped -> ActionableStatusBanner(
+                        title = stringResource(id = R.string.tor_status_banner_stopped_title),
+                        supporting = stringResource(id = R.string.tor_status_banner_action),
+                        icon = Icons.Outlined.Warning,
+                        containerColor = scheme.surfaceContainerHigh,
+                        contentColor = scheme.onSurface,
+                        onClick = onConnectTor
+                    )
+
+                    is TorStatus.Running -> null
+                }
+            }
+        }
+        isNodeConnecting -> {
+            {
+                ActionableStatusBanner(
+                    title = stringResource(id = R.string.wallets_node_connecting_banner),
+                    supporting = stringResource(id = R.string.wallets_manage_connection_action),
+                    icon = Icons.Outlined.Router,
+                    onClick = onSelectNode
+                )
+            }
+        }
+        showDisconnectedBanner -> {
+            sanitizedErrorMessage?.let { message ->
+                {
+                    ConnectionStatusBanner(
+                        message = message,
+                        primaryLabel = stringResource(id = R.string.wallets_manage_connection_action),
+                        onPrimaryClick = onSelectNode,
+                        style = ConnectionStatusBannerStyle.Error
+                    )
+                }
+            } ?: run {
+                {
+                    val (title, supporting) =
+                        stringResource(id = R.string.wallets_node_disconnected_banner) to
+                            stringResource(id = R.string.wallets_manage_connection_action)
+                    ActionableStatusBanner(
+                        title = title,
+                        supporting = supporting,
+                        icon = Icons.Outlined.Router,
+                        onClick = onSelectNode
+                    )
+                }
+            }
+        }
         else -> null
     }
+    val bannerContent = banner.takeIf { !isNodeConnected }
 
     RefreshableContent(
         isRefreshing = state.isRefreshing,
@@ -227,28 +316,6 @@ private fun WalletsContent(
                 .padding(vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            when {
-                showTorBanner -> {
-                    ConnectionIssueBanner(
-                        message = torBannerMessage,
-                        primaryLabel = stringResource(id = R.string.tor_connect_action),
-                        onPrimaryClick = onConnectTor,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .fillMaxWidth()
-                    )
-                }
-                connectionBannerMessage != null -> {
-                    ConnectionIssueBanner(
-                        message = connectionBannerMessage,
-                        primaryLabel = stringResource(id = R.string.wallets_manage_connection_action),
-                        onPrimaryClick = onSelectNode,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .fillMaxWidth()
-                    )
-                }
-            }
             WalletsList(
                 wallets = state.wallets,
                 onOpenWiki = onOpenWiki,
@@ -262,8 +329,21 @@ private fun WalletsContent(
                 showNodePrompt = showNodePrompt,
                 walletAnimationsEnabled = state.walletAnimationsEnabled,
                 isRefreshing = state.isRefreshing,
-                modifier = Modifier.weight(1f, fill = true)
+                modifier = Modifier.weight(1f, fill = true),
+                additionalBottomPadding = if (bannerContent != null) AddWalletBottomSpacer else 0.dp,
+                onToggleBalanceUnit = onToggleBalanceUnit
             )
+        }
+
+        bannerContent?.let { content ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .fillMaxWidth()
+            ) {
+                content()
+            }
         }
     }
 }
@@ -282,7 +362,9 @@ private fun WalletsList(
     showNodePrompt: Boolean,
     walletAnimationsEnabled: Boolean,
     isRefreshing: Boolean,
-    modifier: Modifier = Modifier
+    additionalBottomPadding: Dp = 0.dp,
+    modifier: Modifier = Modifier,
+    onToggleBalanceUnit: () -> Unit
 ) {
     if (wallets.isEmpty()) {
         Box(
@@ -314,7 +396,7 @@ private fun WalletsList(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(
                 top = BalanceHeaderMetrics.CONTENT_TOP_PADDING,
-                bottom = BalanceHeaderMetrics.CONTENT_BOTTOM_PADDING,
+                bottom = BalanceHeaderMetrics.CONTENT_BOTTOM_PADDING + additionalBottomPadding,
                 start = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING,
                 end = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING
             )
@@ -323,7 +405,8 @@ private fun WalletsList(
                 WalletsBalanceHeader(
                     totalBalanceSats = totalBalanceSats,
                     balanceUnit = balanceUnit,
-                    animationsEnabled = walletAnimationsEnabled
+                    animationsEnabled = walletAnimationsEnabled,
+                    onToggleBalanceUnit = onToggleBalanceUnit
                 )
             }
             items(wallets, key = { it.id }) { wallet ->
@@ -499,28 +582,6 @@ private fun WalletCard(
                     }
                 )
             }
-            if (syncStatus is NodeStatus.Error) {
-                val errorText = remember(syncStatus.message) {
-                    sanitizeWalletErrorMessage(syncStatus.message)
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Warning,
-                        contentDescription = stringResource(id = R.string.wallets_sync_error_icon_description),
-                        tint = errorIndicatorColor
-                    )
-                    Text(
-                        text = errorText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = contentColor,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
         }
     }
 }
@@ -530,7 +591,8 @@ private fun WalletsBalanceHeader(
     totalBalanceSats: Long,
     balanceUnit: BalanceUnit,
     modifier: Modifier = Modifier,
-    animationsEnabled: Boolean
+    animationsEnabled: Boolean,
+    onToggleBalanceUnit: () -> Unit
 ) {
     Surface(
         modifier = modifier
@@ -557,7 +619,8 @@ private fun WalletsBalanceHeader(
                     fontWeight = FontWeight.Medium
                 ),
                 monospaced = true,
-                animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0
+                animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0,
+                modifier = Modifier.clickable(onClick = onToggleBalanceUnit)
             )
         }
     }
@@ -701,6 +764,7 @@ private fun nodeStatusLabel(status: NodeStatus, isSyncing: Boolean): String {
     return when (status) {
         NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
         NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
+        NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
         NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
         is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
     }

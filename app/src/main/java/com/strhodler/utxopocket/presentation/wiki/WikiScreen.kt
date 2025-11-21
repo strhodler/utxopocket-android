@@ -53,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
+import com.strhodler.utxopocket.presentation.navigation.HideMainBottomBar
 import com.strhodler.utxopocket.presentation.navigation.SetHiddenTopBar
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 
@@ -80,6 +81,7 @@ fun WikiScreen(
     onOpenSearch: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    HideMainBottomBar()
     SetSecondaryTopBar(
         title = stringResource(id = R.string.nav_wiki),
         onBackClick = onBack
@@ -113,6 +115,7 @@ fun WikiSearchRoute(
     viewModel: WikiViewModel
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    HideMainBottomBar()
     SetHiddenTopBar()
     WikiSearchScreen(
         state = state,

@@ -256,6 +256,10 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun start(config: com.strhodler.utxopocket.domain.model.TorConfig): Result<com.strhodler.utxopocket.domain.model.SocksProxyConfig> =
             Result.success(currentProxy())
+        override suspend fun <T> withTorProxy(
+            config: com.strhodler.utxopocket.domain.model.TorConfig,
+            block: suspend (com.strhodler.utxopocket.domain.model.SocksProxyConfig) -> T
+        ): T = block(currentProxy())
         override suspend fun stop() = Unit
         override suspend fun renewIdentity(): Boolean = true
         override fun currentProxy(): com.strhodler.utxopocket.domain.model.SocksProxyConfig =
@@ -337,6 +341,9 @@ class WalletDetailViewModelRangeTest {
         private val walletAnimationsEnabledState = MutableStateFlow(true)
         private val balanceRangeState = MutableStateFlow(BalanceRange.LastYear)
         private val advancedModeState = MutableStateFlow(false)
+        private val pinAutoLockTimeoutMinutesState =
+            MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
+        private val pinLastUnlockedState = MutableStateFlow<Long?>(null)
         private val dustThresholdState = MutableStateFlow(WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS)
         private val transactionAnalysisEnabledState = MutableStateFlow(false)
         private val utxoHealthEnabledState = MutableStateFlow(false)
@@ -355,6 +362,8 @@ class WalletDetailViewModelRangeTest {
         override val walletAnimationsEnabled: Flow<Boolean> = walletAnimationsEnabledState
         override val walletBalanceRange: Flow<BalanceRange> = balanceRangeState
         override val advancedMode: Flow<Boolean> = advancedModeState
+        override val pinAutoLockTimeoutMinutes: Flow<Int> = pinAutoLockTimeoutMinutesState
+        override val pinLastUnlockedAt: Flow<Long?> = pinLastUnlockedState
         override val dustThresholdSats: Flow<Long> = dustThresholdState
         override val transactionAnalysisEnabled: Flow<Boolean> = transactionAnalysisEnabledState
         override val utxoHealthEnabled: Flow<Boolean> = utxoHealthEnabledState
@@ -375,6 +384,14 @@ class WalletDetailViewModelRangeTest {
         override suspend fun clearPin() = Unit
 
         override suspend fun verifyPin(pin: String): PinVerificationResult = PinVerificationResult.NotConfigured
+
+        override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) {
+            pinAutoLockTimeoutMinutesState.value = minutes
+        }
+
+        override suspend fun markPinUnlocked(timestampMillis: Long) {
+            pinLastUnlockedState.value = timestampMillis
+        }
 
         override suspend fun setThemePreference(themePreference: ThemePreference) {
             this.themePreferenceState.value = themePreference

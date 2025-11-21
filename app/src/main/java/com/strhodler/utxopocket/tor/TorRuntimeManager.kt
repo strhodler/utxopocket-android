@@ -23,6 +23,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.InetSocketAddress
 import java.net.Proxy
+import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -62,6 +63,7 @@ class TorRuntimeManager @Inject constructor(
     val bootstrapProgress: StateFlow<Int> = _bootstrapProgress.asStateFlow()
 
     private var logJob: Job? = null
+    private var healthJob: Job? = null
 
     suspend fun start() {
         startMutex.withLock {
@@ -93,6 +95,7 @@ class TorRuntimeManager @Inject constructor(
                 }
                 _state.value = ConnectionState.CONNECTED
                 _bootstrapProgress.value = 100
+                startHealthMonitor()
             }.onFailure { error ->
                 val cancelled = error is CancellationException
                 if (cancelled) {
@@ -114,6 +117,7 @@ class TorRuntimeManager @Inject constructor(
                 }
                 _bootstrapProgress.value = 0
                 stopLogPump()
+                stopHealthMonitor()
             }
         }
     }
@@ -127,6 +131,7 @@ class TorRuntimeManager @Inject constructor(
                 return
             }
             stopLogPump()
+            stopHealthMonitor()
             runCatching {
                 withContext(ioDispatcher) {
                     onionProxyManager.stop()
@@ -203,6 +208,50 @@ class TorRuntimeManager @Inject constructor(
         logJob = null
     }
 
+    private fun startHealthMonitor() {
+        if (healthJob?.isActive == true) return
+        val job = runtimeScope.launch {
+            while (isActive) {
+                if (_state.value != ConnectionState.CONNECTED) {
+                    delay(HEALTH_CHECK_INTERVAL_MS)
+                    continue
+                }
+                val proxyAddress = (_proxy.value?.address() as? InetSocketAddress)
+                val healthy = proxyAddress != null && probeSocksPort(proxyAddress)
+                if (!healthy) {
+                    handleUnhealthyTor("Tor SOCKS listener is not responding")
+                    break
+                }
+                delay(HEALTH_CHECK_INTERVAL_MS)
+            }
+        }
+        job.invokeOnCompletion { healthJob = null }
+        healthJob = job
+    }
+
+    private fun stopHealthMonitor() {
+        healthJob?.cancel()
+        healthJob = null
+    }
+
+    private suspend fun probeSocksPort(address: InetSocketAddress): Boolean =
+        withContext(ioDispatcher) {
+            runCatching {
+                Socket().use { socket ->
+                    socket.connect(address, HEALTH_CHECK_TIMEOUT_MS.toInt())
+                }
+            }.isSuccess
+        }
+
+    private fun handleUnhealthyTor(message: String) {
+        processRunning.set(false)
+        _proxy.value = null
+        _state.value = ConnectionState.ERROR
+        _errorMessage.value = message
+        _bootstrapProgress.value = 0
+        stopLogPump()
+    }
+
     private fun candidateTorDirectories(): List<File> = buildList {
         add(File(context.filesDir, TOR_DIRECTORY))
         context.cacheDir?.let { cache ->
@@ -222,3 +271,5 @@ private fun extractBootstrapProgress(log: String): Int? {
 }
 
 private const val TOR_DIRECTORY = "torfiles"
+private const val HEALTH_CHECK_INTERVAL_MS = 15_000L
+private const val HEALTH_CHECK_TIMEOUT_MS = 2_000L

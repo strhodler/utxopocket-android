@@ -1,11 +1,11 @@
 # UtxoPocket — privacy-first open-source watch-only wallet
 
-UtxoPocket is an open-source Android app for monitoring multiple Bitcoin wallets via descriptors. Every network call is routed through Tor, local data is encrypted, and the entire flow is designed to stay fast, accessible, and low friction.
+UtxoPocket is an open-source Android app for monitoring multiple Bitcoin wallets via descriptors. Bundled Electrum nodes and onion endpoints route through Tor by default, local data is encrypted, and the entire flow is designed to stay fast, accessible, and low friction. Custom nodes now accept onion endpoints only, so every sync stays behind Tor.
 
 ---
 
 ## Value proposition
-- **Privacy by default**: embedded Tor, zero telemetry, no clearnet fallbacks.
+- **Privacy by default**: embedded Tor, zero telemetry, no clearnet fallbacks for curated or custom onion nodes.
 - **Complete visibility**: clear dashboards plus wallet-level warnings whenever a sync misbehaves.
 - **UX with intent**: adaptive Compose UI, responsive loaders (e.g., Tor bootstrap progress), intentional micro-interactions.
 - **Reproducible & auditable**: deterministic build scripts and a strictly watch-only trust model.
@@ -50,7 +50,7 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 
 ## Core capabilities
 - Watch-only monitoring across multiple wallets with labels, UTXOs, and history.
-- Private-by-default networking over Tor with curated nodes and custom onion endpoints.
+- Private-by-default networking over Tor with curated nodes and custom onion endpoints. Tor remains mandatory; direct LAN/IP hosts and SSL toggles have been removed to keep behavior consistent.
 - Multi-network support (Mainnet, Testnet3/4, Signet) with per-network presets.
 - On-device health insights for transactions and UTXOs to spot reuse, dust, and risk.
 - Fast onboarding and descriptor import (paste or QR), plus a searchable offline wiki.
@@ -63,7 +63,7 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 - Install the latest release and verify it (fingerprints + checksums).
 - Open UtxoPocket and import your public descriptors (paste or scan QR).
 - Select a test network (Signet/Testnet) in onboarding to trial safely; switch to Mainnet when ready.
-- Connect via Tor and let the first sync complete; review wallet health.
+- Connect via Tor, activate your preferred preset or onion node, and let the first sync complete; review wallet health.
 
 ---
 
@@ -82,7 +82,7 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 
 ## Privacy & security
 - Watch-only by design; no private keys or signing on device.
-- Tor-only networking; no clearnet fallback. See `SECURITY.md` for details.
+- Tor-backed networking for curated and custom onion nodes. Direct LAN/IP connectivity and SSL/TLS toggles were removed to enforce onion-only routing. See `SECURITY.md` for details and the privacy guarantees.
 
 ---
 

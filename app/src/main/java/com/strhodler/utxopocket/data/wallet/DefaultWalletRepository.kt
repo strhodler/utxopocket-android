@@ -4,9 +4,13 @@ import android.content.Context
 import android.util.Log
 import android.os.SystemClock
 import com.strhodler.utxopocket.BuildConfig
+import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.data.bdk.BdkBlockchainFactory
 import com.strhodler.utxopocket.data.bdk.BdkManagedWallet
 import com.strhodler.utxopocket.data.bdk.BdkWalletFactory
+import com.strhodler.utxopocket.data.bdk.ElectrumEndpoint
+import com.strhodler.utxopocket.data.bdk.ElectrumEndpointSource
+import com.strhodler.utxopocket.data.bdk.TorProxyUnavailableException
 import com.strhodler.utxopocket.data.bdk.SyncCancellationSignal
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
@@ -31,6 +35,7 @@ import com.strhodler.utxopocket.data.db.withSyncFailure
 import com.strhodler.utxopocket.data.db.withSyncResult
 import com.strhodler.utxopocket.data.db.updateSharedDescriptors
 import com.strhodler.utxopocket.data.node.toTorAwareMessage
+import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
 import com.strhodler.utxopocket.data.security.SqlCipherPassphraseProvider
 import com.strhodler.utxopocket.di.IoDispatcher
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
@@ -41,8 +46,11 @@ import com.strhodler.utxopocket.domain.model.DescriptorWarning
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
+import com.strhodler.utxopocket.domain.model.NodeTransport
+import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.TransactionStructure
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
+import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.TransactionType
 import com.strhodler.utxopocket.domain.model.UtxoStatus
 import com.strhodler.utxopocket.domain.model.WalletAddress
@@ -67,6 +75,8 @@ import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsExcepti
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
+import com.strhodler.utxopocket.domain.model.requiresTor
+import com.strhodler.utxopocket.tor.TorProxyProvider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -106,6 +116,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlin.sequences.generateSequence
 
 private const val GENERIC_DESCRIPTOR_ERROR =
     "Invalid or malformed descriptor; review the imported descriptor or the compatibility wiki article."
@@ -114,12 +125,14 @@ private const val GENERIC_DESCRIPTOR_ERROR =
 class DefaultWalletRepository @Inject constructor(
     private val walletDao: WalletDao,
     private val torManager: TorManager,
+    private val torProxyProvider: TorProxyProvider,
     private val blockchainFactory: BdkBlockchainFactory,
     private val walletFactory: BdkWalletFactory,
     private val database: UtxoPocketDatabase,
     private val passphraseProvider: SqlCipherPassphraseProvider,
     private val appPreferencesRepository: AppPreferencesRepository,
     private val nodeConfigurationRepository: NodeConfigurationRepository,
+    private val networkStatusMonitor: NetworkStatusMonitor,
     @ApplicationContext private val applicationContext: Context,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : WalletRepository {
@@ -158,7 +171,24 @@ class DefaultWalletRepository @Inject constructor(
     private var backgroundGraceExpiryMillis: Long = 0L
     @Volatile
     private var backgroundIdleJob: Job? = null
+    @Volatile
+    private var lastEndpointMetadata: EndpointAttemptMetadata? = null
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    @Volatile
+    private var lastObservedNetworkOnline: Boolean = true
+
+    init {
+        lastObservedNetworkOnline = networkStatusMonitor.isOnline.value
+        if (!lastObservedNetworkOnline) {
+            applyOfflineNodeStatus()
+        }
+        repositoryScope.launch {
+            networkStatusMonitor.isOnline
+                .collect { online ->
+                    handleNetworkConnectivityChange(online)
+                }
+        }
+    }
 
     private data class CachedWallet(
         val managed: BdkManagedWallet,
@@ -182,9 +212,42 @@ class DefaultWalletRepository @Inject constructor(
         }
     }
 
+    private data class EndpointAttemptMetadata(
+        val network: BitcoinNetwork,
+        val endpoint: ElectrumEndpoint
+    )
+
     private val walletCacheMutex = Mutex()
     private val walletCache = mutableMapOf<Long, CachedWallet>()
     private val deletingWallets = ConcurrentHashMap<Long, Boolean>()
+
+    private fun applyOfflineNodeStatus() {
+        syncStatus.value = syncStatus.value.copy(isRefreshing = false)
+        val snapshot = nodeStatus.value
+        nodeStatus.value = snapshot.copy(status = NodeStatus.Idle)
+    }
+
+    private suspend fun handleNetworkConnectivityChange(online: Boolean) {
+        if (!online) {
+            lastObservedNetworkOnline = false
+            applyOfflineNodeStatus()
+            return
+        }
+        val wasOffline = !lastObservedNetworkOnline
+        lastObservedNetworkOnline = true
+        if (!wasOffline) {
+            return
+        }
+        val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
+        val config = nodeConfigurationRepository.nodeConfig.first()
+        if (!config.hasActiveSelection(preferredNetwork)) {
+            return
+        }
+        if (config.requiresTor(preferredNetwork)) {
+            return
+        }
+        refresh(preferredNetwork)
+    }
 
     override fun observeWalletSummaries(network: BitcoinNetwork): Flow<List<WalletSummary>> =
         walletDao.observeWallets(network.name)
@@ -377,7 +440,7 @@ class DefaultWalletRepository @Inject constructor(
     override suspend fun refresh(network: BitcoinNetwork) = withContext(ioDispatcher) {
         val config = nodeConfigurationRepository.nodeConfig.first()
         val previousSnapshot = nodeStatus.value
-        if (!config.hasActiveSelection()) {
+        if (!config.hasActiveSelection(network)) {
             syncStatus.value = SyncStatusSnapshot(isRefreshing = false, network = network)
             val snapshotMatchesNetwork = previousSnapshot.network == network
             nodeStatus.value = NodeStatusSnapshot(
@@ -392,6 +455,7 @@ class DefaultWalletRepository @Inject constructor(
             return@withContext
         }
         syncStatus.value = SyncStatusSnapshot(isRefreshing = true, network = network)
+        val triedPresetKeys = mutableSetOf<String>()
         try {
             val policy = retryPolicyFor(network)
             var attempt = 0
@@ -412,7 +476,12 @@ class DefaultWalletRepository @Inject constructor(
                 } catch (error: Exception) {
                     val attemptIndex = attempt + 1
                     Log.w(TAG, "Node refresh attempt $attemptIndex failed for $network", error)
-                    if (attempt >= policy.maxAttempts - 1) {
+                    val exhaustedAttempts = attempt >= policy.maxAttempts - 1
+                    if (exhaustedAttempts) {
+                        if (handlePresetRotationOnFailure(network, triedPresetKeys)) {
+                            attempt = 0
+                            continue
+                        }
                         Log.w(TAG, "Node refresh giving up after ${policy.maxAttempts} attempts for $network", error)
                         return@withContext
                     }
@@ -438,6 +507,23 @@ class DefaultWalletRepository @Inject constructor(
                 throw CancellationException("Sync cancelled while app is backgrounded on $network")
             }
         }
+        fun signalWaitingForTor(endpointLabel: String?, torStatus: TorStatus? = null) {
+            val snapshotStatus = when (torStatus) {
+                is TorStatus.Error -> NodeStatus.Error(
+                    torStatus.message
+                )
+                else -> NodeStatus.WaitingForTor
+            }
+            nodeStatus.value = NodeStatusSnapshot(
+                status = snapshotStatus,
+                blockHeight = previousSnapshot.blockHeight.takeIf { previousSnapshot.network == network },
+                serverInfo = previousSnapshot.serverInfo.takeIf { previousSnapshot.network == network },
+                endpoint = endpointLabel ?: previousEndpoint,
+                lastSyncCompletedAt = lastSyncForNetwork,
+                network = network,
+                feeRateSatPerVb = previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network }
+            )
+        }
 
         if (shouldSignalConnecting) {
             nodeStatus.value = NodeStatusSnapshot(
@@ -459,46 +545,19 @@ class DefaultWalletRepository @Inject constructor(
         var estimatedFeeRateSatPerVb: Double? =
             previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network }
         var lastWalletError: String? = null
+        var activeTransport: NodeTransport = NodeTransport.TOR
         try {
             ensureForeground()
-            val proxy = torManager.start().getOrElse { throw it }
-            ensureForeground()
-            val session = blockchainFactory.create(network, proxy)
-            endpoint = session.endpoint.url
-            if (previousEndpoint != endpoint) {
-                shouldSignalConnecting = true
-            }
-            if (shouldSignalConnecting) {
-                nodeStatus.value = NodeStatusSnapshot(
-                    status = NodeStatus.Connecting,
-                    blockHeight = blockHeight,
-                    serverInfo = serverInfo,
-                    endpoint = endpoint,
-                    lastSyncCompletedAt = lastSyncForNetwork,
-                    network = network,
-                    feeRateSatPerVb = estimatedFeeRateSatPerVb
-                )
-            }
-            if (BuildConfig.DEBUG) {
-                Log.d(TAG, "Starting electrum sync via $endpoint using proxy ${proxy.host}:${proxy.port}")
-            } else {
-                Log.d(TAG, "Starting electrum sync via Tor proxy")
-            }
-            session.blockchain.use { blockchain ->
+            val electrumEndpoint = blockchainFactory.endpointFor(network)
+            lastEndpointMetadata = EndpointAttemptMetadata(network, electrumEndpoint)
+            activeTransport = electrumEndpoint.transport
+            suspend fun runSyncWithProxy(proxy: SocksProxyConfig?) {
                 ensureForeground()
-                val metadata = try {
-                    blockchain.fetchMetadata()
-                } catch (metadataError: Exception) {
-                    if (BuildConfig.DEBUG) {
-                        Log.w(TAG, "Unable to fetch electrum metadata from $endpoint", metadataError)
-                    } else {
-                        Log.w(TAG, "Unable to fetch electrum metadata", metadataError)
-                    }
-                    null
+                val session = blockchainFactory.create(electrumEndpoint, proxy)
+                endpoint = session.endpoint.url
+                if (previousEndpoint != endpoint) {
+                    shouldSignalConnecting = true
                 }
-                serverInfo = metadata?.serverInfo?.toDomain() ?: serverInfo
-                blockHeight = metadata?.blockHeight ?: blockHeight
-                estimatedFeeRateSatPerVb = metadata?.feeRateSatPerVb ?: estimatedFeeRateSatPerVb
                 if (shouldSignalConnecting) {
                     nodeStatus.value = NodeStatusSnapshot(
                         status = NodeStatus.Connecting,
@@ -510,163 +569,226 @@ class DefaultWalletRepository @Inject constructor(
                         feeRateSatPerVb = estimatedFeeRateSatPerVb
                     )
                 }
-                ensureForeground()
-                val wallets = walletDao.getWalletsSnapshot(network.name)
-                var hadWalletErrors = false
-                wallets.forEach { entity ->
-                    ensureForeground()
-                    if (isWalletDeletionPending(entity.id)) {
-                        if (BuildConfig.DEBUG) {
-                            Log.d(TAG, "Skipping sync for wallet ${entity.id} because it is being deleted.")
-                        }
-                        return@forEach
+                if (BuildConfig.DEBUG) {
+                    if (activeTransport == NodeTransport.TOR && proxy != null) {
+                        Log.d(TAG, "Starting electrum sync via $endpoint using proxy ${proxy.host}:${proxy.port}")
+                    } else {
+                        Log.d(TAG, "Starting electrum sync via $endpoint without Tor proxy")
                     }
-                    val cancelledForDeletion = AtomicBoolean(false)
-                    runCatching {
-                        withWallet(entity) { wallet, persister ->
-                            ensureForeground()
-                            val shouldRunFullScan = entity.requiresFullScan || entity.lastFullScanTime == null
-                            val hasChangeKeychain = !entity.viewOnly && entity.hasChangeBranch()
-                            val walletCancellationSignal = SyncCancellationSignal {
-                                if (cancellationSignal.shouldCancel()) {
-                                    return@SyncCancellationSignal true
-                                }
-                                if (isWalletDeletionPending(entity.id)) {
-                                    cancelledForDeletion.set(true)
-                                    return@SyncCancellationSignal true
-                                }
-                                false
-                            }
-                            blockchain.syncWallet(
-                                wallet = wallet,
-                                shouldRunFullScan = shouldRunFullScan,
-                                hasChangeKeychain = hasChangeKeychain,
-                                cancellationSignal = walletCancellationSignal
-                            )
-                            if (cancelledForDeletion.get() || isWalletDeletionPending(entity.id)) {
-                                if (BuildConfig.DEBUG) {
-                                    Log.d(TAG, "Wallet ${entity.id} sync cancelled mid-flight because it is being deleted.")
-                                }
-                                return@withWallet
-                            }
-                            val delta = wallet.inspectSyncDelta()
-                            val didPersist = wallet.persist(persister)
-                            val balanceSats = wallet.balance().use { balance ->
-                                balance.total.toSat().toLong()
-                            }
-                            val needsDataRefresh = shouldRunFullScan || delta.requiresDataRefresh || didPersist
-                            val syncTimestamp = System.currentTimeMillis()
-
-                            if (needsDataRefresh) {
-                                val transactionLabels = walletDao.getTransactionLabels(entity.id)
-                                    .associate { projection ->
-                                        projection.txid to sanitizeLabel(projection.label)
-                                    }
-                                val capturedTransactions = captureTransactions(
-                                    walletId = entity.id,
-                                    wallet = wallet,
-                                    currentHeight = blockHeight,
-                                    existingLabels = transactionLabels
-                                )
-                                val existingUtxoMetadata = walletDao.getUtxoMetadata(entity.id)
-                                    .associate { projection ->
-                                        (projection.txid to projection.vout) to LocalUtxoMetadata(
-                                            label = sanitizeLabel(projection.label),
-                                            spendable = projection.spendable
-                                        )
-                                    }
-                                val utxoEntities = captureUtxos(
-                                    walletId = entity.id,
-                                    wallet = wallet,
-                                    currentHeight = blockHeight,
-                                    existingMetadata = existingUtxoMetadata
-                                )
-                                walletDao.replaceTransactions(
-                                    walletId = entity.id,
-                                    transactions = capturedTransactions.transactions,
-                                    inputs = capturedTransactions.inputs,
-                                    outputs = capturedTransactions.outputs
-                                )
-                                walletDao.replaceUtxos(entity.id, utxoEntities)
-                                val syncedEntity = entity.withSyncResult(
-                                    balanceSats = balanceSats,
-                                    txCount = capturedTransactions.transactions.size,
-                                    status = NodeStatus.Synced,
-                                    timestamp = syncTimestamp
-                                )
-                                val finalEntity = if (shouldRunFullScan) {
-                                    syncedEntity.markFullScanCompleted(syncTimestamp)
-                                } else {
-                                    syncedEntity
-                                }
-                                walletDao.upsert(finalEntity)
-                            } else {
-                                if (BuildConfig.DEBUG) {
-                                    Log.d(TAG, "No data changes detected for wallet ${entity.id}, skipping DB refresh.")
-                                }
-                                val syncedEntity = entity.withSyncResult(
-                                    balanceSats = balanceSats,
-                                    txCount = entity.transactionCount,
-                                    status = NodeStatus.Synced,
-                                    timestamp = syncTimestamp
-                                )
-                                walletDao.upsert(syncedEntity)
-                            }
+                } else {
+                    Log.d(TAG, if (activeTransport == NodeTransport.TOR) {
+                        "Starting electrum sync via Tor proxy"
+                    } else {
+                        "Starting electrum sync without Tor proxy"
+                    })
+                }
+                session.blockchain.use { blockchain ->
+                    ensureForeground()
+                    val metadata = try {
+                        blockchain.fetchMetadata()
+                    } catch (metadataError: Exception) {
+                        if (BuildConfig.DEBUG) {
+                            Log.w(TAG, "Unable to fetch electrum metadata from $endpoint", metadataError)
+                        } else {
+                            Log.w(TAG, "Unable to fetch electrum metadata", metadataError)
                         }
-                    }.onFailure { error ->
-                        if (cancelledForDeletion.get() || isWalletDeletionPending(entity.id)) {
+                        null
+                    }
+                    serverInfo = metadata?.serverInfo?.toDomain() ?: serverInfo
+                    blockHeight = metadata?.blockHeight ?: blockHeight
+                    estimatedFeeRateSatPerVb = metadata?.feeRateSatPerVb ?: estimatedFeeRateSatPerVb
+                    if (shouldSignalConnecting) {
+                        nodeStatus.value = NodeStatusSnapshot(
+                            status = NodeStatus.Connecting,
+                            blockHeight = blockHeight,
+                            serverInfo = serverInfo,
+                            endpoint = endpoint,
+                            lastSyncCompletedAt = lastSyncForNetwork,
+                            network = network,
+                            feeRateSatPerVb = estimatedFeeRateSatPerVb
+                        )
+                    }
+                    ensureForeground()
+                    val wallets = walletDao.getWalletsSnapshot(network.name)
+                    var hadWalletErrors = false
+                    wallets.forEach { entity ->
+                        ensureForeground()
+                        if (isWalletDeletionPending(entity.id)) {
                             if (BuildConfig.DEBUG) {
-                                Log.d(TAG, "Wallet ${entity.id} sync aborted because it is being deleted.")
+                                Log.d(TAG, "Skipping sync for wallet ${entity.id} because it is being deleted.")
                             }
                             return@forEach
                         }
-                        if (error is CancellationException) {
-                            throw error
-                        }
-                        hadWalletErrors = true
-                        invalidateWalletCache(entity.id)
-                        val reason = error.toTorAwareMessage(
-                            defaultMessage = error.message.orEmpty().ifBlank { "Wallet sync failed" },
-                            endpoint = endpoint
-                        )
-                        if (lastWalletError == null) {
-                            lastWalletError = reason
-                        }
-                        if (BuildConfig.DEBUG) {
-                            Log.e(TAG, "Sync failed for wallet ${entity.name} (${entity.id})", error)
-                        } else {
-                            Log.e(TAG, "Wallet sync failed", error)
-                        }
-                        walletDao.upsert(
-                            entity.withSyncFailure(
-                                status = NodeStatus.Error(reason),
-                                timestamp = System.currentTimeMillis()
+                        val cancelledForDeletion = AtomicBoolean(false)
+                        runCatching {
+                            withWallet(entity) { wallet, persister ->
+                                ensureForeground()
+                                val shouldRunFullScan = entity.requiresFullScan || entity.lastFullScanTime == null
+                                val hasChangeKeychain = !entity.viewOnly && entity.hasChangeBranch()
+                                val walletCancellationSignal = SyncCancellationSignal {
+                                    cancellationSignal.shouldCancel() || cancelledForDeletion.get()
+                                }
+                                blockchain.syncWallet(
+                                    wallet = wallet,
+                                    shouldRunFullScan = shouldRunFullScan,
+                                    hasChangeKeychain = hasChangeKeychain,
+                                    cancellationSignal = walletCancellationSignal
+                                )
+                                if (cancelledForDeletion.get() || isWalletDeletionPending(entity.id)) {
+                                    if (BuildConfig.DEBUG) {
+                                        Log.d(
+                                            TAG,
+                                            "Wallet ${entity.id} sync cancelled mid-flight because it is being deleted."
+                                        )
+                                    }
+                                    return@withWallet
+                                }
+                                val delta = wallet.inspectSyncDelta()
+                                val didPersist = wallet.persist(persister)
+                                val balanceSats = wallet.balance().use { balance ->
+                                    balance.total.toSat().toLong()
+                                }
+                                val needsDataRefresh = shouldRunFullScan || delta.requiresDataRefresh || didPersist
+                                val syncTimestamp = System.currentTimeMillis()
+
+                                if (needsDataRefresh) {
+                                    val transactionLabels = walletDao.getTransactionLabels(entity.id)
+                                        .associate { projection ->
+                                            projection.txid to sanitizeLabel(projection.label)
+                                        }
+                                    val capturedTransactions = captureTransactions(
+                                        walletId = entity.id,
+                                        wallet = wallet,
+                                        currentHeight = blockHeight,
+                                        existingLabels = transactionLabels
+                                    )
+                                    val existingUtxoMetadata = walletDao.getUtxoMetadata(entity.id)
+                                        .associate { projection ->
+                                            (projection.txid to projection.vout) to LocalUtxoMetadata(
+                                                label = sanitizeLabel(projection.label),
+                                                spendable = projection.spendable
+                                            )
+                                        }
+                                    val utxoEntities = captureUtxos(
+                                        walletId = entity.id,
+                                        wallet = wallet,
+                                        currentHeight = blockHeight,
+                                        existingMetadata = existingUtxoMetadata
+                                    )
+                                    walletDao.replaceTransactions(
+                                        walletId = entity.id,
+                                        transactions = capturedTransactions.transactions,
+                                        inputs = capturedTransactions.inputs,
+                                        outputs = capturedTransactions.outputs
+                                    )
+                                    walletDao.replaceUtxos(entity.id, utxoEntities)
+                                    val syncedEntity = entity.withSyncResult(
+                                        balanceSats = balanceSats,
+                                        txCount = capturedTransactions.transactions.size,
+                                        status = NodeStatus.Synced,
+                                        timestamp = syncTimestamp
+                                    )
+                                    val finalEntity = if (shouldRunFullScan) {
+                                        syncedEntity.markFullScanCompleted(syncTimestamp)
+                                    } else {
+                                        syncedEntity
+                                    }
+                                    walletDao.upsert(finalEntity)
+                                } else {
+                                    if (BuildConfig.DEBUG) {
+                                        Log.d(TAG, "No data changes detected for wallet ${entity.id}, skipping DB refresh.")
+                                    }
+                                    val syncedEntity = entity.withSyncResult(
+                                        balanceSats = balanceSats,
+                                        txCount = entity.transactionCount,
+                                        status = NodeStatus.Synced,
+                                        timestamp = syncTimestamp
+                                    )
+                                    walletDao.upsert(syncedEntity)
+                                }
+                            }
+                        }.onFailure { error ->
+                            if (cancelledForDeletion.get() || isWalletDeletionPending(entity.id)) {
+                                if (BuildConfig.DEBUG) {
+                                    Log.d(TAG, "Wallet ${entity.id} sync aborted because it is being deleted.")
+                                }
+                                return@forEach
+                            }
+                            if (error is CancellationException) {
+                                throw error
+                            }
+                            hadWalletErrors = true
+                            invalidateWalletCache(entity.id)
+                            val reason = error.toTorAwareMessage(
+                                defaultMessage = error.message.orEmpty().ifBlank { "Wallet sync failed" },
+                                endpoint = endpoint,
+                                usedTor = activeTransport == NodeTransport.TOR
                             )
+                            if (lastWalletError == null) {
+                                lastWalletError = reason
+                            }
+                            if (BuildConfig.DEBUG) {
+                                Log.e(TAG, "Sync failed for wallet ${entity.name} (${entity.id})", error)
+                            } else {
+                                Log.e(TAG, "Wallet sync failed", error)
+                            }
+                            walletDao.upsert(
+                                entity.withSyncFailure(
+                                    status = NodeStatus.Error(reason),
+                                    timestamp = System.currentTimeMillis()
+                                )
+                            )
+                        }
+                    }
+                    ensureForeground()
+                    val finalStatus = if (hadWalletErrors) {
+                        NodeStatus.Error(
+                            lastWalletError ?: "Wallet sync completed with errors. Check wallets for details."
                         )
+                    } else {
+                        NodeStatus.Synced
+                    }
+                    val syncCompletedAt = System.currentTimeMillis()
+                    nodeStatus.value = NodeStatusSnapshot(
+                        status = finalStatus,
+                        blockHeight = blockHeight,
+                        serverInfo = serverInfo,
+                        endpoint = endpoint,
+                        lastSyncCompletedAt = syncCompletedAt,
+                        network = network,
+                        feeRateSatPerVb = estimatedFeeRateSatPerVb
+                    )
+                    lastEndpointMetadata = null
+                    if (hadWalletErrors) {
+                        Log.w(TAG, "Wallet sync completed with errors. Check individual wallets for details.")
                     }
                 }
-                ensureForeground()
-                val finalStatus = if (hadWalletErrors) {
-                    NodeStatus.Error(
-                        lastWalletError ?: "Wallet sync completed with errors. Check wallets for details."
-                    )
-                } else {
-                    NodeStatus.Synced
-                }
-                val syncCompletedAt = System.currentTimeMillis()
-                nodeStatus.value = NodeStatusSnapshot(
-                    status = finalStatus,
-                    blockHeight = blockHeight,
-                    serverInfo = serverInfo,
-                    endpoint = endpoint,
-                    lastSyncCompletedAt = syncCompletedAt,
-                    network = network,
-                    feeRateSatPerVb = estimatedFeeRateSatPerVb
-                )
-                if (hadWalletErrors) {
-                    Log.w(TAG, "Wallet sync completed with errors. Check individual wallets for details.")
-                }
             }
+            if (activeTransport == NodeTransport.TOR) {
+                var proxyAcquired = false
+                try {
+                    torManager.withTorProxy { proxy ->
+                        proxyAcquired = true
+                        runSyncWithProxy(proxy)
+                    }
+                } catch (error: Throwable) {
+                    if (error is CancellationException) throw error
+                    if (!proxyAcquired) {
+                        val torStatus = torManager.status.value
+                        signalWaitingForTor(previousEndpoint, torStatus)
+                        Log.w(TAG, "Tor proxy unavailable while syncing $network, waiting for Tor", error)
+                        return
+                    }
+                    throw error
+                }
+            } else {
+                runSyncWithProxy(null)
+            }
+
+        } catch (e: TorProxyUnavailableException) {
+            signalWaitingForTor(endpoint, torManager.status.value)
+            Log.w(TAG, "Tor proxy unavailable while syncing $network, waiting for Tor", e)
+            return
         } catch (e: CancellationException) {
             Log.i(TAG, "Electrum sync cancelled because app entered background on $network")
             nodeStatus.value = NodeStatusSnapshot(
@@ -681,9 +803,16 @@ class DefaultWalletRepository @Inject constructor(
             throw e
         } catch (e: Exception) {
             val reason = e.toTorAwareMessage(
-                defaultMessage = e.message.orEmpty().ifBlank { "Tor or Electrum connection failed" },
-                endpoint = endpoint
+                defaultMessage = e.message.orEmpty().ifBlank { "Electrum connection failed" },
+                endpoint = endpoint,
+                usedTor = activeTransport == NodeTransport.TOR
             )
+            if (activeTransport == NodeTransport.TOR && (e.isSocksError() || e.isConnectionRefused())) {
+                val restartResult = torProxyProvider.restart()
+                if (restartResult.isFailure) {
+                    Log.w(TAG, "Unable to restart Tor proxy after connection failure", restartResult.exceptionOrNull())
+                }
+            }
             nodeStatus.value = NodeStatusSnapshot(
                 status = NodeStatus.Error(reason),
                 blockHeight = blockHeight,
@@ -696,6 +825,64 @@ class DefaultWalletRepository @Inject constructor(
             throw e
         }
     }
+
+    private suspend fun handlePresetRotationOnFailure(
+        network: BitcoinNetwork,
+        triedPresetKeys: MutableSet<String>
+    ): Boolean {
+        val metadata = lastEndpointMetadata ?: return false
+        if (metadata.network != network) {
+            return false
+        }
+        if (metadata.endpoint.source != ElectrumEndpointSource.PUBLIC) {
+            return false
+        }
+        val attemptKey = (metadata.endpoint.nodeId ?: metadata.endpoint.url).orEmpty()
+        if (!triedPresetKeys.add(attemptKey)) {
+            return false
+        }
+        val rotated = blockchainFactory.rotatePublicEndpoint(network, metadata.endpoint.nodeId) ?: return false
+        val previousSnapshot = nodeStatus.value
+        val previousLabel = metadata.endpoint.displayName ?: metadata.endpoint.url
+        val nextLabel = rotated.displayName ?: rotated.endpoint
+        val rotationMessage = if (metadata.endpoint.displayName.isNullOrBlank()) {
+            applicationContext.getString(
+                R.string.node_preset_rotation_message_generic,
+                nextLabel
+            )
+        } else {
+            applicationContext.getString(
+                R.string.node_preset_rotation_message,
+                previousLabel,
+                nextLabel
+            )
+        }
+        nodeStatus.value = previousSnapshot.copy(
+            status = NodeStatus.Error(rotationMessage)
+        )
+        Log.w(TAG, "Preset $previousLabel unreachable, rotating to ${rotated.displayName}")
+        return true
+    }
+
+    private fun Throwable.isSocksError(): Boolean =
+        generateSequence(this) { current ->
+            val cause = current.cause
+            if (cause != null && cause !== current) cause else null
+        }.any { throwable ->
+            throwable.message?.contains("SOCKS", ignoreCase = true) == true
+        }
+
+    private fun Throwable.isConnectionRefused(): Boolean =
+        generateSequence(this) { current ->
+            val cause = current.cause
+            if (cause != null && cause !== current) cause else null
+        }.any { throwable ->
+            throwable.message?.contains("Connection refused", ignoreCase = true) == true ||
+                throwable.message?.contains("os error 111", ignoreCase = true) == true ||
+                throwable is java.net.ConnectException ||
+                (throwable is java.net.SocketException &&
+                    throwable.message?.contains("ECONNREFUSED", ignoreCase = true) == true)
+        }
 
     private fun captureTransactions(
         walletId: Long,

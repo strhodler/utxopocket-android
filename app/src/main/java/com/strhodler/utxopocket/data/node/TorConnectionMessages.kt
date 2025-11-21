@@ -12,13 +12,21 @@ private fun Throwable.rootCause(): Throwable {
 }
 
 private fun Throwable.torAwareHint(): String? = when (rootCause()) {
-    is ElectrumException.AllAttemptsErrored -> "Tor connection timed out after several retries. This is often temporary—wait a moment and try again, or switch to an endpoint known to allow Tor."
+    is ElectrumException.AllAttemptsErrored -> "Tor connection timed out. Retry shortly or pick another node."
     is SSLHandshakeException -> "TLS handshake failed while connecting through Tor. Verify the node's certificate or try a different endpoint."
     else -> null
 }
 
-fun Throwable.toTorAwareMessage(defaultMessage: String, endpoint: String? = null): String {
-    val base = torAwareHint() ?: defaultMessage
+fun Throwable.toTorAwareMessage(
+    defaultMessage: String,
+    endpoint: String? = null,
+    usedTor: Boolean = true
+): String {
+    val base = if (usedTor) {
+        torAwareHint() ?: defaultMessage
+    } else {
+        defaultMessage
+    }
     return if (endpoint != null) {
         "$base (endpoint: $endpoint)"
     } else {

@@ -14,6 +14,7 @@ class NodeQrParserTest {
         val hostPort = assertIs<NodeQrParseResult.HostPort>(result)
         assertEquals("umbrel.local", hostPort.host)
         assertEquals("50001", hostPort.port)
+        assertTrue(hostPort.useSsl)
     }
 
     @Test
@@ -23,6 +24,37 @@ class NodeQrParserTest {
         val hostPort = assertIs<NodeQrParseResult.HostPort>(result)
         assertEquals("umbrel.local", hostPort.host)
         assertEquals("50001", hostPort.port)
+        assertTrue(!hostPort.useSsl)
+    }
+
+    @Test
+    fun `parses scheme prefixed endpoint`() {
+        val result = parseNodeQrContent("ssl://node.example.com:50002?tls=1")
+
+        val hostPort = assertIs<NodeQrParseResult.HostPort>(result)
+        assertEquals("node.example.com", hostPort.host)
+        assertEquals("50002", hostPort.port)
+        assertTrue(hostPort.useSsl)
+    }
+
+    @Test
+    fun `parses tcp scheme as non ssl`() {
+        val result = parseNodeQrContent("tcp://node.example.com:50001")
+
+        val hostPort = assertIs<NodeQrParseResult.HostPort>(result)
+        assertEquals("node.example.com", hostPort.host)
+        assertEquals("50001", hostPort.port)
+        assertTrue(!hostPort.useSsl)
+    }
+
+    @Test
+    fun `electrum scheme keeps ssl enabled by default`() {
+        val result = parseNodeQrContent("electrum://node.example.com:60002#metadata")
+
+        val hostPort = assertIs<NodeQrParseResult.HostPort>(result)
+        assertEquals("node.example.com", hostPort.host)
+        assertEquals("60002", hostPort.port)
+        assertTrue(hostPort.useSsl)
     }
 
     @Test
@@ -30,7 +62,8 @@ class NodeQrParserTest {
         val result = parseNodeQrContent("example123.onion")
 
         val onion = assertIs<NodeQrParseResult.Onion>(result)
-        assertEquals("example123.onion", onion.address)
+        assertEquals("example123.onion", onion.host)
+        assertEquals(null, onion.port)
     }
 
     @Test
@@ -38,16 +71,8 @@ class NodeQrParserTest {
         val result = parseNodeQrContent("example123.onion:50001")
 
         val onion = assertIs<NodeQrParseResult.Onion>(result)
-        assertEquals("example123.onion:50001", onion.address)
-    }
-
-    @Test
-    fun `parses scheme prefixed endpoint`() {
-        val result = parseNodeQrContent("electrum://node.example.com:50002?tls=1")
-
-        val hostPort = assertIs<NodeQrParseResult.HostPort>(result)
-        assertEquals("node.example.com", hostPort.host)
-        assertEquals("50002", hostPort.port)
+        assertEquals("example123.onion", onion.host)
+        assertEquals("50001", onion.port)
     }
 
     @Test

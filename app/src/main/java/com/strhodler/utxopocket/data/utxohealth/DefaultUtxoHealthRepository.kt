@@ -4,6 +4,7 @@ import com.strhodler.utxopocket.data.db.UtxoHealthEntity
 import com.strhodler.utxopocket.data.db.WalletDao
 import com.strhodler.utxopocket.data.db.toDomain
 import com.strhodler.utxopocket.data.db.toEntity
+import com.strhodler.utxopocket.data.health.HealthResultStore
 import com.strhodler.utxopocket.di.IoDispatcher
 import com.strhodler.utxopocket.domain.model.UtxoHealthResult
 import com.strhodler.utxopocket.domain.repository.UtxoHealthFilter
@@ -12,32 +13,30 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 
 @Singleton
 class DefaultUtxoHealthRepository @Inject constructor(
-    private val walletDao: WalletDao,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    walletDao: WalletDao,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher
 ) : UtxoHealthRepository {
 
+    private val store = HealthResultStore<UtxoHealthEntity, UtxoHealthResult, UtxoHealthFilter>(
+        observeQuery = walletDao::observeUtxoHealth,
+        entityToDomain = UtxoHealthEntity::toDomain,
+        domainToEntity = { result, walletId -> result.toEntity(walletId) },
+        replaceAction = walletDao::replaceUtxoHealth,
+        clearAction = walletDao::clearUtxoHealth,
+        filterResults = { results, filter -> applyFilter(results, filter) },
+        dispatcher = ioDispatcher
+    )
+
     override fun stream(walletId: Long, filter: UtxoHealthFilter): Flow<List<UtxoHealthResult>> =
-        walletDao.observeUtxoHealth(walletId)
-            .map { entities -> entities.map(UtxoHealthEntity::toDomain) }
-            .map { results -> applyFilter(results, filter) }
+        store.stream(walletId, filter)
 
-    override suspend fun replace(walletId: Long, results: Collection<UtxoHealthResult>) {
-        withContext(ioDispatcher) {
-            val entities = results.map { it.toEntity(walletId) }
-            walletDao.replaceUtxoHealth(walletId, entities)
-        }
-    }
+    override suspend fun replace(walletId: Long, results: Collection<UtxoHealthResult>) =
+        store.replace(walletId, results)
 
-    override suspend fun clear(walletId: Long) {
-        withContext(ioDispatcher) {
-            walletDao.clearUtxoHealth(walletId)
-        }
-    }
+    override suspend fun clear(walletId: Long) = store.clear(walletId)
 
     private fun applyFilter(
         results: List<UtxoHealthResult>,

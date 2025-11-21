@@ -64,12 +64,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -83,6 +81,7 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.common.generateQrBitmap
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
+import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
@@ -450,6 +449,10 @@ private fun AboutDeveloperContent(
     val lightningUri = remember(lightningAddress) { lightningAddress }
     val qrBitmap = remember(lightningUri) { generateQrBitmap(lightningUri, size = 512) }
     val copyMessage = stringResource(id = R.string.about_sheet_copy_toast)
+    val copyDeveloperLink = rememberCopyToClipboard(
+        successMessage = copyMessage,
+        onShowMessage = onLinkCopied
+    )
 
     Column(
         modifier = modifier
@@ -478,17 +481,17 @@ private fun AboutDeveloperContent(
                 title = stringResource(id = R.string.about_sheet_link_repository),
                 value = DEVELOPER_REPOSITORY_URL,
                 onOpen = onOpenRepository,
-                onCopy = { onLinkCopied(copyMessage) }
+                onCopy = { copyDeveloperLink(DEVELOPER_REPOSITORY_URL) }
             )
             DeveloperLinkItem(
                 title = stringResource(id = R.string.about_sheet_link_nostr),
                 value = DEVELOPER_NOSTR,
-                onCopy = { onLinkCopied(copyMessage) }
+                onCopy = { copyDeveloperLink(DEVELOPER_NOSTR) }
             )
             DeveloperLinkItem(
                 title = stringResource(id = R.string.about_sheet_link_lightning),
                 value = lightningAddress,
-                onCopy = { onLinkCopied(copyMessage) }
+                onCopy = { copyDeveloperLink(lightningAddress) }
             )
         }
     }
@@ -697,7 +700,6 @@ private fun DeveloperLinkItem(
     onCopy: (() -> Unit)? = null,
     onOpen: (() -> Unit)? = null
 ) {
-    val clipboardManager = LocalClipboardManager.current
     val itemModifier = Modifier
         .fillMaxWidth()
         .clip(MaterialTheme.shapes.medium)
@@ -718,10 +720,7 @@ private fun DeveloperLinkItem(
         },
         trailingContent = {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                IconButton(onClick = {
-                    clipboardManager.setText(AnnotatedString(value))
-                    onCopy?.invoke()
-                }) {
+                IconButton(onClick = { onCopy?.invoke() }) {
                     Icon(imageVector = Icons.Outlined.ContentCopy, contentDescription = null)
                 }
                 if (onOpen != null) {

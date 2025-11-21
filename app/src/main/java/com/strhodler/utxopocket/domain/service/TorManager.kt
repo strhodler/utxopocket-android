@@ -9,6 +9,10 @@ interface TorManager {
     val status: StateFlow<TorStatus>
     val latestLog: StateFlow<String>
     suspend fun start(config: TorConfig = TorConfig.DEFAULT): Result<SocksProxyConfig>
+    suspend fun <T> withTorProxy(
+        config: TorConfig = TorConfig.DEFAULT,
+        block: suspend (SocksProxyConfig) -> T
+    ): T
     suspend fun stop()
     suspend fun renewIdentity(): Boolean
     fun currentProxy(): SocksProxyConfig

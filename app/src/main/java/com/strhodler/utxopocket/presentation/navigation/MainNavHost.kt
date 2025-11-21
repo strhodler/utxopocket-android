@@ -13,6 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.glossary.GlossaryDetailRoute
 import com.strhodler.utxopocket.presentation.glossary.GlossaryNavigation
@@ -26,11 +27,13 @@ import com.strhodler.utxopocket.presentation.more.MoreNavigation
 import com.strhodler.utxopocket.presentation.more.MoreRoute
 import com.strhodler.utxopocket.presentation.more.PdfViewerRoute
 import com.strhodler.utxopocket.presentation.node.NodeStatusRoute
+import com.strhodler.utxopocket.presentation.settings.InterfaceSettingsRoute
+import com.strhodler.utxopocket.presentation.settings.SecuritySettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsNavigation
 import com.strhodler.utxopocket.presentation.settings.HealthParametersRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsRoute
+import com.strhodler.utxopocket.presentation.settings.WalletSettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsViewModel
-import com.strhodler.utxopocket.presentation.tor.TorStatusRoute
 import com.strhodler.utxopocket.presentation.wallets.WalletsRoute
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wallets.add.AddWalletRoute
@@ -67,7 +70,15 @@ fun MainNavHost(
                         null as String?
                     )
                 }
+                val createdMessageFlow = remember(backStackEntry) {
+                    backStackEntry.savedStateHandle.getStateFlow(
+                        WalletsNavigation.WalletCreatedMessageKey,
+                        null as String?
+                    )
+                }
                 val deletedMessage by deletedMessageFlow.collectAsState()
+                val createdMessage by createdMessageFlow.collectAsState()
+                val snackbarMessage = createdMessage ?: deletedMessage
                 WalletsRoute(
                     onAddWallet = { navController.navigate(WalletsNavigation.AddRoute) },
                     onOpenWiki = {
@@ -98,7 +109,11 @@ fun MainNavHost(
                         }
                     },
                     onConnectTor = {
-                        navController.navigate(WalletsNavigation.TorStatusRoute) {
+                        navController.navigate(
+                            WalletsNavigation.nodeStatusRoute(
+                                WalletsNavigation.NodeStatusTabDestination.Overview
+                            )
+                        ) {
                             launchSingleTop = true
                         }
                     },
@@ -107,17 +122,41 @@ fun MainNavHost(
                             launchSingleTop = true
                         }
                     },
-                    snackbarMessage = deletedMessage,
+                    snackbarMessage = snackbarMessage,
                     onSnackbarConsumed = {
-                        backStackEntry.savedStateHandle[WalletsNavigation.WalletDeletedMessageKey] = null
-                    }
+                        if (createdMessage != null) {
+                            backStackEntry.savedStateHandle[WalletsNavigation.WalletCreatedMessageKey] = null
+                        } else if (deletedMessage != null) {
+                            backStackEntry.savedStateHandle[WalletsNavigation.WalletDeletedMessageKey] = null
+                        }
+                    },
+                    statusBarState = statusBarState
                 )
             }
             composable(WalletsNavigation.AddRoute) {
                 AddWalletRoute(
                     onBack = { navController.popBackStack() },
-                    onWalletCreated = {
-                        navController.popBackStack(WalletsNavigation.ListRoute, inclusive = false)
+                    onWalletCreated = { message ->
+                        runCatching {
+                            navController.getBackStackEntry(WalletsNavigation.ListRoute).savedStateHandle[
+                                WalletsNavigation.WalletCreatedMessageKey
+                            ] = message
+                        }
+                        val popped = navController.popBackStack(WalletsNavigation.ListRoute, inclusive = false)
+                        if (!popped) {
+                            navController.navigate(MainDestination.Wallets.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                            runCatching {
+                                navController.getBackStackEntry(WalletsNavigation.ListRoute).savedStateHandle[
+                                    WalletsNavigation.WalletCreatedMessageKey
+                                ] = message
+                            }
+                        }
                     },
                     onDescriptorHelp = {
                         navController.navigate(
@@ -249,11 +288,53 @@ fun MainNavHost(
         }
         composable(MainDestination.Settings.route) {
             SettingsRoute(
+                onOpenInterfaceSettings = {
+                    navController.navigate(SettingsNavigation.InterfaceRoute)
+                },
+                onOpenWalletSettings = {
+                    navController.navigate(SettingsNavigation.WalletRoute)
+                },
+                onOpenSecuritySettings = {
+                    navController.navigate(SettingsNavigation.SecurityRoute)
+                }
+            )
+        }
+        composable(SettingsNavigation.InterfaceRoute) { backStackEntry ->
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(MainDestination.Settings.route)
+            }
+            val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
+            InterfaceSettingsRoute(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(SettingsNavigation.WalletRoute) { backStackEntry ->
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(MainDestination.Settings.route)
+            }
+            val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
+            WalletSettingsRoute(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
                 onOpenWikiTopic = { topicId ->
                     navController.navigate(WikiNavigation.detailRoute(topicId)) {
                         launchSingleTop = true
                     }
+                },
+                onOpenHealthParameters = {
+                    navController.navigate(SettingsNavigation.HealthParametersRoute)
                 }
+            )
+        }
+        composable(SettingsNavigation.SecurityRoute) { backStackEntry ->
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(MainDestination.Settings.route)
+            }
+            val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
+            SecuritySettingsRoute(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
             )
         }
         composable(SettingsNavigation.HealthParametersRoute) { backStackEntry ->
@@ -279,24 +360,14 @@ fun MainNavHost(
         ) { backStackEntry ->
             val tabArg = backStackEntry.arguments?.getString(WalletsNavigation.NodeStatusTabArg)
             val initialTabIndex = when (tabArg) {
-                WalletsNavigation.NodeStatusTabDestination.Management.argValue -> 1
+                WalletsNavigation.NodeStatusTabDestination.Management.argValue -> 0
+                WalletsNavigation.NodeStatusTabDestination.Overview.argValue -> 1
                 else -> 0
             }
             NodeStatusRoute(
                 status = statusBarState,
                 onBack = { navController.popBackStack() },
-                onOpenTorStatus = {
-                    navController.navigate(WalletsNavigation.TorStatusRoute) {
-                        launchSingleTop = true
-                    }
-                },
                 initialTabIndex = initialTabIndex
-            )
-        }
-        composable(WalletsNavigation.TorStatusRoute) {
-            TorStatusRoute(
-                status = statusBarState,
-                onBack = { navController.popBackStack() }
             )
         }
         navigation(

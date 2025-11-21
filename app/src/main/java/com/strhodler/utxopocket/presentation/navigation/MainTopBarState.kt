@@ -30,19 +30,31 @@ sealed interface MainTopBarState {
         val containerColor: Color? = null,
         val contentColor: Color? = null,
         val tonalElevation: Dp = 3.dp,
-        val overlayContent: Boolean = false
+        val overlayContent: Boolean = false,
+        val nodeStatusActionFirst: Boolean = false
     ) : MainTopBarState
 }
 
 class MainTopBarStateHolder {
+    private val stack: MutableList<MainTopBarState> = mutableListOf(MainTopBarState.Primary)
     var state: MainTopBarState by mutableStateOf(
         MainTopBarState.Primary,
         neverEqualPolicy()
     )
         private set
 
-    fun update(newState: MainTopBarState) {
+    fun push(newState: MainTopBarState) {
+        stack.add(newState)
         state = newState
+    }
+
+    fun pop(stateToPop: MainTopBarState) {
+        if (stack.isNotEmpty() && stack.last() == stateToPop) {
+            stack.removeAt(stack.lastIndex)
+        } else if (stack.isEmpty()) {
+            stack.add(MainTopBarState.Primary)
+        }
+        state = stack.lastOrNull() ?: MainTopBarState.Primary
     }
 }
 
@@ -59,12 +71,8 @@ fun rememberMainTopBarStateHolder(): MainTopBarStateHolder = remember {
 fun MainTopBarStateEffect(state: MainTopBarState) {
     val holder = LocalMainTopBarStateHolder.current
     DisposableEffect(state) {
-        holder.update(state)
-        onDispose {
-            if (holder.state == state) {
-                holder.update(MainTopBarState.Primary)
-            }
-        }
+        holder.push(state)
+        onDispose { holder.pop(state) }
     }
 }
 
@@ -86,7 +94,8 @@ fun SetSecondaryTopBar(
     containerColor: Color? = null,
     contentColor: Color? = null,
     tonalElevation: Dp = 3.dp,
-    overlayContent: Boolean = false
+    overlayContent: Boolean = false,
+    nodeStatusActionFirst: Boolean = false
 ) {
     MainTopBarStateEffect(
         MainTopBarState.Secondary(
@@ -96,7 +105,8 @@ fun SetSecondaryTopBar(
             containerColor = containerColor,
             contentColor = contentColor,
             tonalElevation = tonalElevation,
-            overlayContent = overlayContent
+            overlayContent = overlayContent,
+            nodeStatusActionFirst = nodeStatusActionFirst
         )
     )
 }

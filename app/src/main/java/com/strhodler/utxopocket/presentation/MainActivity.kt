@@ -7,7 +7,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,18 +32,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.NetworkCheck
-import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -65,10 +57,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -89,6 +79,9 @@ import com.strhodler.utxopocket.presentation.pin.PinLockoutMessageType
 import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
 import com.strhodler.utxopocket.presentation.pin.formatPinCountdownMessage
 import com.strhodler.utxopocket.presentation.pin.formatPinStaticError
+import com.strhodler.utxopocket.presentation.components.TopBarNodeStatusIcon
+import com.strhodler.utxopocket.presentation.components.TopBarStatusActionIcon
+import com.strhodler.utxopocket.presentation.components.nodeStatusIndicatorColor
 import com.strhodler.utxopocket.presentation.format.formatBlockHeight
 import com.strhodler.utxopocket.presentation.format.formatFeeRateSatPerVb
 import com.strhodler.utxopocket.presentation.format.sanitizeFeeRateSatPerVb
@@ -161,6 +154,15 @@ class MainActivity : AppCompatActivity() {
                             currentRoute != null &&
                                 currentRoute in bottomBarVisibleRoutes &&
                                 bottomBarVisibilityController.isVisible
+                        val onNodeStatusClick = remember(navController) {
+                            {
+                                navController.navigate(
+                                    WalletsNavigation.nodeStatusRoute()
+                                ) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        }
 
                         if (!uiState.appLocked && (pinErrorMessage != null || pinLockoutExpiry != null)) {
                             pinErrorMessage = null
@@ -205,25 +207,7 @@ class MainActivity : AppCompatActivity() {
                                             is MainTopBarState.Primary -> {
                                                 StatusBar(
                                                     state = uiState.status,
-                                                    onStatusClick = { detail ->
-                                                        when (detail) {
-                                                            StatusDetail.Tor -> {
-                                                                navController.navigate(
-                                                                    WalletsNavigation.TorStatusRoute
-                                                                ) {
-                                                                    launchSingleTop = true
-                                                                }
-                                                            }
-
-                                                            StatusDetail.Node -> {
-                                                                navController.navigate(
-                                                                    WalletsNavigation.nodeStatusRoute()
-                                                                ) {
-                                                                    launchSingleTop = true
-                                                                }
-                                                            }
-                                                        }
-                                                    },
+                                                    onNodeStatusClick = onNodeStatusClick,
                                                     modifier = Modifier.windowInsetsPadding(
                                                         WindowInsets.safeDrawing.only(
                                                             WindowInsetsSides.Top
@@ -236,6 +220,8 @@ class MainActivity : AppCompatActivity() {
                                                 SecondaryTopBar(
                                                     title = topBarState.title,
                                                     onBackClick = topBarState.onBackClick,
+                                                    nodeStatus = uiState.status.nodeStatus,
+                                                    onNodeStatusClick = onNodeStatusClick,
                                                     actions = topBarState.actions,
                                                     modifier = Modifier.windowInsetsPadding(
                                                         WindowInsets.safeDrawing.only(
@@ -244,7 +230,8 @@ class MainActivity : AppCompatActivity() {
                                                     ),
                                                     containerColor = topBarState.containerColor,
                                                     contentColor = topBarState.contentColor,
-                                                    tonalElevation = topBarState.tonalElevation
+                                                    tonalElevation = topBarState.tonalElevation,
+                                                    nodeStatusActionFirst = topBarState.nodeStatusActionFirst
                                                 )
                                             }
 
@@ -365,13 +352,11 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-private enum class StatusDetail { Tor, Node }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StatusBar(
     state: StatusBarUiState,
-    onStatusClick: (StatusDetail) -> Unit,
+    onNodeStatusClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
         val blockHeightLabel = state.nodeBlockHeight?.let { height ->
@@ -388,10 +373,9 @@ private fun StatusBar(
         val fallbackSubtitle = when (val status = state.nodeStatus) {
             NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
             NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
+            NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
             NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
-            is NodeStatus.Error -> status.message.ifBlank {
-                stringResource(id = R.string.wallets_state_connecting)
-            }
+            is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
         }
         val subtitleText = when {
             blockHeightLabel != null && feeRateLabel != null -> "$blockHeightLabel · $feeRateLabel"
@@ -413,7 +397,7 @@ private fun StatusBar(
                 ) {
                     Text(
                         text = stringResource(id = R.string.app_name),
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         textAlign = TextAlign.Start
                     )
                     Text(
@@ -428,19 +412,12 @@ private fun StatusBar(
             },
             navigationIcon = {},
             actions = {
-                StatusActionIcon(
-                    onClick = { onStatusClick(StatusDetail.Tor) },
-                    indicatorColor = torIndicatorColor(state.torStatus),
-                    contentDescription = stringResource(id = R.string.status_tor_action_description)
-                ) {
-                    TorStatusIcon(state.torStatus)
-                }
-                StatusActionIcon(
-                    onClick = { onStatusClick(StatusDetail.Node) },
-                    indicatorColor = nodeIndicatorColor(state.nodeStatus),
+                TopBarStatusActionIcon(
+                    onClick = onNodeStatusClick,
+                    indicatorColor = nodeStatusIndicatorColor(state.nodeStatus),
                     contentDescription = stringResource(id = R.string.status_node_action_description)
                 ) {
-                    NodeStatusIcon(state.nodeStatus)
+                    TopBarNodeStatusIcon(state.nodeStatus)
                 }
             },
             colors = topBarColors,
@@ -453,11 +430,14 @@ private fun StatusBar(
     private fun SecondaryTopBar(
         title: String,
         onBackClick: () -> Unit,
+        nodeStatus: NodeStatus,
+        onNodeStatusClick: () -> Unit,
         actions: @Composable RowScope.() -> Unit,
         modifier: Modifier = Modifier,
         containerColor: Color? = null,
         contentColor: Color? = null,
-        tonalElevation: Dp = 3.dp
+        tonalElevation: Dp = 3.dp,
+        nodeStatusActionFirst: Boolean = false
     ) {
         val resolvedContainer = containerColor ?: MaterialTheme.colorScheme.surface
         val resolvedContent = contentColor ?: contentColorFor(resolvedContainer)
@@ -495,154 +475,30 @@ private fun StatusBar(
                         )
                     }
                 },
-                actions = actions,
+                actions = {
+                    if (nodeStatusActionFirst) {
+                        TopBarStatusActionIcon(
+                            onClick = onNodeStatusClick,
+                            indicatorColor = nodeStatusIndicatorColor(nodeStatus),
+                            contentDescription = stringResource(id = R.string.status_node_action_description)
+                        ) {
+                            TopBarNodeStatusIcon(nodeStatus)
+                        }
+                        actions()
+                    } else {
+                        actions()
+                        TopBarStatusActionIcon(
+                            onClick = onNodeStatusClick,
+                            indicatorColor = nodeStatusIndicatorColor(nodeStatus),
+                            contentDescription = stringResource(id = R.string.status_node_action_description)
+                        ) {
+                            TopBarNodeStatusIcon(nodeStatus)
+                        }
+                    }
+                },
                 colors = topBarColors,
                 windowInsets = WindowInsets(left = 0.dp, top = 0.dp, right = 0.dp, bottom = 0.dp)
             )
         }
     }
 
-    @Composable
-    private fun StatusActionIcon(
-        onClick: () -> Unit,
-        indicatorColor: Color?,
-        contentDescription: String,
-        icon: @Composable () -> Unit
-    ) {
-        IconButton(
-            onClick = onClick,
-            modifier = Modifier
-                .size(48.dp)
-                .semantics { this.contentDescription = contentDescription }
-        ) {
-            BadgedBox(
-                badge = {
-                    indicatorColor?.let { color ->
-                        Badge(
-                            containerColor = color,
-                            contentColor = Color.Transparent
-                        )
-                    }
-                }
-            ) {
-                icon()
-            }
-        }
-    }
-
-    @Composable
-    private fun TorStatusIcon(status: TorStatus) {
-        when (status) {
-            is TorStatus.Running -> {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_tor_monochrome),
-                    contentDescription = null,
-                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.secondary),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            is TorStatus.Connecting -> {
-                Box(contentAlignment = Alignment.Center) {
-                    val normalizedProgress = status.progress.coerceIn(0, 100) / 100f
-                    if (normalizedProgress <= 0f) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        CircularProgressIndicator(
-                            progress = { normalizedProgress },
-                            modifier = Modifier.size(24.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            strokeWidth = 2.dp,
-                            trackColor = MaterialTheme.colorScheme.outlineVariant,
-                            strokeCap = ProgressIndicatorDefaults.CircularDeterminateStrokeCap,
-                        )
-                    }
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_tor_monochrome),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            TorStatus.Stopped -> {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_tor_monochrome),
-                    contentDescription = null,
-                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            is TorStatus.Error -> {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_tor_monochrome),
-                    contentDescription = null,
-                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.error),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-    }
-
-    @Composable
-    private fun NodeStatusIcon(status: NodeStatus) {
-        when (status) {
-            NodeStatus.Synced -> Icon(
-                imageVector = Icons.Outlined.Wifi,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(20.dp)
-            )
-
-            NodeStatus.Connecting -> {
-                Box(contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Icon(
-                        imageVector = Icons.Outlined.Wifi,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            NodeStatus.Idle -> Icon(
-                imageVector = Icons.Outlined.NetworkCheck,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
-
-            is NodeStatus.Error -> Icon(
-                imageVector = Icons.Outlined.Info,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-
-    @Composable
-    private fun torIndicatorColor(status: TorStatus): Color? = when (status) {
-        is TorStatus.Running -> TorConnectedBadgeColor
-        else -> null
-    }
-
-    @Composable
-    private fun nodeIndicatorColor(status: NodeStatus): Color? = when (status) {
-        NodeStatus.Synced -> NodeConnectedBadgeColor
-        else -> null
-    }
-
-private val TorConnectedBadgeColor = Color(0xFF2ECC71)
-private val NodeConnectedBadgeColor = Color(0xFF2ECC71)
