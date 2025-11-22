@@ -734,25 +734,45 @@ class DefaultWalletRepository @Inject constructor(
                                             currentHeight = blockHeight,
                                             existingMetadata = existingUtxoMetadata
                                         )
-                                        walletDao.replaceTransactions(
-                                            walletId = entity.id,
-                                            transactions = capturedTransactions.transactions,
-                                            inputs = capturedTransactions.inputs,
-                                            outputs = capturedTransactions.outputs
-                                        )
-                                        walletDao.replaceUtxos(entity.id, utxoEntities)
-                                        val syncedEntity = entity.withSyncResult(
-                                            balanceSats = balanceSats,
-                                            txCount = capturedTransactions.transactions.size,
-                                            status = NodeStatus.Synced,
-                                            timestamp = syncTimestamp
-                                        )
-                                        val finalEntity = if (shouldRunFullScan) {
-                                            syncedEntity.markFullScanCompleted(syncTimestamp)
+                                        val isEmptySnapshot =
+                                            capturedTransactions.transactions.isEmpty() &&
+                                                utxoEntities.isEmpty()
+                                        val hadPreviousData =
+                                            entity.transactionCount > 0 || entity.balanceSats > 0
+                                        if (isEmptySnapshot && hadPreviousData) {
+                                            SecureLog.w(TAG) {
+                                                "Wallet ${entity.id} sync returned empty snapshot; " +
+                                                    "preserving last known data."
+                                            }
+                                            walletDao.upsert(
+                                                entity.withSyncFailure(
+                                                    status = NodeStatus.Error(
+                                                        "Sync returned empty data; showing last known state"
+                                                    ),
+                                                    timestamp = syncTimestamp
+                                                )
+                                            )
                                         } else {
-                                            syncedEntity
+                                            walletDao.replaceTransactions(
+                                                walletId = entity.id,
+                                                transactions = capturedTransactions.transactions,
+                                                inputs = capturedTransactions.inputs,
+                                                outputs = capturedTransactions.outputs
+                                            )
+                                            walletDao.replaceUtxos(entity.id, utxoEntities)
+                                            val syncedEntity = entity.withSyncResult(
+                                                balanceSats = balanceSats,
+                                                txCount = capturedTransactions.transactions.size,
+                                                status = NodeStatus.Synced,
+                                                timestamp = syncTimestamp
+                                            )
+                                            val finalEntity = if (shouldRunFullScan) {
+                                                syncedEntity.markFullScanCompleted(syncTimestamp)
+                                            } else {
+                                                syncedEntity
+                                            }
+                                            walletDao.upsert(finalEntity)
                                         }
-                                        walletDao.upsert(finalEntity)
                                     } else {
                                         SecureLog.d(TAG) {
                                             "No data changes detected for wallet ${entity.id}, skipping DB refresh."
