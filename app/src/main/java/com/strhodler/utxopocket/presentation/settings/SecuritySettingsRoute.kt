@@ -7,17 +7,23 @@ import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -27,7 +33,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,8 +51,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
-import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_PIN_AUTO_LOCK_MINUTES
-import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_PIN_AUTO_LOCK_MINUTES
 import com.strhodler.utxopocket.presentation.MainActivity
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
@@ -61,14 +64,12 @@ import com.strhodler.utxopocket.presentation.pin.formatPinStaticError
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
-import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_CONNECTION_IDLE_MINUTES
-import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_CONNECTION_IDLE_MINUTES
 
 @Composable
 fun SecuritySettingsRoute(
     viewModel: SettingsViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenAdvancedSettings: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showPinSetup by rememberSaveable { mutableStateOf(false) }
@@ -77,11 +78,6 @@ fun SecuritySettingsRoute(
     var pinDisableError by remember { mutableStateOf<String?>(null) }
     var pinDisableLockoutExpiry by remember { mutableStateOf<Long?>(null) }
     var pinDisableLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
-    var showPinAdvanced by rememberSaveable { mutableStateOf(false) }
-    var showPinAdvancedGate by rememberSaveable { mutableStateOf(false) }
-    var pinAdvancedError by remember { mutableStateOf<String?>(null) }
-    var pinAdvancedLockoutExpiry by remember { mutableStateOf<Long?>(null) }
-    var pinAdvancedLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
     val genericSetupErrorText = stringResource(id = R.string.pin_setup_error_generic)
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -115,27 +111,6 @@ fun SecuritySettingsRoute(
         }
     }
 
-    LaunchedEffect(pinAdvancedLockoutExpiry, pinAdvancedLockoutType) {
-        val expiry = pinAdvancedLockoutExpiry
-        val type = pinAdvancedLockoutType
-        if (expiry == null || type == null) return@LaunchedEffect
-        while (true) {
-            val remaining = expiry - System.currentTimeMillis()
-            if (remaining <= 0L) {
-                pinAdvancedError = null
-                pinAdvancedLockoutExpiry = null
-                pinAdvancedLockoutType = null
-                break
-            }
-            pinAdvancedError = formatPinCountdownMessage(
-                resourcesState.value,
-                type,
-                remaining
-            )
-            delay(1_000)
-        }
-    }
-
     LaunchedEffect(state.pinEnabled) {
         if (state.pinEnabled) {
             showPinSetup = false
@@ -145,11 +120,6 @@ fun SecuritySettingsRoute(
             pinDisableError = null
             pinDisableLockoutExpiry = null
             pinDisableLockoutType = null
-            showPinAdvanced = false
-            showPinAdvancedGate = false
-            pinAdvancedError = null
-            pinAdvancedLockoutExpiry = null
-            pinAdvancedLockoutType = null
         }
     }
 
@@ -189,10 +159,7 @@ fun SecuritySettingsRoute(
                         showPinDisable = true
                     }
                 },
-                onPinAutoLockTimeoutSelected = viewModel::onPinAutoLockTimeoutSelected,
-                onConnectionIdleTimeoutSelected = viewModel::onConnectionIdleTimeoutSelected,
-                pinAdvancedUnlocked = showPinAdvanced,
-                onOpenPinAdvanced = { showPinAdvancedGate = true },
+                onOpenPinAdvanced = onOpenAdvancedSettings,
                 onTriggerPanicWipe = { showPanicFirstConfirmation = true },
                 panicEnabled = !isPanicInProgress,
                 modifier = Modifier.fillMaxSize()
@@ -365,64 +332,6 @@ fun SecuritySettingsRoute(
                 )
             }
 
-            if (showPinAdvancedGate) {
-                PinVerificationScreen(
-                    title = stringResource(id = R.string.settings_pin_advanced_gate_title),
-                    description = stringResource(id = R.string.settings_pin_advanced_gate_description),
-                    errorMessage = pinAdvancedError,
-                    onDismiss = {
-                        showPinAdvancedGate = false
-                        pinAdvancedError = null
-                        pinAdvancedLockoutExpiry = null
-                        pinAdvancedLockoutType = null
-                    },
-                    onPinVerified = { pin ->
-                        val resources = resourcesState.value
-                        viewModel.verifyPinForAdvanced(pin) { result ->
-                            when (result) {
-                                PinVerificationResult.Success -> {
-                                    pinAdvancedError = null
-                                    pinAdvancedLockoutExpiry = null
-                                    pinAdvancedLockoutType = null
-                                    showPinAdvancedGate = false
-                                    showPinAdvanced = true
-                                }
-
-                                PinVerificationResult.InvalidFormat,
-                                PinVerificationResult.NotConfigured -> {
-                                    pinAdvancedLockoutExpiry = null
-                                    pinAdvancedLockoutType = null
-                                    pinAdvancedError = formatPinStaticError(resources, result)
-                                }
-
-                                is PinVerificationResult.Incorrect -> {
-                                    val expiresAt =
-                                        System.currentTimeMillis() + result.lockDurationMillis
-                                    pinAdvancedLockoutType = PinLockoutMessageType.Incorrect
-                                    pinAdvancedLockoutExpiry = expiresAt
-                                    pinAdvancedError = formatPinCountdownMessage(
-                                        resources,
-                                        PinLockoutMessageType.Incorrect,
-                                        result.lockDurationMillis
-                                    )
-                                }
-
-                                is PinVerificationResult.Locked -> {
-                                    val expiresAt =
-                                        System.currentTimeMillis() + result.remainingMillis
-                                    pinAdvancedLockoutType = PinLockoutMessageType.Locked
-                                    pinAdvancedLockoutExpiry = expiresAt
-                                    pinAdvancedError = formatPinCountdownMessage(
-                                        resources,
-                                        PinLockoutMessageType.Locked,
-                                        result.remainingMillis
-                                    )
-                                }
-                            }
-                        }
-                    }
-                )
-            }
         }
     }
 }
@@ -431,9 +340,6 @@ fun SecuritySettingsRoute(
 private fun SecuritySettingsScreen(
     state: SettingsUiState,
     onPinToggleRequested: (Boolean) -> Unit,
-    onPinAutoLockTimeoutSelected: (Int) -> Unit,
-    onConnectionIdleTimeoutSelected: (Int) -> Unit,
-    pinAdvancedUnlocked: Boolean,
     onOpenPinAdvanced: () -> Unit,
     onTriggerPanicWipe: () -> Unit,
     panicEnabled: Boolean,
@@ -479,99 +385,17 @@ private fun SecuritySettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (pinAdvancedUnlocked) {
-                    var sliderValue by rememberSaveable(state.pinAutoLockTimeoutMinutes) {
-                        mutableStateOf(state.pinAutoLockTimeoutMinutes.toFloat())
-                    }
-                    LaunchedEffect(state.pinAutoLockTimeoutMinutes) {
-                        sliderValue = state.pinAutoLockTimeoutMinutes.toFloat()
-                    }
-                    val timeoutMinutes = sliderValue.roundToInt()
-                        .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
-                    val timeoutLabel = if (timeoutMinutes == 0) {
-                        stringResource(id = R.string.settings_pin_timeout_immediately_label)
-                    } else {
-                        stringResource(
-                            id = R.string.settings_pin_timeout_minutes_label,
-                            timeoutMinutes
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.settings_pin_timeout_title),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            text = timeoutLabel,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Slider(
-                        value = sliderValue,
-                        onValueChange = { sliderValue = it },
-                        onValueChangeFinished = {
-                            onPinAutoLockTimeoutSelected(timeoutMinutes)
-                        },
-                        valueRange = MIN_PIN_AUTO_LOCK_MINUTES.toFloat()..MAX_PIN_AUTO_LOCK_MINUTES.toFloat(),
-                        steps = (MAX_PIN_AUTO_LOCK_MINUTES - MIN_PIN_AUTO_LOCK_MINUTES - 1).coerceAtLeast(0),
-                        modifier = Modifier.fillMaxWidth()
+                TextButton(
+                    onClick = onOpenPinAdvanced,
+                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                    modifier = Modifier.align(Alignment.Start)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Lock,
+                        contentDescription = null
                     )
-                    var connectionTimeoutValue by rememberSaveable(state.connectionIdleTimeoutMinutes) {
-                        mutableStateOf(state.connectionIdleTimeoutMinutes.toFloat())
-                    }
-                    LaunchedEffect(state.connectionIdleTimeoutMinutes) {
-                        connectionTimeoutValue = state.connectionIdleTimeoutMinutes.toFloat()
-                    }
-                    val connectionTimeoutMinutes = connectionTimeoutValue.roundToInt()
-                        .coerceIn(MIN_CONNECTION_IDLE_MINUTES, MAX_CONNECTION_IDLE_MINUTES)
-                    val connectionTimeoutLabel = stringResource(
-                        id = R.string.settings_connection_timeout_minutes_label,
-                        connectionTimeoutMinutes
-                    )
-                    val connectionTip = when (connectionTimeoutMinutes) {
-                        in 3..5 -> stringResource(id = R.string.settings_connection_timeout_tip_short)
-                        in 6..10 -> stringResource(id = R.string.settings_connection_timeout_tip_balanced)
-                        else -> stringResource(id = R.string.settings_connection_timeout_tip_long)
-                    }
-                    Text(
-                        text = stringResource(id = R.string.settings_connection_timeout_title),
-                        style = MaterialTheme.typography.titleSmall
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = connectionTimeoutLabel,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            text = connectionTip,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Slider(
-                        value = connectionTimeoutValue,
-                        onValueChange = { connectionTimeoutValue = it },
-                        onValueChangeFinished = { onConnectionIdleTimeoutSelected(connectionTimeoutMinutes) },
-                        valueRange = MIN_CONNECTION_IDLE_MINUTES.toFloat()..MAX_CONNECTION_IDLE_MINUTES.toFloat(),
-                        steps = (MAX_CONNECTION_IDLE_MINUTES - MIN_CONNECTION_IDLE_MINUTES - 1).coerceAtLeast(0),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                } else {
-                    Button(
-                        onClick = onOpenPinAdvanced,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(text = stringResource(id = R.string.settings_pin_advanced_unlock))
-                    }
+                    Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                    Text(text = stringResource(id = R.string.settings_pin_advanced_unlock))
                 }
             }
         }

@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.data.wallet
 
 import android.content.Context
 import android.os.SystemClock
+import androidx.annotation.VisibleForTesting
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.data.bdk.BdkBlockchainFactory
 import com.strhodler.utxopocket.data.bdk.BdkManagedWallet
@@ -18,6 +19,7 @@ import androidx.paging.map
 import androidx.room.withTransaction
 import com.strhodler.utxopocket.data.db.WalletDao
 import com.strhodler.utxopocket.data.db.UtxoMetadataProjection
+import com.strhodler.utxopocket.data.db.UtxoRefProjection
 import com.strhodler.utxopocket.data.db.WalletEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionInputEntity
@@ -153,6 +155,26 @@ class DefaultWalletRepository @Inject constructor(
         private val MULTIPLE_DASHES = Regex("-{2,}")
         private val WHITESPACE_REGEX = Regex("\\s+")
         private val MULTIPATH_SEGMENT_REGEX = Regex("/<[^>]+>/")
+
+        @VisibleForTesting
+        internal fun normalizeOrigin(value: String?): String? {
+            if (value.isNullOrBlank()) return null
+            val trimmed = value.trim().replace("’", "'")
+            val collapsedWhitespace = WHITESPACE_REGEX.replace(trimmed, "")
+            return collapsedWhitespace
+                .replace("'", "h")
+                .lowercase(Locale.US)
+        }
+
+        @VisibleForTesting
+        internal fun originsCompatible(recordOrigin: String?, walletOrigin: String?): Boolean {
+            val normalizedRecord = normalizeOrigin(recordOrigin)
+            val normalizedWallet = normalizeOrigin(walletOrigin)
+            if (normalizedRecord.isNullOrBlank() || normalizedWallet.isNullOrBlank()) return true
+            if (normalizedRecord == normalizedWallet) return true
+            if (normalizedRecord.startsWith(normalizedWallet) || normalizedWallet.startsWith(normalizedRecord)) return true
+            return false
+        }
     }
 
     private val nodeStatus = MutableStateFlow(
@@ -1180,7 +1202,8 @@ class DefaultWalletRepository @Inject constructor(
         val hasLabel: Boolean,
         val spendable: Boolean?,
         val hasSpendable: Boolean,
-        val origin: String?
+        val origin: String?,
+        val keyPath: String?
     )
 
     private data class Bip329ImportAccumulator(
@@ -1956,6 +1979,47 @@ class DefaultWalletRepository @Inject constructor(
                         }
                     }
 
+                    "addr" -> {
+                        if (!parsed.hasLabel) {
+                            accumulator.skipped++
+                            continue
+                        }
+                        val sanitized = sanitizeLabel(parsed.label)
+                        if (sanitized == null) {
+                            accumulator.skipped++
+                            continue
+                        }
+                        val byAddress = walletDao.findUtxosByAddress(walletId, parsed.ref)
+                        val utxosForAddress = if (byAddress.isNotEmpty()) {
+                            byAddress
+                        } else {
+                            findUtxosByKeyPath(walletId, parsed.keyPath)
+                        }
+                        if (utxosForAddress.isEmpty()) {
+                            accumulator.skipped++
+                            continue
+                        }
+                        val uniqueTxIds = mutableSetOf<String>()
+                        utxosForAddress.forEach { ref ->
+                            walletDao.updateUtxoLabel(walletId, ref.txid, ref.vout, sanitized)
+                            accumulator.utxoLabels++
+                            uniqueTxIds.add(ref.txid)
+                        }
+                        uniqueTxIds.forEach { txid ->
+                            val txEntity = existingTransactions[txid]
+                            if (txEntity != null && txEntity.label.isNullOrBlank()) {
+                                walletDao.updateTransactionLabel(walletId, txid, sanitized)
+                                walletDao.inheritTransactionLabel(walletId, txid, sanitized)
+                                accumulator.transactionLabels++
+                            }
+                        }
+                    }
+
+                    "xpub" -> {
+                        // Currently unsupported in UI; treat as skipped.
+                        accumulator.skipped++
+                    }
+
                     else -> {
                         accumulator.skipped++
                     }
@@ -2031,6 +2095,11 @@ class DefaultWalletRepository @Inject constructor(
             } else {
                 null
             }
+            val keyPath = if (json.has("keypath") && !json.isNull("keypath")) {
+                json.optString("keypath")
+            } else {
+                null
+            }
             ParsedLabel(
                 type = type,
                 ref = ref,
@@ -2038,7 +2107,8 @@ class DefaultWalletRepository @Inject constructor(
                 hasLabel = hasLabel,
                 spendable = spendable,
                 hasSpendable = hasSpendable,
-                origin = origin
+                origin = origin,
+                keyPath = keyPath
             )
         }
     } catch (error: Exception) {
@@ -2053,10 +2123,20 @@ class DefaultWalletRepository @Inject constructor(
         return txid to vout
     }
 
-    private fun originsCompatible(recordOrigin: String?, walletOrigin: String?): Boolean {
-        if (recordOrigin.isNullOrBlank()) return true
-        if (walletOrigin.isNullOrBlank()) return true
-        return recordOrigin == walletOrigin
+    private suspend fun findUtxosByKeyPath(walletId: Long, keyPath: String?): List<UtxoRefProjection> {
+        if (keyPath.isNullOrBlank() || !keyPath.startsWith("/")) return emptyList()
+        val segments = keyPath.trim().removePrefix("/").split("/")
+        if (segments.size < 2) return emptyList()
+        val branch = segments.firstOrNull()?.toIntOrNull() ?: return emptyList()
+        val index = segments[1].toIntOrNull() ?: return emptyList()
+        val keychain = when (branch) {
+            0 -> WalletAddressType.EXTERNAL.name
+            1 -> WalletAddressType.CHANGE.name
+            else -> return emptyList()
+        }
+        return runCatching {
+            walletDao.findUtxosByDerivation(walletId, keychain, index)
+        }.getOrElse { emptyList<UtxoRefProjection>() }
     }
 
     private fun descriptorOrigin(descriptor: String?): String? {

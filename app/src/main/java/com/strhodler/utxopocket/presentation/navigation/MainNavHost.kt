@@ -28,6 +28,7 @@ import com.strhodler.utxopocket.presentation.more.MoreRoute
 import com.strhodler.utxopocket.presentation.more.PdfViewerRoute
 import com.strhodler.utxopocket.presentation.node.NodeStatusRoute
 import com.strhodler.utxopocket.presentation.settings.InterfaceSettingsRoute
+import com.strhodler.utxopocket.presentation.settings.SecurityAdvancedSettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SecuritySettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsNavigation
 import com.strhodler.utxopocket.presentation.settings.HealthParametersRoute
@@ -41,6 +42,8 @@ import com.strhodler.utxopocket.presentation.wallets.detail.AddressDetailRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.TransactionDetailRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.UtxoDetailRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.WalletDetailRoute
+import com.strhodler.utxopocket.presentation.wallets.labels.WalletLabelExportRoute
+import com.strhodler.utxopocket.presentation.wallets.labels.WalletLabelImportRoute
 import com.strhodler.utxopocket.presentation.wiki.WikiDetailRoute
 import com.strhodler.utxopocket.presentation.wiki.WikiNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiRoute
@@ -208,6 +211,7 @@ fun MainNavHost(
                             }
                         }
                     },
+                    walletId = walletIdArg,
                     onTransactionSelected = { txId ->
                         navController.navigate(WalletsNavigation.transactionDetailRoute(walletIdArg, txId))
                     },
@@ -225,8 +229,42 @@ fun MainNavHost(
                             launchSingleTop = true
                             restoreState = true
                         }
+                    },
+                    onOpenExportLabels = { targetWalletId, walletName ->
+                        navController.navigate(
+                            WalletsNavigation.exportLabelsRoute(targetWalletId, walletName)
+                        )
+                    },
+                    onOpenImportLabels = { targetWalletId, walletName ->
+                        navController.navigate(
+                            WalletsNavigation.importLabelsRoute(targetWalletId, walletName)
+                        )
                     }
                 )
+            }
+            composable(
+                route = WalletsNavigation.ExportLabelsRoute,
+                arguments = listOf(
+                    navArgument(WalletsNavigation.WalletIdArg) { type = NavType.LongType },
+                    navArgument(WalletsNavigation.WalletNameArg) {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            ) {
+                WalletLabelExportRoute(onBack = { navController.popBackStack() })
+            }
+            composable(
+                route = WalletsNavigation.ImportLabelsRoute,
+                arguments = listOf(
+                    navArgument(WalletsNavigation.WalletIdArg) { type = NavType.LongType },
+                    navArgument(WalletsNavigation.WalletNameArg) {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            ) {
+                WalletLabelImportRoute(onBack = { navController.popBackStack() })
             }
             composable(
                 route = WalletsNavigation.TransactionDetailRoute,
@@ -330,6 +368,21 @@ fun MainNavHost(
             }
             val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
             SecuritySettingsRoute(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onOpenAdvancedSettings = {
+                    navController.navigate(SettingsNavigation.SecurityAdvancedRoute) {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+        composable(SettingsNavigation.SecurityAdvancedRoute) { backStackEntry ->
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(MainDestination.Settings.route)
+            }
+            val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
+            SecurityAdvancedSettingsRoute(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }
             )

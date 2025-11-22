@@ -169,6 +169,7 @@
     <string name="wallet_detail_dust_utxo_warning">Salida dust (&lt;= %1$s)</string>
     <string name="wallet_detail_transaction_id_label">ID de transacción</string>
     <string name="wallet_detail_address_unknown">Dirección no disponible</string>
+    <string name="wallet_detail_no_label_placeholder">Sin etiqueta</string>
 
     <!-- Address detail -->
     <string name="address_detail_title">Detalles de la dirección</string>
@@ -584,6 +585,7 @@
     <string name="settings_pin_timeout_minutes_label">%d min</string>
     <string name="settings_pin_advanced_gate_title">Seguridad avanzada</string>
     <string name="settings_pin_advanced_gate_description">Confirma tu PIN para ajustar el tiempo de auto-bloqueo.</string>
+    <string name="settings_pin_advanced_connection_hint">Mantén la conexión activa mientras supervisas la wallet. Amplía el tiempo sólo si confías en tu red y quieres menos reconexiones.</string>
     <string name="settings_wallet_health_dependencies">Activa el análisis de transacciones y UTXO para habilitar Salud de la billetera.</string>
     <string name="settings_wallet_health_disable_title">¿Desactivar Salud de la billetera?</string>
     <string name="settings_wallet_health_disable_message_transaction">Al desactivar el análisis de transacciones también se desactivará Salud de la billetera.</string>
@@ -690,6 +692,31 @@
     <string name="wallet_detail_force_rescan_scheduled">Reescaneo completo en cola. Actualiza para empezar a sincronizar.</string>
     <string name="wallet_detail_force_rescan_failed">No se pudo programar un reescaneo completo. Inténtalo de nuevo.</string>
     <string name="wallet_detail_pull_to_refresh_hint">Desliza para actualizar</string>
+    <string name="wallet_labels_export_title">Exportar etiquetas</string>
+    <string name="wallet_labels_export_nav_title">Exportar etiquetas de la billetera</string>
+    <string name="wallet_labels_export_loading">Preparando etiquetas...</string>
+    <string name="wallet_labels_export_retry">Intentar de nuevo</string>
+    <string name="wallet_labels_export_empty">Aún no hay etiquetas para exportar.</string>
+    <string name="wallet_labels_export_heading">Exportando %1$s: %2$d etiquetas</string>
+    <string name="wallet_labels_export_qr_caption">Escanea para importar etiquetas BIP-329</string>
+    <string name="wallet_labels_export_multipart">QR multiparte (%1$d cuadros)</string>
+    <string name="wallet_labels_export_qr_error">QR no disponible (%1$s)</string>
+    <string name="wallet_labels_export_download">Descargar archivo</string>
+    <string name="wallet_labels_export_share">Compartir</string>
+    <string name="wallet_labels_export_saved">Etiquetas guardadas en %1$s</string>
+    <string name="wallet_labels_export_frame">Cuadro %1$d / %2$d</string>
+    <string name="wallet_labels_import_title">Importar etiquetas</string>
+    <string name="wallet_labels_import_scan_hint">Toca para escanear un QR BIP-329 o usa los botones abajo para importar.</string>
+    <string name="wallet_labels_import_scan_progress">Progreso del QR: %1$d%%</string>
+    <string name="wallet_labels_import_scan_next">Escanea la siguiente parte para continuar.</string>
+    <string name="wallet_labels_import_scan_frames">Partes: %1$d / %2$s</string>
+    <string name="wallet_labels_import_scan_error">No se pudo leer el fragmento del QR.</string>
+    <string name="wallet_labels_import_scan_action">Escanear QR</string>
+    <string name="wallet_labels_import_file_action">Importar archivo</string>
+    <string name="wallet_labels_import_result_title">Última importación</string>
+    <string name="wallet_labels_import_history_title">Historial de importaciones</string>
+    <string name="wallet_labels_import_history_empty">Aún no hay importaciones.</string>
+    <string name="wallet_labels_import_reset">Reiniciar</string>
     <string name="wallet_detail_shared_descriptors_label">Descriptores usados en otros dispositivos</string>
     <string name="wallet_detail_shared_descriptors_hint">Mantén esto activado cuando otros dispositivos deriven direcciones para estos descriptores. Desactívalo sólo si UtxoPocket es el único observador.</string>
     <string name="wallet_detail_shared_descriptors_enabled">Marcado como compartido. Se ha programado un reescaneo completo.</string>

@@ -120,6 +120,7 @@
     <string name="wallet_detail_dust_utxo_warning">Dust output (&lt;= %1$s)</string>
     <string name="wallet_detail_transaction_id_label">Tx ID</string>
     <string name="wallet_detail_address_unknown">Address unavailable</string>
+    <string name="wallet_detail_no_label_placeholder">No label</string>
     <plurals name="wallet_detail_utxo_problem_count">
         <item quantity="one">%d problem</item>
         <item quantity="other">%d problems</item>
@@ -182,6 +183,31 @@
     <string name="wallet_detail_rename_error_generic">Unable to rename wallet</string>
     <string name="wallet_detail_force_rescan_scheduled">Full rescan queued. Refresh to start syncing.</string>
     <string name="wallet_detail_force_rescan_failed">Unable to queue a full rescan. Please try again.</string>
+    <string name="wallet_labels_export_title">Export labels</string>
+    <string name="wallet_labels_export_nav_title">Export wallet labels</string>
+    <string name="wallet_labels_export_loading">Preparing labels...</string>
+    <string name="wallet_labels_export_retry">Try again</string>
+    <string name="wallet_labels_export_empty">No labels are available to export yet.</string>
+    <string name="wallet_labels_export_heading">Exporting %1$s: %2$d labels</string>
+    <string name="wallet_labels_export_qr_caption">Scan to import BIP-329 labels</string>
+    <string name="wallet_labels_export_multipart">Multi-part QR (%1$d frames)</string>
+    <string name="wallet_labels_export_qr_error">QR unavailable (%1$s)</string>
+    <string name="wallet_labels_export_download">Download file</string>
+    <string name="wallet_labels_export_share">Share</string>
+    <string name="wallet_labels_export_saved">Saved labels to %1$s</string>
+    <string name="wallet_labels_export_frame">Frame %1$d / %2$d</string>
+    <string name="wallet_labels_import_title">Import labels</string>
+    <string name="wallet_labels_import_scan_hint">Tap to scan a BIP-329 QR or use the buttons below to import.</string>
+    <string name="wallet_labels_import_scan_progress">QR progress: %1$d%%</string>
+    <string name="wallet_labels_import_scan_next">Scan the next part to continue.</string>
+    <string name="wallet_labels_import_scan_frames">Parts: %1$d / %2$s</string>
+    <string name="wallet_labels_import_scan_error">Could not read the QR fragment.</string>
+    <string name="wallet_labels_import_scan_action">Scan QR</string>
+    <string name="wallet_labels_import_file_action">Import file</string>
+    <string name="wallet_labels_import_result_title">Last import</string>
+    <string name="wallet_labels_import_history_title">Import history</string>
+    <string name="wallet_labels_import_history_empty">No imports yet.</string>
+    <string name="wallet_labels_import_reset">Reset</string>
     <string name="wallet_detail_pull_to_refresh_hint">Pull to refresh</string>
     <string name="wallet_detail_shared_descriptors_label">Descriptors used on other devices</string>
     <string name="wallet_detail_shared_descriptors_hint">Keep this enabled when other devices derive addresses for the same descriptors. Turn it off only if UtxoPocket is the sole watcher.</string>
@@ -559,6 +585,7 @@
     <string name="settings_pin_timeout_minutes_label">%d min</string>
     <string name="settings_pin_advanced_gate_title">Advanced security</string>
     <string name="settings_pin_advanced_gate_description">Confirm your PIN to adjust the auto-lock timer.</string>
+    <string name="settings_pin_advanced_connection_hint">Keep the connection alive while you actively monitor the wallet. Increase the delay only if you trust your network and want fewer reconnects.</string>
     <string name="settings_danger_zone_title">Danger zone</string>
     <string name="settings_panic_description">Erase every wallet, transaction, UTXO, and health record stored on this device.</string>
     <string name="settings_panic_action">Erase all wallet data</string>

@@ -1949,15 +1949,7 @@ private fun TransactionDetailedCard(
                         text = amountText,
                         style = MaterialTheme.typography.titleMedium
                     )
-                    transaction.label?.takeIf { it.isNotBlank() }?.let { label ->
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    LabelOrPlaceholder(transaction.label)
                 }
                 Column(
                     horizontalAlignment = Alignment.End,
@@ -2081,15 +2073,7 @@ private fun UtxoDetailedCard(
                         text = "$amount $unitLabel",
                         style = MaterialTheme.typography.titleMedium
                     )
-                    utxo.displayLabel?.takeIf { it.isNotBlank() }?.let { label ->
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    LabelOrPlaceholder(utxo.displayLabel)
                 }
                 Column(
                     horizontalAlignment = Alignment.End,
@@ -2226,6 +2210,23 @@ private fun WalletErrorMessage(
             )
         }
     }
+}
+
+@Composable
+private fun LabelOrPlaceholder(label: String?, modifier: Modifier = Modifier) {
+    val text = label?.takeIf { it.isNotBlank() }
+    Text(
+        text = text ?: stringResource(id = R.string.wallet_detail_no_label_placeholder),
+        style = MaterialTheme.typography.bodySmall,
+        color = if (text != null) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+    )
 }
 
 @Composable
