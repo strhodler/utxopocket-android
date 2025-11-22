@@ -121,6 +121,15 @@ class DefaultAppPreferencesRepository @Inject constructor(
     override val advancedMode: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.ADVANCED_MODE] ?: false }
 
+    override val connectionIdleTimeoutMinutes: Flow<Int> =
+        dataStore.data.map { prefs ->
+            val stored = prefs[Keys.CONNECTION_IDLE_MINUTES]
+            stored?.coerceIn(
+                AppPreferencesRepository.MIN_CONNECTION_IDLE_MINUTES,
+                AppPreferencesRepository.MAX_CONNECTION_IDLE_MINUTES
+            ) ?: AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES
+        }
+
     override val dustThresholdSats: Flow<Long> =
         dataStore.data.map { prefs ->
             prefs[Keys.DUST_THRESHOLD] ?: WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS
@@ -274,6 +283,16 @@ class DefaultAppPreferencesRepository @Inject constructor(
         )
         dataStore.edit { prefs ->
             prefs[Keys.PIN_AUTO_LOCK_MINUTES] = clamped
+        }
+    }
+
+    override suspend fun setConnectionIdleTimeoutMinutes(minutes: Int) {
+        val clamped = minutes.coerceIn(
+            AppPreferencesRepository.MIN_CONNECTION_IDLE_MINUTES,
+            AppPreferencesRepository.MAX_CONNECTION_IDLE_MINUTES
+        )
+        dataStore.edit { prefs ->
+            prefs[Keys.CONNECTION_IDLE_MINUTES] = clamped
         }
     }
 
@@ -635,6 +654,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val WALLET_ANIMATIONS_ENABLED = booleanPreferencesKey("wallet_animations_enabled")
         val WALLET_BALANCE_RANGE = stringPreferencesKey("wallet_balance_range")
         val ADVANCED_MODE = booleanPreferencesKey("advanced_mode_enabled")
+        val CONNECTION_IDLE_MINUTES = intPreferencesKey("connection_idle_minutes")
         val DUST_THRESHOLD = longPreferencesKey("dust_threshold_sats")
         val TRANSACTION_ANALYSIS_ENABLED = booleanPreferencesKey("transaction_analysis_enabled")
         val UTXO_HEALTH_ENABLED = booleanPreferencesKey("utxo_health_enabled")

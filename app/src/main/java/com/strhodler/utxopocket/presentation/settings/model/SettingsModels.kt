@@ -21,6 +21,7 @@ data class SettingsUiState(
     val walletHealthToggleEnabled: Boolean = true,
     val pinEnabled: Boolean = false,
     val pinAutoLockTimeoutMinutes: Int = AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES,
+    val connectionIdleTimeoutMinutes: Int = AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES,
     val dustThresholdSats: Long = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS,
     val dustThresholdInput: String = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS.toString(),
     val transactionHealthParameters: TransactionHealthParameters = TransactionHealthParameters(),

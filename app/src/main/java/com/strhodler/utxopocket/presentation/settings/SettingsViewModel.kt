@@ -10,7 +10,9 @@ import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_CONNECTION_IDLE_MINUTES
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_PIN_AUTO_LOCK_MINUTES
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_CONNECTION_IDLE_MINUTES
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_PIN_AUTO_LOCK_MINUTES
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
@@ -46,6 +48,7 @@ class SettingsViewModel @Inject constructor(
                 appPreferencesRepository.walletAnimationsEnabled,
                 appPreferencesRepository.advancedMode,
                 appPreferencesRepository.pinAutoLockTimeoutMinutes,
+                appPreferencesRepository.connectionIdleTimeoutMinutes,
                 appPreferencesRepository.transactionAnalysisEnabled,
                 appPreferencesRepository.utxoHealthEnabled,
                 appPreferencesRepository.walletHealthEnabled,
@@ -60,12 +63,13 @@ class SettingsViewModel @Inject constructor(
                 val walletAnimationsEnabled = values[4] as Boolean
                 val advancedMode = values[5] as Boolean
                 val pinAutoLockTimeoutMinutes = values[6] as Int
-                val transactionAnalysisEnabled = values[7] as Boolean
-                val utxoHealthEnabled = values[8] as Boolean
-                val walletHealthEnabled = values[9] as Boolean
-                val dustThreshold = values[10] as Long
-                val transactionParameters = values[11] as TransactionHealthParameters
-                val utxoParameters = values[12] as UtxoHealthParameters
+                val connectionIdleTimeoutMinutes = values[7] as Int
+                val transactionAnalysisEnabled = values[8] as Boolean
+                val utxoHealthEnabled = values[9] as Boolean
+                val walletHealthEnabled = values[10] as Boolean
+                val dustThreshold = values[11] as Long
+                val transactionParameters = values[12] as TransactionHealthParameters
+                val utxoParameters = values[13] as UtxoHealthParameters
                 val previous = _uiState.value
 
                 val walletHealthToggleEnabled = transactionAnalysisEnabled && utxoHealthEnabled
@@ -80,6 +84,7 @@ class SettingsViewModel @Inject constructor(
                     advancedMode = advancedMode,
                     walletAnimationsEnabled = walletAnimationsEnabled,
                     pinAutoLockTimeoutMinutes = pinAutoLockTimeoutMinutes,
+                    connectionIdleTimeoutMinutes = connectionIdleTimeoutMinutes,
                     transactionAnalysisEnabled = transactionAnalysisEnabled,
                     utxoHealthEnabled = utxoHealthEnabled,
                     walletHealthEnabled = normalizedWalletHealthEnabled,
@@ -430,6 +435,17 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             appPreferencesRepository.setPinAutoLockTimeoutMinutes(clamped)
             appPreferencesRepository.markPinUnlocked()
+        }
+    }
+
+    fun onConnectionIdleTimeoutSelected(minutes: Int) {
+        val clamped = minutes.coerceIn(
+            MIN_CONNECTION_IDLE_MINUTES,
+            MAX_CONNECTION_IDLE_MINUTES
+        )
+        _uiState.update { it.copy(connectionIdleTimeoutMinutes = clamped) }
+        viewModelScope.launch {
+            appPreferencesRepository.setConnectionIdleTimeoutMinutes(clamped)
         }
     }
 

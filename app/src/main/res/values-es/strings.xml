@@ -93,6 +93,11 @@
     <string name="settings_theme_system">Sistema (%1$s)</string>
     <string name="settings_theme_value_light">Claro</string>
     <string name="settings_theme_value_dark">Oscuro</string>
+    <string name="settings_connection_timeout_title">Desconexión por inactividad</string>
+    <string name="settings_connection_timeout_minutes_label">%1$d min</string>
+    <string name="settings_connection_timeout_tip_short">Menor batería; más reconexiones. Útil si consultas la wallet de vez en cuando.</string>
+    <string name="settings_connection_timeout_tip_balanced">Equilibrado; menos reconexiones. Ideal para uso regular.</string>
+    <string name="settings_connection_timeout_tip_long">Conexión más estable; más batería. Para cuando vigilas la wallet a menudo.</string>
 
     <!-- Node configuration (additional) -->
     <string name="node_custom_add_open_button">Añadir nodo</string>

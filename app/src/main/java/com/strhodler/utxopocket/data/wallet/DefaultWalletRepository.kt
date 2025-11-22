@@ -141,7 +141,7 @@ class DefaultWalletRepository @Inject constructor(
         private const val TAG = "DefaultWalletRepository"
         private const val MAX_LABEL_LENGTH = 255
         private const val DEFAULT_PAGING_PAGE_SIZE = 50
-        private const val BACKGROUND_GRACE_MILLIS = 5 * 60 * 1000L
+        private const val MILLIS_PER_MINUTE = 60_000L
         private val EXTENDED_PRIVATE_KEY_REGEX =
             Regex("\\b[acdfklmnstuvxyz]prv[0-9a-z]+", RegexOption.IGNORE_CASE)
         private val WIF_PRIVATE_KEY_REGEX =
@@ -169,6 +169,9 @@ class DefaultWalletRepository @Inject constructor(
     private val appInForeground = AtomicBoolean(true)
     @Volatile
     private var backgroundGraceExpiryMillis: Long = 0L
+    @Volatile
+    private var backgroundGraceDurationMillis: Long =
+        AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES * MILLIS_PER_MINUTE
     @Volatile
     private var backgroundIdleJob: Job? = null
     @Volatile
@@ -199,6 +202,13 @@ class DefaultWalletRepository @Inject constructor(
                 .collect { online ->
                     handleNetworkConnectivityChange(online)
                 }
+        }
+        repositoryScope.launch {
+            appPreferencesRepository.connectionIdleTimeoutMinutes.collect { minutes ->
+                backgroundGraceDurationMillis =
+                    minutes.coerceAtLeast(AppPreferencesRepository.MIN_CONNECTION_IDLE_MINUTES) *
+                        MILLIS_PER_MINUTE
+            }
         }
     }
 
@@ -1935,10 +1945,10 @@ class DefaultWalletRepository @Inject constructor(
             backgroundIdleJob?.cancel()
             backgroundIdleJob = null
         } else {
-            backgroundGraceExpiryMillis = SystemClock.elapsedRealtime() + BACKGROUND_GRACE_MILLIS
+            backgroundGraceExpiryMillis = SystemClock.elapsedRealtime() + backgroundGraceDurationMillis
             backgroundIdleJob?.cancel()
             backgroundIdleJob = repositoryScope.launch {
-                delay(BACKGROUND_GRACE_MILLIS)
+                delay(backgroundGraceDurationMillis)
                 if (!appInForeground.get()) {
                     val snapshot = nodeStatus.value
                     nodeStatus.value = snapshot.copy(status = NodeStatus.Idle)

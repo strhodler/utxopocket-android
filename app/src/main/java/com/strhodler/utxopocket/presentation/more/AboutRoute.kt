@@ -240,13 +240,13 @@ private fun DeveloperLinkItem(
         },
         trailingContent = {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                IconButton(onClick = { onCopy?.invoke() }) {
-                    Icon(imageVector = Icons.Outlined.ContentCopy, contentDescription = null)
-                }
                 if (onOpen != null) {
                     IconButton(onClick = onOpen) {
                         Icon(imageVector = Icons.Outlined.OpenInNew, contentDescription = null)
                     }
+                }
+                IconButton(onClick = { onCopy?.invoke() }) {
+                    Icon(imageVector = Icons.Outlined.ContentCopy, contentDescription = null)
                 }
             }
         },

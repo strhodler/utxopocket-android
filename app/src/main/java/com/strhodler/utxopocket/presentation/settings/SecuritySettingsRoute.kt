@@ -62,6 +62,8 @@ import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_CONNECTION_IDLE_MINUTES
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_CONNECTION_IDLE_MINUTES
 
 @Composable
 fun SecuritySettingsRoute(
@@ -188,6 +190,7 @@ fun SecuritySettingsRoute(
                     }
                 },
                 onPinAutoLockTimeoutSelected = viewModel::onPinAutoLockTimeoutSelected,
+                onConnectionIdleTimeoutSelected = viewModel::onConnectionIdleTimeoutSelected,
                 pinAdvancedUnlocked = showPinAdvanced,
                 onOpenPinAdvanced = { showPinAdvancedGate = true },
                 onTriggerPanicWipe = { showPanicFirstConfirmation = true },
@@ -429,6 +432,7 @@ private fun SecuritySettingsScreen(
     state: SettingsUiState,
     onPinToggleRequested: (Boolean) -> Unit,
     onPinAutoLockTimeoutSelected: (Int) -> Unit,
+    onConnectionIdleTimeoutSelected: (Int) -> Unit,
     pinAdvancedUnlocked: Boolean,
     onOpenPinAdvanced: () -> Unit,
     onTriggerPanicWipe: () -> Unit,
@@ -527,6 +531,50 @@ private fun SecuritySettingsScreen(
                 }
             }
         }
+        var connectionTimeoutValue by rememberSaveable(state.connectionIdleTimeoutMinutes) {
+            mutableStateOf(state.connectionIdleTimeoutMinutes.toFloat())
+        }
+        LaunchedEffect(state.connectionIdleTimeoutMinutes) {
+            connectionTimeoutValue = state.connectionIdleTimeoutMinutes.toFloat()
+        }
+        val connectionTimeoutMinutes = connectionTimeoutValue.roundToInt()
+            .coerceIn(MIN_CONNECTION_IDLE_MINUTES, MAX_CONNECTION_IDLE_MINUTES)
+        val connectionTimeoutLabel = stringResource(
+            id = R.string.settings_connection_timeout_minutes_label,
+            connectionTimeoutMinutes
+        )
+        val connectionTip = when (connectionTimeoutMinutes) {
+            in 3..5 -> stringResource(id = R.string.settings_connection_timeout_tip_short)
+            in 6..10 -> stringResource(id = R.string.settings_connection_timeout_tip_balanced)
+            else -> stringResource(id = R.string.settings_connection_timeout_tip_long)
+        }
+        Text(
+            text = stringResource(id = R.string.settings_connection_timeout_title),
+            style = MaterialTheme.typography.titleSmall
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = connectionTimeoutLabel,
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = connectionTip,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Slider(
+            value = connectionTimeoutValue,
+            onValueChange = { connectionTimeoutValue = it },
+            onValueChangeFinished = { onConnectionIdleTimeoutSelected(connectionTimeoutMinutes) },
+            valueRange = MIN_CONNECTION_IDLE_MINUTES.toFloat()..MAX_CONNECTION_IDLE_MINUTES.toFloat(),
+            steps = (MAX_CONNECTION_IDLE_MINUTES - MIN_CONNECTION_IDLE_MINUTES - 1).coerceAtLeast(0),
+            modifier = Modifier.fillMaxWidth()
+        )
         Text(
             text = stringResource(id = R.string.settings_danger_zone_title),
             style = MaterialTheme.typography.titleSmall

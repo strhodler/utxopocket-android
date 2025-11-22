@@ -22,6 +22,7 @@ interface AppPreferencesRepository {
     val walletBalanceRange: Flow<BalanceRange>
     val advancedMode: Flow<Boolean>
     val pinAutoLockTimeoutMinutes: Flow<Int>
+    val connectionIdleTimeoutMinutes: Flow<Int>
     val pinLastUnlockedAt: Flow<Long?>
     val dustThresholdSats: Flow<Long>
     val transactionAnalysisEnabled: Flow<Boolean>
@@ -46,6 +47,7 @@ interface AppPreferencesRepository {
     suspend fun setWalletBalanceRange(range: BalanceRange)
     suspend fun setAdvancedMode(enabled: Boolean)
     suspend fun setDustThresholdSats(thresholdSats: Long)
+    suspend fun setConnectionIdleTimeoutMinutes(minutes: Int)
     suspend fun setTransactionAnalysisEnabled(enabled: Boolean)
     suspend fun setUtxoHealthEnabled(enabled: Boolean)
     suspend fun setWalletHealthEnabled(enabled: Boolean)
@@ -59,5 +61,9 @@ interface AppPreferencesRepository {
         const val MIN_PIN_AUTO_LOCK_MINUTES = 0
         const val MAX_PIN_AUTO_LOCK_MINUTES = 15
         const val DEFAULT_PIN_AUTO_LOCK_MINUTES = 5
+
+        const val MIN_CONNECTION_IDLE_MINUTES = 3
+        const val MAX_CONNECTION_IDLE_MINUTES = 15
+        const val DEFAULT_CONNECTION_IDLE_MINUTES = 10
     }
 }
