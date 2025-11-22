@@ -432,7 +432,7 @@ private object BalanceHeaderMetrics {
     val CONTENT_BOTTOM_PADDING = 24.dp
 }
 
-private val AddDescriptorCtaMinHeight = 56.dp
+private val AddDescriptorCtaMinHeight = 64.dp
 private val AddDescriptorCtaContentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp)
 
 @Composable
@@ -441,7 +441,7 @@ private fun AddDescriptorCtaButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier.fillMaxWidth()
 ) {
-    Button(
+    TextButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.heightIn(min = AddDescriptorCtaMinHeight),
@@ -451,7 +451,7 @@ private fun AddDescriptorCtaButton(
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = stringResource(id = R.string.wallets_add_wallet_action),
-            style = MaterialTheme.typography.titleSmall
+            style = MaterialTheme.typography.titleMedium
         )
     }
 }
@@ -475,9 +475,6 @@ private fun WalletCard(
     }
     val statusLabel = when {
         isSyncing -> stringResource(id = R.string.wallets_state_syncing)
-        syncStatus is NodeStatus.Error -> syncStatus.message.ifBlank {
-            stringResource(id = R.string.wallets_state_error)
-        }
         lastSyncText != null -> stringResource(id = R.string.wallets_last_sync, lastSyncText)
         else -> nodeStatusLabel(syncStatus, false)
     }
@@ -485,12 +482,7 @@ private fun WalletCard(
     val shimmerPhase = if (animationsEnabled) rememberWalletShimmerPhase() else 0f
     val contentColor = theme.onGradient
     val secondaryTextColor = contentColor.copy(alpha = 0.85f)
-    val errorIndicatorColor = MaterialTheme.colorScheme.error
-    val statusColor = when {
-        isSyncing -> contentColor
-        syncStatus is NodeStatus.Error -> errorIndicatorColor
-        else -> secondaryTextColor
-    }
+    val statusColor = if (isSyncing) contentColor else secondaryTextColor
     Card(
         onClick = onClick,
         modifier = modifier,

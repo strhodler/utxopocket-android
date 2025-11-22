@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import kotlin.jvm.Volatile
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,6 +26,20 @@ interface WalletStorage {
     fun connectionPath(walletId: Long, network: BitcoinNetwork): String
     fun seal(connectionPath: String)
     fun remove(walletId: Long, network: BitcoinNetwork)
+    fun materializationState(connectionPath: String): WalletMaterializationState?
+}
+
+enum class WalletMaterializationSource {
+    ENCRYPTED_BUNDLE,
+    LEGACY_PLAINTEXT,
+    EMPTY
+}
+
+data class WalletMaterializationState(
+    val source: WalletMaterializationSource
+) {
+    val isFresh: Boolean
+        get() = source == WalletMaterializationSource.EMPTY
 }
 
 @Singleton
@@ -97,11 +112,21 @@ class DefaultWalletStorage @Inject constructor(
     private fun materializeSession(session: WalletSession) {
         cleanWorkingDir(session)
         session.workingDir.mkdirs()
-        when {
-            session.encryptedBundle.exists() -> decryptBundle(session)
-            session.legacyBase.exists() -> migrateLegacyPlaintext(session)
-            else -> ensureFileExists(session.databaseFile)
+        val source = when {
+            session.encryptedBundle.exists() -> {
+                decryptBundle(session)
+                WalletMaterializationSource.ENCRYPTED_BUNDLE
+            }
+            session.legacyBase.exists() -> {
+                migrateLegacyPlaintext(session)
+                WalletMaterializationSource.LEGACY_PLAINTEXT
+            }
+            else -> {
+                ensureFileExists(session.databaseFile)
+                WalletMaterializationSource.EMPTY
+            }
         }
+        session.materializationState = WalletMaterializationState(source)
     }
 
     private fun persistSession(session: WalletSession) {
@@ -181,6 +206,9 @@ class DefaultWalletStorage @Inject constructor(
             session.workingDir.deleteRecursively()
         }
     }
+
+    override fun materializationState(connectionPath: String): WalletMaterializationState? =
+        sessions[connectionPath]?.materializationState
 
     private fun writeEntry(zip: ZipOutputStream, file: File, entryName: String) {
         if (!file.exists()) return
@@ -282,7 +310,8 @@ class DefaultWalletStorage @Inject constructor(
         val legacyBase: File,
         val lock: Any,
         val openCount: AtomicInteger = AtomicInteger(0),
-        val materialized: AtomicBoolean = AtomicBoolean(false)
+        val materialized: AtomicBoolean = AtomicBoolean(false),
+        @Volatile var materializationState: WalletMaterializationState? = null
     )
 
     private companion object {

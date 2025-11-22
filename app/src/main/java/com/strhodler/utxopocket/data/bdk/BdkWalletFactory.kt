@@ -14,7 +14,8 @@ import javax.inject.Singleton
 class BdkManagedWallet(
     val wallet: Wallet,
     val persister: Persister,
-    val release: () -> Unit
+    val release: () -> Unit,
+    val materializationSource: WalletMaterializationSource?
 )
 
 @Singleton
@@ -28,6 +29,7 @@ class BdkWalletFactory @Inject constructor(
         val bdkNetwork = network.toBdkNetwork()
         val (externalDescriptor, changeDescriptor) = resolveDescriptors(entity, bdkNetwork)
         val connectionPath = walletStorage.connectionPath(entity.id, network)
+        val materializationState = walletStorage.materializationState(connectionPath)
 
         var handle = persisterRegistry.acquire(connectionPath)
         var persister = handle.persister
@@ -42,11 +44,13 @@ class BdkWalletFactory @Inject constructor(
                 )
                 return BdkManagedWallet(
                     wallet = wallet,
-                    persister = persister
-                ) {
-                    handle.close()
-                    walletStorage.seal(connectionPath)
-                }
+                    persister = persister,
+                    release = {
+                        handle.close()
+                        walletStorage.seal(connectionPath)
+                    },
+                    materializationSource = materializationState?.source
+                )
             } catch (error: CreateWithPersistException) {
                 if (error is CreateWithPersistException.DataAlreadyExists) {
                     try {
@@ -57,11 +61,13 @@ class BdkWalletFactory @Inject constructor(
                         )
                         return BdkManagedWallet(
                             wallet = wallet,
-                            persister = persister
-                        ) {
-                            handle.close()
-                            walletStorage.seal(connectionPath)
-                        }
+                            persister = persister,
+                            release = {
+                                handle.close()
+                                walletStorage.seal(connectionPath)
+                            },
+                            materializationSource = materializationState?.source
+                        )
                     } catch (loadError: LoadWithPersistException) {
                         handle.close()
                         walletStorage.remove(entity.id, network)

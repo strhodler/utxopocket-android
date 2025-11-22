@@ -8,6 +8,7 @@ import com.strhodler.utxopocket.data.bdk.BdkManagedWallet
 import com.strhodler.utxopocket.data.bdk.BdkWalletFactory
 import com.strhodler.utxopocket.data.bdk.ElectrumEndpoint
 import com.strhodler.utxopocket.data.bdk.ElectrumEndpointSource
+import com.strhodler.utxopocket.data.bdk.WalletMaterializationSource
 import com.strhodler.utxopocket.data.bdk.TorProxyUnavailableException
 import com.strhodler.utxopocket.data.bdk.SyncCancellationSignal
 import androidx.paging.Pager
@@ -382,11 +383,21 @@ class DefaultWalletRepository @Inject constructor(
 
     private suspend fun <T> withWallet(
         entity: WalletEntity,
-        block: suspend (Wallet, Persister) -> T
+        sealAfterUse: Boolean = false,
+        block: suspend (Wallet, Persister, WalletMaterializationSource?) -> T
     ): T {
+        if (sealAfterUse) {
+            val managed = walletFactory.create(entity)
+            return try {
+                block(managed.wallet, managed.persister, managed.materializationSource)
+            } finally {
+                runCatching { managed.wallet.destroy() }
+                runCatching { managed.release() }
+            }
+        }
         val cached = cachedWalletFor(entity)
         return cached.lock.withLock {
-            block(cached.managed.wallet, cached.managed.persister)
+            block(cached.managed.wallet, cached.managed.persister, cached.managed.materializationSource)
         }
     }
 
@@ -688,9 +699,13 @@ class DefaultWalletRepository @Inject constructor(
                         val cancelledForDeletion = AtomicBoolean(false)
                         try {
                             runCatching {
-                                withWallet(entity) { wallet, persister ->
+                                withWallet(entity, sealAfterUse = true) { wallet, persister, materializationSource ->
                                     ensureForeground()
-                                    val shouldRunFullScan = entity.requiresFullScan || entity.lastFullScanTime == null
+                                    val isFreshMaterialization =
+                                        materializationSource == WalletMaterializationSource.EMPTY
+                                    val shouldRunFullScan = entity.requiresFullScan ||
+                                        entity.lastFullScanTime == null ||
+                                        isFreshMaterialization
                                     val hasChangeKeychain = !entity.viewOnly && entity.hasChangeBranch()
                                     val walletCancellationSignal = SyncCancellationSignal {
                                         cancellationSignal.shouldCancel() || cancelledForDeletion.get()
@@ -744,11 +759,15 @@ class DefaultWalletRepository @Inject constructor(
                                             currentHeight = blockHeight,
                                             existingMetadata = existingUtxoMetadata
                                         )
+                                        val hadPreviousData =
+                                            entity.transactionCount > 0 || entity.balanceSats > 0
+                                        val shrunkSnapshot =
+                                            hadPreviousData &&
+                                                (capturedTransactions.transactions.size < entity.transactionCount ||
+                                                    utxoEntities.size < existingUtxoMetadata.size)
                                         val isEmptySnapshot =
                                             capturedTransactions.transactions.isEmpty() &&
                                                 utxoEntities.isEmpty()
-                                        val hadPreviousData =
-                                            entity.transactionCount > 0 || entity.balanceSats > 0
                                         if (isEmptySnapshot && hadPreviousData) {
                                             SecureLog.w(TAG) {
                                                 "Wallet ${entity.id} sync returned empty snapshot; " +
@@ -758,6 +777,18 @@ class DefaultWalletRepository @Inject constructor(
                                                 entity.withSyncFailure(
                                                     status = NodeStatus.Error(
                                                         "Sync returned empty data; showing last known state"
+                                                    ),
+                                                    timestamp = syncTimestamp
+                                                )
+                                            )
+                                        } else if (shrunkSnapshot && isFreshMaterialization) {
+                                            SecureLog.w(TAG) {
+                                                "Wallet ${entity.id} snapshot shrank after fresh store materialization; preserving previous data."
+                                            }
+                                            walletDao.upsert(
+                                                entity.withSyncFailure(
+                                                    status = NodeStatus.Error(
+                                                        "Sync snapshot incomplete after restart; keeping previous state"
                                                     ),
                                                     timestamp = syncTimestamp
                                                 )
@@ -1640,7 +1671,7 @@ class DefaultWalletRepository @Inject constructor(
         ) {
             return@withContext emptyList()
         }
-        withWallet(entity) { wallet, persister ->
+        withWallet(entity, sealAfterUse = true) { wallet, persister, _ ->
             val keychain = type.toKeychainKind()
             val usedAddresses = walletDao.addressesWithHistory(walletId).map { it.trim() }.toSet()
             val fundedAddresses = walletDao.addressesWithFunds(walletId).map { it.trim() }.toSet()
@@ -1707,7 +1738,7 @@ class DefaultWalletRepository @Inject constructor(
     ): WalletAddressDetail? = withContext(ioDispatcher) {
         val entity = walletDao.findById(walletId) ?: return@withContext null
         try {
-            withWallet(entity) { wallet, persister ->
+            withWallet(entity, sealAfterUse = true) { wallet, persister, _ ->
                 val keychain = type.toKeychainKind()
                 runCatching { wallet.revealAddressesTo(keychain, derivationIndex.toUInt()) }
                     .onSuccess { reveals ->
@@ -1764,7 +1795,7 @@ class DefaultWalletRepository @Inject constructor(
         ) {
             return@withContext
         }
-        withWallet(entity) { wallet, persister ->
+        withWallet(entity, sealAfterUse = true) { wallet, persister, _ ->
             val keychain = type.toKeychainKind()
             wallet.markUsed(keychain, derivationIndex.toUInt())
             runCatching { wallet.revealNextAddress(keychain) }
