@@ -14,6 +14,9 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -88,12 +92,9 @@ fun NodeOverviewContent(
                 )
             }
         } else {
-            nodeDetails.forEach { (label, value) ->
-                NodeDetailCard(
-                    label = label,
-                    value = value
-                )
-            }
+            NodeDetailsList(
+                details = nodeDetails
+            )
         }
 
         NodeTorStatusSection(
@@ -319,30 +320,44 @@ private fun TorDetailCard(
 }
 
 @Composable
-private fun NodeDetailCard(
+private fun NodeDetailsList(
+    details: List<Pair<String, String>>,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        details.forEachIndexed { index, (label, value) ->
+            NodeDetailListItem(
+                label = label,
+                value = value
+            )
+            if (index < details.lastIndex) {
+                Divider(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NodeDetailListItem(
     label: String,
     value: String,
     supportingText: String? = null,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    ListItem(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        overlineContent = {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        },
+        headlineContent = {
             SelectionContainer {
                 Text(
                     text = value,
@@ -350,7 +365,9 @@ private fun NodeDetailCard(
                     fontWeight = FontWeight.SemiBold
                 )
             }
-            supportingText?.let {
+        },
+        supportingContent = supportingText?.let {
+            {
                 Text(
                     text = it,
                     style = MaterialTheme.typography.bodySmall,
@@ -358,7 +375,7 @@ private fun NodeDetailCard(
                 )
             }
         }
-    }
+    )
 }
 
 private data class TorDetail(
