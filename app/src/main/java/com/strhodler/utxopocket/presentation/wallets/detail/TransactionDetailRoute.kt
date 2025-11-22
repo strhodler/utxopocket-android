@@ -210,6 +210,7 @@ fun TransactionDetailRoute(
                 pendingLabel = label
                 showLabelDialog = true
             },
+            onCycleBalanceDisplay = viewModel::cycleBalanceDisplayMode,
             onOpenWikiTopic = onOpenWikiTopic,
             onShowMessage = showSnackbar,
             modifier = Modifier
@@ -289,6 +290,7 @@ fun UtxoDetailRoute(
                 }
             },
             spendableUpdating = spendableUpdating,
+            onCycleBalanceDisplay = viewModel::cycleBalanceDisplayMode,
             onOpenWikiTopic = onOpenWikiTopic,
             onShowMessage = showSnackbar,
             modifier = Modifier
@@ -303,7 +305,7 @@ fun UtxoDetailRoute(
 class TransactionDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val walletRepository: WalletRepository,
-    appPreferencesRepository: AppPreferencesRepository,
+    private val appPreferencesRepository: AppPreferencesRepository,
     private val transactionHealthAnalyzer: TransactionHealthAnalyzer,
     private val transactionHealthRepository: TransactionHealthRepository
 ) : ViewModel() {
@@ -404,13 +406,19 @@ class TransactionDetailViewModel @Inject constructor(
             onResult(result)
         }
     }
+
+    fun cycleBalanceDisplayMode() {
+        viewModelScope.launch {
+            appPreferencesRepository.cycleBalanceDisplayMode()
+        }
+    }
 }
 
 @HiltViewModel
 class UtxoDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val walletRepository: WalletRepository,
-    appPreferencesRepository: AppPreferencesRepository,
+    private val appPreferencesRepository: AppPreferencesRepository,
     private val utxoHealthRepository: UtxoHealthRepository
 ) : ViewModel() {
 
@@ -527,6 +535,12 @@ class UtxoDetailViewModel @Inject constructor(
             onResult(result)
         }
     }
+
+    fun cycleBalanceDisplayMode() {
+        viewModelScope.launch {
+            appPreferencesRepository.cycleBalanceDisplayMode()
+        }
+    }
 }
 
 data class TransactionDetailUiState(
@@ -567,6 +581,7 @@ sealed interface UtxoDetailError {
 private fun TransactionDetailScreen(
     state: TransactionDetailUiState,
     onEditTransactionLabel: (String?) -> Unit,
+    onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
@@ -587,6 +602,7 @@ private fun TransactionDetailScreen(
             TransactionDetailContent(
                 state = state,
                 onEditTransactionLabel = onEditTransactionLabel,
+                onCycleBalanceDisplay = onCycleBalanceDisplay,
                 onOpenWikiTopic = onOpenWikiTopic,
                 onShowMessage = onShowMessage,
                 modifier = modifier
@@ -601,6 +617,7 @@ private fun UtxoDetailScreen(
     onEditLabel: (String?) -> Unit,
     onToggleSpendable: (Boolean) -> Unit,
     spendableUpdating: Boolean,
+    onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
@@ -623,6 +640,7 @@ private fun UtxoDetailScreen(
                 onEditLabel = onEditLabel,
                 onToggleSpendable = onToggleSpendable,
                 spendableUpdating = spendableUpdating,
+                onCycleBalanceDisplay = onCycleBalanceDisplay,
                 onOpenWikiTopic = onOpenWikiTopic,
                 onShowMessage = onShowMessage,
                 modifier = modifier
@@ -698,6 +716,7 @@ private fun LabelEditDialog(
 private fun TransactionDetailContent(
     state: TransactionDetailUiState,
     onEditTransactionLabel: (String?) -> Unit,
+    onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
@@ -746,6 +765,7 @@ private fun TransactionDetailContent(
             confirmationsLabel = confirmationsLabel,
             label = transaction.label,
             onEditLabel = { onEditTransactionLabel(transaction.label) },
+            onCycleBalanceDisplay = onCycleBalanceDisplay,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -995,6 +1015,7 @@ private fun TransactionDetailHeader(
     confirmationsLabel: String,
     label: String?,
     onEditLabel: () -> Unit,
+    onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val headerTheme = rememberDetailHeaderTheme()
@@ -1035,7 +1056,8 @@ private fun TransactionDetailHeader(
                 fontWeight = FontWeight.SemiBold,
                 color = contentColor
             ),
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = Modifier.clickable(onClick = onCycleBalanceDisplay)
         )
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
@@ -1080,6 +1102,7 @@ private fun UtxoDetailContent(
     onEditLabel: (String?) -> Unit,
     onToggleSpendable: (Boolean) -> Unit,
     spendableUpdating: Boolean,
+    onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
@@ -1128,6 +1151,7 @@ private fun UtxoDetailContent(
             label = displayLabel,
             isInherited = isInheritedLabel,
             onEditLabel = { onEditLabel(displayLabel) },
+            onCycleBalanceDisplay = onCycleBalanceDisplay,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -1254,6 +1278,7 @@ private fun UtxoDetailHeader(
     label: String?,
     isInherited: Boolean,
     onEditLabel: () -> Unit,
+    onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val headerTheme = rememberDetailHeaderTheme()
@@ -1296,7 +1321,8 @@ private fun UtxoDetailHeader(
                 fontWeight = FontWeight.SemiBold,
                 color = contentColor
             ),
-            monospaced = true
+            monospaced = true,
+            modifier = Modifier.clickable(onClick = onCycleBalanceDisplay)
         )
         LabelChip(
             label = label,
