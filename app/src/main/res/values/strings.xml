@@ -684,8 +684,10 @@
     <string name="settings_theme_label">Theme</string>
     <string name="settings_option_enabled">Enabled</string>
     <string name="settings_option_disabled">Disabled</string>
-    <string name="settings_wallet_animations_title">Wallet animations</string>
-    <string name="settings_wallet_animations_description">Control shimmer and rolling balance motion in the wallet list.</string>
+    <string name="settings_wallet_animations_title">Animations</string>
+    <string name="settings_wallet_animations_description">Turn app animations on or off.</string>
+    <string name="settings_haptics_title">Vibration</string>
+    <string name="settings_haptics_description">Turn vibration on or off across the app.</string>
     <string name="settings_pin_title">App PIN lock</string>
     <string name="settings_pin_subtitle">Require a 6-digit PIN when opening the app.</string>
     <string name="settings_connection_timeout_title">Disconnect after inactivity</string>

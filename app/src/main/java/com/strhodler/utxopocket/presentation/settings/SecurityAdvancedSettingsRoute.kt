@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,6 +52,7 @@ import com.strhodler.utxopocket.presentation.pin.formatPinStaticError
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
+import android.view.HapticFeedbackConstants
 
 @Composable
 fun SecurityAdvancedSettingsRoute(
@@ -175,12 +177,15 @@ fun SecurityAdvancedSettingsRoute(
                                 }
                             }
                         }
-                    }
+                    },
+                    hapticsEnabled = state.hapticsEnabled
                 )
             }
         }
     }
 }
+
+private const val SliderHapticFeedback = HapticFeedbackConstants.KEYBOARD_TAP
 
 @Composable
 private fun SecurityAdvancedSettingsScreen(
@@ -191,6 +196,15 @@ private fun SecurityAdvancedSettingsScreen(
     onConnectionIdleTimeoutSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val view = LocalView.current
+    val performSliderHaptic = remember(state.hapticsEnabled, view) {
+        {
+            if (state.hapticsEnabled) {
+                view.performHapticFeedback(SliderHapticFeedback)
+            }
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -223,8 +237,12 @@ private fun SecurityAdvancedSettingsScreen(
             var sliderValue by rememberSaveable(state.pinAutoLockTimeoutMinutes) {
                 mutableStateOf(state.pinAutoLockTimeoutMinutes.toFloat())
             }
+            var pinHapticStep by rememberSaveable(state.pinAutoLockTimeoutMinutes) {
+                mutableStateOf(state.pinAutoLockTimeoutMinutes)
+            }
             LaunchedEffect(state.pinAutoLockTimeoutMinutes) {
                 sliderValue = state.pinAutoLockTimeoutMinutes.toFloat()
+                pinHapticStep = state.pinAutoLockTimeoutMinutes
             }
             val timeoutMinutes = sliderValue.roundToInt()
                 .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
@@ -247,7 +265,15 @@ private fun SecurityAdvancedSettingsScreen(
             )
             Slider(
                 value = sliderValue,
-                onValueChange = { sliderValue = it },
+                onValueChange = { newValue ->
+                    sliderValue = newValue
+                    val steppedValue = newValue.roundToInt()
+                        .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
+                    if (steppedValue != pinHapticStep) {
+                        pinHapticStep = steppedValue
+                        performSliderHaptic()
+                    }
+                },
                 onValueChangeFinished = {
                     onPinAutoLockTimeoutSelected(timeoutMinutes)
                 },
@@ -258,8 +284,12 @@ private fun SecurityAdvancedSettingsScreen(
             var connectionTimeoutValue by rememberSaveable(state.connectionIdleTimeoutMinutes) {
                 mutableStateOf(state.connectionIdleTimeoutMinutes.toFloat())
             }
+            var connectionHapticStep by rememberSaveable(state.connectionIdleTimeoutMinutes) {
+                mutableStateOf(state.connectionIdleTimeoutMinutes)
+            }
             LaunchedEffect(state.connectionIdleTimeoutMinutes) {
                 connectionTimeoutValue = state.connectionIdleTimeoutMinutes.toFloat()
+                connectionHapticStep = state.connectionIdleTimeoutMinutes
             }
             val connectionTimeoutMinutes = connectionTimeoutValue.roundToInt()
                 .coerceIn(MIN_CONNECTION_IDLE_MINUTES, MAX_CONNECTION_IDLE_MINUTES)
@@ -288,8 +318,18 @@ private fun SecurityAdvancedSettingsScreen(
             )
             Slider(
                 value = connectionTimeoutValue,
-                onValueChange = { connectionTimeoutValue = it },
-                onValueChangeFinished = { onConnectionIdleTimeoutSelected(connectionTimeoutMinutes) },
+                onValueChange = { newValue ->
+                    connectionTimeoutValue = newValue
+                    val steppedValue = newValue.roundToInt()
+                        .coerceIn(MIN_CONNECTION_IDLE_MINUTES, MAX_CONNECTION_IDLE_MINUTES)
+                    if (steppedValue != connectionHapticStep) {
+                        connectionHapticStep = steppedValue
+                        performSliderHaptic()
+                    }
+                },
+                onValueChangeFinished = {
+                    onConnectionIdleTimeoutSelected(connectionTimeoutMinutes)
+                },
                 valueRange = MIN_CONNECTION_IDLE_MINUTES.toFloat()..MAX_CONNECTION_IDLE_MINUTES.toFloat(),
                 steps = (MAX_CONNECTION_IDLE_MINUTES - MIN_CONNECTION_IDLE_MINUTES - 1).coerceAtLeast(0),
                 modifier = Modifier.fillMaxWidth()

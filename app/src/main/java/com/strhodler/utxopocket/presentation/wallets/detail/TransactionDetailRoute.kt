@@ -119,6 +119,9 @@ import com.strhodler.utxopocket.domain.repository.UtxoHealthRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.TransactionHealthAnalyzer
 import com.strhodler.utxopocket.data.utxohealth.DefaultUtxoHealthAnalyzer
+import android.view.HapticFeedbackConstants
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -159,6 +162,15 @@ fun TransactionDetailRoute(
     viewModel: TransactionDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val view = LocalView.current
+    val onCycleBalanceDisplay = remember(state.hapticsEnabled, view) {
+        {
+            if (state.hapticsEnabled) {
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            }
+            viewModel.cycleBalanceDisplayMode()
+        }
+    }
     var showLabelDialog by remember { mutableStateOf(false) }
     var pendingLabel by remember { mutableStateOf<String?>(null) }
     val transactionLabelSavedMessage = stringResource(id = R.string.transaction_detail_label_success)
@@ -210,7 +222,7 @@ fun TransactionDetailRoute(
                 pendingLabel = label
                 showLabelDialog = true
             },
-            onCycleBalanceDisplay = viewModel::cycleBalanceDisplayMode,
+            onCycleBalanceDisplay = onCycleBalanceDisplay,
             onOpenWikiTopic = onOpenWikiTopic,
             onShowMessage = showSnackbar,
             modifier = Modifier
@@ -228,6 +240,15 @@ fun UtxoDetailRoute(
     viewModel: UtxoDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val view = LocalView.current
+    val onCycleBalanceDisplay = remember(state.hapticsEnabled, view) {
+        {
+            if (state.hapticsEnabled) {
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            }
+            viewModel.cycleBalanceDisplayMode()
+        }
+    }
     var showLabelDialog by remember { mutableStateOf(false) }
     var pendingLabel by remember { mutableStateOf<String?>(null) }
     val labelSavedMessage = stringResource(id = R.string.utxo_detail_label_success)
@@ -290,7 +311,7 @@ fun UtxoDetailRoute(
                 }
             },
             spendableUpdating = spendableUpdating,
-            onCycleBalanceDisplay = viewModel::cycleBalanceDisplayMode,
+            onCycleBalanceDisplay = onCycleBalanceDisplay,
             onOpenWikiTopic = onOpenWikiTopic,
             onShowMessage = showSnackbar,
             modifier = Modifier
@@ -328,7 +349,8 @@ class TransactionDetailViewModel @Inject constructor(
         appPreferencesRepository.dustThresholdSats,
         appPreferencesRepository.transactionHealthParameters,
         appPreferencesRepository.transactionAnalysisEnabled,
-        storedHealthState
+        storedHealthState,
+        appPreferencesRepository.hapticsEnabled
     ) { values: Array<Any?> ->
         val detail = values[0] as WalletDetail?
         val balanceUnit = values[1] as BalanceUnit
@@ -339,6 +361,7 @@ class TransactionDetailViewModel @Inject constructor(
         val analysisEnabled = values[6] as Boolean
         @Suppress("UNCHECKED_CAST")
         val storedHealth = values[7] as List<TransactionHealthResult>
+        val hapticsEnabled = values[8] as Boolean
         val storedHealthMap = storedHealth.associateBy { it.transactionId }
         if (analysisEnabled && detail != null) {
             val computedHealth = transactionHealthAnalyzer
@@ -363,6 +386,7 @@ class TransactionDetailViewModel @Inject constructor(
                 transaction = null,
                 balanceUnit = balanceUnit,
                 balancesHidden = balancesHidden,
+                hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
                 error = TransactionDetailError.NotFound,
                 transactionAnalysisEnabled = analysisEnabled,
@@ -375,6 +399,7 @@ class TransactionDetailViewModel @Inject constructor(
                 transaction = null,
                 balanceUnit = balanceUnit,
                 balancesHidden = balancesHidden,
+                hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
                 error = TransactionDetailError.NotFound,
                 transactionAnalysisEnabled = analysisEnabled,
@@ -388,6 +413,7 @@ class TransactionDetailViewModel @Inject constructor(
                 balanceUnit = balanceUnit,
                 balancesHidden = balancesHidden,
                 advancedMode = advancedMode,
+                hapticsEnabled = hapticsEnabled,
                 error = null,
                 transactionAnalysisEnabled = analysisEnabled,
                 transactionHealth = transactionHealth
@@ -444,7 +470,8 @@ class UtxoDetailViewModel @Inject constructor(
         appPreferencesRepository.dustThresholdSats,
         appPreferencesRepository.utxoHealthParameters,
         appPreferencesRepository.utxoHealthEnabled,
-        storedUtxoHealthState
+        storedUtxoHealthState,
+        appPreferencesRepository.hapticsEnabled
     ) { values: Array<Any?> ->
         val detail = values[0] as WalletDetail?
         val balanceUnit = values[1] as BalanceUnit
@@ -455,6 +482,7 @@ class UtxoDetailViewModel @Inject constructor(
         val healthEnabled = values[6] as Boolean
         @Suppress("UNCHECKED_CAST")
         val storedHealth = values[7] as List<UtxoHealthResult>
+        val hapticsEnabled = values[8] as Boolean
         val utxo = detail?.utxos?.firstOrNull { it.txid == txId && it.vout == vout }
         val stored = storedHealth.firstOrNull { it.txid == txId && it.vout == vout }
         val utxoHealth = if (healthEnabled && utxo != null) {
@@ -480,6 +508,7 @@ class UtxoDetailViewModel @Inject constructor(
                 utxo = null,
                 balanceUnit = balanceUnit,
                 balancesHidden = balancesHidden,
+                hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
                 error = UtxoDetailError.NotFound,
                 dustThresholdSats = dustThreshold,
@@ -493,6 +522,7 @@ class UtxoDetailViewModel @Inject constructor(
                 utxo = null,
                 balanceUnit = balanceUnit,
                 balancesHidden = balancesHidden,
+                hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
                 error = UtxoDetailError.NotFound,
                 dustThresholdSats = dustThreshold,
@@ -506,6 +536,7 @@ class UtxoDetailViewModel @Inject constructor(
                 utxo = utxo,
                 balanceUnit = balanceUnit,
                 balancesHidden = balancesHidden,
+                hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
                 error = null,
                 dustThresholdSats = dustThreshold,
@@ -549,6 +580,7 @@ data class TransactionDetailUiState(
     val transaction: WalletTransaction? = null,
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
     val balancesHidden: Boolean = false,
+    val hapticsEnabled: Boolean = true,
     val advancedMode: Boolean = false,
     val error: TransactionDetailError? = null,
     val transactionAnalysisEnabled: Boolean = true,
@@ -565,6 +597,7 @@ data class UtxoDetailUiState(
     val utxo: WalletUtxo? = null,
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
     val balancesHidden: Boolean = false,
+    val hapticsEnabled: Boolean = true,
     val advancedMode: Boolean = false,
     val error: UtxoDetailError? = null,
     val dustThresholdSats: Long = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS,
@@ -1057,7 +1090,11 @@ private fun TransactionDetailHeader(
                 color = contentColor
             ),
             textAlign = TextAlign.Center,
-            modifier = Modifier.clickable(onClick = onCycleBalanceDisplay)
+            modifier = Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onCycleBalanceDisplay
+            )
         )
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
@@ -1322,7 +1359,11 @@ private fun UtxoDetailHeader(
                 color = contentColor
             ),
             monospaced = true,
-            modifier = Modifier.clickable(onClick = onCycleBalanceDisplay)
+            modifier = Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onCycleBalanceDisplay
+            )
         )
         LabelChip(
             label = label,

@@ -62,6 +62,7 @@ import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
 import com.strhodler.utxopocket.presentation.pin.formatPinCountdownMessage
 import com.strhodler.utxopocket.presentation.pin.formatPinStaticError
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
+import com.strhodler.utxopocket.presentation.settings.SettingsNavigationRow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -270,7 +271,8 @@ fun SecuritySettingsRoute(
                                 pinSetupError = genericSetupErrorText
                             }
                         }
-                    }
+                    },
+                    hapticsEnabled = state.hapticsEnabled
                 )
             }
 
@@ -328,7 +330,8 @@ fun SecuritySettingsRoute(
                                 }
                             }
                         }
-                    }
+                    },
+                    hapticsEnabled = state.hapticsEnabled
                 )
             }
 
@@ -375,29 +378,13 @@ private fun SecuritySettingsScreen(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
         )
         if (state.pinEnabled) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = stringResource(id = R.string.settings_pin_advanced_title),
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Text(
-                    text = stringResource(id = R.string.settings_pin_advanced_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                TextButton(
-                    onClick = onOpenPinAdvanced,
-                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
-                    modifier = Modifier.align(Alignment.Start)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Lock,
-                        contentDescription = null
-                    )
-                    Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
-                    Text(text = stringResource(id = R.string.settings_pin_advanced_unlock))
-                }
-            }
+            SettingsNavigationRow(
+                title = stringResource(id = R.string.settings_pin_advanced_title),
+                supportingText = stringResource(id = R.string.settings_pin_advanced_subtitle),
+                onClick = onOpenPinAdvanced,
+                showDivider = true,
+                dividerPadding = PaddingValues(horizontal = 0.dp)
+            )
         }
         Text(
             text = stringResource(id = R.string.settings_danger_zone_title),

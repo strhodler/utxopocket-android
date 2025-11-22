@@ -126,7 +126,8 @@ class WalletDetailViewModel @Inject constructor(
         appPreferencesRepository.utxoHealthParameters,
         storedUtxoHealthState,
         appPreferencesRepository.walletHealthEnabled,
-        storedWalletHealthState
+        storedWalletHealthState,
+        appPreferencesRepository.hapticsEnabled
     ) { values: Array<Any?> ->
         val detail = values[0] as WalletDetail?
         val nodeSnapshot = values[1] as NodeStatusSnapshot
@@ -146,6 +147,7 @@ class WalletDetailViewModel @Inject constructor(
         val storedUtxoHealth = values[13] as List<UtxoHealthResult>
         val walletHealthEnabled = values[14] as Boolean
         val storedWalletHealth = values[15] as WalletHealthResult?
+        val hapticsEnabled = values[16] as Boolean
         val transactionHealthMap = if (transactionAnalysisEnabled && detail != null) {
             val computed = transactionHealthAnalyzer
                 .analyze(detail, dustThreshold, transactionParameters)
@@ -232,6 +234,7 @@ class WalletDetailViewModel @Inject constructor(
             torStatus = torStatus,
             balanceUnit = balanceUnit,
             balancesHidden = balancesHidden,
+            hapticsEnabled = hapticsEnabled,
             advancedMode = advancedMode,
             dustThresholdSats = dustThreshold,
             transactionAnalysisEnabled = transactionAnalysisEnabled,
@@ -316,6 +319,7 @@ class WalletDetailViewModel @Inject constructor(
                 changeDescriptor = null,
                 balanceUnit = baseSnapshot.balanceUnit,
                 balancesHidden = baseSnapshot.balancesHidden,
+                hapticsEnabled = baseSnapshot.hapticsEnabled,
                 advancedMode = baseSnapshot.advancedMode,
                 nodeStatus = NodeStatus.Idle,
                 torStatus = baseSnapshot.torStatus,
@@ -378,6 +382,7 @@ class WalletDetailViewModel @Inject constructor(
                 changeDescriptor = detail.changeDescriptor,
                 balanceUnit = baseSnapshot.balanceUnit,
                 balancesHidden = baseSnapshot.balancesHidden,
+                hapticsEnabled = baseSnapshot.hapticsEnabled,
                 advancedMode = baseSnapshot.advancedMode,
                 nodeStatus = if (snapshotMatchesNetwork) baseSnapshot.nodeSnapshot.status else NodeStatus.Idle,
                 torStatus = baseSnapshot.torStatus,
@@ -571,6 +576,7 @@ class WalletDetailViewModel @Inject constructor(
         val torStatus: TorStatus,
         val balanceUnit: BalanceUnit,
         val balancesHidden: Boolean,
+        val hapticsEnabled: Boolean,
         val advancedMode: Boolean,
         val dustThresholdSats: Long,
         val transactionAnalysisEnabled: Boolean,
@@ -614,6 +620,7 @@ data class WalletDetailUiState(
     val changeDescriptor: String? = null,
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
     val balancesHidden: Boolean = false,
+    val hapticsEnabled: Boolean = true,
     val advancedMode: Boolean = false,
     val nodeStatus: NodeStatus = NodeStatus.Idle,
     val torStatus: TorStatus = TorStatus.Stopped,

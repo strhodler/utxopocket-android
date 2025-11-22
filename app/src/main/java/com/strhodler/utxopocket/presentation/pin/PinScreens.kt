@@ -48,7 +48,8 @@ fun PinSetupScreen(
     confirmDescription: String,
     errorMessage: String?,
     onDismiss: () -> Unit,
-    onPinConfirmed: (String) -> Unit
+    onPinConfirmed: (String) -> Unit,
+    hapticsEnabled: Boolean = true
 ) {
     HideMainBottomBar()
 
@@ -132,6 +133,7 @@ fun PinSetupScreen(
         errorMessage = combinedError,
         topPadding = SecondaryTopBarHeight + 16.dp,
         keyboardEnabled = true,
+        hapticsEnabled = hapticsEnabled,
         onKeyPress = { key ->
             when (key) {
                 is DigitKey.Number -> {
@@ -175,7 +177,8 @@ fun PinVerificationScreen(
     errorMessage: String?,
     allowDismiss: Boolean = true,
     onDismiss: () -> Unit,
-    onPinVerified: (String) -> Unit
+    onPinVerified: (String) -> Unit,
+    hapticsEnabled: Boolean = true
 ) {
     HideMainBottomBar()
     if (!allowDismiss) {
@@ -228,6 +231,7 @@ fun PinVerificationScreen(
         errorMessage = errorMessage,
         topPadding = topPadding,
         keyboardEnabled = pin.length < PIN_LENGTH,
+        hapticsEnabled = hapticsEnabled,
         onKeyPress = { key ->
             when (key) {
                 is DigitKey.Number -> if (pin.length < PIN_LENGTH) {
@@ -256,6 +260,7 @@ private fun PinScreenScaffold(
     errorMessage: String?,
     topPadding: Dp,
     keyboardEnabled: Boolean,
+    hapticsEnabled: Boolean,
     onKeyPress: (DigitKey) -> Unit
 ) {
     Surface(
@@ -313,6 +318,7 @@ private fun PinScreenScaffold(
                 VirtualDigitKeyboard(
                     modifier = Modifier.heightIn(max = screenHeight * 0.5f),
                     onKeyPress = onKeyPress,
+                    hapticsEnabled = hapticsEnabled,
                     enabled = keyboardEnabled
                 )
             }

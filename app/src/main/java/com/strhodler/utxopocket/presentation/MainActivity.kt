@@ -325,7 +325,8 @@ class MainActivity : AppCompatActivity() {
                                                     }
                                                 }
                                             }
-                                        }
+                                        },
+                                        hapticsEnabled = uiState.hapticsEnabled
                                     )
                                 }
                             }

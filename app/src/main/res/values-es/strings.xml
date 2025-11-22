@@ -385,8 +385,10 @@
     <string name="settings_language_label">Idioma</string>
     <string name="settings_language_value_en">Inglés</string>
     <string name="settings_language_value_es">Español</string>
-    <string name="settings_wallet_animations_title">Animaciones de wallets</string>
-    <string name="settings_wallet_animations_description">Controla el brillo y el balance animado en la lista de wallets.</string>
+    <string name="settings_wallet_animations_title">Animaciones</string>
+    <string name="settings_wallet_animations_description">Activa o desactiva las animaciones de la app.</string>
+    <string name="settings_haptics_title">Vibración</string>
+    <string name="settings_haptics_description">Activa o desactiva la vibración en la app.</string>
     <string name="status_node_action_description">Mostrar el estado del nodo</string>
     <string name="tor_overview_title">Conectividad de Tor</string>
     <string name="tor_overview_details_title">Detalles de conexión</string>

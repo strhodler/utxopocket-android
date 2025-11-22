@@ -52,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -65,6 +66,7 @@ import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import android.view.HapticFeedbackConstants
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
@@ -104,6 +106,7 @@ fun WalletDetailRoute(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val hapticFeedback = LocalHapticFeedback.current
+    val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
     val showSnackbar = remember(coroutineScope, snackbarHostState) {
         { message: String, duration: SnackbarDuration ->
@@ -368,6 +371,14 @@ fun WalletDetailRoute(
         val topContentPadding = 0.dp
         val transactionItems = viewModel.pagedTransactions.collectAsLazyPagingItems()
         val utxoItems = viewModel.pagedUtxos.collectAsLazyPagingItems()
+        val cycleBalanceDisplay = remember(state.hapticsEnabled, view) {
+            {
+                if (state.hapticsEnabled) {
+                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                }
+                viewModel.cycleBalanceDisplayMode()
+            }
+        }
 
         Box(
             modifier = Modifier
@@ -387,7 +398,7 @@ fun WalletDetailRoute(
                 onAddressSelected = onAddressSelected,
                 onReceiveAddressCopied = viewModel::onReceiveAddressCopied,
                 onBalanceRangeSelected = viewModel::onBalanceRangeSelected,
-                onCycleBalanceDisplay = viewModel::cycleBalanceDisplayMode,
+                onCycleBalanceDisplay = cycleBalanceDisplay,
                 onOpenWikiTopic = onOpenWikiTopic,
                 outerListState = outerListState,
                 selectedTab = selectedTab,

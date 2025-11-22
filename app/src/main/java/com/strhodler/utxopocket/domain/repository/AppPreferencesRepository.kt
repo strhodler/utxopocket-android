@@ -19,6 +19,7 @@ interface AppPreferencesRepository {
     val balanceUnit: Flow<BalanceUnit>
     val balancesHidden: Flow<Boolean>
     val walletAnimationsEnabled: Flow<Boolean>
+    val hapticsEnabled: Flow<Boolean>
     val walletBalanceRange: Flow<BalanceRange>
     val advancedMode: Flow<Boolean>
     val pinAutoLockTimeoutMinutes: Flow<Int>
@@ -44,6 +45,7 @@ interface AppPreferencesRepository {
     suspend fun setBalancesHidden(hidden: Boolean)
     suspend fun cycleBalanceDisplayMode()
     suspend fun setWalletAnimationsEnabled(enabled: Boolean)
+    suspend fun setHapticsEnabled(enabled: Boolean)
     suspend fun setWalletBalanceRange(range: BalanceRange)
     suspend fun setAdvancedMode(enabled: Boolean)
     suspend fun setDustThresholdSats(thresholdSats: Long)

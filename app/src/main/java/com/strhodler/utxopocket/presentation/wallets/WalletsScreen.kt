@@ -73,6 +73,9 @@ import com.strhodler.utxopocket.presentation.wallets.components.walletShimmer
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Router
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.platform.LocalView
+import android.view.HapticFeedbackConstants
 import androidx.compose.ui.unit.Dp
 import java.text.DateFormat
 import java.util.Date
@@ -94,6 +97,15 @@ fun WalletsRoute(
     viewModel: WalletsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val view = LocalView.current
+    val onCycleBalanceDisplay = remember(state.hapticsEnabled, view) {
+        {
+            if (state.hapticsEnabled) {
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            }
+            viewModel.cycleBalanceDisplayMode()
+        }
+    }
     SetPrimaryTopBar()
     WalletsScreen(
         state = state,
@@ -106,7 +118,7 @@ fun WalletsRoute(
         snackbarMessage = snackbarMessage,
         onSnackbarConsumed = onSnackbarConsumed,
         isNetworkOnline = statusBarState.isNetworkOnline,
-        onCycleBalanceDisplay = viewModel::cycleBalanceDisplayMode
+        onCycleBalanceDisplay = onCycleBalanceDisplay
     )
 }
 
@@ -613,7 +625,11 @@ private fun WalletsBalanceHeader(
                 ),
                 monospaced = true,
                 animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0,
-                modifier = Modifier.clickable(onClick = onCycleBalanceDisplay)
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onCycleBalanceDisplay
+                )
             )
         }
     }

@@ -14,6 +14,7 @@ data class SettingsUiState(
     val preferredUnit: BalanceUnit = BalanceUnit.DEFAULT,
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
     val walletAnimationsEnabled: Boolean = true,
+    val hapticsEnabled: Boolean = true,
     val advancedMode: Boolean = false,
     val transactionAnalysisEnabled: Boolean = true,
     val utxoHealthEnabled: Boolean = true,

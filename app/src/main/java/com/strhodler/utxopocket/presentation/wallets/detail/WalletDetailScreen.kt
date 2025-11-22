@@ -86,6 +86,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -808,7 +809,11 @@ private fun WalletDetailHeader(
                 color = primaryContentColor
             ),
             monospaced = true,
-            modifier = Modifier.clickable(onClick = onCycleBalanceDisplay)
+            modifier = Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onCycleBalanceDisplay
+            )
         )
         WalletSummaryChip(
             text = walletDescriptorTypeLabel(summary.descriptorType),

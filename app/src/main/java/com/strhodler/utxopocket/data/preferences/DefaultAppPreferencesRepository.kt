@@ -111,6 +111,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
     override val walletAnimationsEnabled: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.WALLET_ANIMATIONS_ENABLED] ?: true }
 
+    override val hapticsEnabled: Flow<Boolean> =
+        dataStore.data.map { prefs -> prefs[Keys.HAPTICS_ENABLED] ?: true }
+
     override val walletBalanceRange: Flow<BalanceRange> =
         dataStore.data.map { prefs ->
             prefs[Keys.WALLET_BALANCE_RANGE]?.let { value ->
@@ -336,6 +339,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     override suspend fun setWalletAnimationsEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[Keys.WALLET_ANIMATIONS_ENABLED] = enabled }
+    }
+
+    override suspend fun setHapticsEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.HAPTICS_ENABLED] = enabled }
     }
 
     override suspend fun setWalletBalanceRange(range: BalanceRange) {
@@ -652,6 +659,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val BALANCE_UNIT = stringPreferencesKey("balance_unit")
         val BALANCES_HIDDEN = booleanPreferencesKey("balances_hidden")
         val WALLET_ANIMATIONS_ENABLED = booleanPreferencesKey("wallet_animations_enabled")
+        val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
         val WALLET_BALANCE_RANGE = stringPreferencesKey("wallet_balance_range")
         val ADVANCED_MODE = booleanPreferencesKey("advanced_mode_enabled")
         val CONNECTION_IDLE_MINUTES = intPreferencesKey("connection_idle_minutes")

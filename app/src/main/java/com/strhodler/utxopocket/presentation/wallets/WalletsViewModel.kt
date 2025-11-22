@@ -124,8 +124,11 @@ class WalletsViewModel @Inject constructor(
                 syncStatus = syncStatus,
                 torStatus = torStatus,
                 balanceUnit = balanceUnit,
-                balancesHidden = false
+                balancesHidden = false,
+                hapticsEnabled = true
             )
+        }.combine(appPreferencesRepository.hapticsEnabled) { base, hapticsEnabled ->
+            base.copy(hapticsEnabled = hapticsEnabled)
         },
         appPreferencesRepository.balancesHidden
     ) { base, balancesHidden ->
@@ -138,6 +141,7 @@ class WalletsViewModel @Inject constructor(
             torStatus = base.torStatus,
             balanceUnit = base.balanceUnit,
             balancesHidden = base.balancesHidden,
+            hapticsEnabled = base.hapticsEnabled,
             nodeConfig = nodeConfig
         )
     }
@@ -151,6 +155,7 @@ class WalletsViewModel @Inject constructor(
         val syncStatus = snapshot.syncStatus
         val torStatus = snapshot.torStatus
         val balanceUnit = snapshot.balanceUnit
+        val hapticsEnabled = snapshot.hapticsEnabled
         val torRequired = snapshot.nodeConfig.requiresTor(data.network)
 
         val snapshotMatchesNetwork = nodeSnapshot.network == data.network
@@ -175,6 +180,7 @@ class WalletsViewModel @Inject constructor(
             torRequired = torRequired,
             balanceUnit = balanceUnit,
             balancesHidden = snapshot.balancesHidden,
+            hapticsEnabled = hapticsEnabled,
             totalBalanceSats = data.wallets.sumOf { it.balanceSats },
             blockHeight = if (snapshotMatchesNetwork) nodeSnapshot.blockHeight else null,
             feeRateSatPerVb = if (snapshotMatchesNetwork) nodeSnapshot.feeRateSatPerVb else null,
@@ -213,6 +219,7 @@ class WalletsViewModel @Inject constructor(
         val torStatus: TorStatus,
         val balanceUnit: BalanceUnit,
         val balancesHidden: Boolean,
+        val hapticsEnabled: Boolean,
         val nodeConfig: NodeConfig
     )
 
@@ -222,7 +229,8 @@ class WalletsViewModel @Inject constructor(
         val syncStatus: SyncStatusSnapshot,
         val torStatus: TorStatus,
         val balanceUnit: BalanceUnit,
-        val balancesHidden: Boolean
+        val balancesHidden: Boolean,
+        val hapticsEnabled: Boolean
     )
 
     private data class AutoRefreshSignal(
@@ -242,6 +250,7 @@ data class WalletsUiState(
     val torRequired: Boolean = false,
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
     val balancesHidden: Boolean = false,
+    val hapticsEnabled: Boolean = true,
     val totalBalanceSats: Long = 0,
     val blockHeight: Long? = null,
     val feeRateSatPerVb: Double? = null,
