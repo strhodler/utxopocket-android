@@ -48,7 +48,8 @@ sealed class NodeStatus {
 
 data class SyncStatusSnapshot(
     val isRefreshing: Boolean,
-    val network: BitcoinNetwork
+    val network: BitcoinNetwork,
+    val refreshingWalletIds: Set<Long> = emptySet()
 )
 
 data class ElectrumServerInfo(

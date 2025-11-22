@@ -151,7 +151,8 @@ class MainActivityViewModel @Inject constructor(
         } else {
             NodeStatus.Idle
         }
-        val isSyncing = syncStatus.isRefreshing && syncStatus.network == network
+        val isSyncing = (syncStatus.isRefreshing && syncStatus.network == network) ||
+            syncStatus.refreshingWalletIds.isNotEmpty()
         val torRequired = nodeConfig.requiresTor(network)
 
         AppEntryUiState(

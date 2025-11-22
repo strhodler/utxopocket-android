@@ -306,7 +306,8 @@ class WalletDetailViewModel @Inject constructor(
             balanceHistoryReducer.clear()
             WalletDetailUiState(
                 isLoading = false,
-                isRefreshing = baseSnapshot.syncStatus.isRefreshing,
+                isRefreshing = baseSnapshot.syncStatus.isRefreshing ||
+                    baseSnapshot.syncStatus.refreshingWalletIds.isNotEmpty(),
                 summary = null,
                 descriptor = null,
                 changeDescriptor = null,
@@ -337,8 +338,13 @@ class WalletDetailViewModel @Inject constructor(
         } else {
             val summary = detail.summary
             val snapshotMatchesNetwork = baseSnapshot.nodeSnapshot.network == summary.network
-            val isSyncing = baseSnapshot.syncStatus.isRefreshing &&
-                baseSnapshot.syncStatus.network == summary.network
+            val refreshingIds = baseSnapshot.syncStatus.refreshingWalletIds
+            val isSyncing = refreshingIds.contains(summary.id) ||
+                (
+                    baseSnapshot.syncStatus.isRefreshing &&
+                        baseSnapshot.syncStatus.network == summary.network &&
+                        refreshingIds.isEmpty()
+                )
             val balanceHistoryPoints = baseSnapshot.balanceHistory
             val displayBalancePoints = balanceHistoryReducer.pointsForRange(
                 balanceHistoryPoints,
@@ -428,9 +434,9 @@ class WalletDetailViewModel @Inject constructor(
     }
 
     fun refresh() {
-        val network = uiState.value.summary?.network ?: return
+        val summary = uiState.value.summary ?: return
         viewModelScope.launch {
-            walletRepository.refresh(network)
+            walletRepository.refreshWallet(summary.id)
         }
         refreshAddresses()
     }

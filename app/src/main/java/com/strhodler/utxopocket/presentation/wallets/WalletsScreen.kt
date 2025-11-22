@@ -77,6 +77,8 @@ import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Router
 import androidx.compose.ui.unit.Dp
+import java.text.DateFormat
+import java.util.Date
 
 private const val DefaultBalanceAnimationDuration = 220
 private val AddWalletBottomSpacer: Dp = 64.dp
@@ -331,6 +333,7 @@ private fun WalletsContent(
                 showNodePrompt = showNodePrompt,
                 walletAnimationsEnabled = state.walletAnimationsEnabled,
                 isRefreshing = state.isRefreshing,
+                refreshingWalletIds = state.refreshingWalletIds,
                 modifier = Modifier.weight(1f, fill = true),
                 additionalBottomPadding = if (bannerContent != null) AddWalletBottomSpacer else 0.dp,
                 onToggleBalanceUnit = onToggleBalanceUnit
@@ -365,6 +368,7 @@ private fun WalletsList(
     showNodePrompt: Boolean,
     walletAnimationsEnabled: Boolean,
     isRefreshing: Boolean,
+    refreshingWalletIds: Set<Long> = emptySet(),
     additionalBottomPadding: Dp = 0.dp,
     modifier: Modifier = Modifier,
     onToggleBalanceUnit: () -> Unit
@@ -414,13 +418,14 @@ private fun WalletsList(
                 )
             }
             items(wallets, key = { it.id }) { wallet ->
+                val walletRefreshing = refreshingWalletIds.contains(wallet.id)
                 WalletCard(
                     wallet = wallet,
                     balanceUnit = balanceUnit,
                     onClick = { onWalletSelected(wallet.id, wallet.name) },
                     modifier = Modifier.fillMaxWidth(),
                     animationsEnabled = walletAnimationsEnabled,
-                    isSyncing = isRefreshing
+                    isSyncing = walletRefreshing || (isRefreshing && refreshingWalletIds.isEmpty())
                 )
             }
             item(key = "wallets-add-descriptor") {
@@ -496,12 +501,28 @@ private fun WalletCard(
     isSyncing: Boolean
 ) {
     val syncStatus = wallet.lastSyncStatus
-    val statusLabel = nodeStatusLabel(syncStatus, isSyncing)
+    val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT) }
+    val lastSyncText = remember(wallet.lastSyncTime) {
+        wallet.lastSyncTime?.let { timestamp -> dateFormat.format(Date(timestamp)) }
+    }
+    val statusLabel = when {
+        isSyncing -> stringResource(id = R.string.wallets_state_syncing)
+        syncStatus is NodeStatus.Error -> syncStatus.message.ifBlank {
+            stringResource(id = R.string.wallets_state_error)
+        }
+        lastSyncText != null -> stringResource(id = R.string.wallets_last_sync, lastSyncText)
+        else -> nodeStatusLabel(syncStatus, false)
+    }
     val theme = remember(wallet.color) { wallet.color.toTheme() }
     val shimmerPhase = if (animationsEnabled) rememberWalletShimmerPhase() else 0f
     val contentColor = theme.onGradient
     val secondaryTextColor = contentColor.copy(alpha = 0.85f)
     val errorIndicatorColor = MaterialTheme.colorScheme.error
+    val statusColor = when {
+        isSyncing -> contentColor
+        syncStatus is NodeStatus.Error -> errorIndicatorColor
+        else -> secondaryTextColor
+    }
     Card(
         onClick = onClick,
         modifier = modifier,
@@ -588,11 +609,7 @@ private fun WalletCard(
                 Text(
                     text = statusLabel,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = when (syncStatus) {
-                        NodeStatus.Synced -> contentColor
-                        is NodeStatus.Error -> contentColor
-                        else -> secondaryTextColor
-                    }
+                    color = statusColor
                 )
             }
         }

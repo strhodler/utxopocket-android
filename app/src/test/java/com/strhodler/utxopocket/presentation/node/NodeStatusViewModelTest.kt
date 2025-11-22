@@ -241,6 +241,8 @@ class NodeStatusViewModelTest {
             refreshCalls += network
         }
 
+        override suspend fun refreshWallet(walletId: Long) = Unit
+
         override suspend fun validateDescriptor(
             descriptor: String,
             changeDescriptor: String?,

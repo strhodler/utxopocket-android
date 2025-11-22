@@ -90,8 +90,10 @@ class WalletsViewModel @Inject constructor(
                 val previousStatus = lastObservedNodeStatus
                 val currentStatus = signal.nodeSnapshot.status
                 val matchesNetwork = signal.nodeSnapshot.network == signal.selectedNetwork
-                val syncBusy = signal.syncSnapshot.isRefreshing &&
-                    signal.syncSnapshot.network == signal.selectedNetwork
+                val syncBusy = (
+                    signal.syncSnapshot.isRefreshing &&
+                        signal.syncSnapshot.network == signal.selectedNetwork
+                    ) || signal.syncSnapshot.refreshingWalletIds.isNotEmpty()
                 if (
                     previousStatus != null &&
                     previousStatus !is NodeStatus.Synced &&
@@ -173,7 +175,8 @@ class WalletsViewModel @Inject constructor(
             feeRateSatPerVb = if (snapshotMatchesNetwork) nodeSnapshot.feeRateSatPerVb else null,
             errorMessage = errorMessage,
             walletAnimationsEnabled = animationsEnabled,
-            hasActiveNodeSelection = snapshot.nodeConfig.hasActiveSelection(data.network)
+            hasActiveNodeSelection = snapshot.nodeConfig.hasActiveSelection(data.network),
+            refreshingWalletIds = syncStatus.refreshingWalletIds
         )
     }.stateIn(
         scope = viewModelScope,
@@ -242,5 +245,6 @@ data class WalletsUiState(
     val feeRateSatPerVb: Double? = null,
     val errorMessage: String? = null,
     val walletAnimationsEnabled: Boolean = true,
-    val hasActiveNodeSelection: Boolean = false
+    val hasActiveNodeSelection: Boolean = false,
+    val refreshingWalletIds: Set<Long> = emptySet()
 )

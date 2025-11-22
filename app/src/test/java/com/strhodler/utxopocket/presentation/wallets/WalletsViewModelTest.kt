@@ -160,6 +160,7 @@ private class TestWalletRepository : WalletRepository {
     override fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>> = flowOf(emptyMap())
 
     override suspend fun refresh(network: BitcoinNetwork) = Unit
+    override suspend fun refreshWallet(walletId: Long) = Unit
 
     override suspend fun validateDescriptor(
         descriptor: String,
