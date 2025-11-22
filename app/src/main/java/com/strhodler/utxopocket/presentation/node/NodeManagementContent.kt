@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.onGloballyPositioned
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
@@ -44,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.onGloballyPositioned
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
@@ -158,7 +158,9 @@ private fun NodeNetworkSelector(
                 readOnly = true,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .onGloballyPositioned { fieldWidth = with(density) { it.size.width.toDp() } }
+                    .onGloballyPositioned { coordinates ->
+                        fieldWidth = with(density) { coordinates.size.width.toDp() }
+                    }
                     .onFocusChanged { state -> expanded = state.isFocused },
                 trailingIcon = {
                     Icon(
