@@ -141,9 +141,15 @@ private fun AboutDeveloperContent(
                 onCopy = { copyDeveloperLink(DEVELOPER_REPOSITORY_URL) }
             )
             DeveloperLinkItem(
+                title = stringResource(id = R.string.about_sheet_link_telegram),
+                value = TELEGRAM_CHANNEL_URL,
+                onOpen = { uriHandler.openUri(TELEGRAM_CHANNEL_URL) },
+                onCopy = { copyDeveloperLink(TELEGRAM_CHANNEL_URL) }
+            )
+            DeveloperLinkItem(
                 title = stringResource(id = R.string.about_sheet_link_nostr),
                 value = DEVELOPER_NOSTR,
-                onCopy = { copyDeveloperLink(DEVELOPER_NOSTR) }
+                onCopy = { mit encopyDeveloperLink(DEVELOPER_NOSTR) }
             )
             DeveloperLinkItem(
                 title = stringResource(id = R.string.about_sheet_link_lightning),
@@ -249,3 +255,4 @@ private fun DeveloperLinkItem(
 private const val DEVELOPER_REPOSITORY_URL = "https://github.com/strhodler/utxopocket-android"
 private const val DEVELOPER_LIGHTNING_ADDRESS = "strhodler@getalby.com"
 private const val DEVELOPER_NOSTR = "npub1dd3k7ku95jhpyh9y7pgx9qrh2ykvtfl5lnncqzzt2gyhgw0a04ysm4paad"
+private const val TELEGRAM_CHANNEL_URL = "https://t.me/+AAABBBB"

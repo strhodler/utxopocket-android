@@ -24,6 +24,7 @@
     <string name="pdf_download_filename">bitcoin_whitepaper.pdf</string>
     <string name="pdf_download_saved">Guardado en %1$s</string>
     <string name="about_sheet_link_repository">Repositorio</string>
+    <string name="about_sheet_link_telegram">Telegram</string>
     <string name="about_sheet_link_nostr">Nostr</string>
     <string name="about_sheet_link_lightning">LNURL</string>
     <string name="about_sheet_qr_caption">Invítame un café vía Lightning</string>
