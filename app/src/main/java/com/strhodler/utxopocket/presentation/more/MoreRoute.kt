@@ -144,7 +144,7 @@ private fun MoreScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(paddingValues)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
@@ -349,12 +349,12 @@ private fun FeaturesScreen(onBack: () -> Unit) {
         onBackClick = onBack
     )
 
-    Scaffold { innerPadding ->
+    Scaffold(contentWindowInsets = ScreenScaffoldInsets) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .applyScreenPadding(innerPadding)
+                .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
@@ -425,7 +425,8 @@ private fun AboutScreen(onBack: () -> Unit) {
     )
 
     Scaffold(
-        snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) }
+        snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
+        contentWindowInsets = ScreenScaffoldInsets
     ) { innerPadding ->
         AboutDeveloperContent(
             lightningAddress = DEVELOPER_LIGHTNING_ADDRESS,
@@ -433,7 +434,8 @@ private fun AboutScreen(onBack: () -> Unit) {
             onLinkCopied = { message -> showSnackbar(message, SnackbarDuration.Short) },
             modifier = Modifier
                 .verticalScroll(scrollState)
-                .padding(innerPadding)
+                .applyScreenPadding(innerPadding)
+                .padding(horizontal = 24.dp)
         )
     }
 }
@@ -562,13 +564,13 @@ private fun DisclaimerScreen(onBack: () -> Unit) {
 
     val scrollState = rememberScrollState()
 
-    Scaffold { innerPadding ->
+    Scaffold(contentWindowInsets = ScreenScaffoldInsets) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .applyScreenPadding(innerPadding)
                 .verticalScroll(scrollState)
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(

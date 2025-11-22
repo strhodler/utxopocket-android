@@ -152,7 +152,7 @@ fun WalletDetailScreen(
     onAddressSelected: (WalletAddress) -> Unit,
     onReceiveAddressCopied: (WalletAddress) -> Unit,
     onBalanceRangeSelected: (BalanceRange) -> Unit,
-    onToggleBalanceUnit: () -> Unit,
+    onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     outerListState: LazyListState,
     selectedTab: WalletDetailTab,
@@ -218,7 +218,7 @@ fun WalletDetailScreen(
                     onAddressSelected = onAddressSelected,
                     onReceiveAddressCopied = onReceiveAddressCopied,
                     onBalanceRangeSelected = onBalanceRangeSelected,
-                    onToggleBalanceUnit = onToggleBalanceUnit,
+                    onCycleBalanceDisplay = onCycleBalanceDisplay,
                     onOpenWikiTopic = onOpenWikiTopic,
                     pagerState = pagerState,
                     listStates = listStates,
@@ -253,7 +253,7 @@ private fun WalletDetailContent(
     onAddressSelected: (WalletAddress) -> Unit,
     onReceiveAddressCopied: (WalletAddress) -> Unit,
     onBalanceRangeSelected: (BalanceRange) -> Unit,
-    onToggleBalanceUnit: () -> Unit,
+    onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     pagerState: PagerState,
     listStates: Map<WalletDetailTab, LazyListState>,
@@ -369,7 +369,7 @@ private fun WalletDetailContent(
                 availableRanges = state.availableBalanceRanges,
                 selectedRange = state.selectedRange,
                 onRangeSelected = onBalanceRangeSelected,
-                onToggleBalanceUnit = onToggleBalanceUnit
+                onCycleBalanceDisplay = onCycleBalanceDisplay
             )
         }
         item(key = "summary_health_spacing") {
@@ -718,7 +718,7 @@ private fun WalletSummaryHeader(
     availableRanges: List<BalanceRange>,
     selectedRange: BalanceRange,
     onRangeSelected: (BalanceRange) -> Unit,
-    onToggleBalanceUnit: () -> Unit,
+    onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val summary = requireNotNull(state.summary)
@@ -741,6 +741,7 @@ private fun WalletSummaryHeader(
         summary = summary,
         balanceSats = activeBalanceSats,
         balanceUnit = state.balanceUnit,
+        balancesHidden = state.balancesHidden,
         balancePoints = balancePoints,
         infoText = infoText,
         primaryContentColor = primaryContentColor,
@@ -749,7 +750,7 @@ private fun WalletSummaryHeader(
         availableRanges = availableRanges,
         selectedRange = selectedRange,
         onRangeSelected = onRangeSelected,
-        onToggleBalanceUnit = onToggleBalanceUnit,
+        onCycleBalanceDisplay = onCycleBalanceDisplay,
         modifier = modifier
             .fillMaxWidth()
             .walletCardBackground(theme, cornerRadius = 0.dp)
@@ -769,6 +770,7 @@ private fun WalletDetailHeader(
     summary: WalletSummary,
     balanceSats: Long,
     balanceUnit: BalanceUnit,
+    balancesHidden: Boolean,
     balancePoints: List<BalancePoint>,
     infoText: String?,
     primaryContentColor: Color,
@@ -777,7 +779,7 @@ private fun WalletDetailHeader(
     availableRanges: List<BalanceRange>,
     selectedRange: BalanceRange,
     onRangeSelected: (BalanceRange) -> Unit,
-    onToggleBalanceUnit: () -> Unit,
+    onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier
 ) {
     Column(
@@ -797,12 +799,13 @@ private fun WalletDetailHeader(
         RollingBalanceText(
             balanceSats = balanceSats,
             unit = balanceUnit,
+            hidden = balancesHidden,
             style = MaterialTheme.typography.displaySmall.copy(
                 fontWeight = FontWeight.SemiBold,
                 color = primaryContentColor
             ),
             monospaced = true,
-            modifier = Modifier.clickable(onClick = onToggleBalanceUnit)
+            modifier = Modifier.clickable(onClick = onCycleBalanceDisplay)
         )
         WalletSummaryChip(
             text = walletDescriptorTypeLabel(summary.descriptorType),

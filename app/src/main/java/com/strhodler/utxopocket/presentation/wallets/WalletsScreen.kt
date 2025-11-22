@@ -34,8 +34,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -65,7 +63,6 @@ import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBanner
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBannerStyle
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
-import com.strhodler.utxopocket.presentation.components.RefreshableContent
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
@@ -100,7 +97,6 @@ fun WalletsRoute(
     SetPrimaryTopBar()
     WalletsScreen(
         state = state,
-        onRefreshRequested = viewModel::refresh,
         onAddWallet = onAddWallet,
         onOpenWiki = onOpenWiki,
         onOpenWikiTopic = onOpenWikiTopic,
@@ -110,14 +106,13 @@ fun WalletsRoute(
         snackbarMessage = snackbarMessage,
         onSnackbarConsumed = onSnackbarConsumed,
         isNetworkOnline = statusBarState.isNetworkOnline,
-        onToggleBalanceUnit = viewModel::toggleBalanceUnit
+        onCycleBalanceDisplay = viewModel::cycleBalanceDisplayMode
     )
 }
 
 @Composable
 fun WalletsScreen(
     state: WalletsUiState,
-    onRefreshRequested: () -> Unit,
     onAddWallet: () -> Unit,
     onOpenWiki: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
@@ -127,7 +122,7 @@ fun WalletsScreen(
     snackbarMessage: String? = null,
     onSnackbarConsumed: () -> Unit = {},
     isNetworkOnline: Boolean,
-    onToggleBalanceUnit: () -> Unit,
+    onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -155,7 +150,6 @@ fun WalletsScreen(
         snackbarBottomInset = innerPadding.calculateBottomPadding()
         WalletsContent(
             state = state,
-            onRefreshRequested = onRefreshRequested,
             onOpenWiki = onOpenWiki,
             onOpenWikiTopic = onOpenWikiTopic,
             onSelectNode = onSelectNode,
@@ -163,7 +157,7 @@ fun WalletsScreen(
             onWalletSelected = onWalletSelected,
             onAddWallet = onAddWallet,
             isNetworkOnline = isNetworkOnline,
-            onToggleBalanceUnit = onToggleBalanceUnit,
+            onCycleBalanceDisplay = onCycleBalanceDisplay,
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
@@ -174,7 +168,6 @@ fun WalletsScreen(
 @Composable
 private fun WalletsContent(
     state: WalletsUiState,
-    onRefreshRequested: () -> Unit,
     onOpenWiki: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onSelectNode: () -> Unit,
@@ -182,14 +175,9 @@ private fun WalletsContent(
     onWalletSelected: (Long, String) -> Unit,
     onAddWallet: () -> Unit,
     isNetworkOnline: Boolean,
-    onToggleBalanceUnit: () -> Unit,
+    onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val pullToRefreshState = rememberPullToRefreshState()
-    val shouldShowPullToRefreshIndicator = !(
-        state.isRefreshing &&
-            (state.nodeStatus is NodeStatus.Connecting || state.nodeStatus == NodeStatus.WaitingForTor)
-        )
     val canAddWallet = state.hasActiveNodeSelection
     val showNodePrompt = state.wallets.isEmpty() && !state.hasActiveNodeSelection
 
@@ -294,51 +282,27 @@ private fun WalletsContent(
     }
     val bannerContent = banner.takeIf { !isNodeConnected }
 
-    RefreshableContent(
-        isRefreshing = state.isRefreshing,
-        onRefresh = {
-            if (!state.isRefreshing) {
-                onRefreshRequested()
-            }
-        },
-        modifier = modifier,
-        state = pullToRefreshState,
-        indicator = {
-            if (shouldShowPullToRefreshIndicator) {
-                PullToRefreshDefaults.Indicator(
-                    modifier = Modifier.align(Alignment.TopCenter),
-                    isRefreshing = state.isRefreshing,
-                    state = pullToRefreshState
-                )
-            }
-        }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            WalletsList(
-                wallets = state.wallets,
-                onOpenWiki = onOpenWiki,
-                onOpenWikiTopic = onOpenWikiTopic,
-                balanceUnit = state.balanceUnit,
-                totalBalanceSats = state.totalBalanceSats,
-                onSelectNode = onSelectNode,
-                onWalletSelected = onWalletSelected,
-                onAddWallet = onAddWallet,
-                canAddWallet = canAddWallet,
-                showPendingSyncHint = showPendingSyncHint,
-                showNodePrompt = showNodePrompt,
-                walletAnimationsEnabled = state.walletAnimationsEnabled,
-                isRefreshing = state.isRefreshing,
-                refreshingWalletIds = state.refreshingWalletIds,
-                modifier = Modifier.weight(1f, fill = true),
-                additionalBottomPadding = if (bannerContent != null) AddWalletBottomSpacer else 0.dp,
-                onToggleBalanceUnit = onToggleBalanceUnit
-            )
-        }
+    Box(modifier = modifier.fillMaxSize()) {
+        WalletsList(
+            wallets = state.wallets,
+            onOpenWiki = onOpenWiki,
+            onOpenWikiTopic = onOpenWikiTopic,
+            balanceUnit = state.balanceUnit,
+            balancesHidden = state.balancesHidden,
+            totalBalanceSats = state.totalBalanceSats,
+            onSelectNode = onSelectNode,
+            onWalletSelected = onWalletSelected,
+            onAddWallet = onAddWallet,
+            canAddWallet = canAddWallet,
+            showPendingSyncHint = showPendingSyncHint,
+            showNodePrompt = showNodePrompt,
+            walletAnimationsEnabled = state.walletAnimationsEnabled,
+            isRefreshing = state.isRefreshing,
+            refreshingWalletIds = state.refreshingWalletIds,
+            modifier = Modifier.fillMaxSize(),
+            additionalBottomPadding = if (bannerContent != null) AddWalletBottomSpacer else 0.dp,
+            onCycleBalanceDisplay = onCycleBalanceDisplay
+        )
 
         bannerContent?.let { content ->
             Box(
@@ -359,6 +323,7 @@ private fun WalletsList(
     onOpenWiki: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     balanceUnit: BalanceUnit,
+    balancesHidden: Boolean,
     totalBalanceSats: Long,
     onSelectNode: () -> Unit,
     onWalletSelected: (Long, String) -> Unit,
@@ -371,7 +336,7 @@ private fun WalletsList(
     refreshingWalletIds: Set<Long> = emptySet(),
     additionalBottomPadding: Dp = 0.dp,
     modifier: Modifier = Modifier,
-    onToggleBalanceUnit: () -> Unit
+    onCycleBalanceDisplay: () -> Unit
 ) {
     if (wallets.isEmpty()) {
         Box(
@@ -413,8 +378,9 @@ private fun WalletsList(
                 WalletsBalanceHeader(
                     totalBalanceSats = totalBalanceSats,
                     balanceUnit = balanceUnit,
+                    balancesHidden = balancesHidden,
                     animationsEnabled = walletAnimationsEnabled,
-                    onToggleBalanceUnit = onToggleBalanceUnit
+                    onCycleBalanceDisplay = onCycleBalanceDisplay
                 )
             }
             items(wallets, key = { it.id }) { wallet ->
@@ -422,6 +388,7 @@ private fun WalletsList(
                 WalletCard(
                     wallet = wallet,
                     balanceUnit = balanceUnit,
+                    balancesHidden = balancesHidden,
                     onClick = { onWalletSelected(wallet.id, wallet.name) },
                     modifier = Modifier.fillMaxWidth(),
                     animationsEnabled = walletAnimationsEnabled,
@@ -495,6 +462,7 @@ private val WalletCardCornerRadius = 12.dp
 private fun WalletCard(
     wallet: WalletSummary,
     balanceUnit: BalanceUnit,
+    balancesHidden: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     animationsEnabled: Boolean,
@@ -585,6 +553,7 @@ private fun WalletCard(
                 RollingBalanceText(
                     balanceSats = wallet.balanceSats,
                     unit = balanceUnit,
+                    hidden = balancesHidden,
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = contentColor
@@ -620,9 +589,10 @@ private fun WalletCard(
 private fun WalletsBalanceHeader(
     totalBalanceSats: Long,
     balanceUnit: BalanceUnit,
+    balancesHidden: Boolean,
     modifier: Modifier = Modifier,
     animationsEnabled: Boolean,
-    onToggleBalanceUnit: () -> Unit
+    onCycleBalanceDisplay: () -> Unit
 ) {
     Surface(
         modifier = modifier
@@ -645,12 +615,13 @@ private fun WalletsBalanceHeader(
             RollingBalanceText(
                 balanceSats = totalBalanceSats,
                 unit = balanceUnit,
+                hidden = balancesHidden,
                 style = MaterialTheme.typography.displaySmall.copy(
                     fontWeight = FontWeight.Medium
                 ),
                 monospaced = true,
                 animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0,
-                modifier = Modifier.clickable(onClick = onToggleBalanceUnit)
+                modifier = Modifier.clickable(onClick = onCycleBalanceDisplay)
             )
         }
     }

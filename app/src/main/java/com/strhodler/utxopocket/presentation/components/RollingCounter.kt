@@ -36,6 +36,13 @@ import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.presentation.common.balanceUnitLabel
 import com.strhodler.utxopocket.presentation.common.balanceValue
 import java.util.Locale
+import kotlin.random.Random
+private fun TextStyle.applyMonospace(monospace: Boolean): TextStyle =
+    if (monospace) {
+        copy(fontFeatureSettings = "tnum,lnum")
+    } else {
+        this
+    }
 
 private fun formatNumber(value: Long, groupThousands: Boolean): String =
     if (groupThousands) String.format(Locale.getDefault(), "%,d", value) else value.toString()
@@ -66,11 +73,7 @@ fun RollingCounter(
     monospaced: Boolean = true,
     valueFormatter: (Long) -> String = { formatNumber(it, groupThousands) }
 ) {
-    val textStyle = if (monospaced) {
-        style.copy(fontFeatureSettings = "tnum,lnum")
-    } else {
-        style
-    }
+    val textStyle = remember(style, monospaced) { style.applyMonospace(monospaced) }
 
     var previousValue by remember { mutableLongStateOf(value) }
     val direction = if (value >= previousValue) 1 else -1
@@ -173,6 +176,7 @@ private fun AnimatedDigit(
 fun RollingBalanceText(
     balanceSats: Long,
     unit: BalanceUnit,
+    hidden: Boolean = false,
     modifier: Modifier = Modifier,
     style: TextStyle = MaterialTheme.typography.displaySmall,
     digitSpacing: Dp = 0.dp,
@@ -181,13 +185,23 @@ fun RollingBalanceText(
     monospaced: Boolean = true
 ) {
     val suffix = remember(unit) { " ${balanceUnitLabel(unit)}" }
+    val textStyle = remember(style, monospaced) { style.applyMonospace(monospaced) }
+    if (hidden) {
+        val mask = remember(unit) { "*".repeat(Random.nextInt(4, 7)) }
+        Text(
+            text = mask + suffix,
+            modifier = modifier,
+            style = style
+        )
+        return
+    }
     val valueFormatter = remember(unit) {
         { value: Long -> balanceValue(value, unit) }
     }
     RollingCounter(
         value = balanceSats,
         modifier = modifier,
-        style = style,
+        style = textStyle,
         digitSpacing = digitSpacing,
         animationMillis = animationMillis,
         easing = easing,

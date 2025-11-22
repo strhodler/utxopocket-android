@@ -3,7 +3,7 @@ package com.msopentech.thali.android.toronionproxy.torinstaller;/* Copyright (c)
 
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
-import android.util.Log;
+import com.strhodler.utxopocket.common.logging.SecureLog;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -18,7 +18,6 @@ import java.util.zip.ZipInputStream;
 
 
 public class TorResourceInstaller implements TorServiceConstants {
-
 
     File installFolder;
     Context context;
@@ -76,7 +75,7 @@ public class TorResourceInstaller implements TorServiceConstants {
             if (fileTor.setExecutable(true, false) && fileTor.canExecute()) {
                 return fileTor;
             }
-            Log.w(TAG, "Native tor binary exists but is not executable, attempting fallback extraction");
+            SecureLog.w(TAG, "Native tor binary exists but is not executable, attempting fallback extraction");
         }
 
         if (!installFolder.exists() && !installFolder.mkdirs()) {
@@ -85,7 +84,7 @@ public class TorResourceInstaller implements TorServiceConstants {
 
         fileTor = new File(installFolder, TOR_ASSET_KEY);
         if (fileTor.exists() && !fileTor.delete()) {
-            Log.w(TAG, "Failed to delete stale tor binary at " + fileTor.getAbsolutePath());
+            SecureLog.w(TAG, "Failed to delete stale tor binary at " + fileTor.getAbsolutePath());
         }
 
         File preparedBinary = NativeLoader.initNativeLibs(context, fileTor);
@@ -96,7 +95,7 @@ public class TorResourceInstaller implements TorServiceConstants {
             }
         }
 
-        Log.w(TAG, "Tor binary could not be prepared at " + fileTor.getAbsolutePath());
+        SecureLog.w(TAG, "Tor binary could not be prepared at " + fileTor.getAbsolutePath());
         return null;
     }
 
@@ -130,7 +129,7 @@ public class TorResourceInstaller implements TorServiceConstants {
     public boolean updateTorConfigCustom(File fileTorRcCustom, String extraLines) throws IOException, FileNotFoundException, TimeoutException {
         if (fileTorRcCustom.exists()) {
             fileTorRcCustom.delete();
-            Log.d("torResources", "deleting existing torrc.custom");
+            SecureLog.d("torResources", "deleting existing torrc.custom");
         } else
             fileTorRcCustom.createNewFile();
 
@@ -184,10 +183,10 @@ public class TorResourceInstaller implements TorServiceConstants {
             return;
         }
         if (!fileBin.setReadable(true, false)) {
-            Log.w(TAG, "Failed to mark tor binary readable");
+            SecureLog.w(TAG, "Failed to mark tor binary readable");
         }
         if (!fileBin.setExecutable(true, false)) {
-            Log.w(TAG, "Failed to mark tor binary executable");
+            SecureLog.w(TAG, "Failed to mark tor binary executable");
         }
         fileBin.setWritable(false, false);
         fileBin.setWritable(true, true);
@@ -204,7 +203,7 @@ public class TorResourceInstaller implements TorServiceConstants {
         if (fList != null)
             for (File file : fList) {
                 if (file.isFile()) {
-                    Log.d(TAG, file.getAbsolutePath());
+                    SecureLog.d(TAG, file.getAbsolutePath());
                 } else if (file.isDirectory()) {
                     listf(file.getAbsolutePath());
                 }

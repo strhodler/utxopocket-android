@@ -30,6 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
+import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
+import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import com.strhodler.utxopocket.presentation.settings.model.TransactionParameterField
@@ -60,7 +62,8 @@ fun HealthParametersRoute(
     )
 
     Scaffold(
-        snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) }
+        snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
+        contentWindowInsets = ScreenScaffoldInsets
     ) { paddingValues ->
         HealthParametersScreen(
             state = state,
@@ -70,7 +73,7 @@ fun HealthParametersRoute(
             onRestore = viewModel::onRestoreHealthDefaults,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .applyScreenPadding(paddingValues)
         )
     }
 }

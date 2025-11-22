@@ -1,9 +1,9 @@
 package com.strhodler.utxopocket.tor
 
 import android.content.Context
-import android.util.Log
 import com.msopentech.thali.android.toronionproxy.AndroidOnionProxyManager
 import com.strhodler.utxopocket.di.IoDispatcher
+import com.strhodler.utxopocket.common.logging.SecureLog
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -99,9 +99,9 @@ class TorRuntimeManager @Inject constructor(
             }.onFailure { error ->
                 val cancelled = error is CancellationException
                 if (cancelled) {
-                    Log.i("TorRuntimeManager", "Tor start cancelled")
+                    SecureLog.i("TorRuntimeManager") { "Tor start cancelled" }
                 } else {
-                    Log.e("TorRuntimeManager", "Tor start failed", error)
+                    SecureLog.e("TorRuntimeManager", error) { "Tor start failed" }
                 }
                 processRunning.set(false)
                 _proxy.value = null

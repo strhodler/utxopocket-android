@@ -116,6 +116,7 @@ class WalletDetailViewModel @Inject constructor(
         walletRepository.observeSyncStatus(),
         torManager.status,
         appPreferencesRepository.balanceUnit,
+        appPreferencesRepository.balancesHidden,
         appPreferencesRepository.advancedMode,
         appPreferencesRepository.dustThresholdSats,
         appPreferencesRepository.transactionHealthParameters,
@@ -132,18 +133,19 @@ class WalletDetailViewModel @Inject constructor(
         val syncStatus = values[2] as SyncStatusSnapshot
         val torStatus = values[3] as TorStatus
         val balanceUnit = values[4] as BalanceUnit
-        val advancedMode = values[5] as Boolean
-        val dustThreshold = values[6] as Long
-        val transactionParameters = values[7] as TransactionHealthParameters
-        val transactionAnalysisEnabled = values[8] as Boolean
+        val balancesHidden = values[5] as Boolean
+        val advancedMode = values[6] as Boolean
+        val dustThreshold = values[7] as Long
+        val transactionParameters = values[8] as TransactionHealthParameters
+        val transactionAnalysisEnabled = values[9] as Boolean
         @Suppress("UNCHECKED_CAST")
-        val storedTransactionHealth = values[9] as List<TransactionHealthResult>
-        val utxoHealthEnabled = values[10] as Boolean
-        val utxoParameters = values[11] as UtxoHealthParameters
+        val storedTransactionHealth = values[10] as List<TransactionHealthResult>
+        val utxoHealthEnabled = values[11] as Boolean
+        val utxoParameters = values[12] as UtxoHealthParameters
         @Suppress("UNCHECKED_CAST")
-        val storedUtxoHealth = values[12] as List<UtxoHealthResult>
-        val walletHealthEnabled = values[13] as Boolean
-        val storedWalletHealth = values[14] as WalletHealthResult?
+        val storedUtxoHealth = values[13] as List<UtxoHealthResult>
+        val walletHealthEnabled = values[14] as Boolean
+        val storedWalletHealth = values[15] as WalletHealthResult?
         val transactionHealthMap = if (transactionAnalysisEnabled && detail != null) {
             val computed = transactionHealthAnalyzer
                 .analyze(detail, dustThreshold, transactionParameters)
@@ -229,6 +231,7 @@ class WalletDetailViewModel @Inject constructor(
             syncStatus = syncStatus,
             torStatus = torStatus,
             balanceUnit = balanceUnit,
+            balancesHidden = balancesHidden,
             advancedMode = advancedMode,
             dustThresholdSats = dustThreshold,
             transactionAnalysisEnabled = transactionAnalysisEnabled,
@@ -312,6 +315,7 @@ class WalletDetailViewModel @Inject constructor(
                 descriptor = null,
                 changeDescriptor = null,
                 balanceUnit = baseSnapshot.balanceUnit,
+                balancesHidden = baseSnapshot.balancesHidden,
                 advancedMode = baseSnapshot.advancedMode,
                 nodeStatus = NodeStatus.Idle,
                 torStatus = baseSnapshot.torStatus,
@@ -373,6 +377,7 @@ class WalletDetailViewModel @Inject constructor(
                 descriptor = detail.descriptor,
                 changeDescriptor = detail.changeDescriptor,
                 balanceUnit = baseSnapshot.balanceUnit,
+                balancesHidden = baseSnapshot.balancesHidden,
                 advancedMode = baseSnapshot.advancedMode,
                 nodeStatus = if (snapshotMatchesNetwork) baseSnapshot.nodeSnapshot.status else NodeStatus.Idle,
                 torStatus = baseSnapshot.torStatus,
@@ -441,15 +446,9 @@ class WalletDetailViewModel @Inject constructor(
         refreshAddresses()
     }
 
-    fun toggleBalanceUnit() {
+    fun cycleBalanceDisplayMode() {
         viewModelScope.launch {
-            val current = uiState.value.balanceUnit
-            val next = when (current) {
-                BalanceUnit.BTC -> BalanceUnit.SATS
-                BalanceUnit.SATS -> BalanceUnit.BTC
-                else -> BalanceUnit.DEFAULT
-            }
-            appPreferencesRepository.setBalanceUnit(next)
+            appPreferencesRepository.cycleBalanceDisplayMode()
         }
     }
 
@@ -571,6 +570,7 @@ class WalletDetailViewModel @Inject constructor(
         val syncStatus: SyncStatusSnapshot,
         val torStatus: TorStatus,
         val balanceUnit: BalanceUnit,
+        val balancesHidden: Boolean,
         val advancedMode: Boolean,
         val dustThresholdSats: Long,
         val transactionAnalysisEnabled: Boolean,
@@ -613,6 +613,7 @@ data class WalletDetailUiState(
     val descriptor: String? = null,
     val changeDescriptor: String? = null,
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
+    val balancesHidden: Boolean = false,
     val advancedMode: Boolean = false,
     val nodeStatus: NodeStatus = NodeStatus.Idle,
     val torStatus: TorStatus = TorStatus.Stopped,

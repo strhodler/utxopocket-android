@@ -3,7 +3,7 @@ package com.msopentech.thali.android.toronionproxy.torinstaller;
 
 import android.content.Context;
 import android.os.Build;
-import android.util.Log;
+import com.strhodler.utxopocket.common.logging.SecureLog;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -53,20 +53,20 @@ public class NativeLoader {
 
             return true;
         } catch (Exception e) {
-            Log.e(TAG, e.getMessage());
+            SecureLog.e(TAG, e, e.getMessage());
         } finally {
             if (stream != null) {
                 try {
                     stream.close();
                 } catch (Exception e) {
-                    Log.e(TAG, e.getMessage());
+                    SecureLog.e(TAG, e, e.getMessage());
                 }
             }
             if (zipFile != null) {
                 try {
                     zipFile.close();
                 } catch (Exception e) {
-                    Log.e(TAG, e.getMessage());
+                    SecureLog.e(TAG, e, e.getMessage());
                 }
             }
         }
@@ -82,7 +82,7 @@ public class NativeLoader {
             }
 
         } catch (Throwable e) {
-            Log.e(TAG, e.getMessage(), e);
+            SecureLog.e(TAG, e, e.getMessage());
         }
 
 

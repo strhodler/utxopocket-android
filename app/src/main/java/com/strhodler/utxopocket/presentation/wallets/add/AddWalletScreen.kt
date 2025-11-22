@@ -71,6 +71,8 @@ import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
 import com.strhodler.utxopocket.domain.model.DescriptorWarning
 import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
 import com.strhodler.utxopocket.presentation.common.PortraitCaptureActivity
+import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
+import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBanner
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBannerStyle
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
@@ -119,12 +121,13 @@ fun AddWalletScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) }
+        snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
+        contentWindowInsets = ScreenScaffoldInsets
     ) { paddingValues ->
         Column(
             modifier = Modifier
-                .padding(paddingValues)
                 .fillMaxSize()
+                .applyScreenPadding(paddingValues)
         ) {
             ImportModeTabs(
                 selectedMode = state.importMode,

@@ -475,6 +475,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val _themePreference = MutableStateFlow(ThemePreference.SYSTEM)
     private val _appLanguage = MutableStateFlow(AppLanguage.EN)
     private val _balanceUnit = MutableStateFlow(BalanceUnit.SATS)
+    private val _balancesHidden = MutableStateFlow(false)
     private val _walletBalanceRange = MutableStateFlow(BalanceRange.LastYear)
     private val _walletAnimationsEnabled = MutableStateFlow(true)
     private val _advancedMode = MutableStateFlow(false)
@@ -495,6 +496,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val themePreference: Flow<ThemePreference> = _themePreference
     override val appLanguage: Flow<AppLanguage> = _appLanguage
     override val balanceUnit: Flow<BalanceUnit> = _balanceUnit
+    override val balancesHidden: Flow<Boolean> = _balancesHidden
     override val walletBalanceRange: Flow<BalanceRange> = _walletBalanceRange
     override val walletAnimationsEnabled: Flow<Boolean> = _walletAnimationsEnabled
     override val advancedMode: Flow<Boolean> = _advancedMode
@@ -543,6 +545,23 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun setBalanceUnit(unit: BalanceUnit) {
         _balanceUnit.value = unit
+    }
+
+    override suspend fun setBalancesHidden(hidden: Boolean) {
+        _balancesHidden.value = hidden
+    }
+
+    override suspend fun cycleBalanceDisplayMode() {
+        val currentUnit = _balanceUnit.value
+        val currentlyHidden = _balancesHidden.value
+        when {
+            currentlyHidden -> {
+                _balancesHidden.value = false
+                _balanceUnit.value = BalanceUnit.SATS
+            }
+            currentUnit == BalanceUnit.SATS -> _balanceUnit.value = BalanceUnit.BTC
+            else -> _balancesHidden.value = true
+        }
     }
 
     override suspend fun setWalletBalanceRange(range: BalanceRange) {

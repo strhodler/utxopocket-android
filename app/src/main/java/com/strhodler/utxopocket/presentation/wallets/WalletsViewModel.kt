@@ -123,17 +123,21 @@ class WalletsViewModel @Inject constructor(
                 nodeSnapshot = nodeSnapshot,
                 syncStatus = syncStatus,
                 torStatus = torStatus,
-                balanceUnit = balanceUnit
+                balanceUnit = balanceUnit,
+                balancesHidden = false
             )
         },
-        nodeConfigurationRepository.nodeConfig
-    ) { base, nodeConfig ->
+        appPreferencesRepository.balancesHidden
+    ) { base, balancesHidden ->
+        base.copy(balancesHidden = balancesHidden)
+    }.combine(nodeConfigurationRepository.nodeConfig) { base, nodeConfig ->
         WalletSnapshot(
             data = base.data,
             nodeSnapshot = base.nodeSnapshot,
             syncStatus = base.syncStatus,
             torStatus = base.torStatus,
             balanceUnit = base.balanceUnit,
+            balancesHidden = base.balancesHidden,
             nodeConfig = nodeConfig
         )
     }
@@ -170,6 +174,7 @@ class WalletsViewModel @Inject constructor(
             torStatus = torStatus,
             torRequired = torRequired,
             balanceUnit = balanceUnit,
+            balancesHidden = snapshot.balancesHidden,
             totalBalanceSats = data.wallets.sumOf { it.balanceSats },
             blockHeight = if (snapshotMatchesNetwork) nodeSnapshot.blockHeight else null,
             feeRateSatPerVb = if (snapshotMatchesNetwork) nodeSnapshot.feeRateSatPerVb else null,
@@ -190,15 +195,9 @@ class WalletsViewModel @Inject constructor(
         }
     }
 
-    fun toggleBalanceUnit() {
+    fun cycleBalanceDisplayMode() {
         viewModelScope.launch {
-            val current = uiState.value.balanceUnit
-            val next = when (current) {
-                BalanceUnit.BTC -> BalanceUnit.SATS
-                BalanceUnit.SATS -> BalanceUnit.BTC
-                else -> BalanceUnit.DEFAULT
-            }
-            appPreferencesRepository.setBalanceUnit(next)
+            appPreferencesRepository.cycleBalanceDisplayMode()
         }
     }
 
@@ -213,6 +212,7 @@ class WalletsViewModel @Inject constructor(
         val syncStatus: SyncStatusSnapshot,
         val torStatus: TorStatus,
         val balanceUnit: BalanceUnit,
+        val balancesHidden: Boolean,
         val nodeConfig: NodeConfig
     )
 
@@ -221,7 +221,8 @@ class WalletsViewModel @Inject constructor(
         val nodeSnapshot: NodeStatusSnapshot,
         val syncStatus: SyncStatusSnapshot,
         val torStatus: TorStatus,
-        val balanceUnit: BalanceUnit
+        val balanceUnit: BalanceUnit,
+        val balancesHidden: Boolean
     )
 
     private data class AutoRefreshSignal(
@@ -240,6 +241,7 @@ data class WalletsUiState(
     val torStatus: TorStatus = TorStatus.Connecting(),
     val torRequired: Boolean = false,
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
+    val balancesHidden: Boolean = false,
     val totalBalanceSats: Long = 0,
     val blockHeight: Long? = null,
     val feeRateSatPerVb: Double? = null,

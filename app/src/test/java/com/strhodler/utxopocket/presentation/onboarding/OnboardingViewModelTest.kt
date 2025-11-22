@@ -63,12 +63,15 @@ class OnboardingViewModelTest {
 
 private class FakeAppPreferencesRepository : AppPreferencesRepository {
     val onboardingCompletedValue = MutableStateFlow(false)
+    private val balanceUnitValue = MutableStateFlow(BalanceUnit.SATS)
+    private val balancesHiddenValue = MutableStateFlow(false)
     override val onboardingCompleted: Flow<Boolean> = onboardingCompletedValue
     override val preferredNetwork: Flow<BitcoinNetwork> = MutableStateFlow(BitcoinNetwork.DEFAULT)
     override val pinLockEnabled: Flow<Boolean> = MutableStateFlow(false)
     override val themePreference: Flow<ThemePreference> = MutableStateFlow(ThemePreference.SYSTEM)
     override val appLanguage: Flow<AppLanguage> = MutableStateFlow(AppLanguage.EN)
-    override val balanceUnit: Flow<BalanceUnit> = MutableStateFlow(BalanceUnit.SATS)
+    override val balanceUnit: Flow<BalanceUnit> = balanceUnitValue
+    override val balancesHidden: Flow<Boolean> = balancesHiddenValue
     override val walletAnimationsEnabled: Flow<Boolean> = MutableStateFlow(true)
     override val walletBalanceRange: Flow<BalanceRange> = MutableStateFlow(BalanceRange.LastYear)
     override val advancedMode: Flow<Boolean> = MutableStateFlow(false)
@@ -104,7 +107,26 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun setAppLanguage(language: AppLanguage) = Unit
 
-    override suspend fun setBalanceUnit(unit: BalanceUnit) = Unit
+    override suspend fun setBalanceUnit(unit: BalanceUnit) {
+        balanceUnitValue.value = unit
+    }
+
+    override suspend fun setBalancesHidden(hidden: Boolean) {
+        balancesHiddenValue.value = hidden
+    }
+
+    override suspend fun cycleBalanceDisplayMode() {
+        val currentUnit = balanceUnitValue.value
+        val currentlyHidden = balancesHiddenValue.value
+        when {
+            currentlyHidden -> {
+                balancesHiddenValue.value = false
+                balanceUnitValue.value = BalanceUnit.SATS
+            }
+            currentUnit == BalanceUnit.SATS -> balanceUnitValue.value = BalanceUnit.BTC
+            else -> balancesHiddenValue.value = true
+        }
+    }
 
     override suspend fun setWalletAnimationsEnabled(enabled: Boolean) = Unit
 

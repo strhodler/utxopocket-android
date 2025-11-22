@@ -340,6 +340,7 @@ class WalletDetailViewModelRangeTest {
         private val themePreferenceState = MutableStateFlow(ThemePreference.SYSTEM)
         private val appLanguageState = MutableStateFlow(AppLanguage.EN)
         private val balanceUnitState = MutableStateFlow(BalanceUnit.DEFAULT)
+        private val balancesHiddenState = MutableStateFlow(false)
         private val walletAnimationsEnabledState = MutableStateFlow(true)
         private val balanceRangeState = MutableStateFlow(BalanceRange.LastYear)
         private val advancedModeState = MutableStateFlow(false)
@@ -361,6 +362,7 @@ class WalletDetailViewModelRangeTest {
         override val themePreference: Flow<ThemePreference> = themePreferenceState
         override val appLanguage: Flow<AppLanguage> = appLanguageState
         override val balanceUnit: Flow<BalanceUnit> = balanceUnitState
+        override val balancesHidden: Flow<Boolean> = balancesHiddenState
         override val walletAnimationsEnabled: Flow<Boolean> = walletAnimationsEnabledState
         override val walletBalanceRange: Flow<BalanceRange> = balanceRangeState
         override val advancedMode: Flow<Boolean> = advancedModeState
@@ -405,6 +407,23 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun setBalanceUnit(unit: BalanceUnit) {
             balanceUnitState.value = unit
+        }
+
+        override suspend fun setBalancesHidden(hidden: Boolean) {
+            balancesHiddenState.value = hidden
+        }
+
+        override suspend fun cycleBalanceDisplayMode() {
+            val currentUnit = balanceUnitState.value
+            val currentlyHidden = balancesHiddenState.value
+            when {
+                currentlyHidden -> {
+                    balancesHiddenState.value = false
+                    balanceUnitState.value = BalanceUnit.SATS
+                }
+                currentUnit == BalanceUnit.SATS -> balanceUnitState.value = BalanceUnit.BTC
+                else -> balancesHiddenState.value = true
+            }
         }
 
         override suspend fun setWalletAnimationsEnabled(enabled: Boolean) {

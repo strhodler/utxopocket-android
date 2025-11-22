@@ -1,12 +1,12 @@
 package com.strhodler.utxopocket.presentation.tor
 
-import android.util.Log
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
 import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.service.TorManager
+import com.strhodler.utxopocket.common.logging.SecureLog
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -107,7 +107,7 @@ class TorLifecycleController @Inject constructor(
         pendingTorStop = scope.launch {
             runCatching { torManager.stop() }
                 .onFailure { error ->
-                    Log.w(TAG, "Unable to stop Tor when it is no longer required", error)
+                    SecureLog.w(TAG, error) { "Unable to stop Tor when it is no longer required" }
                 }
             pendingTorStop = null
         }
@@ -123,7 +123,7 @@ class TorLifecycleController @Inject constructor(
         pendingTorStart = scope.launch {
             runCatching { torManager.start() }
                 .onFailure { error ->
-                    Log.w(TAG, "Unable to start Tor when it is required", error)
+                    SecureLog.w(TAG, error) { "Unable to start Tor when it is required" }
                 }
             pendingTorStart = null
         }
@@ -135,14 +135,14 @@ class TorLifecycleController @Inject constructor(
             pendingTorRestart = true
             runCatching { torManager.stop() }
                 .onFailure { error ->
-                    Log.w(TAG, "Unable to stop Tor for restart after network recovery", error)
+                    SecureLog.w(TAG, error) { "Unable to stop Tor for restart after network recovery" }
                 }
             waitForTorState { state ->
                 state is TorStatus.Stopped || state is TorStatus.Error
             }
             runCatching { torManager.start() }
                 .onFailure { error ->
-                    Log.w(TAG, "Unable to start Tor after restart attempt", error)
+                    SecureLog.w(TAG, error) { "Unable to start Tor after restart attempt" }
                 }
             val ready = waitForTorState { state ->
                 state is TorStatus.Running || state is TorStatus.Error || state is TorStatus.Stopped

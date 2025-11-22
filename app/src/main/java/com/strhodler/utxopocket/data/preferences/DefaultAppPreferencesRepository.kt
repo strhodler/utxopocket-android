@@ -105,6 +105,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
             } ?: BalanceUnit.DEFAULT
         }
 
+    override val balancesHidden: Flow<Boolean> =
+        dataStore.data.map { prefs -> prefs[Keys.BALANCES_HIDDEN] ?: false }
+
     override val walletAnimationsEnabled: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.WALLET_ANIMATIONS_ENABLED] ?: true }
 
@@ -290,6 +293,26 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     override suspend fun setBalanceUnit(unit: BalanceUnit) {
         dataStore.edit { prefs -> prefs[Keys.BALANCE_UNIT] = unit.name }
+    }
+
+    override suspend fun setBalancesHidden(hidden: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.BALANCES_HIDDEN] = hidden }
+    }
+
+    override suspend fun cycleBalanceDisplayMode() {
+        dataStore.edit { prefs ->
+            val currentUnit = prefs[Keys.BALANCE_UNIT]?.let { value ->
+                runCatching { BalanceUnit.valueOf(value) }.getOrNull()
+            } ?: BalanceUnit.DEFAULT
+            val currentlyHidden = prefs[Keys.BALANCES_HIDDEN] ?: false
+            val (nextUnit, nextHidden) = when {
+                currentlyHidden -> BalanceUnit.SATS to false
+                currentUnit == BalanceUnit.SATS -> BalanceUnit.BTC to false
+                else -> BalanceUnit.BTC to true
+            }
+            prefs[Keys.BALANCE_UNIT] = nextUnit.name
+            prefs[Keys.BALANCES_HIDDEN] = nextHidden
+        }
     }
 
     override suspend fun setWalletAnimationsEnabled(enabled: Boolean) {
@@ -608,6 +631,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val THEME_PREFERENCE = stringPreferencesKey("theme_preference")
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val BALANCE_UNIT = stringPreferencesKey("balance_unit")
+        val BALANCES_HIDDEN = booleanPreferencesKey("balances_hidden")
         val WALLET_ANIMATIONS_ENABLED = booleanPreferencesKey("wallet_animations_enabled")
         val WALLET_BALANCE_RANGE = stringPreferencesKey("wallet_balance_range")
         val ADVANCED_MODE = booleanPreferencesKey("advanced_mode_enabled")

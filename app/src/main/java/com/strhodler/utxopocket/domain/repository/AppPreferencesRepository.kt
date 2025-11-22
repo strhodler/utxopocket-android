@@ -17,6 +17,7 @@ interface AppPreferencesRepository {
     val themePreference: Flow<ThemePreference>
     val appLanguage: Flow<AppLanguage>
     val balanceUnit: Flow<BalanceUnit>
+    val balancesHidden: Flow<Boolean>
     val walletAnimationsEnabled: Flow<Boolean>
     val walletBalanceRange: Flow<BalanceRange>
     val advancedMode: Flow<Boolean>
@@ -39,6 +40,8 @@ interface AppPreferencesRepository {
     suspend fun setThemePreference(themePreference: ThemePreference)
     suspend fun setAppLanguage(language: AppLanguage)
     suspend fun setBalanceUnit(unit: BalanceUnit)
+    suspend fun setBalancesHidden(hidden: Boolean)
+    suspend fun cycleBalanceDisplayMode()
     suspend fun setWalletAnimationsEnabled(enabled: Boolean)
     suspend fun setWalletBalanceRange(range: BalanceRange)
     suspend fun setAdvancedMode(enabled: Boolean)

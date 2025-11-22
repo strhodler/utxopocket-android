@@ -28,6 +28,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
+import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,12 +86,13 @@ fun CustomNodeEditorScreen(
                     }
                 }
             }
-        }
+        },
+        contentWindowInsets = ScreenScaffoldInsets
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(innerPadding)
+                .applyScreenPadding(innerPadding)
                 .padding(horizontal = 16.dp, vertical = 24.dp)
                 .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(16.dp)

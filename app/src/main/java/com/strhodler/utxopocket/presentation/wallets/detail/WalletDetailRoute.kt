@@ -471,7 +471,7 @@ fun WalletDetailRoute(
                 onAddressSelected = onAddressSelected,
                 onReceiveAddressCopied = viewModel::onReceiveAddressCopied,
                 onBalanceRangeSelected = viewModel::onBalanceRangeSelected,
-                onToggleBalanceUnit = viewModel::toggleBalanceUnit,
+                onCycleBalanceDisplay = viewModel::cycleBalanceDisplayMode,
                 onOpenWikiTopic = onOpenWikiTopic,
                 outerListState = outerListState,
                 selectedTab = selectedTab,
