@@ -553,9 +553,9 @@
     <string name="settings_privacy_analysis_help_content_description">Open wallet health help</string>
     <string name="settings_pin_advanced_title">Advanced</string>
     <string name="settings_pin_advanced_subtitle">Adjust auto-lock when the app is protected with a PIN.</string>
-    <string name="settings_pin_advanced_unlock">Unlock advanced settings</string>
+    <string name="settings_pin_advanced_unlock">Advanced settings</string>
     <string name="settings_pin_timeout_title">Auto-lock after</string>
-    <string name="settings_pin_timeout_immediately_label">Immediately</string>
+    <string name="settings_pin_timeout_immediately_label">Immediately (leave app)</string>
     <string name="settings_pin_timeout_minutes_label">%d min</string>
     <string name="settings_pin_advanced_gate_title">Advanced security</string>
     <string name="settings_pin_advanced_gate_description">Confirm your PIN to adjust the auto-lock timer.</string>
@@ -663,9 +663,9 @@
     <string name="settings_pin_subtitle">Require a 6-digit PIN when opening the app.</string>
     <string name="settings_connection_timeout_title">Disconnect after inactivity</string>
     <string name="settings_connection_timeout_minutes_label">%1$d min</string>
-    <string name="settings_connection_timeout_tip_short">Lower battery use; more reconnects. Good if you check the wallet occasionally.</string>
-    <string name="settings_connection_timeout_tip_balanced">Balanced; fewer reconnects. Fits regular wallet checks.</string>
-    <string name="settings_connection_timeout_tip_long">Stays connected longer; higher battery use. Use when monitoring often.</string>
+    <string name="settings_connection_timeout_tip_short">Lower battery; more reconnects.</string>
+    <string name="settings_connection_timeout_tip_balanced">Balanced reconnects/battery.</string>
+    <string name="settings_connection_timeout_tip_long">Longer sessions; more battery.</string>
     <string name="network_mainnet">Mainnet</string>
     <string name="network_testnet">Testnet3</string>
     <string name="network_testnet4">Testnet4</string>
