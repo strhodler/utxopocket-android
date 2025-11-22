@@ -321,9 +321,6 @@ fun MainNavHost(
                     navController.navigate(WikiNavigation.detailRoute(topicId)) {
                         launchSingleTop = true
                     }
-                },
-                onOpenHealthParameters = {
-                    navController.navigate(SettingsNavigation.HealthParametersRoute)
                 }
             )
         }

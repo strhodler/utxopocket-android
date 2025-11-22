@@ -92,9 +92,6 @@
     <string name="settings_theme_system">Sistema (%1$s)</string>
     <string name="settings_theme_value_light">Claro</string>
     <string name="settings_theme_value_dark">Oscuro</string>
-    <string name="settings_interface_screen_description">Configura el idioma principal, las unidades y el tema de la app.</string>
-    <string name="settings_wallet_screen_description">Controla los avisos de salud y las herramientas avanzadas de UTXO.</string>
-    <string name="settings_security_screen_description">Administra el bloqueo con PIN y ejecuta el borrado de pánico.</string>
 
     <!-- Node configuration (additional) -->
     <string name="node_custom_add_open_button">Añadir nodo</string>

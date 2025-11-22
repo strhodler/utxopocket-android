@@ -3,10 +3,9 @@ package com.strhodler.utxopocket.presentation.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -14,12 +13,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Help
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,6 +29,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -43,8 +46,7 @@ import com.strhodler.utxopocket.presentation.wiki.WikiContent
 fun WalletSettingsRoute(
     viewModel: SettingsViewModel,
     onBack: () -> Unit,
-    onOpenWikiTopic: (String) -> Unit,
-    onOpenHealthParameters: () -> Unit
+    onOpenWikiTopic: (String) -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showWalletHealthDependencyDialog by remember { mutableStateOf(false) }
@@ -94,7 +96,6 @@ fun WalletSettingsRoute(
                 onWalletHealthToggled = handleWalletHealthToggle,
                 onDustThresholdChanged = viewModel::onDustThresholdChanged,
                 onOpenWikiTopic = onOpenWikiTopic,
-                onOpenHealthParameters = onOpenHealthParameters,
                 modifier = Modifier.fillMaxSize()
             )
 
@@ -168,7 +169,6 @@ private fun WalletSettingsScreen(
     onWalletHealthToggled: (Boolean) -> Unit,
     onDustThresholdChanged: (String) -> Unit,
     onOpenWikiTopic: (String) -> Unit,
-    onOpenHealthParameters: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -176,69 +176,110 @@ private fun WalletSettingsScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = stringResource(id = R.string.settings_section_wallet),
-            style = MaterialTheme.typography.headlineSmall
-        )
-        Text(
-            text = stringResource(id = R.string.settings_wallet_screen_description),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        SettingsCard(
-            title = stringResource(id = R.string.settings_section_privacy_analysis),
-            headerAction = {
-                IconButton(
-                    onClick = { onOpenWikiTopic(WikiContent.WalletHealthTopicId) }
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.Help,
-                        contentDescription = stringResource(id = R.string.settings_privacy_analysis_help_content_description)
-                    )
-                }
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            SettingsSwitchRow(
-                title = stringResource(id = R.string.settings_transaction_health_title),
-                checked = state.transactionAnalysisEnabled,
-                onCheckedChange = onTransactionAnalysisToggled,
-                supportingText = stringResource(id = R.string.settings_transaction_health_subtitle)
+            Text(
+                text = stringResource(id = R.string.settings_section_privacy_analysis),
+                style = MaterialTheme.typography.titleSmall
             )
-            SettingsSwitchRow(
-                title = stringResource(id = R.string.settings_utxo_health_title),
-                checked = state.utxoHealthEnabled,
-                onCheckedChange = onUtxoHealthToggled,
-                supportingText = stringResource(id = R.string.settings_utxo_health_subtitle)
-            )
-            SettingsSwitchRow(
-                title = stringResource(id = R.string.settings_wallet_health_title),
-                checked = state.walletHealthEnabled,
-                onCheckedChange = onWalletHealthToggled,
-                enabled = state.walletHealthToggleEnabled,
-                supportingText = stringResource(id = R.string.settings_wallet_health_subtitle)
-            )
-            if (!state.walletHealthToggleEnabled) {
-                Spacer(modifier = Modifier.height(4.dp))
+            IconButton(
+                onClick = { onOpenWikiTopic(WikiContent.WalletHealthTopicId) }
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.Help,
+                    contentDescription = stringResource(id = R.string.settings_privacy_analysis_help_content_description)
+                )
+            }
+        }
+        ListItem(
+            headlineContent = {
                 Text(
-                    text = stringResource(id = R.string.settings_wallet_health_dependencies),
+                    text = stringResource(id = R.string.settings_transaction_health_title),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            },
+            supportingContent = {
+                Text(
+                    text = stringResource(id = R.string.settings_transaction_health_subtitle),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            TextButton(onClick = onOpenHealthParameters) {
-                Text(text = stringResource(id = R.string.settings_health_parameters_cta))
-            }
+            },
+            trailingContent = {
+                Switch(
+                    checked = state.transactionAnalysisEnabled,
+                    onCheckedChange = onTransactionAnalysisToggled
+                )
+            },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+        )
+        ListItem(
+            headlineContent = {
+                Text(
+                    text = stringResource(id = R.string.settings_utxo_health_title),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            },
+            supportingContent = {
+                Text(
+                    text = stringResource(id = R.string.settings_utxo_health_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            trailingContent = {
+                Switch(
+                    checked = state.utxoHealthEnabled,
+                    onCheckedChange = onUtxoHealthToggled
+                )
+            },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+        )
+        ListItem(
+            headlineContent = {
+                Text(
+                    text = stringResource(id = R.string.settings_wallet_health_title),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            },
+            supportingContent = {
+                Text(
+                    text = stringResource(id = R.string.settings_wallet_health_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            trailingContent = {
+                Switch(
+                    checked = state.walletHealthEnabled,
+                    onCheckedChange = onWalletHealthToggled,
+                    enabled = state.walletHealthToggleEnabled
+                )
+            },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+        )
+        if (!state.walletHealthToggleEnabled) {
+            Text(
+                text = stringResource(id = R.string.settings_wallet_health_dependencies),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
-        SettingsCard(title = stringResource(id = R.string.settings_section_utxo_management)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = stringResource(id = R.string.settings_section_utxo_management),
+                style = MaterialTheme.typography.titleSmall
+            )
             Text(
                 text = stringResource(id = R.string.settings_dust_threshold_description),
                 style = MaterialTheme.typography.bodyMedium
             )
-            Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(
                 value = state.dustThresholdInput,
                 onValueChange = onDustThresholdChanged,
@@ -252,13 +293,14 @@ private fun WalletSettingsScreen(
                         style = MaterialTheme.typography.labelSmall
                     )
                 },
+                supportingText = {
+                    Text(
+                        text = stringResource(id = R.string.settings_dust_threshold_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
                 modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = stringResource(id = R.string.settings_dust_threshold_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

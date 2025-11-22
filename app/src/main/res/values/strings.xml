@@ -658,9 +658,6 @@
     <string name="settings_option_disabled">Disabled</string>
     <string name="settings_wallet_animations_title">Wallet animations</string>
     <string name="settings_wallet_animations_description">Control shimmer and rolling balance motion in the wallet list.</string>
-    <string name="settings_interface_screen_description">Set the primary language, preferred units, and theme for the app.</string>
-    <string name="settings_wallet_screen_description">Control wallet health toggles and advanced UTXO tools.</string>
-    <string name="settings_security_screen_description">Manage the PIN lock and trigger the panic wipe flow.</string>
     <string name="settings_pin_title">App PIN lock</string>
     <string name="settings_pin_subtitle">Require a 6-digit PIN when opening the app.</string>
     <string name="network_mainnet">Mainnet</string>
