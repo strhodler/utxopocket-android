@@ -120,8 +120,6 @@ import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.components.StepLineChart
 import com.strhodler.utxopocket.presentation.common.QrCodeDisplayDialog
 import com.strhodler.utxopocket.presentation.common.balanceText
-import com.strhodler.utxopocket.presentation.common.balanceUnitLabel
-import com.strhodler.utxopocket.presentation.common.balanceValue
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.common.transactionAmount
 import com.strhodler.utxopocket.presentation.wallets.components.onGradient
@@ -493,6 +491,7 @@ private fun WalletDetailContent(
                                             TransactionRow(
                                                 transaction = transaction,
                                                 unit = state.balanceUnit,
+                                                balancesHidden = state.balancesHidden,
                                                 healthResult = state.transactionHealth[transaction.id],
                                                 analysisEnabled = state.transactionAnalysisEnabled,
                                                 onClick = { onTransactionSelected(transaction.id) }
@@ -574,6 +573,7 @@ private fun WalletDetailContent(
                                             UtxoRow(
                                                 utxo = utxo,
                                                 unit = state.balanceUnit,
+                                                balancesHidden = state.balancesHidden,
                                                 dustThresholdSats = state.dustThresholdSats,
                                                 healthResult = state.utxoHealth["${utxo.txid}:${utxo.vout}"],
                                                 analysisEnabled = state.utxoHealthEnabled,
@@ -1857,6 +1857,7 @@ private fun <T> SortRow(
 private fun TransactionRow(
     transaction: WalletTransaction,
     unit: BalanceUnit,
+    balancesHidden: Boolean,
     healthResult: TransactionHealthResult?,
     analysisEnabled: Boolean,
     onClick: () -> Unit,
@@ -1865,6 +1866,7 @@ private fun TransactionRow(
     TransactionDetailedCard(
         transaction = transaction,
         unit = unit,
+        balancesHidden = balancesHidden,
         healthResult = healthResult,
         analysisEnabled = analysisEnabled,
         onClick = onClick,
@@ -1876,6 +1878,7 @@ private fun TransactionRow(
 private fun UtxoRow(
     utxo: WalletUtxo,
     unit: BalanceUnit,
+    balancesHidden: Boolean,
     dustThresholdSats: Long,
     healthResult: UtxoHealthResult?,
     analysisEnabled: Boolean,
@@ -1885,6 +1888,7 @@ private fun UtxoRow(
     UtxoDetailedCard(
         utxo = utxo,
         unit = unit,
+        balancesHidden = balancesHidden,
         dustThresholdSats = dustThresholdSats,
         healthResult = healthResult,
         analysisEnabled = analysisEnabled,
@@ -1897,6 +1901,7 @@ private fun UtxoRow(
 private fun TransactionDetailedCard(
     transaction: WalletTransaction,
     unit: BalanceUnit,
+    balancesHidden: Boolean,
     healthResult: TransactionHealthResult?,
     analysisEnabled: Boolean,
     onClick: () -> Unit,
@@ -1910,7 +1915,12 @@ private fun TransactionDetailedCard(
         TransactionType.RECEIVED -> MaterialTheme.colorScheme.primary
         TransactionType.SENT -> MaterialTheme.colorScheme.tertiary
     }
-    val amountText = transactionAmount(transaction.amountSats, transaction.type, unit)
+    val amountText = transactionAmount(
+        transaction.amountSats,
+        transaction.type,
+        unit,
+        hidden = balancesHidden
+    )
     val dateText = transaction.timestamp?.let { timestamp ->
         remember(timestamp) {
             val dateFormat = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
@@ -2024,14 +2034,14 @@ private fun TransactionDetailedCard(
 private fun UtxoDetailedCard(
     utxo: WalletUtxo,
     unit: BalanceUnit,
+    balancesHidden: Boolean,
     dustThresholdSats: Long,
     healthResult: UtxoHealthResult?,
     analysisEnabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val amount = balanceValue(utxo.valueSats, unit)
-    val unitLabel = balanceUnitLabel(unit)
+    val amountText = balanceText(utxo.valueSats, unit, hidden = balancesHidden)
     val confirmationText = confirmationLabel(utxo.confirmations)
     val healthScore = healthResult?.takeIf { analysisEnabled }?.finalScore
     val displayAddress = remember(utxo.address) {
@@ -2073,7 +2083,7 @@ private fun UtxoDetailedCard(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "$amount $unitLabel",
+                        text = amountText,
                         style = MaterialTheme.typography.titleMedium
                     )
                     LabelOrPlaceholder(utxo.displayLabel)

@@ -101,6 +101,7 @@
 
     <!-- Node configuration (additional) -->
     <string name="node_custom_add_open_button">Añadir nodo</string>
+    <string name="node_custom_add_open_button_with_network">Añadir nodo %1$s</string>
     <string name="node_custom_add_title">Añadir nodo</string>
     <string name="node_custom_testing">Probando conexión…</string>
     <string name="node_custom_success">Nodo añadido</string>

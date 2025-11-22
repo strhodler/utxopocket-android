@@ -724,6 +724,7 @@
     <string name="node_scan_error_invalid">No valid node endpoint detected in the QR code.</string>
     <string name="node_scan_error_onion_only">Only onion addresses are supported. Provide an onion URL.</string>
     <string name="node_custom_add_open_button">Add node</string>
+    <string name="node_custom_add_open_button_with_network">Add %1$s node</string>
     <string name="node_custom_add_title">Add node</string>
     <string name="node_custom_name_label">Node name</string>
     <string name="node_custom_name_placeholder">My Electrum server</string>

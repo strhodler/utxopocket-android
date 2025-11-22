@@ -124,6 +124,7 @@ fun NodeConfigurationContent(
             isNodeConnected = isNodeConnected,
             isNodeActivating = isNodeActivating,
             isNetworkOnline = isNetworkOnline,
+            network = network,
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
             onCustomNodeDetails = onCustomNodeDetails,
@@ -208,6 +209,7 @@ private fun AvailableNodesSection(
     isNodeConnected: Boolean,
     isNodeActivating: Boolean,
     isNetworkOnline: Boolean,
+    network: BitcoinNetwork,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
@@ -306,7 +308,10 @@ private fun AvailableNodesSection(
             Icon(imageVector = Icons.Outlined.Add, contentDescription = null)
             Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = stringResource(id = R.string.node_custom_add_open_button),
+                text = stringResource(
+                    id = R.string.node_custom_add_open_button_with_network,
+                    networkLabel(network)
+                ),
                 style = MaterialTheme.typography.titleMedium
             )
         }

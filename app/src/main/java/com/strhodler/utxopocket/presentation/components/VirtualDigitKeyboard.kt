@@ -21,6 +21,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 
 sealed interface DigitKey {
@@ -136,9 +138,13 @@ private fun DigitKeyboardButton(
 
         DigitKey.Placeholder -> ButtonDefaults.buttonColors()
     }
+    val haptics = LocalHapticFeedback.current
 
     Button(
-        onClick = onClick,
+        onClick = {
+            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
         enabled = enabled,
         shape = shape,
         colors = backgroundColors,

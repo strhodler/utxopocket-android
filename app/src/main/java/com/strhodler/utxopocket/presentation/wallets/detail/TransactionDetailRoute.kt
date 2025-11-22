@@ -321,6 +321,7 @@ class TransactionDetailViewModel @Inject constructor(
     val uiState: StateFlow<TransactionDetailUiState> = combine(
         walletRepository.observeWalletDetail(walletId),
         appPreferencesRepository.balanceUnit,
+        appPreferencesRepository.balancesHidden,
         appPreferencesRepository.advancedMode,
         appPreferencesRepository.dustThresholdSats,
         appPreferencesRepository.transactionHealthParameters,
@@ -329,12 +330,13 @@ class TransactionDetailViewModel @Inject constructor(
     ) { values: Array<Any?> ->
         val detail = values[0] as WalletDetail?
         val balanceUnit = values[1] as BalanceUnit
-        val advancedMode = values[2] as Boolean
-        val dustThreshold = values[3] as Long
-        val transactionParameters = values[4] as TransactionHealthParameters
-        val analysisEnabled = values[5] as Boolean
+        val balancesHidden = values[2] as Boolean
+        val advancedMode = values[3] as Boolean
+        val dustThreshold = values[4] as Long
+        val transactionParameters = values[5] as TransactionHealthParameters
+        val analysisEnabled = values[6] as Boolean
         @Suppress("UNCHECKED_CAST")
-        val storedHealth = values[6] as List<TransactionHealthResult>
+        val storedHealth = values[7] as List<TransactionHealthResult>
         val storedHealthMap = storedHealth.associateBy { it.transactionId }
         if (analysisEnabled && detail != null) {
             val computedHealth = transactionHealthAnalyzer
@@ -358,6 +360,7 @@ class TransactionDetailViewModel @Inject constructor(
                 walletSummary = null,
                 transaction = null,
                 balanceUnit = balanceUnit,
+                balancesHidden = balancesHidden,
                 advancedMode = advancedMode,
                 error = TransactionDetailError.NotFound,
                 transactionAnalysisEnabled = analysisEnabled,
@@ -369,6 +372,7 @@ class TransactionDetailViewModel @Inject constructor(
                 walletSummary = detail.summary,
                 transaction = null,
                 balanceUnit = balanceUnit,
+                balancesHidden = balancesHidden,
                 advancedMode = advancedMode,
                 error = TransactionDetailError.NotFound,
                 transactionAnalysisEnabled = analysisEnabled,
@@ -380,6 +384,7 @@ class TransactionDetailViewModel @Inject constructor(
                 walletSummary = detail.summary,
                 transaction = transaction,
                 balanceUnit = balanceUnit,
+                balancesHidden = balancesHidden,
                 advancedMode = advancedMode,
                 error = null,
                 transactionAnalysisEnabled = analysisEnabled,
@@ -426,6 +431,7 @@ class UtxoDetailViewModel @Inject constructor(
     val uiState: StateFlow<UtxoDetailUiState> = combine(
         walletRepository.observeWalletDetail(walletId),
         appPreferencesRepository.balanceUnit,
+        appPreferencesRepository.balancesHidden,
         appPreferencesRepository.advancedMode,
         appPreferencesRepository.dustThresholdSats,
         appPreferencesRepository.utxoHealthParameters,
@@ -434,12 +440,13 @@ class UtxoDetailViewModel @Inject constructor(
     ) { values: Array<Any?> ->
         val detail = values[0] as WalletDetail?
         val balanceUnit = values[1] as BalanceUnit
-        val advancedMode = values[2] as Boolean
-        val dustThreshold = values[3] as Long
-        val utxoParameters = values[4] as UtxoHealthParameters
-        val healthEnabled = values[5] as Boolean
+        val balancesHidden = values[2] as Boolean
+        val advancedMode = values[3] as Boolean
+        val dustThreshold = values[4] as Long
+        val utxoParameters = values[5] as UtxoHealthParameters
+        val healthEnabled = values[6] as Boolean
         @Suppress("UNCHECKED_CAST")
-        val storedHealth = values[6] as List<UtxoHealthResult>
+        val storedHealth = values[7] as List<UtxoHealthResult>
         val utxo = detail?.utxos?.firstOrNull { it.txid == txId && it.vout == vout }
         val stored = storedHealth.firstOrNull { it.txid == txId && it.vout == vout }
         val utxoHealth = if (healthEnabled && utxo != null) {
@@ -464,6 +471,7 @@ class UtxoDetailViewModel @Inject constructor(
                 walletSummary = null,
                 utxo = null,
                 balanceUnit = balanceUnit,
+                balancesHidden = balancesHidden,
                 advancedMode = advancedMode,
                 error = UtxoDetailError.NotFound,
                 dustThresholdSats = dustThreshold,
@@ -476,6 +484,7 @@ class UtxoDetailViewModel @Inject constructor(
                 walletSummary = detail.summary,
                 utxo = null,
                 balanceUnit = balanceUnit,
+                balancesHidden = balancesHidden,
                 advancedMode = advancedMode,
                 error = UtxoDetailError.NotFound,
                 dustThresholdSats = dustThreshold,
@@ -488,6 +497,7 @@ class UtxoDetailViewModel @Inject constructor(
                 walletSummary = detail.summary,
                 utxo = utxo,
                 balanceUnit = balanceUnit,
+                balancesHidden = balancesHidden,
                 advancedMode = advancedMode,
                 error = null,
                 dustThresholdSats = dustThreshold,
@@ -524,6 +534,7 @@ data class TransactionDetailUiState(
     val walletSummary: WalletSummary? = null,
     val transaction: WalletTransaction? = null,
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
+    val balancesHidden: Boolean = false,
     val advancedMode: Boolean = false,
     val error: TransactionDetailError? = null,
     val transactionAnalysisEnabled: Boolean = true,
@@ -539,6 +550,7 @@ data class UtxoDetailUiState(
     val walletSummary: WalletSummary? = null,
     val utxo: WalletUtxo? = null,
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
+    val balancesHidden: Boolean = false,
     val advancedMode: Boolean = false,
     val error: UtxoDetailError? = null,
     val dustThresholdSats: Long = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS,
@@ -699,11 +711,12 @@ private fun TransactionDetailContent(
         successMessage = copyMessage,
         onShowMessage = showShortMessage
     )
-    val amountText = remember(transaction, state.balanceUnit) {
+    val amountText = remember(transaction, state.balanceUnit, state.balancesHidden) {
         transactionAmount(
             amountSats = transaction.amountSats,
             type = transaction.type,
-            unit = state.balanceUnit
+            unit = state.balanceUnit,
+            hidden = state.balancesHidden
         )
     }
     val confirmationsLabel = confirmationLabel(transaction.confirmations)
@@ -1111,6 +1124,7 @@ private fun UtxoDetailContent(
             depositInfo = depositInfoText,
             valueSats = utxo.valueSats,
             unit = state.balanceUnit,
+            balancesHidden = state.balancesHidden,
             label = displayLabel,
             isInherited = isInheritedLabel,
             onEditLabel = { onEditLabel(displayLabel) },
@@ -1236,6 +1250,7 @@ private fun UtxoDetailHeader(
     depositInfo: String,
     valueSats: Long,
     unit: BalanceUnit,
+    balancesHidden: Boolean,
     label: String?,
     isInherited: Boolean,
     onEditLabel: () -> Unit,
@@ -1276,6 +1291,7 @@ private fun UtxoDetailHeader(
         RollingBalanceText(
             balanceSats = valueSats,
             unit = unit,
+            hidden = balancesHidden,
             style = MaterialTheme.typography.displaySmall.copy(
                 fontWeight = FontWeight.SemiBold,
                 color = contentColor
