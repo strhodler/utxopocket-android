@@ -14,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.ArrowDropUp
-import androidx.compose.material3.Button
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -26,6 +25,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -296,7 +296,7 @@ private fun AvailableNodesSection(
             }
         }
 
-        Button(
+        TextButton(
             onClick = onAddCustomNodeClick,
             modifier = Modifier
                 .fillMaxWidth()
@@ -307,7 +307,7 @@ private fun AvailableNodesSection(
             Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = stringResource(id = R.string.node_custom_add_open_button),
-                style = MaterialTheme.typography.titleSmall
+                style = MaterialTheme.typography.titleMedium
             )
         }
 
@@ -430,7 +430,7 @@ fun networkLabel(network: BitcoinNetwork): String = when (network) {
     BitcoinNetwork.SIGNET -> stringResource(id = R.string.network_signet)
 }
 
-private val AddCustomNodeButtonMinHeight = 56.dp
+private val AddCustomNodeButtonMinHeight = 64.dp
 private val AddCustomNodeButtonContentPadding =
     PaddingValues(horizontal = 24.dp, vertical = 16.dp)
 
