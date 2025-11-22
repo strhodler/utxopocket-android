@@ -172,6 +172,7 @@ fun AddWalletScreen(
                 ActionButtons(
                     canSubmit = canSubmit,
                     isSaving = state.isSaving,
+                    networkName = stringResource(id = networkLabel(state.selectedNetwork)),
                     onCancel = onBack,
                     onSubmit = onSubmit
                 )
@@ -964,6 +965,7 @@ private fun WarningList(warnings: List<DescriptorWarning>) {
 private fun ActionButtons(
     canSubmit: Boolean,
     isSaving: Boolean,
+    networkName: String,
     onCancel: () -> Unit,
     onSubmit: () -> Unit
 ) {
@@ -998,7 +1000,12 @@ private fun ActionButtons(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
-            Text(text = stringResource(id = R.string.add_wallet_submit))
+            Text(
+                text = stringResource(
+                    id = R.string.add_wallet_title_with_network,
+                    networkName
+                )
+            )
         }
     }
 }

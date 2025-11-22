@@ -312,6 +312,7 @@ private fun WalletDetailContent(
     }
     val balanceHistoryPoints = state.displayBalancePoints
     val density = LocalDensity.current
+    val hasPreTabsContent = walletErrorMessage != null || state.walletHealthEnabled
     val stickyHeaderHeightPx = remember(topContentPadding, density) {
         with(density) { (topContentPadding + TabsHeight).roundToPx() }
     }
@@ -372,8 +373,10 @@ private fun WalletDetailContent(
                 onCycleBalanceDisplay = onCycleBalanceDisplay
             )
         }
-        item(key = "summary_health_spacing") {
-            Spacer(modifier = Modifier.height(ListContentSpacing))
+        if (hasPreTabsContent) {
+            item(key = "summary_health_spacing") {
+                Spacer(modifier = Modifier.height(ListContentSpacing))
+            }
         }
         walletErrorMessage?.let { message ->
             item(key = "error") {
@@ -811,7 +814,7 @@ private fun WalletDetailHeader(
             text = walletDescriptorTypeLabel(summary.descriptorType),
             contentColor = primaryContentColor
         )
-        val hasChartData = balancePoints.isNotEmpty()
+        val hasChartData = balancePoints.size > 2
         if (hasChartData) {
             StepLineChart(
                 data = balancePoints,

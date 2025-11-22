@@ -226,7 +226,6 @@ fun WalletDetailRoute(
     SetSecondaryTopBar(
         title = displayTitle,
         onBackClick = onBack,
-        nodeStatusActionFirst = true,
         actions = {
             if (canDelete) {
                 IconButton(onClick = { menuExpanded = true }) {

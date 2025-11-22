@@ -178,8 +178,8 @@ private fun WalletsContent(
     onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val canAddWallet = state.hasActiveNodeSelection
-    val showNodePrompt = state.wallets.isEmpty() && !state.hasActiveNodeSelection
+    val canAddWallet = state.hasActiveNodeSelection || !isNetworkOnline
+    val showNodePrompt = state.wallets.isEmpty() && !state.hasActiveNodeSelection && isNetworkOnline
 
     val torStatus = state.torStatus
     val showTorStatusBanner = state.torRequired || torStatus !is TorStatus.Stopped

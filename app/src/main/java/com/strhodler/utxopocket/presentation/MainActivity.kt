@@ -220,8 +220,6 @@ class MainActivity : AppCompatActivity() {
                                                 SecondaryTopBar(
                                                     title = topBarState.title,
                                                     onBackClick = topBarState.onBackClick,
-                                                    nodeStatus = uiState.status.nodeStatus,
-                                                    onNodeStatusClick = onNodeStatusClick,
                                                     actions = topBarState.actions,
                                                     modifier = Modifier.windowInsetsPadding(
                                                         WindowInsets.safeDrawing.only(
@@ -230,8 +228,7 @@ class MainActivity : AppCompatActivity() {
                                                     ),
                                                     containerColor = topBarState.containerColor,
                                                     contentColor = topBarState.contentColor,
-                                                    tonalElevation = topBarState.tonalElevation,
-                                                    nodeStatusActionFirst = topBarState.nodeStatusActionFirst
+                                                    tonalElevation = topBarState.tonalElevation
                                                 )
                                             }
 
@@ -430,14 +427,11 @@ private fun StatusBar(
     private fun SecondaryTopBar(
         title: String,
         onBackClick: () -> Unit,
-        nodeStatus: NodeStatus,
-        onNodeStatusClick: () -> Unit,
         actions: @Composable RowScope.() -> Unit,
         modifier: Modifier = Modifier,
         containerColor: Color? = null,
         contentColor: Color? = null,
-        tonalElevation: Dp = 3.dp,
-        nodeStatusActionFirst: Boolean = false
+        tonalElevation: Dp = 3.dp
     ) {
         val resolvedContainer = containerColor ?: MaterialTheme.colorScheme.surface
         val resolvedContent = contentColor ?: contentColorFor(resolvedContainer)
@@ -476,25 +470,7 @@ private fun StatusBar(
                     }
                 },
                 actions = {
-                    if (nodeStatusActionFirst) {
-                        TopBarStatusActionIcon(
-                            onClick = onNodeStatusClick,
-                            indicatorColor = nodeStatusIndicatorColor(nodeStatus),
-                            contentDescription = stringResource(id = R.string.status_node_action_description)
-                        ) {
-                            TopBarNodeStatusIcon(nodeStatus)
-                        }
-                        actions()
-                    } else {
-                        actions()
-                        TopBarStatusActionIcon(
-                            onClick = onNodeStatusClick,
-                            indicatorColor = nodeStatusIndicatorColor(nodeStatus),
-                            contentDescription = stringResource(id = R.string.status_node_action_description)
-                        ) {
-                            TopBarNodeStatusIcon(nodeStatus)
-                        }
-                    }
+                    actions()
                 },
                 colors = topBarColors,
                 windowInsets = WindowInsets(left = 0.dp, top = 0.dp, right = 0.dp, bottom = 0.dp)
