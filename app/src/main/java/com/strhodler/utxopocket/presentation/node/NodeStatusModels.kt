@@ -4,14 +4,11 @@ import androidx.annotation.StringRes
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
-import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.PublicNode
-
 data class NodeStatusUiState(
     val preferredNetwork: BitcoinNetwork = BitcoinNetwork.DEFAULT,
     val nodeConnectionOption: NodeConnectionOption = NodeConnectionOption.PUBLIC,
-    val nodeAddressOption: NodeAddressOption = NodeAddressOption.HOST_PORT,
     val publicNodes: List<PublicNode> = emptyList(),
     val selectedPublicNodeId: String? = null,
     val customNodes: List<CustomNode> = emptyList(),
@@ -19,20 +16,20 @@ data class NodeStatusUiState(
     val isNodeConnected: Boolean = false,
     val isNodeActivating: Boolean = false,
     val newCustomName: String = "",
-    val newCustomHost: String = "",
-    val newCustomPort: String = DEFAULT_SSL_PORT,
     val newCustomOnion: String = "",
+    val newCustomPort: String = DEFAULT_PORT,
     val editingCustomNodeId: String? = null,
     val isCustomNodeEditorVisible: Boolean = false,
     val isTestingCustomNode: Boolean = false,
     val customNodeError: String? = null,
     @StringRes val customNodeSuccessMessage: Int? = null,
     val selectionNotice: NodeSelectionNotice? = null,
-    val customNodeHasChanges: Boolean = false
+    val customNodeHasChanges: Boolean = false,
+    val customNodeFormValid: Boolean = false
 ) {
     companion object {
-        const val DEFAULT_SSL_PORT: String = "50002"
-        const val ONION_DEFAULT_PORT: Int = 50001
+        const val ONION_DEFAULT_PORT: String = "50001"
+        const val DEFAULT_PORT: String = ONION_DEFAULT_PORT
     }
 }
 

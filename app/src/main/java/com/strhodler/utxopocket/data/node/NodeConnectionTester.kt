@@ -1,13 +1,14 @@
 package com.strhodler.utxopocket.data.node
 
 import com.strhodler.utxopocket.domain.model.CustomNode
-import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
+import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.domain.service.TorManager
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.bitcoindevkit.ElectrumClient
@@ -17,49 +18,38 @@ class DefaultNodeConnectionTester @Inject constructor(
     private val torManager: TorManager
 ) : NodeConnectionTester {
 
-    override suspend fun testHostPort(host: String, port: Int): NodeConnectionTestResult =
-        test(
-            CustomNode(
-                id = "temp-host-$host-$port",
-                addressOption = NodeAddressOption.HOST_PORT,
-                host = host,
-                port = port
-            )
-        )
-
-    override suspend fun testOnion(onion: String): NodeConnectionTestResult =
-        test(
-            CustomNode(
-                id = "temp-onion-$onion",
-                addressOption = NodeAddressOption.ONION,
-                onion = onion
-            )
-        )
-
     override suspend fun test(node: CustomNode): NodeConnectionTestResult = withContext(Dispatchers.IO) {
-        val endpoint = when (node.addressOption) {
-            NodeAddressOption.HOST_PORT -> {
-                val host = node.host.trim()
-                val port = node.port
-                require(host.isNotBlank()) { "Host cannot be blank" }
-                require(port != null) { "Port is required" }
-                "ssl://$host:$port"
-            }
+        val normalized = node.normalizedCopy() ?: throw IllegalArgumentException("Invalid endpoint")
+        val endpoint = normalized.endpoint
 
-            NodeAddressOption.ONION -> {
-                val onion = node.onion.trim()
-                    .removePrefix("tcp://")
-                    .removePrefix("ssl://")
-                require(onion.isNotBlank()) { "Onion endpoint cannot be blank" }
-                "tcp://$onion"
+        return@withContext try {
+            torManager.withTorProxy { proxy ->
+                performConnectionTest(
+                    endpoint = endpoint,
+                    socksProxy = proxy,
+                    usedTor = true
+                )
             }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            val reason = error.toTorAwareMessage(
+                defaultMessage = error.message.orEmpty().ifBlank { DEFAULT_FAILURE_MESSAGE },
+                endpoint = endpoint,
+                usedTor = true
+            )
+            NodeConnectionTestResult.Failure(reason)
         }
+    }
 
-        val proxy = ensureProxy()
-        runCatching {
+    private fun performConnectionTest(
+        endpoint: String,
+        socksProxy: SocksProxyConfig?,
+        usedTor: Boolean
+    ): NodeConnectionTestResult {
+        return runCatching {
             ElectrumClient(
                 url = endpoint,
-                socks5 = proxy.toSocks5String()
+                socks5 = socksProxy?.toSocks5String()
             ).use { client ->
                 val version = runCatching {
                     client.serverFeatures().serverVersion
@@ -68,16 +58,15 @@ class DefaultNodeConnectionTester @Inject constructor(
             }
         }.getOrElse { error ->
             val reason = error.toTorAwareMessage(
-                defaultMessage = error.message.orEmpty().ifBlank { "Unable to reach node" },
-                endpoint = endpoint
+                defaultMessage = error.message.orEmpty().ifBlank { DEFAULT_FAILURE_MESSAGE },
+                endpoint = endpoint,
+                usedTor = usedTor
             )
             NodeConnectionTestResult.Failure(reason)
         }
     }
 
-    private suspend fun ensureProxy(): SocksProxyConfig {
-        return torManager.start().getOrElse { throw it }
-    }
-
     private fun SocksProxyConfig.toSocks5String(): String = "${this.host}:${this.port}"
 }
+
+private const val DEFAULT_FAILURE_MESSAGE = "Unable to reach node"

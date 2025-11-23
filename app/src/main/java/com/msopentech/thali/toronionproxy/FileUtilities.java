@@ -67,7 +67,7 @@ http://www.gnu.org/licenses/lgpl.html
 
 package com.msopentech.thali.toronionproxy;
 
-import android.util.Log;
+import com.strhodler.utxopocket.common.logging.SecureLog;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -153,7 +153,7 @@ public class FileUtilities {
 
         OutputStream out = new FileOutputStream(fileToWriteTo);
         FileUtilities.copy(readFrom, out);
-        Log.i("cleanInstallOneFile", "cleanInstallOneFile: ".concat(fileToWriteTo.getAbsolutePath()));
+        SecureLog.i("cleanInstallOneFile", "cleanInstallOneFile: ".concat(fileToWriteTo.getAbsolutePath()));
     }
 
     public static void recursiveFileDelete(File fileOrDirectory) {

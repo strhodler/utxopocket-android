@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.presentation.navigation.HideMainBottomBar
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 
 @Composable
@@ -34,6 +35,7 @@ fun WikiDetailRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val title = state.topic?.title ?: stringResource(id = R.string.wiki_detail_missing_title)
 
+    HideMainBottomBar()
     SetSecondaryTopBar(
         title = title,
         onBackClick = onBack
@@ -75,7 +77,7 @@ fun WikiDetailScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             item {

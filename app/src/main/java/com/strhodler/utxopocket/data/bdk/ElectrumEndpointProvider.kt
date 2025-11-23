@@ -1,9 +1,14 @@
 package com.strhodler.utxopocket.data.bdk
 
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
-import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
+import com.strhodler.utxopocket.domain.model.NodeTransport
+import com.strhodler.utxopocket.domain.model.PublicNode
+import com.strhodler.utxopocket.domain.model.customNodesFor
+import com.strhodler.utxopocket.domain.model.activeTransport
+import com.strhodler.utxopocket.domain.node.EndpointScheme
+import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,6 +26,39 @@ class ElectrumEndpointProvider @Inject constructor(
         }
     }
 
+    suspend fun rotateToNextPreset(
+        network: BitcoinNetwork,
+        failedNodeId: String?
+    ): PublicNode? {
+        val available = nodeConfigurationRepository.publicNodesFor(network)
+        if (available.size <= 1) {
+            return null
+        }
+        val config = nodeConfigurationRepository.nodeConfig.first()
+        if (config.connectionOption != NodeConnectionOption.PUBLIC) {
+            return null
+        }
+        val currentId = failedNodeId ?: config.selectedPublicNodeId ?: available.first().id
+        val currentIndex = available.indexOfFirst { it.id == currentId }
+        val nextIndex = if (currentIndex >= 0) {
+            (currentIndex + 1) % available.size
+        } else {
+            0
+        }
+        if (currentIndex == nextIndex) {
+            return null
+        }
+        val nextNode = available[nextIndex]
+        nodeConfigurationRepository.updateNodeConfig { existing ->
+            if (existing.connectionOption != NodeConnectionOption.PUBLIC) {
+                existing
+            } else {
+                existing.copy(selectedPublicNodeId = nextNode.id)
+            }
+        }
+        return nextNode
+    }
+
     private fun publicEndpoint(network: BitcoinNetwork, config: NodeConfig): ElectrumEndpoint {
         val available = nodeConfigurationRepository.publicNodesFor(network)
         val selected = available.firstOrNull { it.id == config.selectedPublicNodeId } ?: available.firstOrNull()
@@ -29,7 +67,11 @@ class ElectrumEndpointProvider @Inject constructor(
             ElectrumEndpoint(
                 url = selected.endpoint,
                 validateDomain = selected.endpoint.startsWith("ssl://"),
-                sync = syncPreferencesFor(network)
+                sync = syncPreferencesFor(network),
+                transport = NodeTransport.TOR,
+                source = ElectrumEndpointSource.PUBLIC,
+                nodeId = selected.id,
+                displayName = selected.displayName
             )
         } else {
             defaultFallback(network)
@@ -37,36 +79,26 @@ class ElectrumEndpointProvider @Inject constructor(
     }
 
     private fun customEndpoint(config: NodeConfig, network: BitcoinNetwork): ElectrumEndpoint? {
-        val selectedNode = config.customNodes.firstOrNull { it.id == config.selectedCustomNodeId }
-            ?: config.customNodes.firstOrNull()
+        val scopedNodes = config.customNodesFor(network)
+        val selectedNode = scopedNodes.firstOrNull { it.id == config.selectedCustomNodeId }
+            ?: scopedNodes.firstOrNull()
             ?: return null
 
-        return when (selectedNode.addressOption) {
-            NodeAddressOption.HOST_PORT -> {
-                val host = selectedNode.host.trim()
-                val port = selectedNode.port
-                if (host.isBlank() || port == null) null else {
-                    ElectrumEndpoint(
-                        url = "ssl://$host:$port",
-                        validateDomain = true,
-                        sync = syncPreferencesFor(network)
-                    )
-                }
-            }
+        val normalized = runCatching {
+            NodeEndpointClassifier.normalize(selectedNode.endpoint)
+        }.getOrElse { return null }
+        val transport = selectedNode.activeTransport()
+        val validateDomain = normalized.scheme == EndpointScheme.SSL
 
-            NodeAddressOption.ONION -> {
-                val onion = selectedNode.onion.trim()
-                    .removePrefix("tcp://")
-                    .removePrefix("ssl://")
-                if (onion.isBlank()) null else {
-                    ElectrumEndpoint(
-                        url = "tcp://$onion",
-                        validateDomain = false,
-                        sync = syncPreferencesFor(network)
-                    )
-                }
-            }
-        }
+        return ElectrumEndpoint(
+            url = normalized.url,
+            validateDomain = validateDomain,
+            sync = syncPreferencesFor(network),
+            transport = transport,
+            source = ElectrumEndpointSource.CUSTOM,
+            nodeId = selectedNode.id,
+            displayName = selectedNode.displayLabel()
+        )
     }
 
     private fun syncPreferencesFor(network: BitcoinNetwork): ElectrumSyncPreferences =
@@ -90,27 +122,40 @@ class ElectrumEndpointProvider @Inject constructor(
         BitcoinNetwork.MAINNET -> ElectrumEndpoint(
             url = "ssl://electrum.blockstream.info:60002",
             validateDomain = true,
-            sync = syncPreferencesFor(network)
+            sync = syncPreferencesFor(network),
+            transport = NodeTransport.TOR,
+            source = ElectrumEndpointSource.PUBLIC
         )
 
         BitcoinNetwork.TESTNET -> ElectrumEndpoint(
             url = "ssl://testnet.blockstream.info:60002",
             validateDomain = true,
-            sync = syncPreferencesFor(network)
+            sync = syncPreferencesFor(network),
+            transport = NodeTransport.TOR,
+            source = ElectrumEndpointSource.PUBLIC
         )
 
         BitcoinNetwork.TESTNET4 -> ElectrumEndpoint(
             url = "ssl://mempool.space:40002",
             validateDomain = true,
-            sync = syncPreferencesFor(network)
+            sync = syncPreferencesFor(network),
+            transport = NodeTransport.TOR,
+            source = ElectrumEndpointSource.PUBLIC
         )
 
         BitcoinNetwork.SIGNET -> ElectrumEndpoint(
             url = "ssl://signet-electrumx.wakiyamap.dev:50002",
             validateDomain = false,
-            sync = syncPreferencesFor(network)
+            sync = syncPreferencesFor(network),
+            transport = NodeTransport.TOR,
+            source = ElectrumEndpointSource.PUBLIC
         )
     }
+}
+
+enum class ElectrumEndpointSource {
+    PUBLIC,
+    CUSTOM
 }
 
 data class ElectrumEndpoint(
@@ -118,7 +163,11 @@ data class ElectrumEndpoint(
     val validateDomain: Boolean,
     val retry: Int = 5,
     val timeoutSeconds: Int = 15,
-    val sync: ElectrumSyncPreferences = ElectrumSyncPreferences.DEFAULT
+    val sync: ElectrumSyncPreferences = ElectrumSyncPreferences.DEFAULT,
+    val transport: NodeTransport = NodeTransport.TOR,
+    val source: ElectrumEndpointSource = ElectrumEndpointSource.PUBLIC,
+    val nodeId: String? = null,
+    val displayName: String? = null
 )
 
 data class ElectrumSyncPreferences(

@@ -5,7 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.util.Log;
+import com.strhodler.utxopocket.common.logging.SecureLog;
 
 public class ConnectionChangeReceiver extends BroadcastReceiver {
     private static final String TAG = ConnectionChangeReceiver.class.getSimpleName();
@@ -16,7 +16,7 @@ public class ConnectionChangeReceiver extends BroadcastReceiver {
         NetworkManager.getInstance()
                 .onlineObserver()
                 .onNext(online);
-        Log.i(TAG, String.format("Switching to %s mode", online ? "ONLINE" : "OFFLINE"));
+        SecureLog.i(TAG, String.format("Switching to %s mode", online ? "ONLINE" : "OFFLINE"));
     }
 
     private static boolean isConnected(Context context) {

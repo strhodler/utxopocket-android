@@ -13,9 +13,8 @@ See the Apache 2 License for the specific language governing permissions and lim
 
 package com.msopentech.thali.toronionproxy;
 
-import android.util.Log;
-
 import com.msopentech.thali.android.toronionproxy.torinstaller.TorResourceInstaller;
+import com.strhodler.utxopocket.common.logging.SecureLog;
 
 import java.io.File;
 import java.io.IOException;
@@ -65,7 +64,7 @@ abstract public class OnionProxyContext {
         if (!workingDirectory.exists() && !workingDirectory.mkdirs()) {
             throw new RuntimeException("Could not create root directory!");
         }
-        Log.i(TAG, "installFiles: ".concat("".concat(String.valueOf(getAssetOrResourceByName(GEO_IP_NAME).available()))));
+        SecureLog.i(TAG, "installFiles: ".concat("".concat(String.valueOf(getAssetOrResourceByName(GEO_IP_NAME).available()))));
 
         try {
             TorResourceInstaller torResourceInstaller = this.getTorInstaller();
@@ -75,7 +74,7 @@ abstract public class OnionProxyContext {
                 throw new IOException("Tor binary not installed");
             }
 
-            Log.i(TAG, "installFiles: fileTorBin ".concat(fileTorBin.getAbsolutePath()));
+            SecureLog.i(TAG, "installFiles: fileTorBin ".concat(fileTorBin.getAbsolutePath()));
 
             if (!isInWorkingDirectory(fileTorBin)) {
                 torExecutableFile = fileTorBin;
@@ -91,15 +90,15 @@ abstract public class OnionProxyContext {
             FileUtilities.cleanInstallOneFile(getAssetOrResourceByName(TORRC_NAME), torrcFile);
 
             boolean success = torExecutableFile.exists() && torExecutableFile.canExecute();
-            Log.i(TAG, "installFiles: success ".concat(String.valueOf(success)));
+            SecureLog.i(TAG, "installFiles: success ".concat(String.valueOf(success)));
 
         } catch (IOException e) {
             e.printStackTrace();
 
-            Log.i(TAG, "installFiles: ".concat(e.getMessage()));
+            SecureLog.i(TAG, "installFiles: ".concat(e.getMessage()));
         } catch (Exception e) {
             e.printStackTrace();
-            Log.i(TAG, "installFiles: ".concat(e.getMessage()));
+            SecureLog.i(TAG, "installFiles: ".concat(e.getMessage()));
 
         }
     }
@@ -205,7 +204,7 @@ abstract public class OnionProxyContext {
             String candidatePath = fileTorBin.getCanonicalPath();
             return candidatePath.startsWith(workingPath);
         } catch (IOException e) {
-            Log.w(TAG, "Could not resolve canonical path when evaluating tor binary location", e);
+            SecureLog.w(TAG, e, "Could not resolve canonical path when evaluating tor binary location");
             return false;
         }
     }
@@ -215,10 +214,10 @@ abstract public class OnionProxyContext {
             return;
         }
         if (!torBinary.setReadable(true, false)) {
-            Log.w(TAG, "Unable to mark tor binary readable for all users");
+            SecureLog.w(TAG, "Unable to mark tor binary readable for all users");
         }
         if (!torBinary.setExecutable(true, false)) {
-            Log.w(TAG, "Unable to mark tor binary executable for all users");
+            SecureLog.w(TAG, "Unable to mark tor binary executable for all users");
         }
         torBinary.setWritable(false, false);
         torBinary.setWritable(true, true);
@@ -227,7 +226,7 @@ abstract public class OnionProxyContext {
     private void removeLegacyTorBinary() {
         File legacyBinary = new File(getWorkingDirectory(), TORBINARY_KEY);
         if (legacyBinary.exists() && !legacyBinary.equals(torExecutableFile) && !legacyBinary.delete()) {
-            Log.w(TAG, "Failed to delete legacy tor binary at ".concat(legacyBinary.getAbsolutePath()));
+            SecureLog.w(TAG, "Failed to delete legacy tor binary at ".concat(legacyBinary.getAbsolutePath()));
         }
     }
 

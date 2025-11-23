@@ -3,11 +3,8 @@ package com.strhodler.utxopocket
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.content.Intent
 import android.os.Build
-import androidx.core.content.ContextCompat
 import com.strhodler.utxopocket.R
-import com.strhodler.utxopocket.tor.TorForegroundService
 import com.strhodler.utxopocket.tor.TorServiceActions
 import dagger.hilt.android.HiltAndroidApp
 
@@ -16,7 +13,6 @@ class UtxoPocketApp : Application() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannels()
-        initializeTorService()
     }
 
     private fun createNotificationChannels() {
@@ -34,12 +30,4 @@ class UtxoPocketApp : Application() {
         }
     }
 
-    private fun initializeTorService() {
-        val intent = Intent(this, TorForegroundService::class.java).apply {
-            action = TorServiceActions.ACTION_INIT
-        }
-        runCatching {
-            ContextCompat.startForegroundService(this, intent)
-        }
-    }
 }

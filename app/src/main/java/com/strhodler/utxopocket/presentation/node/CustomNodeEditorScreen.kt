@@ -1,22 +1,17 @@
 package com.strhodler.utxopocket.presentation.node
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.QrCode
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -26,35 +21,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
-import com.strhodler.utxopocket.domain.model.NodeAddressOption
-import kotlinx.coroutines.launch
+import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
+import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomNodeEditorScreen(
-    nodeAddressOption: NodeAddressOption,
     nameValue: String,
-    hostValue: String,
-    portValue: String,
     onionValue: String,
+    portValue: String,
     isTesting: Boolean,
     errorMessage: String?,
     qrErrorMessage: String?,
@@ -62,45 +44,14 @@ fun CustomNodeEditorScreen(
     primaryActionLabel: String,
     onDismiss: () -> Unit,
     onNameChanged: (String) -> Unit,
-    onNodeAddressOptionSelected: (NodeAddressOption) -> Unit,
-    onHostChanged: (String) -> Unit,
-    onPortChanged: (String) -> Unit,
     onOnionChanged: (String) -> Unit,
+    onPortChanged: (String) -> Unit,
     onPrimaryAction: () -> Unit,
     onStartQrScan: () -> Unit,
-    onClearQrError: () -> Unit,
-    onDeleteNode: (() -> Unit)? = null
+    onClearQrError: () -> Unit
 ) {
     BackHandler(onBack = onDismiss)
     val scrollState = rememberScrollState()
-    val tabOptions = remember { listOf(NodeAddressOption.HOST_PORT, NodeAddressOption.ONION) }
-    val initialPage = tabOptions.indexOf(nodeAddressOption).coerceAtLeast(0)
-    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { tabOptions.size })
-    val coroutineScope = rememberCoroutineScope()
-    var showDeleteDialog by remember { mutableStateOf(false) }
-
-    LaunchedEffect(nodeAddressOption) {
-        val target = tabOptions.indexOf(nodeAddressOption).coerceAtLeast(0)
-        if (target != pagerState.currentPage) {
-            pagerState.scrollToPage(target)
-        }
-    }
-
-    LaunchedEffect(pagerState.currentPage) {
-        val option = tabOptions[pagerState.currentPage]
-        if (option != nodeAddressOption) {
-            onNodeAddressOptionSelected(option)
-        }
-    }
-
-    val deleteLabel = when {
-        nameValue.isNotBlank() -> nameValue
-        nodeAddressOption == NodeAddressOption.HOST_PORT && hostValue.isNotBlank() ->
-            if (portValue.isNotBlank()) "${hostValue.trim()}:${portValue.trim()}" else hostValue.trim()
-        nodeAddressOption == NodeAddressOption.ONION && onionValue.isNotBlank() -> onionValue.trim()
-        else -> stringResource(id = R.string.node_custom_add_title)
-    }
-
     Scaffold(
         bottomBar = {
             Surface(tonalElevation = 4.dp) {
@@ -118,15 +69,6 @@ fun CustomNodeEditorScreen(
                             color = MaterialTheme.colorScheme.error
                         )
                     }
-                    if (onDeleteNode != null) {
-                        TextButton(
-                            onClick = { showDeleteDialog = true },
-                            enabled = !isTesting,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(text = stringResource(id = R.string.node_custom_delete_button))
-                        }
-                    }
                     Button(
                         onClick = onPrimaryAction,
                         enabled = isPrimaryActionEnabled && !isTesting,
@@ -134,223 +76,126 @@ fun CustomNodeEditorScreen(
                     ) {
                         if (isTesting) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .padding(end = 8.dp),
+                                strokeWidth = 2.dp
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = stringResource(id = R.string.node_custom_testing))
-                        } else {
-                            Text(text = primaryActionLabel)
                         }
+                        Text(text = primaryActionLabel)
                     }
                 }
             }
-        }
-    ) { padding ->
+        },
+        contentWindowInsets = ScreenScaffoldInsets
+    ) { innerPadding ->
         Column(
             modifier = Modifier
-                .padding(padding)
-                .verticalScroll(scrollState)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .fillMaxWidth()
+                .applyScreenPadding(innerPadding)
+                .padding(horizontal = 16.dp, vertical = 24.dp)
+                .verticalScroll(scrollState),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            TabRow(
-                selectedTabIndex = pagerState.currentPage,
-                containerColor = Color.Transparent,
-                indicator = { tabPositions ->
-                    TabRowDefaults.Indicator(
-                        Modifier
-                            .tabIndicatorOffset(tabPositions[pagerState.currentPage])
-                    )
-                }
-            ) {
-                tabOptions.forEachIndexed { index, option ->
-                    val labelRes = when (option) {
-                        NodeAddressOption.HOST_PORT -> R.string.onboarding_connection_standard
-                        NodeAddressOption.ONION -> R.string.onboarding_connection_onion
-                    }
-                    Tab(
-                        selected = pagerState.currentPage == index,
-                        onClick = {
-                            coroutineScope.launch { pagerState.animateScrollToPage(index) }
-                        },
-                        text = { Text(text = stringResource(id = labelRes)) }
-                    )
-                }
-            }
+            OutlinedTextField(
+                value = nameValue,
+                onValueChange = onNameChanged,
+                label = { Text(text = stringResource(id = R.string.node_custom_name_label)) },
+                placeholder = { Text(text = stringResource(id = R.string.node_custom_name_placeholder)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
 
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxWidth()
-            ) { page ->
-                when (tabOptions[page]) {
-                    NodeAddressOption.HOST_PORT -> HostPortInputs(
-                        nameValue = nameValue,
-                        hostValue = hostValue,
-                        portValue = portValue,
-                        qrErrorMessage = qrErrorMessage,
-                        onNameChanged = onNameChanged,
-                        onHostChanged = {
-                            onClearQrError()
-                            onHostChanged(it)
-                        },
-                        onPortChanged = {
-                            onClearQrError()
-                            onPortChanged(it)
-                        },
-                        onStartQrScan = onStartQrScan
-                    )
+            OnionField(
+                value = onionValue,
+                qrErrorMessage = qrErrorMessage,
+                onValueChange = {
+                    onClearQrError()
+                    onOnionChanged(it)
+                },
+                onStartQrScan = onStartQrScan
+            )
 
-                    NodeAddressOption.ONION -> OnionInput(
-                        nameValue = nameValue,
-                        value = onionValue,
-                        qrErrorMessage = qrErrorMessage,
-                        onNameChanged = onNameChanged,
-                        onValueChanged = {
-                            onClearQrError()
-                            onOnionChanged(it)
-                        },
-                        onStartQrScan = onStartQrScan
-                    )
-                }
-            }
+            OutlinedTextField(
+                value = portValue,
+                onValueChange = {
+                    onClearQrError()
+                    onPortChanged(it)
+                },
+                label = { Text(text = stringResource(id = R.string.node_port_label)) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number)
+            )
+
+            TransportModeBadge()
         }
-    }
-
-    if (showDeleteDialog && onDeleteNode != null) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text(text = stringResource(id = R.string.node_custom_delete_confirm_title)) },
-            text = {
-                Text(text = stringResource(id = R.string.node_custom_delete_confirm_message, deleteLabel))
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteDialog = false
-                        onDeleteNode()
-                    }
-                ) {
-                    Text(text = stringResource(id = R.string.node_custom_delete_confirm_confirm))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text(text = stringResource(id = android.R.string.cancel))
-                }
-            }
-        )
     }
 }
 
 @Composable
-private fun HostPortInputs(
-    nameValue: String,
-    hostValue: String,
-    portValue: String,
-    qrErrorMessage: String?,
-    onNameChanged: (String) -> Unit,
-    onHostChanged: (String) -> Unit,
-    onPortChanged: (String) -> Unit,
-    onStartQrScan: () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedTextField(
-            value = nameValue,
-            onValueChange = onNameChanged,
-            label = { Text(text = stringResource(id = R.string.node_custom_name_label)) },
-            placeholder = { Text(text = stringResource(id = R.string.node_custom_name_placeholder)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        val scanDescription = stringResource(id = R.string.node_scan_qr_content_description)
-        val qrSupportingText: (@Composable () -> Unit)? = qrErrorMessage?.let { error ->
-            {
-                Text(
-                    text = error,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-        OutlinedTextField(
-            value = hostValue,
-            onValueChange = onHostChanged,
-            label = { Text(stringResource(id = R.string.onboarding_host_label)) },
-            placeholder = { Text("electrum.example.com") },
-            modifier = Modifier.fillMaxWidth(),
-            trailingIcon = {
-                IconButton(onClick = onStartQrScan) {
-                    Icon(
-                        imageVector = Icons.Outlined.QrCode,
-                        contentDescription = scanDescription
-                    )
-                }
-            },
-            supportingText = qrSupportingText,
-            isError = qrErrorMessage != null
-        )
-        OutlinedTextField(
-            value = portValue,
-            onValueChange = onPortChanged,
-            label = { Text(stringResource(id = R.string.onboarding_port_label)) },
-            placeholder = { Text("50002") },
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-}
-
-@Composable
-private fun OnionInput(
-    nameValue: String,
+private fun OnionField(
     value: String,
     qrErrorMessage: String?,
-    onNameChanged: (String) -> Unit,
-    onValueChanged: (String) -> Unit,
+    onValueChange: (String) -> Unit,
     onStartQrScan: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedTextField(
-            value = nameValue,
-            onValueChange = onNameChanged,
-            label = { Text(text = stringResource(id = R.string.node_custom_name_label)) },
-            placeholder = { Text(text = stringResource(id = R.string.node_custom_name_placeholder)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        val scanDescription = stringResource(id = R.string.node_scan_qr_content_description)
-        val supportingText: @Composable () -> Unit = {
-            val text = qrErrorMessage ?: stringResource(id = R.string.onboarding_onion_hint)
-            val color = if (qrErrorMessage != null) {
-                MaterialTheme.colorScheme.error
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
+    val scanDescription = stringResource(id = R.string.node_scan_qr_content_description)
+    val supportingText = qrErrorMessage ?: stringResource(id = R.string.node_custom_endpoint_supporting)
+    val supportingColor = if (qrErrorMessage != null) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(stringResource(id = R.string.node_custom_endpoint_label)) },
+        placeholder = { Text(stringResource(id = R.string.node_custom_endpoint_placeholder)) },
+        modifier = Modifier.fillMaxWidth(),
+        trailingIcon = {
+            IconButton(onClick = onStartQrScan) {
+                Icon(
+                    imageVector = Icons.Outlined.QrCode,
+                    contentDescription = scanDescription
+                )
             }
+        },
+        minLines = 2,
+        maxLines = Int.MAX_VALUE,
+        supportingText = {
             Text(
-                text = text,
+                text = supportingText,
                 style = MaterialTheme.typography.bodySmall,
-                color = color
+                color = supportingColor
             )
         }
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChanged,
-            label = { Text(stringResource(id = R.string.onboarding_onion_label)) },
-            placeholder = { Text("example123.onion:50001") },
-            modifier = Modifier.fillMaxWidth(),
-            trailingIcon = {
-                IconButton(onClick = onStartQrScan) {
-                    Icon(
-                        imageVector = Icons.Outlined.QrCode,
-                        contentDescription = scanDescription
-                    )
-                }
-            },
-            supportingText = supportingText,
-            isError = qrErrorMessage != null
-        )
+    )
+}
+
+@Composable
+private fun TransportModeBadge() {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        shape = MaterialTheme.shapes.medium,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = stringResource(id = R.string.node_custom_transport_tor_label),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = stringResource(id = R.string.node_custom_transport_tor_supporting),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

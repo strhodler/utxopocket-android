@@ -13,6 +13,7 @@ captures/
 .externalNativeBuild/
 .cxx/
 misc/
+tmp/
 
 # === Release outputs ===
 app/release/

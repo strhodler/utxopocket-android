@@ -21,7 +21,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
@@ -31,12 +30,16 @@ import androidx.compose.ui.Alignment
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
+import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
+import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import com.strhodler.utxopocket.presentation.settings.model.TransactionParameterField
 import com.strhodler.utxopocket.presentation.settings.model.TransactionHealthParameterInputs
 import com.strhodler.utxopocket.presentation.settings.model.UtxoHealthParameterInputs
 import com.strhodler.utxopocket.presentation.settings.model.UtxoParameterField
+import com.strhodler.utxopocket.presentation.settings.model.transactionParameterDescriptors
+import com.strhodler.utxopocket.presentation.settings.model.utxoParameterDescriptors
 
 @Composable
 fun HealthParametersRoute(
@@ -59,7 +62,8 @@ fun HealthParametersRoute(
     )
 
     Scaffold(
-        snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) }
+        snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
+        contentWindowInsets = ScreenScaffoldInsets
     ) { paddingValues ->
         HealthParametersScreen(
             state = state,
@@ -69,7 +73,7 @@ fun HealthParametersRoute(
             onRestore = viewModel::onRestoreHealthDefaults,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .applyScreenPadding(paddingValues)
         )
     }
 }
@@ -130,140 +134,35 @@ private fun AdvancedHealthParametersEditor(
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold
             )
-            HealthParameterTextField(
-                value = transactionInputs.changeExposureHighRatio,
-                onValueChange = {
-                    onTransactionParameterChanged(
-                        TransactionParameterField.ChangeExposureHighRatio,
-                        it
-                    )
-                },
-                label = stringResource(id = R.string.settings_transaction_change_exposure_high),
-                supportingText = stringResource(id = R.string.settings_health_parameters_ratio_hint),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-            )
-            HealthParameterTextField(
-                value = transactionInputs.changeExposureMediumRatio,
-                onValueChange = {
-                    onTransactionParameterChanged(
-                        TransactionParameterField.ChangeExposureMediumRatio,
-                        it
-                    )
-                },
-                label = stringResource(id = R.string.settings_transaction_change_exposure_medium),
-                supportingText = stringResource(id = R.string.settings_health_parameters_ratio_hint),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-            )
-            HealthParameterTextField(
-                value = transactionInputs.lowFeeRateThresholdSatPerVb,
-                onValueChange = {
-                    onTransactionParameterChanged(
-                        TransactionParameterField.LowFeeRateThreshold,
-                        it
-                    )
-                },
-                label = stringResource(id = R.string.settings_transaction_low_fee_threshold),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                suffix = stringResource(id = R.string.settings_unit_sat_vb)
-            )
-            HealthParameterTextField(
-                value = transactionInputs.highFeeRateThresholdSatPerVb,
-                onValueChange = {
-                    onTransactionParameterChanged(
-                        TransactionParameterField.HighFeeRateThreshold,
-                        it
-                    )
-                },
-                label = stringResource(id = R.string.settings_transaction_high_fee_threshold),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                suffix = stringResource(id = R.string.settings_unit_sat_vb)
-            )
-            HealthParameterTextField(
-                value = transactionInputs.consolidationFeeRateThresholdSatPerVb,
-                onValueChange = {
-                    onTransactionParameterChanged(
-                        TransactionParameterField.ConsolidationFeeRateThreshold,
-                        it
-                    )
-                },
-                label = stringResource(id = R.string.settings_transaction_consolidation_fee_threshold),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                suffix = stringResource(id = R.string.settings_unit_sat_vb)
-            )
-            HealthParameterTextField(
-                value = transactionInputs.consolidationHighFeeRateThresholdSatPerVb,
-                onValueChange = {
-                    onTransactionParameterChanged(
-                        TransactionParameterField.ConsolidationHighFeeRateThreshold,
-                        it
-                    )
-                },
-                label = stringResource(id = R.string.settings_transaction_consolidation_high_fee_threshold),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                suffix = stringResource(id = R.string.settings_unit_sat_vb)
-            )
+            transactionParameterDescriptors.forEach { descriptor ->
+                HealthParameterTextField(
+                    value = transactionInputs.valueFor(descriptor.field),
+                    onValueChange = { onTransactionParameterChanged(descriptor.field, it) },
+                    label = stringResource(id = descriptor.labelRes),
+                    supportingText = descriptor.supportingTextRes?.let { res ->
+                        stringResource(id = res)
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = descriptor.keyboardType),
+                    suffix = descriptor.suffixRes?.let { res -> stringResource(id = res) }
+                )
+            }
             Text(
                 text = stringResource(id = R.string.settings_health_parameters_utxos),
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold
             )
-            HealthParameterTextField(
-                value = utxoInputs.addressReuseHighThreshold,
-                onValueChange = {
-                    onUtxoParameterChanged(
-                        UtxoParameterField.AddressReuseHighThreshold,
-                        it
-                    )
-                },
-                label = stringResource(id = R.string.settings_utxo_address_reuse_high_threshold),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
-            HealthParameterTextField(
-                value = utxoInputs.changeMinConfirmations,
-                onValueChange = {
-                    onUtxoParameterChanged(
-                        UtxoParameterField.ChangeMinConfirmations,
-                        it
-                    )
-                },
-                label = stringResource(id = R.string.settings_utxo_change_confirmations),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
-            HealthParameterTextField(
-                value = utxoInputs.longInactiveConfirmations,
-                onValueChange = {
-                    onUtxoParameterChanged(
-                        UtxoParameterField.LongInactiveConfirmations,
-                        it
-                    )
-                },
-                label = stringResource(id = R.string.settings_utxo_long_inactive_confirmations),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
-            HealthParameterTextField(
-                value = utxoInputs.highValueThresholdSats,
-                onValueChange = {
-                    onUtxoParameterChanged(
-                        UtxoParameterField.HighValueThresholdSats,
-                        it
-                    )
-                },
-                label = stringResource(id = R.string.settings_utxo_high_value_threshold),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                suffix = stringResource(id = R.string.settings_unit_sats)
-            )
-            HealthParameterTextField(
-                value = utxoInputs.wellDocumentedValueThresholdSats,
-                onValueChange = {
-                    onUtxoParameterChanged(
-                        UtxoParameterField.WellDocumentedValueThresholdSats,
-                        it
-                    )
-                },
-                label = stringResource(id = R.string.settings_utxo_well_documented_threshold),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                suffix = stringResource(id = R.string.settings_unit_sats)
-            )
+            utxoParameterDescriptors.forEach { descriptor ->
+                HealthParameterTextField(
+                    value = utxoInputs.valueFor(descriptor.field),
+                    onValueChange = { onUtxoParameterChanged(descriptor.field, it) },
+                    label = stringResource(id = descriptor.labelRes),
+                    supportingText = descriptor.supportingTextRes?.let { res ->
+                        stringResource(id = res)
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = descriptor.keyboardType),
+                    suffix = descriptor.suffixRes?.let { res -> stringResource(id = res) }
+                )
+            }
             if (!errorMessage.isNullOrBlank()) {
                 Text(
                     text = errorMessage,

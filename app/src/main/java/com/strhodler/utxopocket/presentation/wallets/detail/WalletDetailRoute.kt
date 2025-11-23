@@ -1,10 +1,6 @@
 package com.strhodler.utxopocket.presentation.wallets.detail
 
-import android.content.ClipData
 import android.content.Context
-import android.content.Intent
-import android.os.Handler
-import android.os.Looper
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,10 +26,6 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Scaffold
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -42,6 +34,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -55,33 +49,27 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.collectAsLazyPagingItems
-import androidx.core.content.FileProvider
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.WalletAddress
-import com.strhodler.utxopocket.domain.model.WalletLabelExport
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import android.view.HapticFeedbackConstants
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
-import org.json.JSONObject
-import java.io.BufferedWriter
-import java.io.File
-import java.io.FileWriter
 
 private const val WALLET_NAME_MAX_LENGTH = 64
 
@@ -93,6 +81,9 @@ fun WalletDetailRoute(
     onUtxoSelected: (String, Int) -> Unit,
     onAddressSelected: (WalletAddress) -> Unit,
     onOpenWikiTopic: (String) -> Unit,
+    walletId: Long,
+    onOpenExportLabels: (Long, String) -> Unit,
+    onOpenImportLabels: (Long, String) -> Unit,
     viewModel: WalletDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -110,13 +101,12 @@ fun WalletDetailRoute(
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameInProgress by remember { mutableStateOf(false) }
     var renameErrorMessage by remember { mutableStateOf<String?>(null) }
-    var isExporting by remember { mutableStateOf(false) }
-    var importInProgress by remember { mutableStateOf(false) }
     var forceRescanInProgress by remember { mutableStateOf(false) }
     var sharedDescriptorUpdating by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val hapticFeedback = LocalHapticFeedback.current
+    val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
     val showSnackbar = remember(coroutineScope, snackbarHostState) {
         { message: String, duration: SnackbarDuration ->
@@ -131,9 +121,6 @@ fun WalletDetailRoute(
         }
     }
     val deleteSuccessMessage = stringResource(id = R.string.wallet_detail_delete_success)
-    val exportReadyMessage = stringResource(id = R.string.wallet_detail_export_ready)
-    val exportErrorMessage = stringResource(id = R.string.wallet_detail_export_error)
-    val exportEmptyMessage = stringResource(id = R.string.wallet_detail_export_empty)
     val renameSuccessMessage = stringResource(id = R.string.wallet_detail_rename_success)
     val renameBlankErrorText = context.getString(R.string.wallet_detail_rename_error_blank)
     val renameExistsErrorText = context.getString(R.string.wallet_detail_rename_error_exists)
@@ -143,45 +130,6 @@ fun WalletDetailRoute(
     val sharedDescriptorsEnabledMessage = stringResource(id = R.string.wallet_detail_shared_descriptors_enabled)
     val sharedDescriptorsDisabledMessage = stringResource(id = R.string.wallet_detail_shared_descriptors_disabled)
     val sharedDescriptorsErrorMessage = stringResource(id = R.string.wallet_detail_shared_descriptors_error)
-    val importErrorMessage = stringResource(id = R.string.wallet_detail_import_error)
-    val importFileErrorMessage = stringResource(id = R.string.wallet_detail_import_file_error)
-    val importNoTransactionsMessage = stringResource(id = R.string.wallet_detail_import_no_transactions)
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        coroutineScope.launch {
-            val bytesResult = runCatching {
-                withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use { stream ->
-                        stream.readBytes()
-                    }
-                }
-            }
-            val payload = bytesResult.getOrElse {
-                showSnackbar(importFileErrorMessage, SnackbarDuration.Long)
-                return@launch
-            } ?: run {
-                showSnackbar(importFileErrorMessage, SnackbarDuration.Long)
-                return@launch
-            }
-            importInProgress = true
-            viewModel.importLabels(payload) { result ->
-                importInProgress = false
-                result.onSuccess { stats ->
-                    val message = context.getString(
-                        R.string.wallet_detail_import_summary,
-                        stats.transactionLabelsApplied,
-                        stats.utxoLabelsApplied,
-                        stats.utxoSpendableUpdates,
-                        stats.skipped,
-                        stats.invalid
-                    )
-                    showSnackbar(message, SnackbarDuration.Long)
-                }.onFailure {
-                    showSnackbar(importErrorMessage, SnackbarDuration.Long)
-                }
-            }
-        }
-    }
     val outerListState = rememberLazyListState()
     val tabs = remember { WalletDetailTab.entries.toTypedArray() }
     var selectedTab by rememberSaveable { mutableStateOf(WalletDetailTab.Transactions) }
@@ -345,27 +293,7 @@ fun WalletDetailRoute(
                         },
                         onClick = {
                             menuExpanded = false
-                            if (isExporting) {
-                                return@DropdownMenuItem
-                            }
-                            isExporting = true
-                            viewModel.exportLabels { result ->
-                                isExporting = false
-                                result.onSuccess { export ->
-                                    if (export.entries.isEmpty()) {
-                                        showSnackbar(exportEmptyMessage, SnackbarDuration.Short)
-                                    } else {
-                                        val shared = shareBip329Labels(context, export)
-                                        if (shared) {
-                                            showSnackbar(exportReadyMessage, SnackbarDuration.Short)
-                                        } else {
-                                            showSnackbar(exportErrorMessage, SnackbarDuration.Long)
-                                        }
-                                    }
-                                }.onFailure {
-                                    showSnackbar(exportErrorMessage, SnackbarDuration.Long)
-                                }
-                            }
+                            onOpenExportLabels(walletId, displayTitle)
                         }
                     )
                     DropdownMenuItem(
@@ -376,24 +304,16 @@ fun WalletDetailRoute(
                                 contentDescription = null
                             )
                         },
-                        enabled = !importInProgress,
                         onClick = {
                             menuExpanded = false
-                            if (importInProgress) {
-                                return@DropdownMenuItem
-                            }
                             if (state.transactionsCount == 0) {
-                                showSnackbar(importNoTransactionsMessage, SnackbarDuration.Short)
+                                showSnackbar(
+                                    context.getString(R.string.wallet_detail_import_no_transactions),
+                                    SnackbarDuration.Short
+                                )
                                 return@DropdownMenuItem
                             }
-                            importLauncher.launch(
-                                arrayOf(
-                                    "application/json",
-                                    "text/plain",
-                                    "application/octet-stream",
-                                    "*/*"
-                                )
-                            )
+                            onOpenImportLabels(walletId, displayTitle)
                         }
                     )
                     DropdownMenuItem(
@@ -451,6 +371,14 @@ fun WalletDetailRoute(
         val topContentPadding = 0.dp
         val transactionItems = viewModel.pagedTransactions.collectAsLazyPagingItems()
         val utxoItems = viewModel.pagedUtxos.collectAsLazyPagingItems()
+        val cycleBalanceDisplay = remember(state.hapticsEnabled, view) {
+            {
+                if (state.hapticsEnabled) {
+                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                }
+                viewModel.cycleBalanceDisplayMode()
+            }
+        }
 
         Box(
             modifier = Modifier
@@ -470,6 +398,7 @@ fun WalletDetailRoute(
                 onAddressSelected = onAddressSelected,
                 onReceiveAddressCopied = viewModel::onReceiveAddressCopied,
                 onBalanceRangeSelected = viewModel::onBalanceRangeSelected,
+                onCycleBalanceDisplay = cycleBalanceDisplay,
                 onOpenWikiTopic = onOpenWikiTopic,
                 outerListState = outerListState,
                 selectedTab = selectedTab,
@@ -686,56 +615,3 @@ private fun RenameWalletDialog(
     )
 }
 
-private const val LABEL_EXPORT_RETENTION_MS = 120_000L
-
-private fun shareBip329Labels(context: Context, export: WalletLabelExport): Boolean {
-    return runCatching {
-        val exportDir = File(context.cacheDir, "labels").apply {
-            if (!exists()) mkdirs()
-            listFiles()?.filter { it.isFile }?.forEach { it.delete() }
-        }
-        val file = File(exportDir, export.fileName)
-        BufferedWriter(FileWriter(file, false)).use { writer ->
-            export.entries.forEachIndexed { index, entry ->
-                val json = JSONObject().apply {
-                    put("type", entry.type)
-                    put("ref", entry.ref)
-                    entry.label?.let { put("label", it) }
-                    entry.origin?.let { put("origin", it) }
-                    entry.spendable?.let { put("spendable", it) }
-                }
-                writer.write(json.toString())
-                if (index < export.entries.lastIndex) {
-                    writer.newLine()
-                }
-            }
-        }
-        val authority = "${context.packageName}.fileprovider"
-        val uri = FileProvider.getUriForFile(context, authority, file)
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_TITLE, export.fileName)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            clipData = ClipData.newRawUri(export.fileName, uri)
-        }
-        context.startActivity(
-            Intent.createChooser(
-                intent,
-                context.getString(R.string.wallet_detail_export_chooser_title)
-            )
-        )
-        Handler(Looper.getMainLooper()).postDelayed(
-            {
-                runCatching {
-                    context.revokeUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                if (file.exists() && !file.delete()) {
-                    file.deleteOnExit()
-                }
-            },
-            LABEL_EXPORT_RETENTION_MS
-        )
-        true
-    }.isSuccess
-}

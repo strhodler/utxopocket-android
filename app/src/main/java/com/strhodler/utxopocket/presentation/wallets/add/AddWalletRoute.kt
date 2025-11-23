@@ -16,7 +16,7 @@ import com.strhodler.utxopocket.R
 @Composable
 fun AddWalletRoute(
     onBack: () -> Unit,
-    onWalletCreated: () -> Unit,
+    onWalletCreated: (String) -> Unit,
     onDescriptorHelp: () -> Unit,
     viewModel: AddWalletViewModel = hiltViewModel()
 ) {
@@ -30,10 +30,7 @@ fun AddWalletRoute(
             when (event) {
                 is AddWalletEvent.WalletCreated -> {
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                    snackbarHostState.showSnackbar(
-                        context.getString(R.string.add_wallet_success_message)
-                    )
-                    onWalletCreated()
+                    onWalletCreated(context.getString(R.string.add_wallet_success_message))
                 }
                 is AddWalletEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
             }

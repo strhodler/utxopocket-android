@@ -1,5 +1,6 @@
 package com.strhodler.utxopocket.data.transactionhealth
 
+import com.strhodler.utxopocket.domain.model.HealthScoreEngine
 import com.strhodler.utxopocket.domain.model.TransactionHealthBadge
 import com.strhodler.utxopocket.domain.model.TransactionHealthContext
 import com.strhodler.utxopocket.domain.model.TransactionHealthIndicator
@@ -67,9 +68,9 @@ class DefaultTransactionHealthAnalyzer @Inject constructor() : TransactionHealth
             detectConsolidation(transaction, context.parameters)?.let { add(it) }
         }
 
-        val finalScore = (BASE_SCORE + indicators.sumOf { it.delta }).coerceIn(0, BASE_SCORE)
+        val finalScore = HealthScoreEngine.calculateFinalScore(indicators)
         val badges = buildBadges(finalScore, indicators)
-        val pillarScores = calculatePillarScores(indicators)
+        val pillarScores = HealthScoreEngine.calculatePillarScores<TransactionHealthPillar>(indicators)
 
         return TransactionHealthResult(
             transactionId = transaction.id,
@@ -422,20 +423,6 @@ class DefaultTransactionHealthAnalyzer @Inject constructor() : TransactionHealth
         return badges.distinctBy { it.id }
     }
 
-    private fun calculatePillarScores(
-        indicators: List<TransactionHealthIndicator>
-    ): Map<TransactionHealthPillar, Int> {
-        if (indicators.isEmpty()) {
-            return TransactionHealthPillar.values().associateWith { BASE_SCORE }
-        }
-        val scores = TransactionHealthPillar.values().associateWithTo(mutableMapOf()) { BASE_SCORE }
-        indicators.forEach { indicator ->
-            val current = scores[indicator.pillar] ?: BASE_SCORE
-            scores[indicator.pillar] = (current + indicator.delta).coerceIn(0, BASE_SCORE)
-        }
-        return scores.toMap()
-    }
-
     private fun categorizeAddress(address: String?): ScriptCategory {
         if (address.isNullOrBlank()) return ScriptCategory.UNKNOWN
         val lower = address.lowercase(US)
@@ -468,7 +455,6 @@ class DefaultTransactionHealthAnalyzer @Inject constructor() : TransactionHealth
         String.format(Locale.US, "%.2f", value)
 
     private companion object {
-        private const val BASE_SCORE = 100
 
         private const val ADDRESS_REUSE_PENALTY = -15
         private const val CHANGE_EXPOSURE_HIGH_PENALTY = -12

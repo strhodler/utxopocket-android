@@ -1,6 +1,5 @@
 package com.strhodler.utxopocket.presentation.wallets
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,55 +11,39 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -75,10 +58,11 @@ import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
+import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
-import com.strhodler.utxopocket.presentation.components.ConnectionIssueBanner
-import com.strhodler.utxopocket.presentation.components.ConnectionIssueBannerStyle
-import com.strhodler.utxopocket.presentation.components.RefreshableContent
+import com.strhodler.utxopocket.presentation.components.ConnectionStatusBanner
+import com.strhodler.utxopocket.presentation.components.ConnectionStatusBannerStyle
+import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
@@ -87,9 +71,17 @@ import com.strhodler.utxopocket.presentation.wallets.components.toTheme
 import com.strhodler.utxopocket.presentation.wallets.components.walletCardBackground
 import com.strhodler.utxopocket.presentation.wallets.components.walletShimmer
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Router
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.platform.LocalView
+import android.view.HapticFeedbackConstants
+import androidx.compose.ui.unit.Dp
+import java.text.DateFormat
+import java.util.Date
 
-private const val TestnetFaucetsTopicId = "testnet-faucets"
 private const val DefaultBalanceAnimationDuration = 220
+private val AddWalletBottomSpacer: Dp = 64.dp
 
 @Composable
 fun WalletsRoute(
@@ -101,13 +93,22 @@ fun WalletsRoute(
     onWalletSelected: (Long, String) -> Unit,
     snackbarMessage: String? = null,
     onSnackbarConsumed: () -> Unit = {},
+    statusBarState: StatusBarUiState,
     viewModel: WalletsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val view = LocalView.current
+    val onCycleBalanceDisplay = remember(state.hapticsEnabled, view) {
+        {
+            if (state.hapticsEnabled) {
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            }
+            viewModel.cycleBalanceDisplayMode()
+        }
+    }
     SetPrimaryTopBar()
     WalletsScreen(
         state = state,
-        onRefreshRequested = viewModel::refresh,
         onAddWallet = onAddWallet,
         onOpenWiki = onOpenWiki,
         onOpenWikiTopic = onOpenWikiTopic,
@@ -115,14 +116,15 @@ fun WalletsRoute(
         onConnectTor = onConnectTor,
         onWalletSelected = onWalletSelected,
         snackbarMessage = snackbarMessage,
-        onSnackbarConsumed = onSnackbarConsumed
+        onSnackbarConsumed = onSnackbarConsumed,
+        isNetworkOnline = statusBarState.isNetworkOnline,
+        onCycleBalanceDisplay = onCycleBalanceDisplay
     )
 }
 
 @Composable
 fun WalletsScreen(
     state: WalletsUiState,
-    onRefreshRequested: () -> Unit,
     onAddWallet: () -> Unit,
     onOpenWiki: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
@@ -131,6 +133,8 @@ fun WalletsScreen(
     onWalletSelected: (Long, String) -> Unit,
     snackbarMessage: String? = null,
     onSnackbarConsumed: () -> Unit = {},
+    isNetworkOnline: Boolean,
+    onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -158,13 +162,14 @@ fun WalletsScreen(
         snackbarBottomInset = innerPadding.calculateBottomPadding()
         WalletsContent(
             state = state,
-            onRefreshRequested = onRefreshRequested,
             onOpenWiki = onOpenWiki,
             onOpenWikiTopic = onOpenWikiTopic,
             onSelectNode = onSelectNode,
-             onConnectTor = onConnectTor,
+            onConnectTor = onConnectTor,
             onWalletSelected = onWalletSelected,
             onAddWallet = onAddWallet,
+            isNetworkOnline = isNetworkOnline,
+            onCycleBalanceDisplay = onCycleBalanceDisplay,
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
@@ -175,95 +180,151 @@ fun WalletsScreen(
 @Composable
 private fun WalletsContent(
     state: WalletsUiState,
-    onRefreshRequested: () -> Unit,
     onOpenWiki: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onSelectNode: () -> Unit,
     onConnectTor: () -> Unit,
     onWalletSelected: (Long, String) -> Unit,
     onAddWallet: () -> Unit,
+    isNetworkOnline: Boolean,
+    onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val pullToRefreshState = rememberPullToRefreshState()
-    val shouldShowPullToRefreshIndicator = !(state.isRefreshing && state.nodeStatus is NodeStatus.Connecting)
-    val canAddWallet = state.nodeStatus is NodeStatus.Synced
-    val showNodePrompt = state.wallets.isEmpty() && !state.hasActiveNodeSelection
+    val canAddWallet = state.hasActiveNodeSelection || !isNetworkOnline
+    val showNodePrompt = state.wallets.isEmpty() && !state.hasActiveNodeSelection && isNetworkOnline
 
     val torStatus = state.torStatus
-    val showTorBanner = torStatus is TorStatus.Stopped || torStatus is TorStatus.Error
-    val torBannerMessage = stringResource(id = R.string.wallets_tor_disconnected_banner)
-
+    val showTorStatusBanner = state.torRequired || torStatus !is TorStatus.Stopped
+    val isNodeConnected = state.nodeStatus is NodeStatus.Synced
+    val isNodeConnecting = state.nodeStatus is NodeStatus.Connecting
     val hasWalletErrors = state.wallets.any { it.lastSyncStatus is NodeStatus.Error }
     val sanitizedErrorMessage = state.errorMessage.takeUnless { hasWalletErrors }?.takeIf { it.isNotBlank() }
-    val showDisconnectedBanner = state.nodeStatus == NodeStatus.Idle
-    val connectionBannerMessage = when {
-        sanitizedErrorMessage != null -> sanitizedErrorMessage
-        showDisconnectedBanner -> stringResource(id = R.string.wallets_node_disconnected_banner)
-        else -> null
-    }
+    val showDisconnectedBanner = !isNodeConnected &&
+        state.nodeStatus !is NodeStatus.Connecting &&
+        !state.isRefreshing
+    val showPendingSyncHint = canAddWallet && !isNodeConnected
 
-    RefreshableContent(
-        isRefreshing = state.isRefreshing,
-        onRefresh = {
-            if (!state.isRefreshing) {
-                onRefreshRequested()
-            }
-        },
-        modifier = modifier,
-        state = pullToRefreshState,
-        indicator = {
-            if (shouldShowPullToRefreshIndicator) {
-                PullToRefreshDefaults.Indicator(
-                    modifier = Modifier.align(Alignment.TopCenter),
-                    isRefreshing = state.isRefreshing,
-                    state = pullToRefreshState
+    val banner: (@Composable () -> Unit)? = when {
+        !isNetworkOnline -> {
+            {
+                val scheme = MaterialTheme.colorScheme
+                ActionableStatusBanner(
+                    title = stringResource(id = R.string.tor_status_banner_offline_title),
+                    supporting = stringResource(id = R.string.tor_status_banner_offline_supporting),
+                    icon = Icons.Outlined.Warning,
+                    containerColor = scheme.surfaceContainerHigh,
+                    contentColor = scheme.onSurface,
+                    onClick = onConnectTor
                 )
             }
         }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            when {
-                showTorBanner -> {
-                    ConnectionIssueBanner(
-                        message = torBannerMessage,
-                        primaryLabel = stringResource(id = R.string.tor_connect_action),
-                        onPrimaryClick = onConnectTor,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .fillMaxWidth()
+        showTorStatusBanner && torStatus !is TorStatus.Running -> {
+            {
+                val scheme = MaterialTheme.colorScheme
+                when (torStatus) {
+                    is TorStatus.Connecting -> ActionableStatusBanner(
+                        title = stringResource(
+                            id = R.string.tor_status_banner_connecting_title,
+                            torStatus.progress.coerceIn(0, 100)
+                        ),
+                        supporting = torStatus.message ?: stringResource(id = R.string.tor_status_banner_action),
+                        icon = Icons.Outlined.Info,
+                        containerColor = scheme.surfaceContainerHigh,
+                        contentColor = scheme.onSurface,
+                        onClick = onConnectTor
                     )
+
+                    is TorStatus.Error -> ActionableStatusBanner(
+                        title = stringResource(id = R.string.tor_status_banner_error_title, torStatus.message),
+                        supporting = stringResource(id = R.string.tor_status_banner_action),
+                        icon = Icons.Outlined.Warning,
+                        containerColor = scheme.errorContainer,
+                        contentColor = scheme.onErrorContainer,
+                        onClick = onConnectTor
+                    )
+
+                    TorStatus.Stopped -> ActionableStatusBanner(
+                        title = stringResource(id = R.string.tor_status_banner_stopped_title),
+                        supporting = stringResource(id = R.string.tor_status_banner_action),
+                        icon = Icons.Outlined.Warning,
+                        containerColor = scheme.surfaceContainerHigh,
+                        contentColor = scheme.onSurface,
+                        onClick = onConnectTor
+                    )
+
+                    is TorStatus.Running -> null
                 }
-                connectionBannerMessage != null -> {
-                    ConnectionIssueBanner(
-                        message = connectionBannerMessage,
+            }
+        }
+        isNodeConnecting -> {
+            {
+                ActionableStatusBanner(
+                    title = stringResource(id = R.string.wallets_node_connecting_banner),
+                    supporting = stringResource(id = R.string.wallets_manage_connection_action),
+                    icon = Icons.Outlined.Router,
+                    onClick = onSelectNode
+                )
+            }
+        }
+        showDisconnectedBanner -> {
+            sanitizedErrorMessage?.let { message ->
+                {
+                    ConnectionStatusBanner(
+                        message = message,
                         primaryLabel = stringResource(id = R.string.wallets_manage_connection_action),
                         onPrimaryClick = onSelectNode,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .fillMaxWidth()
+                        style = ConnectionStatusBannerStyle.Error
+                    )
+                }
+            } ?: run {
+                {
+                    val (title, supporting) =
+                        stringResource(id = R.string.wallets_node_disconnected_banner) to
+                            stringResource(id = R.string.wallets_manage_connection_action)
+                    ActionableStatusBanner(
+                        title = title,
+                        supporting = supporting,
+                        icon = Icons.Outlined.Router,
+                        onClick = onSelectNode
                     )
                 }
             }
-            WalletsList(
-                wallets = state.wallets,
-                onOpenWiki = onOpenWiki,
-                onOpenWikiTopic = onOpenWikiTopic,
-                balanceUnit = state.balanceUnit,
-                totalBalanceSats = state.totalBalanceSats,
-                onSelectNode = onSelectNode,
-                onWalletSelected = onWalletSelected,
-                onAddWallet = onAddWallet,
-                canAddWallet = canAddWallet,
-                showNodePrompt = showNodePrompt,
-                walletAnimationsEnabled = state.walletAnimationsEnabled,
-                isRefreshing = state.isRefreshing,
-                modifier = Modifier.weight(1f, fill = true)
-            )
+        }
+        else -> null
+    }
+    val bannerContent = banner.takeIf { !isNodeConnected }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        WalletsList(
+            wallets = state.wallets,
+            onOpenWiki = onOpenWiki,
+            onOpenWikiTopic = onOpenWikiTopic,
+            balanceUnit = state.balanceUnit,
+            balancesHidden = state.balancesHidden,
+            totalBalanceSats = state.totalBalanceSats,
+            onSelectNode = onSelectNode,
+            onWalletSelected = onWalletSelected,
+            onAddWallet = onAddWallet,
+            canAddWallet = canAddWallet,
+            showPendingSyncHint = showPendingSyncHint,
+            showNodePrompt = showNodePrompt,
+            walletAnimationsEnabled = state.walletAnimationsEnabled,
+            isRefreshing = state.isRefreshing,
+            refreshingWalletIds = state.refreshingWalletIds,
+            modifier = Modifier.fillMaxSize(),
+            additionalBottomPadding = if (bannerContent != null) AddWalletBottomSpacer else 0.dp,
+            onCycleBalanceDisplay = onCycleBalanceDisplay
+        )
+
+        bannerContent?.let { content ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .fillMaxWidth()
+            ) {
+                content()
+            }
         }
     }
 }
@@ -274,15 +335,20 @@ private fun WalletsList(
     onOpenWiki: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     balanceUnit: BalanceUnit,
+    balancesHidden: Boolean,
     totalBalanceSats: Long,
     onSelectNode: () -> Unit,
     onWalletSelected: (Long, String) -> Unit,
     onAddWallet: () -> Unit,
     canAddWallet: Boolean,
+    showPendingSyncHint: Boolean,
     showNodePrompt: Boolean,
     walletAnimationsEnabled: Boolean,
     isRefreshing: Boolean,
-    modifier: Modifier = Modifier
+    refreshingWalletIds: Set<Long> = emptySet(),
+    additionalBottomPadding: Dp = 0.dp,
+    modifier: Modifier = Modifier,
+    onCycleBalanceDisplay: () -> Unit
 ) {
     if (wallets.isEmpty()) {
         Box(
@@ -302,6 +368,7 @@ private fun WalletsList(
                     onOpenWiki = onOpenWiki,
                     onAddWallet = onAddWallet,
                     canAddWallet = canAddWallet,
+                    showPendingSyncHint = showPendingSyncHint,
                     modifier = centerModifier
                 )
             }
@@ -314,7 +381,7 @@ private fun WalletsList(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(
                 top = BalanceHeaderMetrics.CONTENT_TOP_PADDING,
-                bottom = BalanceHeaderMetrics.CONTENT_BOTTOM_PADDING,
+                bottom = BalanceHeaderMetrics.CONTENT_BOTTOM_PADDING + additionalBottomPadding,
                 start = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING,
                 end = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING
             )
@@ -323,17 +390,21 @@ private fun WalletsList(
                 WalletsBalanceHeader(
                     totalBalanceSats = totalBalanceSats,
                     balanceUnit = balanceUnit,
-                    animationsEnabled = walletAnimationsEnabled
+                    balancesHidden = balancesHidden,
+                    animationsEnabled = walletAnimationsEnabled,
+                    onCycleBalanceDisplay = onCycleBalanceDisplay
                 )
             }
             items(wallets, key = { it.id }) { wallet ->
+                val walletRefreshing = refreshingWalletIds.contains(wallet.id)
                 WalletCard(
                     wallet = wallet,
                     balanceUnit = balanceUnit,
+                    balancesHidden = balancesHidden,
                     onClick = { onWalletSelected(wallet.id, wallet.name) },
                     modifier = Modifier.fillMaxWidth(),
                     animationsEnabled = walletAnimationsEnabled,
-                    isSyncing = isRefreshing
+                    isSyncing = walletRefreshing || (isRefreshing && refreshingWalletIds.isEmpty())
                 )
             }
             item(key = "wallets-add-descriptor") {
@@ -345,6 +416,15 @@ private fun WalletsList(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = stringResource(id = R.string.wallets_add_wallet_disabled_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                } else if (showPendingSyncHint) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(id = R.string.wallets_add_wallet_pending_sync_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.fillMaxWidth(),
@@ -364,7 +444,7 @@ private object BalanceHeaderMetrics {
     val CONTENT_BOTTOM_PADDING = 24.dp
 }
 
-private val AddDescriptorCtaMinHeight = 56.dp
+private val AddDescriptorCtaMinHeight = 64.dp
 private val AddDescriptorCtaContentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp)
 
 @Composable
@@ -373,7 +453,7 @@ private fun AddDescriptorCtaButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier.fillMaxWidth()
 ) {
-    Button(
+    TextButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.heightIn(min = AddDescriptorCtaMinHeight),
@@ -383,7 +463,7 @@ private fun AddDescriptorCtaButton(
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = stringResource(id = R.string.wallets_add_wallet_action),
-            style = MaterialTheme.typography.titleSmall
+            style = MaterialTheme.typography.titleMedium
         )
     }
 }
@@ -394,18 +474,27 @@ private val WalletCardCornerRadius = 12.dp
 private fun WalletCard(
     wallet: WalletSummary,
     balanceUnit: BalanceUnit,
+    balancesHidden: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     animationsEnabled: Boolean,
     isSyncing: Boolean
 ) {
     val syncStatus = wallet.lastSyncStatus
-    val statusLabel = nodeStatusLabel(syncStatus, isSyncing)
+    val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT) }
+    val lastSyncText = remember(wallet.lastSyncTime) {
+        wallet.lastSyncTime?.let { timestamp -> dateFormat.format(Date(timestamp)) }
+    }
+    val statusLabel = when {
+        isSyncing -> stringResource(id = R.string.wallets_state_syncing)
+        lastSyncText != null -> stringResource(id = R.string.wallets_last_sync, lastSyncText)
+        else -> nodeStatusLabel(syncStatus, false)
+    }
     val theme = remember(wallet.color) { wallet.color.toTheme() }
     val shimmerPhase = if (animationsEnabled) rememberWalletShimmerPhase() else 0f
     val contentColor = theme.onGradient
     val secondaryTextColor = contentColor.copy(alpha = 0.85f)
-    val errorIndicatorColor = MaterialTheme.colorScheme.error
+    val statusColor = if (isSyncing) contentColor else secondaryTextColor
     Card(
         onClick = onClick,
         modifier = modifier,
@@ -468,6 +557,7 @@ private fun WalletCard(
                 RollingBalanceText(
                     balanceSats = wallet.balanceSats,
                     unit = balanceUnit,
+                    hidden = balancesHidden,
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = contentColor
@@ -492,34 +582,8 @@ private fun WalletCard(
                 Text(
                     text = statusLabel,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = when (syncStatus) {
-                        NodeStatus.Synced -> contentColor
-                        is NodeStatus.Error -> contentColor
-                        else -> secondaryTextColor
-                    }
+                    color = statusColor
                 )
-            }
-            if (syncStatus is NodeStatus.Error) {
-                val errorText = remember(syncStatus.message) {
-                    sanitizeWalletErrorMessage(syncStatus.message)
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Warning,
-                        contentDescription = stringResource(id = R.string.wallets_sync_error_icon_description),
-                        tint = errorIndicatorColor
-                    )
-                    Text(
-                        text = errorText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = contentColor,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
             }
         }
     }
@@ -529,8 +593,10 @@ private fun WalletCard(
 private fun WalletsBalanceHeader(
     totalBalanceSats: Long,
     balanceUnit: BalanceUnit,
+    balancesHidden: Boolean,
     modifier: Modifier = Modifier,
-    animationsEnabled: Boolean
+    animationsEnabled: Boolean,
+    onCycleBalanceDisplay: () -> Unit
 ) {
     Surface(
         modifier = modifier
@@ -553,11 +619,17 @@ private fun WalletsBalanceHeader(
             RollingBalanceText(
                 balanceSats = totalBalanceSats,
                 unit = balanceUnit,
+                hidden = balancesHidden,
                 style = MaterialTheme.typography.displaySmall.copy(
                     fontWeight = FontWeight.Medium
                 ),
                 monospaced = true,
-                animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0
+                animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0,
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onCycleBalanceDisplay
+                )
             )
         }
     }
@@ -609,6 +681,7 @@ private fun EmptyState(
     onOpenWiki: () -> Unit,
     onAddWallet: () -> Unit,
     canAddWallet: Boolean,
+    showPendingSyncHint: Boolean,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -640,6 +713,17 @@ private fun EmptyState(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = stringResource(id = R.string.wallets_add_wallet_disabled_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
+            } else if (showPendingSyncHint) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(id = R.string.wallets_add_wallet_pending_sync_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -701,6 +785,7 @@ private fun nodeStatusLabel(status: NodeStatus, isSyncing: Boolean): String {
     return when (status) {
         NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
         NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
+        NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
         NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
         is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
     }

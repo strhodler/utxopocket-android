@@ -414,6 +414,7 @@ private class FakeWalletRepository : WalletRepository {
         )
 
     override suspend fun refresh(network: BitcoinNetwork) = Unit
+    override suspend fun refreshWallet(walletId: Long) = Unit
 
     override suspend fun validateDescriptor(
         descriptor: String,
@@ -474,9 +475,13 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val _themePreference = MutableStateFlow(ThemePreference.SYSTEM)
     private val _appLanguage = MutableStateFlow(AppLanguage.EN)
     private val _balanceUnit = MutableStateFlow(BalanceUnit.SATS)
+    private val _balancesHidden = MutableStateFlow(false)
     private val _walletBalanceRange = MutableStateFlow(BalanceRange.LastYear)
     private val _walletAnimationsEnabled = MutableStateFlow(true)
     private val _advancedMode = MutableStateFlow(false)
+    private val _pinAutoLockTimeoutMinutes =
+        MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
+    private val _pinLastUnlockedAt = MutableStateFlow<Long?>(null)
     private val _dustThresholdSats = MutableStateFlow(WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS)
     private val _transactionAnalysisEnabled = MutableStateFlow(true)
     private val _utxoHealthEnabled = MutableStateFlow(true)
@@ -491,9 +496,12 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val themePreference: Flow<ThemePreference> = _themePreference
     override val appLanguage: Flow<AppLanguage> = _appLanguage
     override val balanceUnit: Flow<BalanceUnit> = _balanceUnit
+    override val balancesHidden: Flow<Boolean> = _balancesHidden
     override val walletBalanceRange: Flow<BalanceRange> = _walletBalanceRange
     override val walletAnimationsEnabled: Flow<Boolean> = _walletAnimationsEnabled
     override val advancedMode: Flow<Boolean> = _advancedMode
+    override val pinAutoLockTimeoutMinutes: Flow<Int> = _pinAutoLockTimeoutMinutes
+    override val pinLastUnlockedAt: Flow<Long?> = _pinLastUnlockedAt
     override val dustThresholdSats: Flow<Long> = _dustThresholdSats
     override val transactionAnalysisEnabled: Flow<Boolean> = _transactionAnalysisEnabled
     override val utxoHealthEnabled: Flow<Boolean> = _utxoHealthEnabled
@@ -519,6 +527,14 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun verifyPin(pin: String): PinVerificationResult = PinVerificationResult.NotConfigured
 
+    override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) {
+        _pinAutoLockTimeoutMinutes.value = minutes
+    }
+
+    override suspend fun markPinUnlocked(timestampMillis: Long) {
+        _pinLastUnlockedAt.value = timestampMillis
+    }
+
     override suspend fun setThemePreference(themePreference: ThemePreference) {
         _themePreference.value = themePreference
     }
@@ -529,6 +545,23 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun setBalanceUnit(unit: BalanceUnit) {
         _balanceUnit.value = unit
+    }
+
+    override suspend fun setBalancesHidden(hidden: Boolean) {
+        _balancesHidden.value = hidden
+    }
+
+    override suspend fun cycleBalanceDisplayMode() {
+        val currentUnit = _balanceUnit.value
+        val currentlyHidden = _balancesHidden.value
+        when {
+            currentlyHidden -> {
+                _balancesHidden.value = false
+                _balanceUnit.value = BalanceUnit.SATS
+            }
+            currentUnit == BalanceUnit.SATS -> _balanceUnit.value = BalanceUnit.BTC
+            else -> _balancesHidden.value = true
+        }
     }
 
     override suspend fun setWalletBalanceRange(range: BalanceRange) {

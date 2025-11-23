@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -50,10 +51,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -78,6 +77,8 @@ import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionInput
 import com.strhodler.utxopocket.domain.model.WalletTransactionOutput
+import com.strhodler.utxopocket.presentation.common.SectionCard
+import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.displayLabel
 import com.strhodler.utxopocket.domain.model.WalletDefaults
@@ -118,6 +119,9 @@ import com.strhodler.utxopocket.domain.repository.UtxoHealthRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.TransactionHealthAnalyzer
 import com.strhodler.utxopocket.data.utxohealth.DefaultUtxoHealthAnalyzer
+import android.view.HapticFeedbackConstants
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -158,6 +162,15 @@ fun TransactionDetailRoute(
     viewModel: TransactionDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val view = LocalView.current
+    val onCycleBalanceDisplay = remember(state.hapticsEnabled, view) {
+        {
+            if (state.hapticsEnabled) {
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            }
+            viewModel.cycleBalanceDisplayMode()
+        }
+    }
     var showLabelDialog by remember { mutableStateOf(false) }
     var pendingLabel by remember { mutableStateOf<String?>(null) }
     val transactionLabelSavedMessage = stringResource(id = R.string.transaction_detail_label_success)
@@ -209,6 +222,7 @@ fun TransactionDetailRoute(
                 pendingLabel = label
                 showLabelDialog = true
             },
+            onCycleBalanceDisplay = onCycleBalanceDisplay,
             onOpenWikiTopic = onOpenWikiTopic,
             onShowMessage = showSnackbar,
             modifier = Modifier
@@ -226,6 +240,15 @@ fun UtxoDetailRoute(
     viewModel: UtxoDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val view = LocalView.current
+    val onCycleBalanceDisplay = remember(state.hapticsEnabled, view) {
+        {
+            if (state.hapticsEnabled) {
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            }
+            viewModel.cycleBalanceDisplayMode()
+        }
+    }
     var showLabelDialog by remember { mutableStateOf(false) }
     var pendingLabel by remember { mutableStateOf<String?>(null) }
     val labelSavedMessage = stringResource(id = R.string.utxo_detail_label_success)
@@ -288,6 +311,7 @@ fun UtxoDetailRoute(
                 }
             },
             spendableUpdating = spendableUpdating,
+            onCycleBalanceDisplay = onCycleBalanceDisplay,
             onOpenWikiTopic = onOpenWikiTopic,
             onShowMessage = showSnackbar,
             modifier = Modifier
@@ -302,7 +326,7 @@ fun UtxoDetailRoute(
 class TransactionDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val walletRepository: WalletRepository,
-    appPreferencesRepository: AppPreferencesRepository,
+    private val appPreferencesRepository: AppPreferencesRepository,
     private val transactionHealthAnalyzer: TransactionHealthAnalyzer,
     private val transactionHealthRepository: TransactionHealthRepository
 ) : ViewModel() {
@@ -320,20 +344,24 @@ class TransactionDetailViewModel @Inject constructor(
     val uiState: StateFlow<TransactionDetailUiState> = combine(
         walletRepository.observeWalletDetail(walletId),
         appPreferencesRepository.balanceUnit,
+        appPreferencesRepository.balancesHidden,
         appPreferencesRepository.advancedMode,
         appPreferencesRepository.dustThresholdSats,
         appPreferencesRepository.transactionHealthParameters,
         appPreferencesRepository.transactionAnalysisEnabled,
-        storedHealthState
+        storedHealthState,
+        appPreferencesRepository.hapticsEnabled
     ) { values: Array<Any?> ->
         val detail = values[0] as WalletDetail?
         val balanceUnit = values[1] as BalanceUnit
-        val advancedMode = values[2] as Boolean
-        val dustThreshold = values[3] as Long
-        val transactionParameters = values[4] as TransactionHealthParameters
-        val analysisEnabled = values[5] as Boolean
+        val balancesHidden = values[2] as Boolean
+        val advancedMode = values[3] as Boolean
+        val dustThreshold = values[4] as Long
+        val transactionParameters = values[5] as TransactionHealthParameters
+        val analysisEnabled = values[6] as Boolean
         @Suppress("UNCHECKED_CAST")
-        val storedHealth = values[6] as List<TransactionHealthResult>
+        val storedHealth = values[7] as List<TransactionHealthResult>
+        val hapticsEnabled = values[8] as Boolean
         val storedHealthMap = storedHealth.associateBy { it.transactionId }
         if (analysisEnabled && detail != null) {
             val computedHealth = transactionHealthAnalyzer
@@ -357,6 +385,8 @@ class TransactionDetailViewModel @Inject constructor(
                 walletSummary = null,
                 transaction = null,
                 balanceUnit = balanceUnit,
+                balancesHidden = balancesHidden,
+                hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
                 error = TransactionDetailError.NotFound,
                 transactionAnalysisEnabled = analysisEnabled,
@@ -368,6 +398,8 @@ class TransactionDetailViewModel @Inject constructor(
                 walletSummary = detail.summary,
                 transaction = null,
                 balanceUnit = balanceUnit,
+                balancesHidden = balancesHidden,
+                hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
                 error = TransactionDetailError.NotFound,
                 transactionAnalysisEnabled = analysisEnabled,
@@ -379,7 +411,9 @@ class TransactionDetailViewModel @Inject constructor(
                 walletSummary = detail.summary,
                 transaction = transaction,
                 balanceUnit = balanceUnit,
+                balancesHidden = balancesHidden,
                 advancedMode = advancedMode,
+                hapticsEnabled = hapticsEnabled,
                 error = null,
                 transactionAnalysisEnabled = analysisEnabled,
                 transactionHealth = transactionHealth
@@ -398,13 +432,19 @@ class TransactionDetailViewModel @Inject constructor(
             onResult(result)
         }
     }
+
+    fun cycleBalanceDisplayMode() {
+        viewModelScope.launch {
+            appPreferencesRepository.cycleBalanceDisplayMode()
+        }
+    }
 }
 
 @HiltViewModel
 class UtxoDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val walletRepository: WalletRepository,
-    appPreferencesRepository: AppPreferencesRepository,
+    private val appPreferencesRepository: AppPreferencesRepository,
     private val utxoHealthRepository: UtxoHealthRepository
 ) : ViewModel() {
 
@@ -425,20 +465,24 @@ class UtxoDetailViewModel @Inject constructor(
     val uiState: StateFlow<UtxoDetailUiState> = combine(
         walletRepository.observeWalletDetail(walletId),
         appPreferencesRepository.balanceUnit,
+        appPreferencesRepository.balancesHidden,
         appPreferencesRepository.advancedMode,
         appPreferencesRepository.dustThresholdSats,
         appPreferencesRepository.utxoHealthParameters,
         appPreferencesRepository.utxoHealthEnabled,
-        storedUtxoHealthState
+        storedUtxoHealthState,
+        appPreferencesRepository.hapticsEnabled
     ) { values: Array<Any?> ->
         val detail = values[0] as WalletDetail?
         val balanceUnit = values[1] as BalanceUnit
-        val advancedMode = values[2] as Boolean
-        val dustThreshold = values[3] as Long
-        val utxoParameters = values[4] as UtxoHealthParameters
-        val healthEnabled = values[5] as Boolean
+        val balancesHidden = values[2] as Boolean
+        val advancedMode = values[3] as Boolean
+        val dustThreshold = values[4] as Long
+        val utxoParameters = values[5] as UtxoHealthParameters
+        val healthEnabled = values[6] as Boolean
         @Suppress("UNCHECKED_CAST")
-        val storedHealth = values[6] as List<UtxoHealthResult>
+        val storedHealth = values[7] as List<UtxoHealthResult>
+        val hapticsEnabled = values[8] as Boolean
         val utxo = detail?.utxos?.firstOrNull { it.txid == txId && it.vout == vout }
         val stored = storedHealth.firstOrNull { it.txid == txId && it.vout == vout }
         val utxoHealth = if (healthEnabled && utxo != null) {
@@ -463,6 +507,8 @@ class UtxoDetailViewModel @Inject constructor(
                 walletSummary = null,
                 utxo = null,
                 balanceUnit = balanceUnit,
+                balancesHidden = balancesHidden,
+                hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
                 error = UtxoDetailError.NotFound,
                 dustThresholdSats = dustThreshold,
@@ -475,6 +521,8 @@ class UtxoDetailViewModel @Inject constructor(
                 walletSummary = detail.summary,
                 utxo = null,
                 balanceUnit = balanceUnit,
+                balancesHidden = balancesHidden,
+                hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
                 error = UtxoDetailError.NotFound,
                 dustThresholdSats = dustThreshold,
@@ -487,6 +535,8 @@ class UtxoDetailViewModel @Inject constructor(
                 walletSummary = detail.summary,
                 utxo = utxo,
                 balanceUnit = balanceUnit,
+                balancesHidden = balancesHidden,
+                hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
                 error = null,
                 dustThresholdSats = dustThreshold,
@@ -516,6 +566,12 @@ class UtxoDetailViewModel @Inject constructor(
             onResult(result)
         }
     }
+
+    fun cycleBalanceDisplayMode() {
+        viewModelScope.launch {
+            appPreferencesRepository.cycleBalanceDisplayMode()
+        }
+    }
 }
 
 data class TransactionDetailUiState(
@@ -523,6 +579,8 @@ data class TransactionDetailUiState(
     val walletSummary: WalletSummary? = null,
     val transaction: WalletTransaction? = null,
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
+    val balancesHidden: Boolean = false,
+    val hapticsEnabled: Boolean = true,
     val advancedMode: Boolean = false,
     val error: TransactionDetailError? = null,
     val transactionAnalysisEnabled: Boolean = true,
@@ -538,6 +596,8 @@ data class UtxoDetailUiState(
     val walletSummary: WalletSummary? = null,
     val utxo: WalletUtxo? = null,
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
+    val balancesHidden: Boolean = false,
+    val hapticsEnabled: Boolean = true,
     val advancedMode: Boolean = false,
     val error: UtxoDetailError? = null,
     val dustThresholdSats: Long = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS,
@@ -554,6 +614,7 @@ sealed interface UtxoDetailError {
 private fun TransactionDetailScreen(
     state: TransactionDetailUiState,
     onEditTransactionLabel: (String?) -> Unit,
+    onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
@@ -574,6 +635,7 @@ private fun TransactionDetailScreen(
             TransactionDetailContent(
                 state = state,
                 onEditTransactionLabel = onEditTransactionLabel,
+                onCycleBalanceDisplay = onCycleBalanceDisplay,
                 onOpenWikiTopic = onOpenWikiTopic,
                 onShowMessage = onShowMessage,
                 modifier = modifier
@@ -588,6 +650,7 @@ private fun UtxoDetailScreen(
     onEditLabel: (String?) -> Unit,
     onToggleSpendable: (Boolean) -> Unit,
     spendableUpdating: Boolean,
+    onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
@@ -610,6 +673,7 @@ private fun UtxoDetailScreen(
                 onEditLabel = onEditLabel,
                 onToggleSpendable = onToggleSpendable,
                 spendableUpdating = spendableUpdating,
+                onCycleBalanceDisplay = onCycleBalanceDisplay,
                 onOpenWikiTopic = onOpenWikiTopic,
                 onShowMessage = onShowMessage,
                 modifier = modifier
@@ -685,18 +749,26 @@ private fun LabelEditDialog(
 private fun TransactionDetailContent(
     state: TransactionDetailUiState,
     onEditTransactionLabel: (String?) -> Unit,
+    onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val transaction = requireNotNull(state.transaction)
-    val clipboardManager = LocalClipboardManager.current
     val copyMessage = stringResource(id = R.string.transaction_detail_copy_toast)
-    val amountText = remember(transaction, state.balanceUnit) {
+    val showShortMessage = remember(onShowMessage) {
+        { message: String -> onShowMessage(message, SnackbarDuration.Short) }
+    }
+    val copyToClipboard = rememberCopyToClipboard(
+        successMessage = copyMessage,
+        onShowMessage = showShortMessage
+    )
+    val amountText = remember(transaction, state.balanceUnit, state.balancesHidden) {
         transactionAmount(
             amountSats = transaction.amountSats,
             type = transaction.type,
-            unit = state.balanceUnit
+            unit = state.balanceUnit,
+            hidden = state.balancesHidden
         )
     }
     val confirmationsLabel = confirmationLabel(transaction.confirmations)
@@ -726,6 +798,7 @@ private fun TransactionDetailContent(
             confirmationsLabel = confirmationsLabel,
             label = transaction.label,
             onEditLabel = { onEditTransactionLabel(transaction.label) },
+            onCycleBalanceDisplay = onCycleBalanceDisplay,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -809,8 +882,10 @@ private fun TransactionDetailContent(
                         badges = badges
                     )
                 }
-                DetailSection(
-                    title = stringResource(id = R.string.transaction_detail_flow_inputs)
+                SectionCard(
+                    title = stringResource(id = R.string.transaction_detail_flow_inputs),
+                    contentPadding = PaddingValues(16.dp),
+                    contentSpacing = 12.dp
                 ) {
                     TransactionFlowColumn(
                         items = inputDisplays,
@@ -857,8 +932,10 @@ private fun TransactionDetailContent(
                         highlighted = output.isMine
                     )
                 }
-                DetailSection(
-                    title = stringResource(id = R.string.transaction_detail_flow_outputs)
+                SectionCard(
+                    title = stringResource(id = R.string.transaction_detail_flow_outputs),
+                    contentPadding = PaddingValues(16.dp),
+                    contentSpacing = 12.dp
                 ) {
                     TransactionFlowColumn(
                         items = outputDisplays,
@@ -867,18 +944,17 @@ private fun TransactionDetailContent(
                 }
             }
 
-            DetailSection(
-                title = stringResource(id = R.string.transaction_detail_section_overview)
+            SectionCard(
+                title = stringResource(id = R.string.transaction_detail_section_overview),
+                contentPadding = PaddingValues(16.dp),
+                contentSpacing = 12.dp
             ) {
                 DetailRow(
                     label = stringResource(id = R.string.transaction_detail_id_label),
                     value = transaction.id,
                     singleLine = false,
                     trailing = {
-                        IconButton(onClick = {
-                            clipboardManager.setText(AnnotatedString(transaction.id))
-                            onShowMessage(copyMessage, SnackbarDuration.Short)
-                        }) {
+                        IconButton(onClick = { copyToClipboard(transaction.id) }) {
                             Icon(
                                 imageVector = Icons.Outlined.ContentCopy,
                                 contentDescription = stringResource(id = R.string.transaction_detail_copy_id)
@@ -895,8 +971,10 @@ private fun TransactionDetailContent(
                     value = feeRateLabel
                 )
             }
-            DetailSection(
-                title = stringResource(id = R.string.transaction_detail_section_status)
+            SectionCard(
+                title = stringResource(id = R.string.transaction_detail_section_status),
+                contentPadding = PaddingValues(16.dp),
+                contentSpacing = 12.dp
             ) {
                 DetailRow(
                     label = stringResource(id = R.string.transaction_detail_confirmations_label),
@@ -911,10 +989,7 @@ private fun TransactionDetailContent(
                     value = blockHashValue ?: stringResource(id = R.string.transaction_detail_unknown),
                     trailing = blockHashValue?.let {
                         {
-                        IconButton(onClick = {
-                            clipboardManager.setText(AnnotatedString(it))
-                            onShowMessage(copyMessage, SnackbarDuration.Short)
-                        }) {
+                        IconButton(onClick = { copyToClipboard(it) }) {
                             Icon(
                                 imageVector = Icons.Outlined.ContentCopy,
                                     contentDescription = stringResource(id = R.string.transaction_detail_copy_block_hash)
@@ -928,8 +1003,10 @@ private fun TransactionDetailContent(
                 value = dateLabel
             )
         }
-            DetailSection(
-                title = stringResource(id = R.string.transaction_detail_section_size)
+            SectionCard(
+                title = stringResource(id = R.string.transaction_detail_section_size),
+                contentPadding = PaddingValues(16.dp),
+                contentSpacing = 12.dp
             ) {
                 DetailRow(
                     label = stringResource(id = R.string.transaction_detail_size_bytes),
@@ -953,8 +1030,7 @@ private fun TransactionDetailContent(
                 TransactionHexBlock(
                     hex = rawHex,
                     onCopy = {
-                        clipboardManager.setText(AnnotatedString(rawHex))
-                        onShowMessage(copyMessage, SnackbarDuration.Short)
+                        copyToClipboard(rawHex)
                     }
                 )
             }
@@ -972,6 +1048,7 @@ private fun TransactionDetailHeader(
     confirmationsLabel: String,
     label: String?,
     onEditLabel: () -> Unit,
+    onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val headerTheme = rememberDetailHeaderTheme()
@@ -1012,7 +1089,12 @@ private fun TransactionDetailHeader(
                 fontWeight = FontWeight.SemiBold,
                 color = contentColor
             ),
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onCycleBalanceDisplay
+            )
         )
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
@@ -1057,6 +1139,7 @@ private fun UtxoDetailContent(
     onEditLabel: (String?) -> Unit,
     onToggleSpendable: (Boolean) -> Unit,
     spendableUpdating: Boolean,
+    onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
@@ -1064,8 +1147,11 @@ private fun UtxoDetailContent(
     val utxo = requireNotNull(state.utxo)
     val displayLabel = utxo.displayLabel
     val isInheritedLabel = utxo.label.isNullOrBlank() && !utxo.transactionLabel.isNullOrBlank()
-    val clipboardManager = LocalClipboardManager.current
     val copyMessage = stringResource(id = R.string.utxo_detail_copy_toast)
+    val copyToClipboard = rememberCopyToClipboard(
+        successMessage = copyMessage,
+        onShowMessage = { message -> onShowMessage(message, SnackbarDuration.Short) }
+    )
     val fullOutpoint = remember(utxo.txid, utxo.vout) { "${utxo.txid}:${utxo.vout}" }
     val displayOutpoint = remember(utxo.txid, utxo.vout) { formatOutPoint(utxo.txid, utxo.vout) }
     val confirmationsLabel = confirmationLabel(utxo.confirmations)
@@ -1098,9 +1184,11 @@ private fun UtxoDetailContent(
             depositInfo = depositInfoText,
             valueSats = utxo.valueSats,
             unit = state.balanceUnit,
+            balancesHidden = state.balancesHidden,
             label = displayLabel,
             isInherited = isInheritedLabel,
             onEditLabel = { onEditLabel(displayLabel) },
+            onCycleBalanceDisplay = onCycleBalanceDisplay,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -1137,17 +1225,16 @@ private fun UtxoDetailContent(
                 updating = spendableUpdating,
                 onToggle = onToggleSpendable
             )
-            DetailSection(
-                title = stringResource(id = R.string.utxo_detail_section_overview)
+            SectionCard(
+                title = stringResource(id = R.string.utxo_detail_section_overview),
+                contentPadding = PaddingValues(16.dp),
+                contentSpacing = 12.dp
             ) {
                 DetailRow(
                     label = stringResource(id = R.string.utxo_detail_outpoint_label),
                     value = fullOutpoint,
                     trailing = {
-                        IconButton(onClick = {
-                            clipboardManager.setText(AnnotatedString(fullOutpoint))
-                            onShowMessage(copyMessage, SnackbarDuration.Short)
-                        }) {
+                        IconButton(onClick = { copyToClipboard(fullOutpoint) }) {
                             Icon(
                                 imageVector = Icons.Outlined.ContentCopy,
                                 contentDescription = stringResource(id = R.string.utxo_detail_copy_outpoint)
@@ -1164,8 +1251,10 @@ private fun UtxoDetailContent(
                     value = confirmationsLabel
                 )
             }
-            DetailSection(
-                title = stringResource(id = R.string.utxo_detail_section_metadata)
+            SectionCard(
+                title = stringResource(id = R.string.utxo_detail_section_metadata),
+                contentPadding = PaddingValues(16.dp),
+                contentSpacing = 12.dp
             ) {
                 utxo.address?.let { address ->
                     DetailRow(
@@ -1173,10 +1262,7 @@ private fun UtxoDetailContent(
                         value = address,
                         singleLine = false,
                         trailing = {
-                            IconButton(onClick = {
-                                clipboardManager.setText(AnnotatedString(address))
-                                onShowMessage(copyMessage, SnackbarDuration.Short)
-                            }) {
+                            IconButton(onClick = { copyToClipboard(address) }) {
                                 Icon(
                                     imageVector = Icons.Outlined.ContentCopy,
                                     contentDescription = stringResource(id = R.string.utxo_detail_copy_address)
@@ -1202,10 +1288,7 @@ private fun UtxoDetailContent(
                     value = utxo.txid,
                     singleLine = false,
                     trailing = {
-                        IconButton(onClick = {
-                            clipboardManager.setText(AnnotatedString(utxo.txid))
-                            onShowMessage(copyMessage, SnackbarDuration.Short)
-                        }) {
+                        IconButton(onClick = { copyToClipboard(utxo.txid) }) {
                             Icon(
                                 imageVector = Icons.Outlined.ContentCopy,
                                 contentDescription = stringResource(id = R.string.utxo_detail_copy_txid)
@@ -1228,9 +1311,11 @@ private fun UtxoDetailHeader(
     depositInfo: String,
     valueSats: Long,
     unit: BalanceUnit,
+    balancesHidden: Boolean,
     label: String?,
     isInherited: Boolean,
     onEditLabel: () -> Unit,
+    onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val headerTheme = rememberDetailHeaderTheme()
@@ -1268,11 +1353,17 @@ private fun UtxoDetailHeader(
         RollingBalanceText(
             balanceSats = valueSats,
             unit = unit,
+            hidden = balancesHidden,
             style = MaterialTheme.typography.displaySmall.copy(
                 fontWeight = FontWeight.SemiBold,
                 color = contentColor
             ),
-            monospaced = true
+            monospaced = true,
+            modifier = Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onCycleBalanceDisplay
+            )
         )
         LabelChip(
             label = label,
@@ -1800,37 +1891,6 @@ private fun TransactionHealthSeverity.labelRes(): Int = when (this) {
     TransactionHealthSeverity.LOW -> R.string.transaction_health_severity_low
     TransactionHealthSeverity.MEDIUM -> R.string.transaction_health_severity_medium
     TransactionHealthSeverity.HIGH -> R.string.transaction_health_severity_high
-}
-
-@Composable
-private fun DetailSection(
-    title: String,
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-            content()
-        }
-    }
 }
 
 @Composable

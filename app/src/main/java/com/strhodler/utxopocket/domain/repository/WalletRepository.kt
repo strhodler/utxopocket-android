@@ -38,6 +38,7 @@ interface WalletRepository {
     fun observeUtxoCount(id: Long): Flow<Int>
     fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>>
     suspend fun refresh(network: BitcoinNetwork)
+    suspend fun refreshWallet(walletId: Long)
     suspend fun validateDescriptor(
         descriptor: String,
         changeDescriptor: String?,

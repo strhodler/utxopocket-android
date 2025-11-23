@@ -11,11 +11,11 @@ data class UtxoHealthResult(
 
 data class UtxoHealthIndicator(
     val type: UtxoHealthIndicatorType,
-    val delta: Int,
+    override val delta: Int,
     val severity: UtxoHealthSeverity,
-    val pillar: UtxoHealthPillar,
+    override val pillar: UtxoHealthPillar,
     val evidence: Map<String, String> = emptyMap()
-)
+) : PillaredIndicator<UtxoHealthPillar>
 
 data class UtxoHealthBadge(
     val id: String,

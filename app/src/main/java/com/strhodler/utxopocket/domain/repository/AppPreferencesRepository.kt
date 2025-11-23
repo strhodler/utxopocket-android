@@ -17,9 +17,14 @@ interface AppPreferencesRepository {
     val themePreference: Flow<ThemePreference>
     val appLanguage: Flow<AppLanguage>
     val balanceUnit: Flow<BalanceUnit>
+    val balancesHidden: Flow<Boolean>
     val walletAnimationsEnabled: Flow<Boolean>
+    val hapticsEnabled: Flow<Boolean>
     val walletBalanceRange: Flow<BalanceRange>
     val advancedMode: Flow<Boolean>
+    val pinAutoLockTimeoutMinutes: Flow<Int>
+    val connectionIdleTimeoutMinutes: Flow<Int>
+    val pinLastUnlockedAt: Flow<Long?>
     val dustThresholdSats: Flow<Long>
     val transactionAnalysisEnabled: Flow<Boolean>
     val utxoHealthEnabled: Flow<Boolean>
@@ -32,13 +37,19 @@ interface AppPreferencesRepository {
     suspend fun setPin(pin: String)
     suspend fun clearPin()
     suspend fun verifyPin(pin: String): PinVerificationResult
+    suspend fun setPinAutoLockTimeoutMinutes(minutes: Int)
+    suspend fun markPinUnlocked(timestampMillis: Long = System.currentTimeMillis())
     suspend fun setThemePreference(themePreference: ThemePreference)
     suspend fun setAppLanguage(language: AppLanguage)
     suspend fun setBalanceUnit(unit: BalanceUnit)
+    suspend fun setBalancesHidden(hidden: Boolean)
+    suspend fun cycleBalanceDisplayMode()
     suspend fun setWalletAnimationsEnabled(enabled: Boolean)
+    suspend fun setHapticsEnabled(enabled: Boolean)
     suspend fun setWalletBalanceRange(range: BalanceRange)
     suspend fun setAdvancedMode(enabled: Boolean)
     suspend fun setDustThresholdSats(thresholdSats: Long)
+    suspend fun setConnectionIdleTimeoutMinutes(minutes: Int)
     suspend fun setTransactionAnalysisEnabled(enabled: Boolean)
     suspend fun setUtxoHealthEnabled(enabled: Boolean)
     suspend fun setWalletHealthEnabled(enabled: Boolean)
@@ -47,4 +58,14 @@ interface AppPreferencesRepository {
     suspend fun resetTransactionHealthParameters()
     suspend fun resetUtxoHealthParameters()
     suspend fun wipeAll()
+
+    companion object {
+        const val MIN_PIN_AUTO_LOCK_MINUTES = 0
+        const val MAX_PIN_AUTO_LOCK_MINUTES = 15
+        const val DEFAULT_PIN_AUTO_LOCK_MINUTES = 5
+
+        const val MIN_CONNECTION_IDLE_MINUTES = 3
+        const val MAX_CONNECTION_IDLE_MINUTES = 15
+        const val DEFAULT_CONNECTION_IDLE_MINUTES = 10
+    }
 }

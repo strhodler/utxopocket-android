@@ -2,12 +2,14 @@ package com.strhodler.utxopocket.presentation.wallets.add
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.strhodler.utxopocket.common.encoding.Base58
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
 import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
 import com.strhodler.utxopocket.di.ApplicationScope
 import com.strhodler.utxopocket.domain.model.WalletCreationRequest
 import com.strhodler.utxopocket.domain.model.WalletCreationResult
+import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.ur.UniformResourceImportParser
@@ -24,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -288,7 +291,13 @@ class AddWalletViewModel @Inject constructor(
                 is WalletCreationResult.Success -> {
                     _uiState.update { it.copy(isSaving = false) }
                     applicationScope.launch {
-                        runCatching { walletRepository.refresh(result.wallet.network) }
+                        val nodeSnapshot = walletRepository.observeNodeStatus().first()
+                        if (
+                            nodeSnapshot.status is NodeStatus.Synced &&
+                            nodeSnapshot.network == result.wallet.network
+                        ) {
+                            runCatching { walletRepository.refresh(result.wallet.network) }
+                        }
                     }
                     _events.emit(AddWalletEvent.WalletCreated(result.wallet))
                 }
@@ -497,8 +506,8 @@ class AddWalletViewModel @Inject constructor(
 
     private fun detectNetworkFromContent(content: String): BitcoinNetwork? {
         val lowerContent = content.lowercase()
-        val keyMatches = KNOWN_EXTENDED_KEY_PREFIXES.mapNotNull { (prefix, network) ->
-            if (lowerContent.contains(prefix)) network else null
+        val keyMatches = KNOWN_EXTENDED_KEY_PREFIXES.mapNotNull { (prefix, metadata) ->
+            if (lowerContent.contains(prefix)) metadata.network else null
         }.toSet()
 
         when (keyMatches.size) {
@@ -661,7 +670,7 @@ class AddWalletViewModel @Inject constructor(
                     extendedKey = detection.extendedKey,
                     derivationPath = detection.derivationPath.orEmpty(),
                     masterFingerprint = detection.masterFingerprint.orEmpty(),
-                    scriptType = null,
+                    scriptType = detection.scriptType,
                     includeChangeBranch = detection.includeChangeBranch,
                     errorMessage = null
                 ),
@@ -755,11 +764,13 @@ class AddWalletViewModel @Inject constructor(
             if (trimmed.length < 50) return null
             if (!EXTENDED_KEY_REGEX.matches(trimmed)) return null
             val lower = trimmed.lowercase()
-            val prefix = KNOWN_EXTENDED_KEY_PREFIXES.keys.firstOrNull { lower.startsWith(it) } ?: return null
-            val network = KNOWN_EXTENDED_KEY_PREFIXES[prefix]
+            val entry = KNOWN_EXTENDED_KEY_PREFIXES.entries.firstOrNull { lower.startsWith(it.key) } ?: return null
+            val metadata = entry.value
             return ExtendedKeyDetection(
                 extendedKey = trimmed,
-                network = network
+                network = metadata.network,
+                derivationPath = metadata.defaultDerivationPath,
+                scriptType = metadata.scriptType
             )
         }
     }
@@ -794,10 +805,10 @@ class AddWalletViewModel @Inject constructor(
             }
             val sanitizedKey = extendedKey.replace("\\s".toRegex(), "")
             val lower = sanitizedKey.lowercase()
-            val supportedPrefix = KNOWN_EXTENDED_KEY_PREFIXES.keys.any { lower.startsWith(it) }
-            if (!supportedPrefix) {
-                return ExtendedKeyDescriptorBuildResult.Failure(ExtendedKeyBuilderError.UNSUPPORTED_PREFIX)
-            }
+            val prefixEntry = KNOWN_EXTENDED_KEY_PREFIXES.entries.firstOrNull { lower.startsWith(it.key) }
+                ?: return ExtendedKeyDescriptorBuildResult.Failure(ExtendedKeyBuilderError.UNSUPPORTED_PREFIX)
+            val canonicalKey = convertExtendedKeyToCanonical(sanitizedKey, prefixEntry.value)
+                ?: return ExtendedKeyDescriptorBuildResult.Failure(ExtendedKeyBuilderError.UNSUPPORTED_PREFIX)
 
             val scriptType = formState.scriptType
                 ?: return ExtendedKeyDescriptorBuildResult.Failure(ExtendedKeyBuilderError.MISSING_SCRIPT_TYPE)
@@ -810,7 +821,7 @@ class AddWalletViewModel @Inject constructor(
 
             val derivationPath = (pathResult as PathValidationResult.Valid).value
             val keyExpression = buildKeyExpression(
-                extendedKey = sanitizedKey,
+                extendedKey = canonicalKey,
                 fingerprint = sanitizedFingerprint,
                 derivationPath = derivationPath
             )
@@ -832,10 +843,50 @@ class AddWalletViewModel @Inject constructor(
                 descriptor = descriptor,
                 changeDescriptor = changeDescriptor,
                 buildValues = ExtendedKeyBuildValues(
-                    extendedKey = sanitizedKey,
+                    extendedKey = canonicalKey,
                     masterFingerprint = sanitizedFingerprint,
                     derivationPath = derivationPath?.let { "m/$it" }
                 )
+            )
+        }
+
+        private fun convertExtendedKeyToCanonical(
+            extendedKey: String,
+            metadata: ExtendedKeyPrefixMetadata
+        ): String? {
+            val canonicalPrefix = metadata.canonicalPrefix
+            if (extendedKey.lowercase().startsWith(canonicalPrefix)) {
+                return extendedKey
+            }
+            val decoded = Base58.decode(extendedKey) ?: return null
+            if (decoded.size <= 4) return null
+            val payload = decoded.copyOfRange(0, decoded.size - 4)
+            val checksum = decoded.copyOfRange(decoded.size - 4, decoded.size)
+            val expectedChecksum = Base58.checksum(payload).copyOfRange(0, 4)
+            if (!checksum.contentEquals(expectedChecksum)) {
+                return null
+            }
+            val versionBytes = canonicalVersionBytes(canonicalPrefix) ?: return null
+            versionBytes.copyInto(
+                destination = payload,
+                destinationOffset = 0,
+                startIndex = 0,
+                endIndex = versionBytes.size
+            )
+            val newChecksum = Base58.checksum(payload).copyOfRange(0, 4)
+            val output = ByteArray(payload.size + newChecksum.size)
+            payload.copyInto(output, destinationOffset = 0)
+            newChecksum.copyInto(output, destinationOffset = payload.size)
+            return Base58.encode(output)
+        }
+
+        private fun canonicalVersionBytes(prefix: String): ByteArray? {
+            val version = CANONICAL_EXTENDED_KEY_VERSIONS[prefix] ?: return null
+            return byteArrayOf(
+                ((version ushr 24) and 0xFF).toByte(),
+                ((version ushr 16) and 0xFF).toByte(),
+                ((version ushr 8) and 0xFF).toByte(),
+                (version and 0xFF).toByte()
             )
         }
 
@@ -927,6 +978,13 @@ class AddWalletViewModel @Inject constructor(
         val scriptType: ExtendedKeyScriptType? = null
     )
 
+    private data class ExtendedKeyPrefixMetadata(
+        val network: BitcoinNetwork,
+        val scriptType: ExtendedKeyScriptType,
+        val defaultDerivationPath: String,
+        val canonicalPrefix: String
+    )
+
     private sealed class ExtendedKeyDescriptorBuildResult {
         data class Success(
             val descriptor: String,
@@ -957,13 +1015,53 @@ class AddWalletViewModel @Inject constructor(
 
     companion object {
         private val ADDRESS_EXTRACTION_REGEX = Regex("addr\\(([^)]+)\\)")
+        private const val MAINNET_LEGACY_PATH = "44'/0'/0'"
+        private const val MAINNET_NESTED_SEGWIT_PATH = "49'/0'/0'"
+        private const val MAINNET_NATIVE_SEGWIT_PATH = "84'/0'/0'"
+        private const val TESTNET_LEGACY_PATH = "44'/1'/0'"
+        private const val TESTNET_NESTED_SEGWIT_PATH = "49'/1'/0'"
+        private const val TESTNET_NATIVE_SEGWIT_PATH = "84'/1'/0'"
+        private val CANONICAL_EXTENDED_KEY_VERSIONS = mapOf(
+            "xpub" to 0x0488B21E,
+            "tpub" to 0x043587CF
+        )
         private val KNOWN_EXTENDED_KEY_PREFIXES = mapOf(
-            "xpub" to BitcoinNetwork.MAINNET,
-            "ypub" to BitcoinNetwork.MAINNET,
-            "zpub" to BitcoinNetwork.MAINNET,
-            "upub" to BitcoinNetwork.TESTNET,
-            "vpub" to BitcoinNetwork.TESTNET,
-            "tpub" to BitcoinNetwork.TESTNET
+            "xpub" to ExtendedKeyPrefixMetadata(
+                network = BitcoinNetwork.MAINNET,
+                scriptType = ExtendedKeyScriptType.P2PKH,
+                defaultDerivationPath = MAINNET_LEGACY_PATH,
+                canonicalPrefix = "xpub"
+            ),
+            "ypub" to ExtendedKeyPrefixMetadata(
+                network = BitcoinNetwork.MAINNET,
+                scriptType = ExtendedKeyScriptType.P2SH_P2WPKH,
+                defaultDerivationPath = MAINNET_NESTED_SEGWIT_PATH,
+                canonicalPrefix = "xpub"
+            ),
+            "zpub" to ExtendedKeyPrefixMetadata(
+                network = BitcoinNetwork.MAINNET,
+                scriptType = ExtendedKeyScriptType.P2WPKH,
+                defaultDerivationPath = MAINNET_NATIVE_SEGWIT_PATH,
+                canonicalPrefix = "xpub"
+            ),
+            "tpub" to ExtendedKeyPrefixMetadata(
+                network = BitcoinNetwork.TESTNET,
+                scriptType = ExtendedKeyScriptType.P2PKH,
+                defaultDerivationPath = TESTNET_LEGACY_PATH,
+                canonicalPrefix = "tpub"
+            ),
+            "upub" to ExtendedKeyPrefixMetadata(
+                network = BitcoinNetwork.TESTNET,
+                scriptType = ExtendedKeyScriptType.P2SH_P2WPKH,
+                defaultDerivationPath = TESTNET_NESTED_SEGWIT_PATH,
+                canonicalPrefix = "tpub"
+            ),
+            "vpub" to ExtendedKeyPrefixMetadata(
+                network = BitcoinNetwork.TESTNET,
+                scriptType = ExtendedKeyScriptType.P2WPKH,
+                defaultDerivationPath = TESTNET_NATIVE_SEGWIT_PATH,
+                canonicalPrefix = "tpub"
+            )
         )
     }
 }

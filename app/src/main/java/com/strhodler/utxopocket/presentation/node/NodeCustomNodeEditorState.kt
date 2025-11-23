@@ -9,12 +9,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.res.stringResource
 import com.strhodler.utxopocket.R
-import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
+import com.strhodler.utxopocket.presentation.node.NodeQrParseResult
 import kotlinx.coroutines.launch
 
 @Stable
@@ -28,16 +29,13 @@ data class NodeCustomNodeEditorState(
 fun rememberNodeCustomNodeEditorState(
     isEditorVisible: Boolean,
     nodeConnectionOption: NodeConnectionOption,
-    nodeAddressOption: NodeAddressOption,
     snackbarHostState: SnackbarHostState,
     onConnectionOptionSelected: (NodeConnectionOption) -> Unit,
-    onAddressOptionSelected: (NodeAddressOption) -> Unit,
-    onHostChanged: (String) -> Unit,
-    onPortChanged: (String) -> Unit,
-    onOnionChanged: (String) -> Unit
+    onQrParsed: (NodeQrParseResult) -> Unit
 ): NodeCustomNodeEditorState {
     val permissionDeniedMessage = stringResource(id = R.string.node_scan_error_permission)
     val invalidNodeMessage = stringResource(id = R.string.node_scan_error_invalid)
+    val onionOnlyMessage = stringResource(id = R.string.node_scan_error_onion_only)
     val scanSuccessMessage = stringResource(id = R.string.qr_scan_success)
     val coroutineScope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
@@ -52,26 +50,22 @@ fun rememberNodeCustomNodeEditorState(
     val startQrScan = rememberNodeQrScanner(
         onParsed = { result ->
             qrErrorMessage = null
-            if (nodeConnectionOption != NodeConnectionOption.CUSTOM) {
-                onConnectionOptionSelected(NodeConnectionOption.CUSTOM)
-            }
             when (result) {
-                is NodeQrParseResult.HostPort -> {
-                    if (nodeAddressOption != NodeAddressOption.HOST_PORT) {
-                        onAddressOptionSelected(NodeAddressOption.HOST_PORT)
-                    }
-                    onHostChanged(result.host)
-                    onPortChanged(result.port)
-                }
-
                 is NodeQrParseResult.Onion -> {
-                    if (nodeAddressOption != NodeAddressOption.ONION) {
-                        onAddressOptionSelected(NodeAddressOption.ONION)
+                    if (nodeConnectionOption != NodeConnectionOption.CUSTOM) {
+                        onConnectionOptionSelected(NodeConnectionOption.CUSTOM)
                     }
-                    onOnionChanged(normalizeOnionAddress(result.address))
+                    onQrParsed(result)
                 }
 
-                is NodeQrParseResult.Error -> Unit
+                is NodeQrParseResult.HostPort -> {
+                    qrErrorMessage = onionOnlyMessage
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar(onionOnlyMessage)
+                    }
+                }
+
+                is NodeQrParseResult.Error -> qrErrorMessage = result.reason
             }
         },
         onPermissionDenied = {
@@ -89,7 +83,11 @@ fun rememberNodeCustomNodeEditorState(
         onSuccess = {
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
             coroutineScope.launch {
-                snackbarHostState.showSnackbar(scanSuccessMessage)
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = scanSuccessMessage,
+                    duration = SnackbarDuration.Short
+                )
             }
         }
     )
@@ -99,16 +97,4 @@ fun rememberNodeCustomNodeEditorState(
         startQrScan = startQrScan,
         clearQrError = { qrErrorMessage = null }
     )
-}
-
-private fun normalizeOnionAddress(raw: String): String {
-    val sanitized = raw
-        .removePrefix("tcp://")
-        .removePrefix("ssl://")
-        .trim()
-    return if (sanitized.contains(':')) {
-        sanitized
-    } else {
-        "$sanitized:${NodeStatusUiState.ONION_DEFAULT_PORT}"
-    }
 }

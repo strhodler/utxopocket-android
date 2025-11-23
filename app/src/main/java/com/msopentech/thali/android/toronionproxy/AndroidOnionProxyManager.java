@@ -34,9 +34,9 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
-import android.util.Log;
 
 import com.msopentech.thali.toronionproxy.OnionProxyManager;
+import com.strhodler.utxopocket.common.logging.SecureLog;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,7 +74,7 @@ public class AndroidOnionProxyManager extends OnionProxyManager {
                     .observeOn(Schedulers.io())
                     .subscribeOn(AndroidSchedulers.mainThread())
                     .subscribe(this::enableNetwork, error->{
-                Log.i(TAG, "installAndStartTorOp: ".concat(error.getMessage()));
+                SecureLog.i(TAG, "installAndStartTorOp: ".concat(error.getMessage()));
             });
             return true;
         }

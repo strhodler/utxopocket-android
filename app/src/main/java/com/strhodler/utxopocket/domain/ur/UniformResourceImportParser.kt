@@ -21,11 +21,11 @@ import com.sparrowwallet.hummingbird.registry.pathcomponent.IndexPathComponent
 import com.sparrowwallet.hummingbird.registry.pathcomponent.PairPathComponent
 import com.sparrowwallet.hummingbird.registry.pathcomponent.PathComponent
 import com.sparrowwallet.hummingbird.registry.pathcomponent.RangePathComponent
+import com.strhodler.utxopocket.common.encoding.Base58
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.security.MessageDigest
 import kotlin.collections.ArrayDeque
 
 sealed class UniformResourceResult {
@@ -50,7 +50,6 @@ object UniformResourceImportParser {
     private const val XPRV_VERSION_TEST = 0x04358394
     private const val XPUB_VERSION_TEST = 0x043587cf
     private const val HARDENED_BIT = 0x80000000.toInt()
-    private const val BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
     fun parse(raw: String, defaultNetwork: BitcoinNetwork): UniformResourceResult? {
         val trimmed = raw.trim()
@@ -246,7 +245,7 @@ object UniformResourceImportParser {
             chainCode = chainCode,
             keyData = key.key
         )
-        val extendedKey = encodeBase58(serialized)
+        val extendedKey = Base58.encode(serialized)
         val expression = buildString {
             if (!fingerprint.isNullOrBlank() || !originPath.isNullOrBlank()) {
                 append("[")
@@ -353,7 +352,7 @@ object UniformResourceImportParser {
         buffer.put(chainCode)
         buffer.put(keyData)
         val serialized = buffer.array()
-        val checksum = doubleSha256(serialized).copyOfRange(0, 4)
+        val checksum = Base58.checksum(serialized).copyOfRange(0, 4)
         return serialized + checksum
     }
 
@@ -364,40 +363,6 @@ object UniformResourceImportParser {
         val padded = ByteArray(length)
         copyInto(padded, destinationOffset = length - size)
         return padded
-    }
-
-    private fun encodeBase58(input: ByteArray): String {
-        if (input.isEmpty()) return ""
-        var zeros = 0
-        while (zeros < input.size && input[zeros] == 0.toByte()) {
-            zeros++
-        }
-        val encoded = CharArray(input.size * 2)
-        var outputStart = encoded.size
-        val temp = input.copyOf()
-        var startAt = zeros
-        while (startAt < temp.size) {
-            var remainder = 0
-            for (i in startAt until temp.size) {
-                val digit = temp[i].toInt() and 0xFF
-                val acc = remainder * 256 + digit
-                temp[i] = (acc / 58).toByte()
-                remainder = acc % 58
-            }
-            encoded[--outputStart] = BASE58_ALPHABET[remainder]
-            while (startAt < temp.size && temp[startAt] == 0.toByte()) {
-                startAt++
-            }
-        }
-        while (zeros-- > 0) {
-            encoded[--outputStart] = BASE58_ALPHABET[0]
-        }
-        return String(encoded, outputStart, encoded.size - outputStart)
-    }
-
-    private fun doubleSha256(data: ByteArray): ByteArray {
-        val digest = MessageDigest.getInstance("SHA-256")
-        return digest.digest(digest.digest(data))
     }
 
     private fun ByteArray.toHex(): String {

@@ -6,7 +6,6 @@ import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
-import com.strhodler.utxopocket.domain.model.NodeAddressOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeStatus
@@ -33,6 +32,7 @@ import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
+import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
@@ -117,6 +117,7 @@ class WalletsViewModelTest {
         advanceUntilIdle()
         assertEquals(false, viewModel.uiState.value.hasActiveNodeSelection)
     }
+
 }
 
 private class TestWalletRepository : WalletRepository {
@@ -159,6 +160,7 @@ private class TestWalletRepository : WalletRepository {
     override fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>> = flowOf(emptyMap())
 
     override suspend fun refresh(network: BitcoinNetwork) = Unit
+    override suspend fun refreshWallet(walletId: Long) = Unit
 
     override suspend fun validateDescriptor(
         descriptor: String,
@@ -212,10 +214,20 @@ private class TestWalletRepository : WalletRepository {
 
 private class TestTorManager : TorManager {
     private val proxy = SocksProxyConfig(host = "127.0.0.1", port = 9050)
-    override val status: StateFlow<TorStatus> = MutableStateFlow(TorStatus.Running(proxy))
+    private val mutableStatus = MutableStateFlow<TorStatus>(TorStatus.Running(proxy))
+    override val status: StateFlow<TorStatus> = mutableStatus
     override val latestLog: StateFlow<String> = MutableStateFlow("")
 
+    fun setStatus(value: TorStatus) {
+        mutableStatus.value = value
+    }
+
     override suspend fun start(config: TorConfig): Result<SocksProxyConfig> = Result.success(proxy)
+
+    override suspend fun <T> withTorProxy(
+        config: TorConfig,
+        block: suspend (SocksProxyConfig) -> T
+    ): T = block(proxy)
 
     override suspend fun stop() = Unit
 
@@ -230,15 +242,21 @@ private class TestTorManager : TorManager {
 
 private class TestAppPreferencesRepository : AppPreferencesRepository {
     private val _preferredNetwork = MutableStateFlow(BitcoinNetwork.TESTNET)
+    private val _balanceUnit = MutableStateFlow(BalanceUnit.SATS)
+    private val _balancesHidden = MutableStateFlow(false)
     override val onboardingCompleted: Flow<Boolean> = MutableStateFlow(true)
     override val preferredNetwork: Flow<BitcoinNetwork> = _preferredNetwork
     override val pinLockEnabled: Flow<Boolean> = MutableStateFlow(false)
     override val themePreference: Flow<ThemePreference> = MutableStateFlow(ThemePreference.SYSTEM)
     override val appLanguage: Flow<AppLanguage> = MutableStateFlow(AppLanguage.EN)
-    override val balanceUnit: Flow<BalanceUnit> = MutableStateFlow(BalanceUnit.SATS)
+    override val balanceUnit: Flow<BalanceUnit> = _balanceUnit
+    override val balancesHidden: Flow<Boolean> = _balancesHidden
     override val walletAnimationsEnabled: Flow<Boolean> = MutableStateFlow(true)
     override val walletBalanceRange: Flow<BalanceRange> = MutableStateFlow(BalanceRange.LastYear)
     override val advancedMode: Flow<Boolean> = MutableStateFlow(false)
+    override val pinAutoLockTimeoutMinutes: Flow<Int> =
+        MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
+    override val pinLastUnlockedAt: Flow<Long?> = MutableStateFlow(null)
     override val dustThresholdSats: Flow<Long> = MutableStateFlow(0L)
     override val transactionAnalysisEnabled: Flow<Boolean> = MutableStateFlow(true)
     override val utxoHealthEnabled: Flow<Boolean> = MutableStateFlow(true)
@@ -260,11 +278,34 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun verifyPin(pin: String) = PinVerificationResult.NotConfigured
 
+    override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) = Unit
+
+    override suspend fun markPinUnlocked(timestampMillis: Long) = Unit
+
     override suspend fun setThemePreference(themePreference: ThemePreference) = Unit
 
     override suspend fun setAppLanguage(language: AppLanguage) = Unit
 
-    override suspend fun setBalanceUnit(unit: BalanceUnit) = Unit
+    override suspend fun setBalanceUnit(unit: BalanceUnit) {
+        _balanceUnit.value = unit
+    }
+
+    override suspend fun setBalancesHidden(hidden: Boolean) {
+        _balancesHidden.value = hidden
+    }
+
+    override suspend fun cycleBalanceDisplayMode() {
+        val currentUnit = _balanceUnit.value
+        val currentlyHidden = _balancesHidden.value
+        when {
+            currentlyHidden -> {
+                _balancesHidden.value = false
+                _balanceUnit.value = BalanceUnit.SATS
+            }
+            currentUnit == BalanceUnit.SATS -> _balanceUnit.value = BalanceUnit.BTC
+            else -> _balancesHidden.value = true
+        }
+    }
 
     override suspend fun setWalletAnimationsEnabled(enabled: Boolean) = Unit
 

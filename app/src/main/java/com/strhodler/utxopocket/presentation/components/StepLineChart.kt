@@ -269,7 +269,7 @@ fun StepLineChart(
                 .padding(end = chartTrailingPadding)
                 .semantics { contentDescription = semanticsDescription },
             scrollState = rememberVicoScrollState(scrollEnabled = false),
-            consumeMoveEvents = interactive
+            consumeMoveEvents = false // Allow pull-to-refresh drags to pass through the chart area
         )
         if (axisLabelColor != Color.Unspecified) {
             BalanceChartAxisRow(

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
+import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
@@ -12,11 +13,16 @@ import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
-import com.strhodler.utxopocket.domain.model.NodeConnectionOption
+import com.strhodler.utxopocket.domain.model.requiresTor
+import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.DEFAULT_PIN_AUTO_LOCK_MINUTES
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_PIN_AUTO_LOCK_MINUTES
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_PIN_AUTO_LOCK_MINUTES
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.TorManager
+import com.strhodler.utxopocket.presentation.tor.TorLifecycleController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +33,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.minutes
 
 data class StatusBarUiState(
     val torStatus: TorStatus = TorStatus.Connecting(),
@@ -38,7 +45,9 @@ data class StatusBarUiState(
     val nodeEndpoint: String? = null,
     val nodeServerInfo: ElectrumServerInfo? = null,
     val nodeLastSync: Long? = null,
-    val network: BitcoinNetwork = BitcoinNetwork.DEFAULT
+    val network: BitcoinNetwork = BitcoinNetwork.DEFAULT,
+    val torRequired: Boolean = false,
+    val isNetworkOnline: Boolean = true
 )
 
 data class AppEntryUiState(
@@ -48,6 +57,7 @@ data class AppEntryUiState(
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
     val appLanguage: AppLanguage = AppLanguage.EN,
     val pinLockEnabled: Boolean = false,
+    val hapticsEnabled: Boolean = true,
     val appLocked: Boolean = false
 )
 
@@ -56,7 +66,8 @@ class MainActivityViewModel @Inject constructor(
     private val appPreferencesRepository: AppPreferencesRepository,
     private val torManager: TorManager,
     private val walletRepository: WalletRepository,
-    private val nodeConfigurationRepository: NodeConfigurationRepository
+    private val nodeConfigurationRepository: NodeConfigurationRepository,
+    private val networkStatusMonitor: NetworkStatusMonitor
 ) : ViewModel() {
 
     private val pinEnabledState = appPreferencesRepository.pinLockEnabled.stateIn(
@@ -64,9 +75,26 @@ class MainActivityViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = false
     )
+    private val pinLastUnlockedState = appPreferencesRepository.pinLastUnlockedAt.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = null
+    )
+    private val pinAutoLockMinutesState = appPreferencesRepository.pinAutoLockTimeoutMinutes.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = DEFAULT_PIN_AUTO_LOCK_MINUTES
+    )
 
     private val lockState = MutableStateFlow(false)
-    private var lastTorWasRunning = false
+    private val torLifecycleController = TorLifecycleController(
+        scope = viewModelScope,
+        torManager = torManager,
+        refreshWallets = { network -> walletRepository.refresh(network) },
+        nodeConfigFlow = nodeConfigurationRepository.nodeConfig,
+        networkFlow = appPreferencesRepository.preferredNetwork,
+        networkStatusFlow = networkStatusMonitor.isOnline
+    )
 
     init {
         viewModelScope.launch {
@@ -76,18 +104,19 @@ class MainActivityViewModel @Inject constructor(
                 }
             }
         }
-
         viewModelScope.launch {
-            torManager.status.collect { status ->
-                val isRunning = status is TorStatus.Running
-                val shouldDisconnect = status is TorStatus.Stopped || status is TorStatus.Error
-                when {
-                    lastTorWasRunning && shouldDisconnect -> disconnectNodeSelection()
-                    !lastTorWasRunning && isRunning -> ensureNodeAutoConnect()
-                }
-                lastTorWasRunning = isRunning
+            combine(
+                pinEnabledState,
+                pinLastUnlockedState,
+                pinAutoLockMinutesState
+            ) { enabled, lastUnlocked, timeoutMinutes ->
+                shouldLockNow(enabled, lastUnlocked, timeoutMinutes)
+            }.collect { shouldLock ->
+                lockState.value = shouldLock
             }
         }
+        torLifecycleController.start()
+        refreshLockState()
     }
 
     val uiState: StateFlow<AppEntryUiState> = combine(
@@ -100,7 +129,10 @@ class MainActivityViewModel @Inject constructor(
         appPreferencesRepository.themePreference,
         appPreferencesRepository.appLanguage,
         pinEnabledState,
-        lockState
+        lockState,
+        nodeConfigurationRepository.nodeConfig,
+        networkStatusMonitor.isOnline,
+        appPreferencesRepository.hapticsEnabled
     ) { values ->
         val onboarding = values[0] as Boolean
         val torStatus = values[1] as TorStatus
@@ -112,20 +144,26 @@ class MainActivityViewModel @Inject constructor(
         val appLanguage = values[7] as AppLanguage
         val pinEnabled = values[8] as Boolean
         val locked = values[9] as Boolean
+        val nodeConfig = values[10] as NodeConfig
+        val isNetworkOnline = values[11] as Boolean
+        val hapticsEnabled = values[12] as Boolean
+
         val snapshotMatchesNetwork = nodeSnapshot.network == network
         val effectiveNodeStatus = if (snapshotMatchesNetwork) {
             nodeSnapshot.status
         } else {
             NodeStatus.Idle
         }
-        val isSyncing = syncStatus.isRefreshing && syncStatus.network == network
+        val isSyncing = (syncStatus.isRefreshing && syncStatus.network == network) ||
+            syncStatus.refreshingWalletIds.isNotEmpty()
+        val torRequired = nodeConfig.requiresTor(network)
 
         AppEntryUiState(
             isReady = true,
             onboardingCompleted = onboarding,
             status = StatusBarUiState(
                 torStatus = torStatus,
-                torLog = torLog,
+                torLog = if (torStatus is TorStatus.Connecting) torLog else "",
                 nodeStatus = effectiveNodeStatus,
                 isSyncing = isSyncing,
                 nodeBlockHeight = nodeSnapshot.blockHeight.takeIf { snapshotMatchesNetwork },
@@ -133,11 +171,14 @@ class MainActivityViewModel @Inject constructor(
                 nodeEndpoint = nodeSnapshot.endpoint.takeIf { snapshotMatchesNetwork },
                 nodeServerInfo = nodeSnapshot.serverInfo.takeIf { snapshotMatchesNetwork },
                 nodeLastSync = nodeSnapshot.lastSyncCompletedAt.takeIf { snapshotMatchesNetwork },
-                network = network
+                network = network,
+                torRequired = torRequired,
+                isNetworkOnline = isNetworkOnline
             ),
             themePreference = themePreference,
             appLanguage = appLanguage,
             pinLockEnabled = pinEnabled,
+            hapticsEnabled = hapticsEnabled,
             appLocked = pinEnabled && locked && onboarding
         )
     }.stateIn(
@@ -147,9 +188,7 @@ class MainActivityViewModel @Inject constructor(
     )
 
     fun onAppForegrounded() {
-        if (pinEnabledState.value) {
-            lockState.value = true
-        }
+        refreshLockState()
         walletRepository.setSyncForegroundState(true)
         viewModelScope.launch {
             resumeNodeIfNeeded()
@@ -157,9 +196,6 @@ class MainActivityViewModel @Inject constructor(
     }
 
     fun onAppBackgrounded() {
-        if (pinEnabledState.value) {
-            lockState.value = true
-        }
         walletRepository.setSyncForegroundState(false)
     }
 
@@ -172,6 +208,7 @@ class MainActivityViewModel @Inject constructor(
             }
             val result = appPreferencesRepository.verifyPin(pin)
             if (result is PinVerificationResult.Success) {
+                appPreferencesRepository.markPinUnlocked()
                 lockState.value = false
             }
             onResult(result)
@@ -180,10 +217,11 @@ class MainActivityViewModel @Inject constructor(
 
     fun onNetworkSelected(network: BitcoinNetwork) {
         val currentNetwork = uiState.value.status.network
-        if (
-            currentNetwork == network &&
-            (uiState.value.status.nodeStatus is NodeStatus.Connecting || uiState.value.status.isSyncing)
-        ) {
+        val status = uiState.value.status
+        val nodeBusy = status.nodeStatus is NodeStatus.Connecting ||
+            status.nodeStatus == NodeStatus.WaitingForTor ||
+            status.isSyncing
+        if (currentNetwork == network && nodeBusy) {
             return
         }
         viewModelScope.launch {
@@ -194,7 +232,11 @@ class MainActivityViewModel @Inject constructor(
 
     fun retryNodeConnection() {
         val status = uiState.value.status
-        if (status.nodeStatus is NodeStatus.Connecting || status.isSyncing) {
+        if (
+            status.nodeStatus is NodeStatus.Connecting ||
+            status.nodeStatus == NodeStatus.WaitingForTor ||
+            status.isSyncing
+        ) {
             return
         }
         viewModelScope.launch {
@@ -202,45 +244,52 @@ class MainActivityViewModel @Inject constructor(
         }
     }
 
-    private suspend fun ensureNodeAutoConnect() {
-        val config = nodeConfigurationRepository.nodeConfig.first()
-        if (!config.hasActiveSelection()) {
-            return
-        }
-        val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
-        walletRepository.refresh(preferredNetwork)
-    }
-
-    private suspend fun disconnectNodeSelection() {
-        var clearedSelection = false
-        nodeConfigurationRepository.updateNodeConfig { current ->
-            if (!current.hasActiveSelection()) {
-                return@updateNodeConfig current
-            }
-            clearedSelection = true
-            current.copy(
-                connectionOption = NodeConnectionOption.PUBLIC,
-                selectedPublicNodeId = null,
-                selectedCustomNodeId = null
-            )
-        }
-        if (clearedSelection) {
-            val network = appPreferencesRepository.preferredNetwork.first()
-            walletRepository.refresh(network)
-        }
-    }
-
     private suspend fun resumeNodeIfNeeded() {
         val config = nodeConfigurationRepository.nodeConfig.first()
-        if (!config.hasActiveSelection()) {
+        val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
+        if (!config.hasActiveSelection(preferredNetwork)) {
             return
         }
-        val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
         val nodeSnapshot = walletRepository.observeNodeStatus().first()
         val snapshotMatchesNetwork = nodeSnapshot.network == preferredNetwork
         val isConnected = snapshotMatchesNetwork && nodeSnapshot.status is NodeStatus.Synced
         if (!isConnected) {
             walletRepository.refresh(preferredNetwork)
         }
+    }
+
+    private fun refreshLockState() {
+        viewModelScope.launch {
+            val shouldLock = shouldLockNow(
+                pinEnabled = pinEnabledState.value,
+                lastUnlockedAt = pinLastUnlockedState.value,
+                timeoutMinutes = pinAutoLockMinutesState.value
+            )
+            lockState.value = shouldLock
+        }
+    }
+
+    private fun shouldLockNow(
+        pinEnabled: Boolean,
+        lastUnlockedAt: Long?,
+        timeoutMinutes: Int
+    ): Boolean {
+        if (!pinEnabled) return false
+        val timeout = timeoutMinutes.coerceIn(
+            MIN_PIN_AUTO_LOCK_MINUTES,
+            MAX_PIN_AUTO_LOCK_MINUTES
+        )
+        val lastUnlock = lastUnlockedAt ?: return true
+        if (timeout == 0) {
+            val elapsedSinceUnlock = System.currentTimeMillis() - lastUnlock
+            return elapsedSinceUnlock >= IMMEDIATE_TIMEOUT_GRACE_MS
+        }
+        val timeoutMillis = timeout.minutes.inWholeMilliseconds
+        val elapsed = System.currentTimeMillis() - lastUnlock
+        return elapsed >= timeoutMillis
+    }
+
+    private companion object {
+        private const val IMMEDIATE_TIMEOUT_GRACE_MS = 1_000L
     }
 }

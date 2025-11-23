@@ -1,5 +1,6 @@
 package com.strhodler.utxopocket.presentation.components
 
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 
 sealed interface DigitKey {
@@ -46,6 +48,7 @@ fun VirtualDigitKeyboard(
     modifier: Modifier = Modifier,
     onKeyPress: (DigitKey) -> Unit,
     layout: List<List<DigitKey>> = DefaultKeyboardLayout,
+    hapticsEnabled: Boolean = true,
     enabled: Boolean = true
 ) {
     Column(
@@ -56,6 +59,7 @@ fun VirtualDigitKeyboard(
             VirtualDigitKeyboardRow(
                 row = row,
                 enabled = enabled,
+                hapticsEnabled = hapticsEnabled,
                 onKeyPress = onKeyPress
             )
         }
@@ -66,6 +70,7 @@ fun VirtualDigitKeyboard(
 private fun VirtualDigitKeyboardRow(
     row: List<DigitKey>,
     enabled: Boolean,
+    hapticsEnabled: Boolean,
     onKeyPress: (DigitKey) -> Unit
 ) {
     BoxWithConstraints(
@@ -100,6 +105,7 @@ private fun VirtualDigitKeyboardRow(
                         else -> DigitKeyboardButton(
                             key = key,
                             enabled = enabled,
+                            hapticsEnabled = hapticsEnabled,
                             onClick = { onKeyPress(key) },
                             modifier = Modifier.size(buttonSize)
                         )
@@ -114,6 +120,7 @@ private fun VirtualDigitKeyboardRow(
 private fun DigitKeyboardButton(
     key: DigitKey,
     enabled: Boolean,
+    hapticsEnabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -136,9 +143,15 @@ private fun DigitKeyboardButton(
 
         DigitKey.Placeholder -> ButtonDefaults.buttonColors()
     }
+    val view = LocalView.current
 
     Button(
-        onClick = onClick,
+        onClick = {
+            if (hapticsEnabled) {
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            }
+            onClick()
+        },
         enabled = enabled,
         shape = shape,
         colors = backgroundColors,

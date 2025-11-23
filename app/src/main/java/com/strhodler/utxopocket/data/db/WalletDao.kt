@@ -234,14 +234,36 @@ interface WalletDao {
     @Query("SELECT COUNT(*) FROM wallet_utxos WHERE wallet_id = :walletId")
     fun observeUtxoCount(walletId: Long): Flow<Int>
 
-    @Query(
-        """
-        SELECT txid, vout, label, spendable
-        FROM wallet_utxos
-        WHERE wallet_id = :walletId
-        """
-    )
-    suspend fun getUtxoMetadata(walletId: Long): List<UtxoMetadataProjection>
+@Query(
+    """
+    SELECT txid, vout, label, spendable
+    FROM wallet_utxos
+    WHERE wallet_id = :walletId
+    """
+)
+suspend fun getUtxoMetadata(walletId: Long): List<UtxoMetadataProjection>
+
+@Query(
+    """
+    SELECT txid, vout
+    FROM wallet_utxos
+    WHERE wallet_id = :walletId AND address = :address
+    """
+)
+suspend fun findUtxosByAddress(walletId: Long, address: String): List<UtxoRefProjection>
+
+@Query(
+    """
+    SELECT txid, vout
+    FROM wallet_utxos
+    WHERE wallet_id = :walletId AND keychain = :keychain AND derivation_index = :derivationIndex
+    """
+)
+suspend fun findUtxosByDerivation(
+    walletId: Long,
+    keychain: String,
+    derivationIndex: Int
+): List<UtxoRefProjection>
 
     @Query(
         """
@@ -381,6 +403,11 @@ data class UtxoMetadataProjection(
     val vout: Int,
     val label: String?,
     val spendable: Boolean?
+)
+
+data class UtxoRefProjection(
+    val txid: String,
+    val vout: Int
 )
 
 data class TransactionLabelProjection(

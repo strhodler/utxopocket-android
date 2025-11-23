@@ -68,10 +68,13 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
-import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
 import com.strhodler.utxopocket.domain.model.DescriptorWarning
-import com.strhodler.utxopocket.presentation.components.ConnectionIssueBanner
-import com.strhodler.utxopocket.presentation.components.ConnectionIssueBannerStyle
+import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
+import com.strhodler.utxopocket.presentation.common.PortraitCaptureActivity
+import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
+import com.strhodler.utxopocket.presentation.common.applyScreenPadding
+import com.strhodler.utxopocket.presentation.components.ConnectionStatusBanner
+import com.strhodler.utxopocket.presentation.components.ConnectionStatusBannerStyle
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import kotlinx.coroutines.launch
@@ -106,10 +109,7 @@ fun AddWalletScreen(
     modifier: Modifier = Modifier
 ) {
     SetSecondaryTopBar(
-        title = stringResource(
-            id = R.string.add_wallet_title_with_network,
-            stringResource(id = networkLabel(state.selectedNetwork))
-        ),
+        title = stringResource(id = R.string.add_wallet_title),
         onBackClick = onBack
     )
     val scrollState = rememberScrollState()
@@ -118,12 +118,13 @@ fun AddWalletScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) }
+        snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
+        contentWindowInsets = ScreenScaffoldInsets
     ) { paddingValues ->
         Column(
             modifier = Modifier
-                .padding(paddingValues)
                 .fillMaxSize()
+                .applyScreenPadding(paddingValues)
         ) {
             ImportModeTabs(
                 selectedMode = state.importMode,
@@ -795,6 +796,7 @@ private fun defaultWalletScanOptions(): ScanOptions = ScanOptions().apply {
     setDesiredBarcodeFormats(ScanOptions.QR_CODE)
     setBeepEnabled(false)
     setBarcodeImageEnabled(false)
+    setCaptureActivity(PortraitCaptureActivity::class.java)
     setOrientationLocked(true)
 }
 @Composable
@@ -878,12 +880,12 @@ private fun ValidationSummary(
             val errorText = invalid.reason.ifBlank {
                 stringResource(id = R.string.add_wallet_descriptor_generic_error)
             }
-            ConnectionIssueBanner(
+            ConnectionStatusBanner(
                 message = errorText,
                 primaryLabel = stringResource(id = R.string.add_wallet_descriptor_help_action),
                 onPrimaryClick = onDescriptorHelp,
                 modifier = Modifier.fillMaxWidth(),
-                style = ConnectionIssueBannerStyle.Error
+                style = ConnectionStatusBannerStyle.Error
             )
         }
 

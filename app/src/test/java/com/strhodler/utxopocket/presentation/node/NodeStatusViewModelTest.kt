@@ -5,7 +5,8 @@ import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
-import com.strhodler.utxopocket.domain.model.NodeAddressOption
+import com.strhodler.utxopocket.domain.model.DescriptorType
+import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
@@ -32,6 +33,7 @@ import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
+import com.strhodler.utxopocket.presentation.node.NodeStatusUiState
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
@@ -42,6 +44,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -60,6 +63,7 @@ class NodeStatusViewModelTest {
     private lateinit var preferencesRepository: TestAppPreferencesRepository
     private lateinit var nodeConfigurationRepository: TestNodeConfigurationRepository
     private lateinit var walletRepository: TestWalletRepository
+    private lateinit var nodeConnectionTester: RecordingNodeConnectionTester
     private lateinit var viewModel: NodeStatusViewModel
 
     @BeforeTest
@@ -69,10 +73,11 @@ class NodeStatusViewModelTest {
         preferencesRepository = TestAppPreferencesRepository()
         nodeConfigurationRepository = TestNodeConfigurationRepository()
         walletRepository = TestWalletRepository()
+        nodeConnectionTester = RecordingNodeConnectionTester()
         viewModel = NodeStatusViewModel(
             appPreferencesRepository = preferencesRepository,
             nodeConfigurationRepository = nodeConfigurationRepository,
-            nodeConnectionTester = TestNodeConnectionTester(),
+            nodeConnectionTester = nodeConnectionTester,
             walletRepository = walletRepository
         )
     }
@@ -101,8 +106,32 @@ class NodeStatusViewModelTest {
         assertEquals(listOf(BitcoinNetwork.TESTNET), walletRepository.refreshCalls)
     }
 
+    @Test
+    fun onionEndpointsUpdatePortFromInlineValue() = runTest {
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onNewCustomOnionChanged("abc123def.onion:60002")
+
+        val state = viewModel.uiState.value
+        assertEquals("abc123def.onion", state.newCustomOnion)
+        assertEquals("60002", state.newCustomPort)
+    }
+
+    @Test
+    fun blankCustomNodeNameDefaultsToEndpointLabel() = runTest {
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onNewCustomOnionChanged("example123.onion")
+        viewModel.onNewCustomPortChanged("60001")
+        viewModel.onNewCustomNameChanged("")
+        viewModel.onTestAndAddCustomNode()
+        advanceUntilIdle()
+
+        assertEquals("example123.onion:60001", nodeConnectionTester.lastNode?.name)
+    }
+
     private class TestAppPreferencesRepository : AppPreferencesRepository {
         private val _preferredNetwork = MutableStateFlow(BitcoinNetwork.TESTNET)
+        private val _balanceUnit = MutableStateFlow(BalanceUnit.SATS)
+        private val _balancesHidden = MutableStateFlow(false)
         override val onboardingCompleted: StateFlow<Boolean> = MutableStateFlow(true)
         override val preferredNetwork: StateFlow<BitcoinNetwork> = _preferredNetwork
         override val pinLockEnabled: StateFlow<Boolean> = MutableStateFlow(false)
@@ -110,12 +139,15 @@ class NodeStatusViewModelTest {
             MutableStateFlow(ThemePreference.SYSTEM)
         override val appLanguage: StateFlow<AppLanguage> =
             MutableStateFlow(AppLanguage.EN)
-        override val balanceUnit: StateFlow<BalanceUnit> =
-            MutableStateFlow(BalanceUnit.SATS)
+        override val balanceUnit: StateFlow<BalanceUnit> = _balanceUnit
+        override val balancesHidden: StateFlow<Boolean> = _balancesHidden
         override val walletAnimationsEnabled: StateFlow<Boolean> = MutableStateFlow(true)
         override val walletBalanceRange: StateFlow<BalanceRange> =
             MutableStateFlow(BalanceRange.LastYear)
         override val advancedMode: StateFlow<Boolean> = MutableStateFlow(false)
+        override val pinAutoLockTimeoutMinutes: StateFlow<Int> =
+            MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
+        override val pinLastUnlockedAt: StateFlow<Long?> = MutableStateFlow(null)
         override val dustThresholdSats: StateFlow<Long> = MutableStateFlow(0L)
         override val transactionAnalysisEnabled: StateFlow<Boolean> = MutableStateFlow(true)
         override val utxoHealthEnabled: StateFlow<Boolean> = MutableStateFlow(true)
@@ -134,9 +166,30 @@ class NodeStatusViewModelTest {
         override suspend fun setPin(pin: String) = Unit
         override suspend fun clearPin() = Unit
         override suspend fun verifyPin(pin: String) = PinVerificationResult.NotConfigured
+        override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) = Unit
+        override suspend fun markPinUnlocked(timestampMillis: Long) = Unit
         override suspend fun setThemePreference(themePreference: ThemePreference) = Unit
         override suspend fun setAppLanguage(language: AppLanguage) = Unit
-        override suspend fun setBalanceUnit(unit: BalanceUnit) = Unit
+        override suspend fun setBalanceUnit(unit: BalanceUnit) {
+            _balanceUnit.value = unit
+        }
+
+        override suspend fun setBalancesHidden(hidden: Boolean) {
+            _balancesHidden.value = hidden
+        }
+
+        override suspend fun cycleBalanceDisplayMode() {
+            val currentUnit = _balanceUnit.value
+            val currentlyHidden = _balancesHidden.value
+            when {
+                currentlyHidden -> {
+                    _balancesHidden.value = false
+                    _balanceUnit.value = BalanceUnit.SATS
+                }
+                currentUnit == BalanceUnit.SATS -> _balanceUnit.value = BalanceUnit.BTC
+                else -> _balancesHidden.value = true
+            }
+        }
         override suspend fun setWalletAnimationsEnabled(enabled: Boolean) = Unit
         override suspend fun setWalletBalanceRange(range: BalanceRange) = Unit
         override suspend fun setAdvancedMode(enabled: Boolean) = Unit
@@ -209,14 +262,22 @@ class NodeStatusViewModelTest {
             refreshCalls += network
         }
 
+        override suspend fun refreshWallet(walletId: Long) = Unit
+
         override suspend fun validateDescriptor(
             descriptor: String,
             changeDescriptor: String?,
             network: BitcoinNetwork
-        ): DescriptorValidationResult = DescriptorValidationResult.Success
+        ): DescriptorValidationResult =
+            DescriptorValidationResult.Valid(
+                descriptor = descriptor,
+                changeDescriptor = changeDescriptor,
+                type = DescriptorType.OTHER,
+                hasWildcard = descriptor.contains("*")
+            )
 
         override suspend fun addWallet(request: WalletCreationRequest): WalletCreationResult =
-            WalletCreationResult.Error("not implemented")
+            WalletCreationResult.Failure("not implemented")
 
         override suspend fun deleteWallet(id: Long) = Unit
 
@@ -259,14 +320,12 @@ class NodeStatusViewModelTest {
         override fun setSyncForegroundState(isForeground: Boolean) = Unit
     }
 
-    private class TestNodeConnectionTester : NodeConnectionTester {
-        override suspend fun testHostPort(host: String, port: Int): NodeConnectionTestResult =
-            NodeConnectionTestResult.Success
+    private class RecordingNodeConnectionTester : NodeConnectionTester {
+        var lastNode: CustomNode? = null
 
-        override suspend fun testOnion(onion: String): NodeConnectionTestResult =
-            NodeConnectionTestResult.Success
-
-        override suspend fun test(node: CustomNode): NodeConnectionTestResult =
-            NodeConnectionTestResult.Success
+        override suspend fun test(node: CustomNode): NodeConnectionTestResult {
+            lastNode = node
+            return NodeConnectionTestResult.Success()
+        }
     }
 }

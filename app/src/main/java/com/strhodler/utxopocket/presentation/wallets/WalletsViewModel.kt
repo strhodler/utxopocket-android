@@ -11,6 +11,7 @@ import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
+import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
@@ -89,8 +90,10 @@ class WalletsViewModel @Inject constructor(
                 val previousStatus = lastObservedNodeStatus
                 val currentStatus = signal.nodeSnapshot.status
                 val matchesNetwork = signal.nodeSnapshot.network == signal.selectedNetwork
-                val syncBusy = signal.syncSnapshot.isRefreshing &&
-                    signal.syncSnapshot.network == signal.selectedNetwork
+                val syncBusy = (
+                    signal.syncSnapshot.isRefreshing &&
+                        signal.syncSnapshot.network == signal.selectedNetwork
+                    ) || signal.syncSnapshot.refreshingWalletIds.isNotEmpty()
                 if (
                     previousStatus != null &&
                     previousStatus !is NodeStatus.Synced &&
@@ -120,17 +123,25 @@ class WalletsViewModel @Inject constructor(
                 nodeSnapshot = nodeSnapshot,
                 syncStatus = syncStatus,
                 torStatus = torStatus,
-                balanceUnit = balanceUnit
+                balanceUnit = balanceUnit,
+                balancesHidden = false,
+                hapticsEnabled = true
             )
+        }.combine(appPreferencesRepository.hapticsEnabled) { base, hapticsEnabled ->
+            base.copy(hapticsEnabled = hapticsEnabled)
         },
-        nodeConfigurationRepository.nodeConfig
-    ) { base, nodeConfig ->
+        appPreferencesRepository.balancesHidden
+    ) { base, balancesHidden ->
+        base.copy(balancesHidden = balancesHidden)
+    }.combine(nodeConfigurationRepository.nodeConfig) { base, nodeConfig ->
         WalletSnapshot(
             data = base.data,
             nodeSnapshot = base.nodeSnapshot,
             syncStatus = base.syncStatus,
             torStatus = base.torStatus,
             balanceUnit = base.balanceUnit,
+            balancesHidden = base.balancesHidden,
+            hapticsEnabled = base.hapticsEnabled,
             nodeConfig = nodeConfig
         )
     }
@@ -144,6 +155,8 @@ class WalletsViewModel @Inject constructor(
         val syncStatus = snapshot.syncStatus
         val torStatus = snapshot.torStatus
         val balanceUnit = snapshot.balanceUnit
+        val hapticsEnabled = snapshot.hapticsEnabled
+        val torRequired = snapshot.nodeConfig.requiresTor(data.network)
 
         val snapshotMatchesNetwork = nodeSnapshot.network == data.network
         val effectiveNodeStatus = if (snapshotMatchesNetwork) {
@@ -152,9 +165,10 @@ class WalletsViewModel @Inject constructor(
             NodeStatus.Idle
         }
         val isRefreshing = syncStatus.isRefreshing && syncStatus.network == data.network
+        val torError = if (torRequired && torStatus is TorStatus.Error) torStatus.message else null
         val errorMessage = when {
             snapshotMatchesNetwork && effectiveNodeStatus is NodeStatus.Error -> effectiveNodeStatus.message
-            torStatus is TorStatus.Error -> torStatus.message
+            torError != null -> torError
             else -> null
         }
         WalletsUiState(
@@ -163,13 +177,17 @@ class WalletsViewModel @Inject constructor(
             selectedNetwork = data.network,
             nodeStatus = effectiveNodeStatus,
             torStatus = torStatus,
+            torRequired = torRequired,
             balanceUnit = balanceUnit,
+            balancesHidden = snapshot.balancesHidden,
+            hapticsEnabled = hapticsEnabled,
             totalBalanceSats = data.wallets.sumOf { it.balanceSats },
             blockHeight = if (snapshotMatchesNetwork) nodeSnapshot.blockHeight else null,
             feeRateSatPerVb = if (snapshotMatchesNetwork) nodeSnapshot.feeRateSatPerVb else null,
             errorMessage = errorMessage,
             walletAnimationsEnabled = animationsEnabled,
-            hasActiveNodeSelection = snapshot.nodeConfig.hasActiveSelection()
+            hasActiveNodeSelection = snapshot.nodeConfig.hasActiveSelection(data.network),
+            refreshingWalletIds = syncStatus.refreshingWalletIds
         )
     }.stateIn(
         scope = viewModelScope,
@@ -180,6 +198,12 @@ class WalletsViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             walletRepository.refresh(selectedNetwork.value)
+        }
+    }
+
+    fun cycleBalanceDisplayMode() {
+        viewModelScope.launch {
+            appPreferencesRepository.cycleBalanceDisplayMode()
         }
     }
 
@@ -194,6 +218,8 @@ class WalletsViewModel @Inject constructor(
         val syncStatus: SyncStatusSnapshot,
         val torStatus: TorStatus,
         val balanceUnit: BalanceUnit,
+        val balancesHidden: Boolean,
+        val hapticsEnabled: Boolean,
         val nodeConfig: NodeConfig
     )
 
@@ -202,7 +228,9 @@ class WalletsViewModel @Inject constructor(
         val nodeSnapshot: NodeStatusSnapshot,
         val syncStatus: SyncStatusSnapshot,
         val torStatus: TorStatus,
-        val balanceUnit: BalanceUnit
+        val balanceUnit: BalanceUnit,
+        val balancesHidden: Boolean,
+        val hapticsEnabled: Boolean
     )
 
     private data class AutoRefreshSignal(
@@ -219,11 +247,15 @@ data class WalletsUiState(
     val selectedNetwork: BitcoinNetwork = BitcoinNetwork.DEFAULT,
     val nodeStatus: NodeStatus = NodeStatus.Idle,
     val torStatus: TorStatus = TorStatus.Connecting(),
+    val torRequired: Boolean = false,
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
+    val balancesHidden: Boolean = false,
+    val hapticsEnabled: Boolean = true,
     val totalBalanceSats: Long = 0,
     val blockHeight: Long? = null,
     val feeRateSatPerVb: Double? = null,
     val errorMessage: String? = null,
     val walletAnimationsEnabled: Boolean = true,
-    val hasActiveNodeSelection: Boolean = false
+    val hasActiveNodeSelection: Boolean = false,
+    val refreshingWalletIds: Set<Long> = emptySet()
 )

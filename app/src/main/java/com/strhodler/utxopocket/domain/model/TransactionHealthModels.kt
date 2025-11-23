@@ -18,11 +18,11 @@ data class TransactionHealthResult(
 
 data class TransactionHealthIndicator(
     val type: TransactionHealthIndicatorType,
-    val delta: Int,
+    override val delta: Int,
     val severity: TransactionHealthSeverity,
-    val pillar: TransactionHealthPillar,
+    override val pillar: TransactionHealthPillar,
     val evidence: Map<String, String> = emptyMap()
-)
+) : PillaredIndicator<TransactionHealthPillar>
 
 data class TransactionHealthBadge(
     val id: String,
