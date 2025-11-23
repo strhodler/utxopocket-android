@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import kotlin.random.Random
 
 sealed interface DigitKey {
     data class Number(val value: Char) : DigitKey
@@ -42,6 +43,19 @@ private val DefaultKeyboardLayout = listOf(
     listOf(DigitKey.Number('7'), DigitKey.Number('8'), DigitKey.Number('9')),
     listOf(DigitKey.Placeholder, DigitKey.Number('0'), DigitKey.Backspace)
 )
+
+fun shuffledDigitKeyboardLayout(random: Random = Random.Default): List<List<DigitKey>> {
+    val shuffledDigits = ('0'..'9').toList().shuffled(random)
+    val numberRows: List<List<DigitKey>> = shuffledDigits.take(9)
+        .chunked(3)
+        .map { rowDigits -> rowDigits.map { digit -> DigitKey.Number(digit) as DigitKey } }
+    val finalRow: List<DigitKey> = listOf(
+        DigitKey.Placeholder,
+        DigitKey.Number(shuffledDigits[9]),
+        DigitKey.Backspace
+    )
+    return numberRows + listOf(finalRow)
+}
 
 @Composable
 fun VirtualDigitKeyboard(

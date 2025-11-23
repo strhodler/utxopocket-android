@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.components.DigitKey
 import com.strhodler.utxopocket.presentation.components.VirtualDigitKeyboard
+import com.strhodler.utxopocket.presentation.components.shuffledDigitKeyboardLayout
 import com.strhodler.utxopocket.presentation.navigation.HideMainBottomBar
 import com.strhodler.utxopocket.presentation.navigation.SetHiddenTopBar
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
@@ -268,6 +269,7 @@ private fun PinScreenScaffold(
         color = MaterialTheme.colorScheme.background
     ) {
         val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+        val keyboardLayout = remember { shuffledDigitKeyboardLayout() }
 
         Column(
             modifier = Modifier
@@ -318,6 +320,7 @@ private fun PinScreenScaffold(
                 VirtualDigitKeyboard(
                     modifier = Modifier.heightIn(max = screenHeight * 0.5f),
                     onKeyPress = onKeyPress,
+                    layout = keyboardLayout,
                     hapticsEnabled = hapticsEnabled,
                     enabled = keyboardEnabled
                 )
