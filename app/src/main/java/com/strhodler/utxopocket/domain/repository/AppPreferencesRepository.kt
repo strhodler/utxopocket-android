@@ -62,7 +62,7 @@ interface AppPreferencesRepository {
     companion object {
         const val MIN_PIN_AUTO_LOCK_MINUTES = 0
         const val MAX_PIN_AUTO_LOCK_MINUTES = 15
-        const val DEFAULT_PIN_AUTO_LOCK_MINUTES = 5
+        const val DEFAULT_PIN_AUTO_LOCK_MINUTES = 0
 
         const val MIN_CONNECTION_IDLE_MINUTES = 3
         const val MAX_CONNECTION_IDLE_MINUTES = 15
