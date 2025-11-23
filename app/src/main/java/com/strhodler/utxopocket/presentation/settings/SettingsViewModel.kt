@@ -47,6 +47,7 @@ class SettingsViewModel @Inject constructor(
                 appPreferencesRepository.balanceUnit,
                 appPreferencesRepository.walletAnimationsEnabled,
                 appPreferencesRepository.hapticsEnabled,
+                appPreferencesRepository.pinShuffleEnabled,
                 appPreferencesRepository.advancedMode,
                 appPreferencesRepository.pinAutoLockTimeoutMinutes,
                 appPreferencesRepository.connectionIdleTimeoutMinutes,
@@ -63,15 +64,16 @@ class SettingsViewModel @Inject constructor(
                 val balanceUnit = values[3] as BalanceUnit
                 val walletAnimationsEnabled = values[4] as Boolean
                 val hapticsEnabled = values[5] as Boolean
-                val advancedMode = values[6] as Boolean
-                val pinAutoLockTimeoutMinutes = values[7] as Int
-                val connectionIdleTimeoutMinutes = values[8] as Int
-                val transactionAnalysisEnabled = values[9] as Boolean
-                val utxoHealthEnabled = values[10] as Boolean
-                val walletHealthEnabled = values[11] as Boolean
-                val dustThreshold = values[12] as Long
-                val transactionParameters = values[13] as TransactionHealthParameters
-                val utxoParameters = values[14] as UtxoHealthParameters
+                val pinShuffleEnabled = values[6] as Boolean
+                val advancedMode = values[7] as Boolean
+                val pinAutoLockTimeoutMinutes = values[8] as Int
+                val connectionIdleTimeoutMinutes = values[9] as Int
+                val transactionAnalysisEnabled = values[10] as Boolean
+                val utxoHealthEnabled = values[11] as Boolean
+                val walletHealthEnabled = values[12] as Boolean
+                val dustThreshold = values[13] as Long
+                val transactionParameters = values[14] as TransactionHealthParameters
+                val utxoParameters = values[15] as UtxoHealthParameters
                 val previous = _uiState.value
 
                 val walletHealthToggleEnabled = transactionAnalysisEnabled && utxoHealthEnabled
@@ -87,6 +89,7 @@ class SettingsViewModel @Inject constructor(
                     walletAnimationsEnabled = walletAnimationsEnabled,
                     hapticsEnabled = hapticsEnabled,
                     pinAutoLockTimeoutMinutes = pinAutoLockTimeoutMinutes,
+                    pinShuffleEnabled = pinShuffleEnabled,
                     connectionIdleTimeoutMinutes = connectionIdleTimeoutMinutes,
                     transactionAnalysisEnabled = transactionAnalysisEnabled,
                     utxoHealthEnabled = utxoHealthEnabled,
@@ -145,6 +148,13 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(hapticsEnabled = enabled) }
         viewModelScope.launch {
             appPreferencesRepository.setHapticsEnabled(enabled)
+        }
+    }
+
+    fun onPinShuffleChanged(enabled: Boolean) {
+        _uiState.update { it.copy(pinShuffleEnabled = enabled) }
+        viewModelScope.launch {
+            appPreferencesRepository.setPinShuffleEnabled(enabled)
         }
     }
 

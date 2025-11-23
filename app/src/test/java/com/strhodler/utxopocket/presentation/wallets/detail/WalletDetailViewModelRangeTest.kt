@@ -343,6 +343,8 @@ class WalletDetailViewModelRangeTest {
         private val balancesHiddenState = MutableStateFlow(false)
         private val walletAnimationsEnabledState = MutableStateFlow(true)
         private val balanceRangeState = MutableStateFlow(BalanceRange.LastYear)
+        private val showBalanceChartState = MutableStateFlow(false)
+        private val pinShuffleEnabledState = MutableStateFlow(false)
         private val advancedModeState = MutableStateFlow(false)
         private val pinAutoLockTimeoutMinutesState =
             MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
@@ -365,6 +367,8 @@ class WalletDetailViewModelRangeTest {
         override val balancesHidden: Flow<Boolean> = balancesHiddenState
         override val walletAnimationsEnabled: Flow<Boolean> = walletAnimationsEnabledState
         override val walletBalanceRange: Flow<BalanceRange> = balanceRangeState
+        override val showBalanceChart: Flow<Boolean> = showBalanceChartState
+        override val pinShuffleEnabled: Flow<Boolean> = pinShuffleEnabledState
         override val advancedMode: Flow<Boolean> = advancedModeState
         override val pinAutoLockTimeoutMinutes: Flow<Int> = pinAutoLockTimeoutMinutesState
         override val pinLastUnlockedAt: Flow<Long?> = pinLastUnlockedState
@@ -433,6 +437,14 @@ class WalletDetailViewModelRangeTest {
         override suspend fun setWalletBalanceRange(range: BalanceRange) {
             lastSetBalanceRange = range
             balanceRangeState.value = range
+        }
+
+        override suspend fun setShowBalanceChart(show: Boolean) {
+            showBalanceChartState.value = show
+        }
+
+        override suspend fun setPinShuffleEnabled(enabled: Boolean) {
+            pinShuffleEnabledState.value = enabled
         }
 
         override suspend fun setAdvancedMode(enabled: Boolean) {

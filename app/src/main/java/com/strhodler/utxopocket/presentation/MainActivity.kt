@@ -326,7 +326,8 @@ class MainActivity : AppCompatActivity() {
                                                 }
                                             }
                                         },
-                                        hapticsEnabled = uiState.hapticsEnabled
+                                        hapticsEnabled = uiState.hapticsEnabled,
+                                        shuffleDigits = uiState.pinShuffleEnabled
                                     )
                                 }
                             }
@@ -478,4 +479,3 @@ private fun StatusBar(
             )
         }
     }
-

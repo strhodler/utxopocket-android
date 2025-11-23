@@ -496,9 +496,9 @@
     <string name="add_wallet_scan_permission_denied">Se requiere la cámara para escanear descriptores.</string>
     <string name="add_wallet_scan_invalid">No encontramos un descriptor en ese código QR.</string>
     <string name="add_wallet_shared_descriptors_label">Descriptores usados en otros dispositivos</string>
-    <string name="add_wallet_shared_descriptors_helper">Mantén esto activado si también monitoreas esta billetera con otras apps o hardware. UtxoPocket programa reescaneos completos para descubrir direcciones reveladas en otros lugares.</string>
+    <string name="add_wallet_shared_descriptors_helper">Déjalo activado si monitoreas esta billetera en otras apps para que los reescaneos encuentren direcciones nuevas.</string>
     <string name="add_wallet_shared_extended_label">Clave extendida usada en otros dispositivos</string>
-    <string name="add_wallet_shared_extended_helper">Déjalo activado cuando la misma clave extendida esté importada en otros monederos para que UtxoPocket siga rastreando la rama de cambio.</string>
+    <string name="add_wallet_shared_extended_helper">Déjalo activado si esta clave también está en otras apps para seguir el cambio.</string>
 
     <!-- Dialogs & common -->
     <string name="dialog_close">Cerrar</string>
@@ -694,7 +694,11 @@
     <string name="wallet_detail_rename_error_generic">No se pudo renombrar la billetera</string>
     <string name="wallet_detail_force_rescan_scheduled">Reescaneo completo en cola. Actualiza para empezar a sincronizar.</string>
     <string name="wallet_detail_force_rescan_failed">No se pudo programar un reescaneo completo. Inténtalo de nuevo.</string>
-    <string name="wallet_detail_pull_to_refresh_hint">Desliza para actualizar</string>
+    <string name="wallet_detail_pull_to_refresh_hint">Toca o desliza para actualizar</string>
+    <string name="wallet_detail_show_chart">Mostrar gráfico</string>
+    <string name="wallet_detail_hide_chart">Ocultar gráfico</string>
+    <string name="settings_pin_shuffle_title">Aleatorizar teclado PIN</string>
+    <string name="settings_pin_shuffle_subtitle">Desordena los dígitos cada vez que se muestra el teclado PIN.</string>
     <string name="wallet_labels_export_title">Exportar etiquetas</string>
     <string name="wallet_labels_export_nav_title">Exportar etiquetas de la billetera</string>
     <string name="wallet_labels_export_loading">Preparando etiquetas...</string>
@@ -786,18 +790,18 @@
     <string name="add_wallet_tab_extended_key">Clave extendida</string>
     <string name="add_wallet_extended_extended_label">Clave pública extendida</string>
     <string name="add_wallet_extended_extended_placeholder">xpub, ypub, zpub, tpub…</string>
-    <string name="add_wallet_extended_extended_helper">Pega o escanea la clave pública extendida de tu hardware wallet u otra app. UtxoPocket generará los descriptores automáticamente.</string>
+    <string name="add_wallet_extended_extended_helper">Importa el xpub/ypub/zpub de tu hardware wallet; generamos los descriptores.</string>
     <string name="add_wallet_extended_derivation_label">Ruta de derivación (opcional)</string>
     <string name="add_wallet_extended_derivation_placeholder">m/84\'/0\'/0\'</string>
-    <string name="add_wallet_extended_derivation_helper">Metadatos opcionales para que el origen del descriptor coincida con la exportación de tu hardware wallet.</string>
+    <string name="add_wallet_extended_derivation_helper">Metadatos opcionales de ruta para que la importación coincida con la exportación.</string>
     <string name="add_wallet_extended_fingerprint_label">Huella maestra (opcional)</string>
     <string name="add_wallet_extended_fingerprint_placeholder">F23C9A1B</string>
-    <string name="add_wallet_extended_fingerprint_helper">Huella hexadecimal de cuatro bytes de la clave raíz; mejora la paridad entre importaciones y exportaciones.</string>
+    <string name="add_wallet_extended_fingerprint_helper">Huella raíz opcional de 4 bytes para mantener las importaciones compatibles.</string>
     <string name="add_wallet_extended_script_label">Tipo de script</string>
-    <string name="add_wallet_extended_script_helper">Elegir el mismo tipo que exportó tu monedero (Legacy, SegWit anidado, SegWit nativo, Taproot).</string>
+    <string name="add_wallet_extended_script_helper">Elige el mismo tipo de script que exportaste.</string>
     <string name="add_wallet_extended_script_placeholder">Selecciona el tipo de script</string>
     <string name="add_wallet_extended_change_label">Rastrear cambio</string>
-    <string name="add_wallet_extended_change_helper">Desactívalo solo si necesitas direcciones de recepción y nunca monitorearás el cambio.</string>
+    <string name="add_wallet_extended_change_helper">Mantiene el cambio sincronizado; desactívalo solo si es solo para recibir.</string>
     <string name="add_wallet_extended_dialog_title">Clave extendida detectada</string>
     <string name="add_wallet_extended_dialog_message">UtxoPocket detectó una clave pública extendida. Confirma el tipo de script antes de continuar.</string>
     <string name="add_wallet_extended_dialog_warning">Elige exactamente el tipo de script que exportó tu otro monedero; si no coincide, no verás tus saldos.</string>

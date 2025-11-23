@@ -160,6 +160,7 @@ fun SecuritySettingsRoute(
                         showPinDisable = true
                     }
                 },
+                onPinShuffleChanged = viewModel::onPinShuffleChanged,
                 onOpenPinAdvanced = onOpenAdvancedSettings,
                 onTriggerPanicWipe = { showPanicFirstConfirmation = true },
                 panicEnabled = !isPanicInProgress,
@@ -272,7 +273,8 @@ fun SecuritySettingsRoute(
                             }
                         }
                     },
-                    hapticsEnabled = state.hapticsEnabled
+                    hapticsEnabled = state.hapticsEnabled,
+                    shuffleDigits = state.pinShuffleEnabled
                 )
             }
 
@@ -331,7 +333,8 @@ fun SecuritySettingsRoute(
                             }
                         }
                     },
-                    hapticsEnabled = state.hapticsEnabled
+                    hapticsEnabled = state.hapticsEnabled,
+                    shuffleDigits = state.pinShuffleEnabled
                 )
             }
 
@@ -343,6 +346,7 @@ fun SecuritySettingsRoute(
 private fun SecuritySettingsScreen(
     state: SettingsUiState,
     onPinToggleRequested: (Boolean) -> Unit,
+    onPinShuffleChanged: (Boolean) -> Unit,
     onOpenPinAdvanced: () -> Unit,
     onTriggerPanicWipe: () -> Unit,
     panicEnabled: Boolean,
@@ -378,6 +382,25 @@ private fun SecuritySettingsScreen(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
         )
         if (state.pinEnabled) {
+            ListItem(
+                headlineContent = {
+                    Text(text = stringResource(id = R.string.settings_pin_shuffle_title))
+                },
+                supportingContent = {
+                    Text(
+                        text = stringResource(id = R.string.settings_pin_shuffle_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                trailingContent = {
+                    Switch(
+                        checked = state.pinShuffleEnabled,
+                        onCheckedChange = onPinShuffleChanged
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
             SettingsNavigationRow(
                 title = stringResource(id = R.string.settings_pin_advanced_title),
                 supportingText = stringResource(id = R.string.settings_pin_advanced_subtitle),

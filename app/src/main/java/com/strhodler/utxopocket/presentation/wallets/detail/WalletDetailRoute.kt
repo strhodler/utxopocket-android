@@ -398,6 +398,7 @@ fun WalletDetailRoute(
                 onAddressSelected = onAddressSelected,
                 onReceiveAddressCopied = viewModel::onReceiveAddressCopied,
                 onBalanceRangeSelected = viewModel::onBalanceRangeSelected,
+                onShowBalanceChartChanged = viewModel::setShowBalanceChart,
                 onCycleBalanceDisplay = cycleBalanceDisplay,
                 onOpenWikiTopic = onOpenWikiTopic,
                 outerListState = outerListState,

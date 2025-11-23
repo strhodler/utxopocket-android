@@ -44,6 +44,8 @@ private val DefaultKeyboardLayout = listOf(
     listOf(DigitKey.Placeholder, DigitKey.Number('0'), DigitKey.Backspace)
 )
 
+fun defaultDigitKeyboardLayout(): List<List<DigitKey>> = DefaultKeyboardLayout
+
 fun shuffledDigitKeyboardLayout(random: Random = Random.Default): List<List<DigitKey>> {
     val shuffledDigits = ('0'..'9').toList().shuffled(random)
     val numberRows: List<List<DigitKey>> = shuffledDigits.take(9)

@@ -135,7 +135,7 @@ fun AddWalletScreen(
             )
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .weight(1f)
                     .verticalScroll(scrollState)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -166,13 +166,16 @@ fun AddWalletScreen(
                         color = MaterialTheme.colorScheme.error
                     )
                 }
-                ActionButtons(
-                    canSubmit = canSubmit,
-                    isSaving = state.isSaving,
-                    onCancel = onBack,
-                    onSubmit = onSubmit
-                )
             }
+            ActionButtons(
+                canSubmit = canSubmit,
+                isSaving = state.isSaving,
+                onCancel = onBack,
+                onSubmit = onSubmit,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            )
         }
     }
     state.networkMismatchDialog?.let { mismatch ->
@@ -962,10 +965,11 @@ private fun ActionButtons(
     canSubmit: Boolean,
     isSaving: Boolean,
     onCancel: () -> Unit,
-    onSubmit: () -> Unit
+    onSubmit: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

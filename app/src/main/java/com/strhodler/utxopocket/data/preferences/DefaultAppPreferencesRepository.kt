@@ -121,6 +121,12 @@ class DefaultAppPreferencesRepository @Inject constructor(
             } ?: BalanceRange.LastYear
         }
 
+    override val showBalanceChart: Flow<Boolean> =
+        dataStore.data.map { prefs -> prefs[Keys.SHOW_BALANCE_CHART] ?: false }
+
+    override val pinShuffleEnabled: Flow<Boolean> =
+        dataStore.data.map { prefs -> prefs[Keys.PIN_SHUFFLE_ENABLED] ?: false }
+
     override val advancedMode: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.ADVANCED_MODE] ?: false }
 
@@ -347,6 +353,14 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     override suspend fun setWalletBalanceRange(range: BalanceRange) {
         dataStore.edit { prefs -> prefs[Keys.WALLET_BALANCE_RANGE] = range.name }
+    }
+
+    override suspend fun setShowBalanceChart(show: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.SHOW_BALANCE_CHART] = show }
+    }
+
+    override suspend fun setPinShuffleEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.PIN_SHUFFLE_ENABLED] = enabled }
     }
 
     override suspend fun setAdvancedMode(enabled: Boolean) {
@@ -661,6 +675,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val WALLET_ANIMATIONS_ENABLED = booleanPreferencesKey("wallet_animations_enabled")
         val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
         val WALLET_BALANCE_RANGE = stringPreferencesKey("wallet_balance_range")
+        val SHOW_BALANCE_CHART = booleanPreferencesKey("show_balance_chart")
+        val PIN_SHUFFLE_ENABLED = booleanPreferencesKey("pin_shuffle_enabled")
         val ADVANCED_MODE = booleanPreferencesKey("advanced_mode_enabled")
         val CONNECTION_IDLE_MINUTES = intPreferencesKey("connection_idle_minutes")
         val DUST_THRESHOLD = longPreferencesKey("dust_threshold_sats")

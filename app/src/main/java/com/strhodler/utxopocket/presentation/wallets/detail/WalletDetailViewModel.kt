@@ -86,6 +86,7 @@ class WalletDetailViewModel @Inject constructor(
     private val utxoSortState = MutableStateFlow(WalletUtxoSort.LARGEST_AMOUNT)
     private val utxoLabelFilterState = MutableStateFlow(UtxoLabelFilter())
     private val selectedBalanceRangeState = MutableStateFlow(BalanceRange.LastYear)
+    private val showBalanceChartState = MutableStateFlow(false)
     private val balanceHistoryReducer = BalanceHistoryReducer()
 
     val pagedTransactions: Flow<PagingData<WalletTransaction>> = transactionSortState
@@ -252,14 +253,22 @@ class WalletDetailViewModel @Inject constructor(
         addressState,
         transactionSortState,
         utxoSortState,
-        selectedBalanceRangeState
-    ) { baseSnapshot, addresses, transactionSort, utxoSort, selectedRange ->
+        selectedBalanceRangeState,
+        showBalanceChartState
+    ) { values: Array<Any?> ->
+        val baseSnapshot = values[0] as BaseSnapshot
+        val addresses = values[1] as AddressLists
+        val transactionSort = values[2] as WalletTransactionSort
+        val utxoSort = values[3] as WalletUtxoSort
+        val selectedRange = values[4] as BalanceRange
+        val showBalanceChart = values[5] as Boolean
         UiInputs(
             baseSnapshot = baseSnapshot,
             addresses = addresses,
             transactionSort = transactionSort,
             utxoSort = utxoSort,
-            selectedRange = selectedRange
+            selectedRange = selectedRange,
+            showBalanceChart = showBalanceChart
         )
     }
 
@@ -273,7 +282,8 @@ class WalletDetailViewModel @Inject constructor(
             transactionSort = inputs.transactionSort,
             utxoSort = inputs.utxoSort,
             selectedRange = inputs.selectedRange,
-            utxoLabelFilter = utxoLabelFilter
+            utxoLabelFilter = utxoLabelFilter,
+            showBalanceChart = inputs.showBalanceChart
         )
     }.stateIn(
         scope = viewModelScope,
@@ -287,7 +297,8 @@ class WalletDetailViewModel @Inject constructor(
         transactionSort: WalletTransactionSort,
         utxoSort: WalletUtxoSort,
         selectedRange: BalanceRange,
-        utxoLabelFilter: UtxoLabelFilter
+        utxoLabelFilter: UtxoLabelFilter,
+        showBalanceChart: Boolean
     ): WalletDetailUiState {
         val detail = baseSnapshot.detail
         val availableTransactionSorts = availableTransactionSorts(baseSnapshot.transactionAnalysisEnabled)
@@ -341,6 +352,7 @@ class WalletDetailViewModel @Inject constructor(
                 selectedRange = selectedRange,
                 balanceHistory = emptyList(),
                 displayBalancePoints = emptyList(),
+                showBalanceChart = showBalanceChart,
                 utxoLabelFilter = utxoLabelFilter
             )
         } else {
@@ -401,6 +413,7 @@ class WalletDetailViewModel @Inject constructor(
                 lastFullScanTime = summary.lastFullScanTime,
                 balanceHistory = balanceHistoryPoints,
                 displayBalancePoints = displayBalancePoints,
+                showBalanceChart = showBalanceChart,
                 selectedRange = selectedRange,
                 reusedAddressCount = reusedAddressCount,
                 reusedBalanceSats = reusedBalanceSats,
@@ -440,6 +453,7 @@ class WalletDetailViewModel @Inject constructor(
 
     init {
         observeBalanceRangePreference()
+        observeShowBalanceChartPreference()
         refreshAddresses()
     }
 
@@ -556,6 +570,23 @@ class WalletDetailViewModel @Inject constructor(
         }
     }
 
+    fun setShowBalanceChart(show: Boolean) {
+        showBalanceChartState.value = show
+        viewModelScope.launch {
+            appPreferencesRepository.setShowBalanceChart(show)
+        }
+    }
+
+    private fun observeShowBalanceChartPreference() {
+        viewModelScope.launch {
+            appPreferencesRepository.showBalanceChart.collect { show ->
+                if (showBalanceChartState.value != show) {
+                    showBalanceChartState.value = show
+                }
+            }
+        }
+    }
+
     private data class AddressLists(
         val receive: List<WalletAddress> = emptyList(),
         val change: List<WalletAddress> = emptyList()
@@ -566,7 +597,8 @@ class WalletDetailViewModel @Inject constructor(
         val addresses: AddressLists,
         val transactionSort: WalletTransactionSort,
         val utxoSort: WalletUtxoSort,
-        val selectedRange: BalanceRange
+        val selectedRange: BalanceRange,
+        val showBalanceChart: Boolean
     )
 
     private data class BaseSnapshot(
@@ -639,6 +671,7 @@ data class WalletDetailUiState(
     val lastFullScanTime: Long? = null,
     val balanceHistory: List<BalancePoint> = emptyList(),
     val displayBalancePoints: List<BalancePoint> = emptyList(),
+    val showBalanceChart: Boolean = false,
     val selectedRange: BalanceRange = BalanceRange.LastYear,
     val availableBalanceRanges: List<BalanceRange> = BALANCE_RANGE_OPTIONS,
     val reusedAddressCount: Int = 0,

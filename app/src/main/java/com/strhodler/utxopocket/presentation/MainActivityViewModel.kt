@@ -58,6 +58,7 @@ data class AppEntryUiState(
     val appLanguage: AppLanguage = AppLanguage.EN,
     val pinLockEnabled: Boolean = false,
     val hapticsEnabled: Boolean = true,
+    val pinShuffleEnabled: Boolean = false,
     val appLocked: Boolean = false
 )
 
@@ -132,7 +133,8 @@ class MainActivityViewModel @Inject constructor(
         lockState,
         nodeConfigurationRepository.nodeConfig,
         networkStatusMonitor.isOnline,
-        appPreferencesRepository.hapticsEnabled
+        appPreferencesRepository.hapticsEnabled,
+        appPreferencesRepository.pinShuffleEnabled
     ) { values ->
         val onboarding = values[0] as Boolean
         val torStatus = values[1] as TorStatus
@@ -147,6 +149,7 @@ class MainActivityViewModel @Inject constructor(
         val nodeConfig = values[10] as NodeConfig
         val isNetworkOnline = values[11] as Boolean
         val hapticsEnabled = values[12] as Boolean
+        val pinShuffleEnabled = values[13] as Boolean
 
         val snapshotMatchesNetwork = nodeSnapshot.network == network
         val effectiveNodeStatus = if (snapshotMatchesNetwork) {
@@ -179,6 +182,7 @@ class MainActivityViewModel @Inject constructor(
             appLanguage = appLanguage,
             pinLockEnabled = pinEnabled,
             hapticsEnabled = hapticsEnabled,
+            pinShuffleEnabled = pinShuffleEnabled,
             appLocked = pinEnabled && locked && onboarding
         )
     }.stateIn(

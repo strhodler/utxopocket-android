@@ -178,7 +178,8 @@ fun SecurityAdvancedSettingsRoute(
                             }
                         }
                     },
-                    hapticsEnabled = state.hapticsEnabled
+                    hapticsEnabled = state.hapticsEnabled,
+                    shuffleDigits = state.pinShuffleEnabled
                 )
             }
         }
