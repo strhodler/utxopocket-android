@@ -1,7 +1,6 @@
 package com.strhodler.utxopocket.domain.ur
 
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
-import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -11,18 +10,16 @@ import kotlin.test.assertTrue
 class UniformResourceImportParserTest {
 
     @Test
-    fun `crypto-output without branches falls back to extended key`() {
+    fun `crypto-output without branches yields descriptor`() {
         val ur = "ur:crypto-output/taadmwtaaddlosaowkaxhdclaxdezehfnbjetispdrpldyrelstdsrldvlcevymssnskftoykeehbtsbbspswdlnvtaahdcxjejsfpuetplplukpiatkcpgtIagabwlrwewddlglsfahgsptfhosehcwgsrtrywmahtaadehoeadaeoadamtaaddyotadlncsghykadykaeykaocymnlajyqdaxaxaycysbrppsdaasihfwgagdeoesrokkbsot".lowercase()
 
         val result = UniformResourceImportParser.parse(ur, BitcoinNetwork.TESTNET)
-        val extended = assertIs<UniformResourceResult.ExtendedKey>(result)
+        val descriptor = assertIs<UniformResourceResult.Descriptor>(result)
 
-        assertEquals("tpubDDXF6KFU6ZNATjg6RBsf3Kkex7HLKpnhuk1PodeQtFLfFFD2qLZZTTX7V7t9SBNhYEEhH2CjbcHZLSsfQfZRfid5YKuPd3kXQX84UoYQyac", extended.extendedKey)
-        assertEquals("m/84'/1'/0'", extended.derivationPath)
-        assertEquals("8e8074b3", extended.masterFingerprint)
-        assertEquals(BitcoinNetwork.TESTNET, extended.detectedNetwork)
-        assertTrue(extended.includeChange)
-        assertEquals(ExtendedKeyScriptType.P2WPKH, extended.scriptType)
+        assertTrue(descriptor.descriptor.startsWith("wpkh(["))
+        assertTrue(descriptor.descriptor.contains("tpubDDXF6KFU6ZNATjg6RBsf3Kkex7HLKpnhuk1PodeQtFLfFFD2qLZZTTX7V7t9SBNhYEEhH2CjbcHZLSsfQfZRfid5YKuPd3kXQX84UoYQyac/0/*"))
+        assertNotNull(descriptor.changeDescriptor)
+        assertTrue(descriptor.changeDescriptor!!.contains("/1/*"))
     }
 
 
