@@ -120,10 +120,6 @@ class AddWalletViewModel @Inject constructor(
         _uiState.update { it.copy(showExtendedAdvanced = !it.showExtendedAdvanced) }
     }
 
-    fun onSharedDescriptorsChanged(enabled: Boolean) {
-        _uiState.update { it.copy(sharedDescriptors = enabled) }
-    }
-
     fun onImportModeSelected(mode: WalletImportMode) {
         val currentState = _uiState.value
         if (currentState.importMode == mode) return
@@ -283,7 +279,7 @@ class AddWalletViewModel @Inject constructor(
                     descriptor = validation.descriptor.trim(),
                     changeDescriptor = validation.changeDescriptor?.trim(),
                     network = currentState.selectedNetwork,
-                    sharedDescriptors = currentState.sharedDescriptors,
+                    sharedDescriptors = false,
                     viewOnly = validation.isViewOnly
                 )
             )

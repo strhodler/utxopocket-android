@@ -14,7 +14,7 @@ import androidx.room.RoomDatabase
         UtxoHealthEntity::class,
         WalletHealthEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 abstract class UtxoPocketDatabase : RoomDatabase() {

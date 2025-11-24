@@ -409,7 +409,7 @@ class WalletDetailViewModel @Inject constructor(
                 walletHealthEnabled = baseSnapshot.walletHealthEnabled,
                 walletHealth = baseSnapshot.walletHealth,
                 fullScanScheduled = summary.requiresFullScan,
-                sharedDescriptors = summary.sharedDescriptors,
+                fullScanStopGap = summary.fullScanStopGap,
                 lastFullScanTime = summary.lastFullScanTime,
                 balanceHistory = balanceHistoryPoints,
                 displayBalancePoints = displayBalancePoints,
@@ -499,16 +499,12 @@ class WalletDetailViewModel @Inject constructor(
         }
     }
 
-    fun forceFullRescan(onResult: (Result<Unit>) -> Unit) {
+    fun forceFullRescan(stopGap: Int, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
-            val result = runCatching { walletRepository.forceFullRescan(walletId) }
-            onResult(result)
-        }
-    }
-
-    fun setSharedDescriptors(shared: Boolean, onResult: (Result<Unit>) -> Unit) {
-        viewModelScope.launch {
-            val result = runCatching { walletRepository.setWalletSharedDescriptors(walletId, shared) }
+            val result = runCatching { walletRepository.forceFullRescan(walletId, stopGap) }
+            result.onSuccess {
+                refresh()
+            }
             onResult(result)
         }
     }
@@ -667,7 +663,7 @@ data class WalletDetailUiState(
     val walletHealthEnabled: Boolean = false,
     val walletHealth: WalletHealthResult? = null,
     val fullScanScheduled: Boolean = false,
-    val sharedDescriptors: Boolean = false,
+    val fullScanStopGap: Int? = null,
     val lastFullScanTime: Long? = null,
     val balanceHistory: List<BalancePoint> = emptyList(),
     val displayBalancePoints: List<BalancePoint> = emptyList(),

@@ -73,7 +73,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.surfaceColorAtElevation
@@ -169,8 +168,6 @@ fun WalletDetailScreen(
     topContentPadding: Dp,
     showDescriptorsSheet: Boolean,
     onDescriptorsSheetDismissed: () -> Unit,
-    sharedDescriptorUpdating: Boolean,
-    onSharedDescriptorsChanged: (Boolean) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -234,8 +231,6 @@ fun WalletDetailScreen(
                     topContentPadding = topContentPadding,
                     showDescriptorsSheet = showDescriptorsSheet,
                     onDescriptorsSheetDismissed = onDescriptorsSheetDismissed,
-                    sharedDescriptorUpdating = sharedDescriptorUpdating,
-                    onSharedDescriptorsChanged = onSharedDescriptorsChanged,
                     onShowMessage = onShowMessage,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -271,8 +266,6 @@ private fun WalletDetailContent(
     topContentPadding: Dp,
     showDescriptorsSheet: Boolean,
     onDescriptorsSheetDismissed: () -> Unit,
-    sharedDescriptorUpdating: Boolean,
-    onSharedDescriptorsChanged: (Boolean) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -688,11 +681,9 @@ private fun WalletDetailContent(
             WalletDescriptorsBottomSheet(
                 descriptor = descriptor,
                 changeDescriptor = state.changeDescriptor,
-                sharedDescriptors = state.sharedDescriptors,
-                sharedDescriptorUpdating = sharedDescriptorUpdating,
                 fullScanScheduled = state.fullScanScheduled,
+                fullScanStopGap = state.fullScanStopGap,
                 lastFullScanTime = state.lastFullScanTime,
-                onSharedDescriptorsChanged = onSharedDescriptorsChanged,
                 onCopyDescriptor = handleDescriptorCopy,
                 onShowDescriptorQr = { selected -> descriptorForQr = selected },
                 onDismiss = onDescriptorsSheetDismissed
@@ -1123,11 +1114,9 @@ private fun WalletHealthSheetContent(
 private fun WalletDescriptorsBottomSheet(
     descriptor: String,
     changeDescriptor: String?,
-    sharedDescriptors: Boolean,
-    sharedDescriptorUpdating: Boolean,
     fullScanScheduled: Boolean,
+    fullScanStopGap: Int?,
     lastFullScanTime: Long?,
-    onSharedDescriptorsChanged: (Boolean) -> Unit,
     onCopyDescriptor: (String) -> Unit,
     onShowDescriptorQr: (String) -> Unit,
     onDismiss: () -> Unit
@@ -1141,11 +1130,9 @@ private fun WalletDescriptorsBottomSheet(
         WalletDescriptorsSheetContent(
             descriptor = descriptor,
             changeDescriptor = changeDescriptor,
-            sharedDescriptors = sharedDescriptors,
-            sharedDescriptorUpdating = sharedDescriptorUpdating,
             fullScanScheduled = fullScanScheduled,
+            fullScanStopGap = fullScanStopGap,
             lastFullScanTime = lastFullScanTime,
-            onSharedDescriptorsChanged = onSharedDescriptorsChanged,
             onCopyDescriptor = onCopyDescriptor,
             onShowDescriptorQr = onShowDescriptorQr,
             modifier = Modifier
@@ -1160,11 +1147,9 @@ private fun WalletDescriptorsBottomSheet(
 private fun WalletDescriptorsSheetContent(
     descriptor: String,
     changeDescriptor: String?,
-    sharedDescriptors: Boolean,
-    sharedDescriptorUpdating: Boolean,
     fullScanScheduled: Boolean,
+    fullScanStopGap: Int?,
     lastFullScanTime: Long?,
-    onSharedDescriptorsChanged: (Boolean) -> Unit,
     onCopyDescriptor: (String) -> Unit,
     onShowDescriptorQr: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -1207,37 +1192,22 @@ private fun WalletDescriptorsSheetContent(
             }
             else -> stringResource(id = R.string.wallet_detail_last_full_scan_never)
         }
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.wallet_detail_shared_descriptors_label),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = stringResource(id = R.string.wallet_detail_shared_descriptors_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = sharedDescriptors,
-                    onCheckedChange = { enabled -> onSharedDescriptorsChanged(enabled) },
-                    enabled = !sharedDescriptorUpdating
-                )
-            }
+        val nextFullScanGapLabel = fullScanStopGap?.let {
+            stringResource(id = R.string.wallet_detail_next_full_scan_gap, it)
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = lastFullScanLabel,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            nextFullScanGapLabel?.let { gapLabel ->
+                Text(
+                    text = gapLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

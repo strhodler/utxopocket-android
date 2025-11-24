@@ -230,6 +230,11 @@ fun MainNavHost(
                             restoreState = true
                         }
                     },
+                    onOpenGlossaryEntry = { entryId ->
+                        navController.navigate(GlossaryNavigation.detailRoute(entryId)) {
+                            launchSingleTop = true
+                        }
+                    },
                     onOpenExportLabels = { targetWalletId, walletName ->
                         navController.navigate(
                             WalletsNavigation.exportLabelsRoute(targetWalletId, walletName)

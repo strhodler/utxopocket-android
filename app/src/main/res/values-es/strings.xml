@@ -495,10 +495,6 @@
     <string name="add_wallet_scan_descriptor">Escanear descriptor</string>
     <string name="add_wallet_scan_permission_denied">Se requiere la cámara para escanear descriptores.</string>
     <string name="add_wallet_scan_invalid">No encontramos un descriptor en ese código QR.</string>
-    <string name="add_wallet_shared_descriptors_label">Descriptores usados en otros dispositivos</string>
-    <string name="add_wallet_shared_descriptors_helper">Déjalo activado si monitoreas esta billetera en otras apps para que los reescaneos encuentren direcciones nuevas.</string>
-    <string name="add_wallet_shared_extended_label">Clave extendida usada en otros dispositivos</string>
-    <string name="add_wallet_shared_extended_helper">Déjalo activado si esta clave también está en otras apps para seguir el cambio.</string>
 
     <!-- Dialogs & common -->
     <string name="dialog_close">Cerrar</string>
@@ -671,7 +667,7 @@
     <string name="wallet_detail_menu_export_labels">Exportar BIP-329</string>
     <string name="wallet_detail_menu_import_labels">Importar BIP-329</string>
     <string name="wallet_detail_menu_descriptors">Descriptores</string>
-    <string name="wallet_detail_menu_force_rescan">Forzar reescaneo completo</string>
+    <string name="wallet_detail_menu_force_rescan">Reescaneo completo</string>
     <string name="wallet_detail_menu_delete">Eliminar billetera</string>
     <string name="wallet_detail_selected_timestamp">Balance al %1$s</string>
     <string name="wallet_detail_export_ready">Exportación BIP‑329 lista para compartir</string>
@@ -692,8 +688,8 @@
     <string name="wallet_detail_rename_error_blank">El nombre no puede estar vacío</string>
     <string name="wallet_detail_rename_error_exists">Ya existe una billetera con ese nombre</string>
     <string name="wallet_detail_rename_error_generic">No se pudo renombrar la billetera</string>
-    <string name="wallet_detail_force_rescan_scheduled">Reescaneo completo en cola. Actualiza para empezar a sincronizar.</string>
-    <string name="wallet_detail_force_rescan_failed">No se pudo programar un reescaneo completo. Inténtalo de nuevo.</string>
+    <string name="wallet_detail_force_rescan_started">Reescaneo completo iniciado con gap %1$d.</string>
+    <string name="wallet_detail_force_rescan_failed">No se pudo iniciar el reescaneo completo. Inténtalo de nuevo.</string>
     <string name="wallet_detail_pull_to_refresh_hint">Toca o desliza para actualizar</string>
     <string name="wallet_detail_show_chart">Mostrar gráfico</string>
     <string name="wallet_detail_hide_chart">Ocultar gráfico</string>
@@ -724,11 +720,16 @@
     <string name="wallet_labels_import_history_title">Historial de importaciones</string>
     <string name="wallet_labels_import_history_empty">Aún no hay importaciones.</string>
     <string name="wallet_labels_import_reset">Reiniciar</string>
-    <string name="wallet_detail_shared_descriptors_label">Descriptores usados en otros dispositivos</string>
-    <string name="wallet_detail_shared_descriptors_hint">Mantén esto activado cuando otros dispositivos deriven direcciones para estos descriptores. Desactívalo sólo si UtxoPocket es el único observador.</string>
-    <string name="wallet_detail_shared_descriptors_enabled">Marcado como compartido. Se ha programado un reescaneo completo.</string>
-    <string name="wallet_detail_shared_descriptors_disabled">Marcado como de un solo dispositivo.</string>
-    <string name="wallet_detail_shared_descriptors_error">No se pudo actualizar la configuración de descriptores compartidos.</string>
+    <string name="wallet_detail_full_rescan_title">Reescaneo completo</string>
+    <string name="wallet_detail_full_rescan_description">Elige el gap limit para este reescaneo. Mínimo %1$d, máximo %2$d direcciones. %3$s</string>
+    <string name="wallet_detail_full_rescan_gap_value">Gap limit: %1$d</string>
+    <string name="wallet_detail_full_rescan_feedback_fast">Rápido (ventana por defecto)</string>
+    <string name="wallet_detail_full_rescan_feedback_balanced">Equilibrado. Puede tardar más.</string>
+    <string name="wallet_detail_full_rescan_feedback_deep">Profundo. Más lento y revela más direcciones al servidor.</string>
+    <string name="wallet_detail_full_rescan_cancel">Cancelar</string>
+    <string name="wallet_detail_full_rescan_cta">Iniciar reescaneo</string>
+    <string name="wallet_detail_next_full_scan_gap">Próximo reescaneo completo: gap %1$d</string>
+    <string name="wallet_detail_full_rescan_learn_more">Leer más</string>
     <string name="wallet_detail_last_full_scan">Último reescaneo completo: %1$s</string>
     <string name="wallet_detail_last_full_scan_never">Aún no se completa un reescaneo completo.</string>
     <string name="wallet_detail_full_scan_pending">Rescan completo en cola</string>

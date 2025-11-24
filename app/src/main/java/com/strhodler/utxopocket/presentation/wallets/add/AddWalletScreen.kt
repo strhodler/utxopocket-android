@@ -92,7 +92,6 @@ fun AddWalletScreen(
     onWalletNameChange: (String) -> Unit,
     onToggleAdvanced: () -> Unit,
     onToggleExtendedAdvanced: () -> Unit,
-    onSharedDescriptorsChange: (Boolean) -> Unit,
     onExtendedKeyChange: (String) -> Unit,
     onExtendedDerivationPathChange: (String) -> Unit,
     onExtendedFingerprintChange: (String) -> Unit,
@@ -146,12 +145,11 @@ fun AddWalletScreen(
                     onDescriptorChange = onDescriptorChange,
                     onChangeDescriptorChange = onChangeDescriptorChange,
                     onWalletNameChange = onWalletNameChange,
-                    onToggleAdvanced = onToggleAdvanced,
-                    onToggleExtendedAdvanced = onToggleExtendedAdvanced,
-                    onSharedDescriptorsChange = onSharedDescriptorsChange,
-                    onExtendedKeyChange = onExtendedKeyChange,
-                    onExtendedDerivationPathChange = onExtendedDerivationPathChange,
-                    onExtendedFingerprintChange = onExtendedFingerprintChange,
+                onToggleAdvanced = onToggleAdvanced,
+                onToggleExtendedAdvanced = onToggleExtendedAdvanced,
+                onExtendedKeyChange = onExtendedKeyChange,
+                onExtendedDerivationPathChange = onExtendedDerivationPathChange,
+                onExtendedFingerprintChange = onExtendedFingerprintChange,
                     onExtendedScriptTypeChange = onExtendedScriptTypeChange,
                     onExtendedIncludeChangeBranch = onExtendedIncludeChangeBranch
                 )
@@ -278,7 +276,6 @@ private fun FormCard(
     onWalletNameChange: (String) -> Unit,
     onToggleAdvanced: () -> Unit,
     onToggleExtendedAdvanced: () -> Unit,
-    onSharedDescriptorsChange: (Boolean) -> Unit,
     onExtendedKeyChange: (String) -> Unit,
     onExtendedDerivationPathChange: (String) -> Unit,
     onExtendedFingerprintChange: (String) -> Unit,
@@ -351,22 +348,6 @@ private fun FormCard(
                     )
                 }
             }
-            val sharedLabel = if (state.importMode == WalletImportMode.EXTENDED_KEY) {
-                stringResource(id = R.string.add_wallet_shared_extended_label)
-            } else {
-                stringResource(id = R.string.add_wallet_shared_descriptors_label)
-            }
-            val sharedHelper = if (state.importMode == WalletImportMode.EXTENDED_KEY) {
-                stringResource(id = R.string.add_wallet_shared_extended_helper)
-            } else {
-                stringResource(id = R.string.add_wallet_shared_descriptors_helper)
-            }
-            SharedDescriptorsToggle(
-                label = sharedLabel,
-                helper = sharedHelper,
-                checked = state.sharedDescriptors,
-                onCheckedChange = onSharedDescriptorsChange
-            )
             when (state.importMode) {
                 WalletImportMode.DESCRIPTOR -> DescriptorAdvancedOptions(
                     showAdvanced = state.showAdvanced,
@@ -816,45 +797,6 @@ private fun WalletNameInput(
             placeholder = { Text(text = stringResource(id = R.string.add_wallet_name_placeholder)) },
             singleLine = true
         )
-    }
-}
-
-@Composable
-private fun SharedDescriptorsToggle(
-    label: String,
-    helper: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = helper,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Switch(
-                checked = checked,
-                onCheckedChange = onCheckedChange
-            )
-        }
     }
 }
 

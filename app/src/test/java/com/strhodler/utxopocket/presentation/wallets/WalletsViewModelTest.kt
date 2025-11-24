@@ -177,9 +177,7 @@ private class TestWalletRepository : WalletRepository {
 
     override suspend fun updateWalletColor(id: Long, color: WalletColor) = Unit
 
-    override suspend fun forceFullRescan(walletId: Long) = Unit
-
-    override suspend fun setWalletSharedDescriptors(walletId: Long, shared: Boolean) = Unit
+    override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
 
     override suspend fun listUnusedAddresses(
         walletId: Long,

@@ -206,9 +206,7 @@ class WalletDetailViewModelRangeTest {
             color: com.strhodler.utxopocket.domain.model.WalletColor
         ) = Unit
 
-        override suspend fun forceFullRescan(walletId: Long) = Unit
-
-        override suspend fun setWalletSharedDescriptors(walletId: Long, shared: Boolean) = Unit
+        override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
 
         override suspend fun listUnusedAddresses(
             walletId: Long,

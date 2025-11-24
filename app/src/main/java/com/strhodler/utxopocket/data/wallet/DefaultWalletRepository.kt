@@ -34,7 +34,6 @@ import com.strhodler.utxopocket.data.db.markFullScanCompleted
 import com.strhodler.utxopocket.data.db.scheduleFullScan
 import com.strhodler.utxopocket.data.db.withSyncFailure
 import com.strhodler.utxopocket.data.db.withSyncResult
-import com.strhodler.utxopocket.data.db.updateSharedDescriptors
 import com.strhodler.utxopocket.data.node.toTorAwareMessage
 import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
 import com.strhodler.utxopocket.data.security.SqlCipherPassphraseProvider
@@ -155,6 +154,7 @@ class DefaultWalletRepository @Inject constructor(
         private val MULTIPLE_DASHES = Regex("-{2,}")
         private val WHITESPACE_REGEX = Regex("\\s+")
         private val MULTIPATH_SEGMENT_REGEX = Regex("/<[^>]+>/")
+        private const val MAX_FULL_SCAN_STOP_GAP = 500
 
         @VisibleForTesting
         internal fun normalizeOrigin(value: String?): String? {
@@ -728,6 +728,8 @@ class DefaultWalletRepository @Inject constructor(
                                     val shouldRunFullScan = entity.requiresFullScan ||
                                         entity.lastFullScanTime == null ||
                                         isFreshMaterialization
+                                    val fullScanStopGap = entity.fullScanStopGap
+                                        ?.coerceIn(1, MAX_FULL_SCAN_STOP_GAP)
                                     val hasChangeKeychain = !entity.viewOnly && entity.hasChangeBranch()
                                     val walletCancellationSignal = SyncCancellationSignal {
                                         cancellationSignal.shouldCancel() || cancelledForDeletion.get()
@@ -735,6 +737,7 @@ class DefaultWalletRepository @Inject constructor(
                                     blockchain.syncWallet(
                                         wallet = wallet,
                                         shouldRunFullScan = shouldRunFullScan,
+                                        fullScanStopGap = fullScanStopGap,
                                         hasChangeKeychain = hasChangeKeychain,
                                         cancellationSignal = walletCancellationSignal
                                     )
@@ -1670,17 +1673,10 @@ class DefaultWalletRepository @Inject constructor(
         walletDao.updateColor(id, color.storageKey)
     }
 
-    override suspend fun forceFullRescan(walletId: Long) = withContext(ioDispatcher) {
+    override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = withContext(ioDispatcher) {
         val entity = walletDao.findById(walletId) ?: return@withContext
-        walletDao.upsert(entity.scheduleFullScan())
-    }
-
-    override suspend fun setWalletSharedDescriptors(walletId: Long, shared: Boolean) = withContext(ioDispatcher) {
-        val entity = walletDao.findById(walletId) ?: return@withContext
-        val updated = entity
-            .updateSharedDescriptors(shared)
-            .let { if (shared) it.scheduleFullScan() else it }
-        walletDao.upsert(updated)
+        val normalizedStopGap = stopGap.coerceIn(1, MAX_FULL_SCAN_STOP_GAP)
+        walletDao.upsert(entity.scheduleFullScan(normalizedStopGap))
     }
 
     override suspend fun listUnusedAddresses(

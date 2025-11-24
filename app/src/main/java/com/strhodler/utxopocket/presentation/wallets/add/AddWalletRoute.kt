@@ -48,7 +48,6 @@ fun AddWalletRoute(
         onWalletNameChange = viewModel::onWalletNameChanged,
         onToggleAdvanced = viewModel::onToggleAdvanced,
         onToggleExtendedAdvanced = viewModel::onToggleExtendedAdvanced,
-        onSharedDescriptorsChange = viewModel::onSharedDescriptorsChanged,
         onExtendedKeyChange = viewModel::onExtendedKeyChanged,
         onExtendedDerivationPathChange = viewModel::onExtendedDerivationPathChanged,
         onExtendedFingerprintChange = viewModel::onExtendedMasterFingerprintChanged,

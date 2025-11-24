@@ -6,14 +6,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
@@ -30,14 +33,20 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,7 +63,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -70,8 +83,12 @@ import android.view.HapticFeedbackConstants
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import kotlin.math.roundToInt
 
 private const val WALLET_NAME_MAX_LENGTH = 64
+private const val FULL_SCAN_GAP_MAX = 500
+private const val FULL_SCAN_GAP_STEP = 10
 
 @Composable
 fun WalletDetailRoute(
@@ -81,6 +98,7 @@ fun WalletDetailRoute(
     onUtxoSelected: (String, Int) -> Unit,
     onAddressSelected: (WalletAddress) -> Unit,
     onOpenWikiTopic: (String) -> Unit,
+    onOpenGlossaryEntry: (String) -> Unit,
     walletId: Long,
     onOpenExportLabels: (Long, String) -> Unit,
     onOpenImportLabels: (Long, String) -> Unit,
@@ -102,7 +120,8 @@ fun WalletDetailRoute(
     var renameInProgress by remember { mutableStateOf(false) }
     var renameErrorMessage by remember { mutableStateOf<String?>(null) }
     var forceRescanInProgress by remember { mutableStateOf(false) }
-    var sharedDescriptorUpdating by remember { mutableStateOf(false) }
+    var showFullRescanSheet by remember { mutableStateOf(false) }
+    var selectedFullRescanGap by rememberSaveable { mutableStateOf<Int?>(null) }
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val hapticFeedback = LocalHapticFeedback.current
@@ -125,11 +144,7 @@ fun WalletDetailRoute(
     val renameBlankErrorText = context.getString(R.string.wallet_detail_rename_error_blank)
     val renameExistsErrorText = context.getString(R.string.wallet_detail_rename_error_exists)
     val renameGenericErrorText = context.getString(R.string.wallet_detail_rename_error_generic)
-    val forceRescanSuccessMessage = stringResource(id = R.string.wallet_detail_force_rescan_scheduled)
     val forceRescanErrorMessage = stringResource(id = R.string.wallet_detail_force_rescan_failed)
-    val sharedDescriptorsEnabledMessage = stringResource(id = R.string.wallet_detail_shared_descriptors_enabled)
-    val sharedDescriptorsDisabledMessage = stringResource(id = R.string.wallet_detail_shared_descriptors_disabled)
-    val sharedDescriptorsErrorMessage = stringResource(id = R.string.wallet_detail_shared_descriptors_error)
     val outerListState = rememberLazyListState()
     val tabs = remember { WalletDetailTab.entries.toTypedArray() }
     var selectedTab by rememberSaveable { mutableStateOf(WalletDetailTab.Transactions) }
@@ -318,7 +333,7 @@ fun WalletDetailRoute(
                     )
                     DropdownMenuItem(
                         text = { Text(text = stringResource(id = R.string.wallet_detail_menu_force_rescan)) },
-                        enabled = !forceRescanInProgress && state.summary?.requiresFullScan != true,
+                        enabled = !forceRescanInProgress && state.summary?.requiresFullScan != true && !state.isRefreshing,
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Outlined.Refresh,
@@ -327,22 +342,15 @@ fun WalletDetailRoute(
                         },
                         onClick = {
                             menuExpanded = false
-                            if (forceRescanInProgress || state.summary?.requiresFullScan == true) {
+                            val summary = state.summary
+                            if (forceRescanInProgress || summary?.requiresFullScan == true || summary == null || state.isRefreshing) {
                                 return@DropdownMenuItem
                             }
-                            forceRescanInProgress = true
-                            viewModel.forceFullRescan { result ->
-                                forceRescanInProgress = false
-                                result.onSuccess {
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(forceRescanSuccessMessage)
-                                    }
-                                }.onFailure {
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(forceRescanErrorMessage)
-                                    }
-                                }
-                            }
+                            val baseline = fullScanBaseline(summary.network)
+                            val initialGap = (summary.fullScanStopGap ?: baseline)
+                                .coerceIn(baseline, FULL_SCAN_GAP_MAX)
+                            selectedFullRescanGap = initialGap
+                            showFullRescanSheet = true
                         }
                     )
                     DropdownMenuItem(
@@ -410,33 +418,60 @@ fun WalletDetailRoute(
                 topContentPadding = topContentPadding,
                 showDescriptorsSheet = showDescriptorsSheet,
                 onDescriptorsSheetDismissed = { showDescriptorsSheet = false },
-                sharedDescriptorUpdating = sharedDescriptorUpdating,
-                onSharedDescriptorsChanged = { enabled ->
-                    if (sharedDescriptorUpdating || state.summary?.sharedDescriptors == enabled) {
-                        return@WalletDetailScreen
-                    }
-                    sharedDescriptorUpdating = true
-                    viewModel.setSharedDescriptors(enabled) { result ->
-                        sharedDescriptorUpdating = false
+                onShowMessage = showSnackbar,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+
+    if (showFullRescanSheet) {
+        val summary = state.summary
+        if (summary != null) {
+            val baseline = fullScanBaseline(summary.network)
+            val gapValue = (selectedFullRescanGap ?: baseline)
+                .coerceIn(baseline, FULL_SCAN_GAP_MAX)
+            FullRescanBottomSheet(
+                network = summary.network,
+                gap = gapValue,
+                minGap = baseline,
+                maxGap = FULL_SCAN_GAP_MAX,
+                step = FULL_SCAN_GAP_STEP,
+                isSubmitting = forceRescanInProgress || state.isRefreshing,
+                onGapChanged = { newGap -> selectedFullRescanGap = newGap },
+                onConfirm = { gap ->
+                    if (forceRescanInProgress) return@FullRescanBottomSheet
+                    val normalizedGap = gap.coerceIn(baseline, FULL_SCAN_GAP_MAX)
+                    forceRescanInProgress = true
+                    viewModel.forceFullRescan(normalizedGap) { result ->
+                        forceRescanInProgress = false
                         result.onSuccess {
-                            val message = if (enabled) {
-                                sharedDescriptorsEnabledMessage
-                            } else {
-                                sharedDescriptorsDisabledMessage
-                            }
+                            showFullRescanSheet = false
                             coroutineScope.launch {
-                                snackbarHostState.showSnackbar(message)
+                                val successMessage = context.getString(
+                                    R.string.wallet_detail_force_rescan_started,
+                                    normalizedGap
+                                )
+                                snackbarHostState.showSnackbar(successMessage)
                             }
                         }.onFailure {
                             coroutineScope.launch {
-                                snackbarHostState.showSnackbar(sharedDescriptorsErrorMessage)
+                                snackbarHostState.showSnackbar(forceRescanErrorMessage)
                             }
                         }
                     }
                 },
-                onShowMessage = showSnackbar,
-                modifier = Modifier.fillMaxSize()
+                onLearnMore = {
+                    showFullRescanSheet = false
+                    onOpenGlossaryEntry("full-rescan")
+                },
+                onDismiss = {
+                    if (!forceRescanInProgress) {
+                        showFullRescanSheet = false
+                    }
+                }
             )
+        } else {
+            showFullRescanSheet = false
         }
     }
 
@@ -616,3 +651,157 @@ private fun RenameWalletDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FullRescanBottomSheet(
+    network: BitcoinNetwork,
+    gap: Int,
+    minGap: Int,
+    maxGap: Int,
+    step: Int,
+    isSubmitting: Boolean,
+    onGapChanged: (Int) -> Unit,
+    onConfirm: (Int) -> Unit,
+    onLearnMore: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var sliderValue by remember(gap) { mutableStateOf(gap.toFloat()) }
+    LaunchedEffect(gap) {
+        sliderValue = gap.toFloat()
+    }
+    val valueRange = minGap.toFloat()..maxGap.toFloat()
+    val sliderSteps = ((maxGap - minGap) / step - 1).coerceAtLeast(0)
+    val clampedGap = gap.coerceIn(minGap, maxGap)
+    val feedbackText = when {
+        clampedGap <= minGap -> stringResource(id = R.string.wallet_detail_full_rescan_feedback_fast)
+        clampedGap <= minGap + 150 -> stringResource(id = R.string.wallet_detail_full_rescan_feedback_balanced)
+        else -> stringResource(id = R.string.wallet_detail_full_rescan_feedback_deep)
+    }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            Text(
+                text = stringResource(id = R.string.wallet_detail_full_rescan_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            val learnMoreLabel = stringResource(id = R.string.wallet_detail_full_rescan_learn_more)
+            val descriptionText = stringResource(
+                id = R.string.wallet_detail_full_rescan_description,
+                minGap,
+                maxGap,
+                learnMoreLabel
+            )
+            val linkColor = MaterialTheme.colorScheme.primary
+            val annotatedDescription = buildAnnotatedString {
+                val linkStart = descriptionText.indexOf(learnMoreLabel)
+                if (linkStart >= 0) {
+                    val before = descriptionText.substring(0, linkStart)
+                    val after = descriptionText.substring(linkStart + learnMoreLabel.length)
+                    append(before)
+                    pushStringAnnotation(tag = "learn_more", annotation = "learn_more")
+                    withStyle(
+                        SpanStyle(
+                            color = linkColor,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    ) {
+                        append(learnMoreLabel)
+                    }
+                    pop()
+                    append(after)
+                } else {
+                    append(descriptionText)
+                }
+            }
+            ClickableText(
+                text = annotatedDescription,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
+                onClick = { offset ->
+                    annotatedDescription.getStringAnnotations(
+                        tag = "learn_more",
+                        start = offset,
+                        end = offset
+                    ).firstOrNull()?.let {
+                        onLearnMore()
+                    }
+                }
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = stringResource(
+                        id = R.string.wallet_detail_full_rescan_gap_value,
+                        clampedGap
+                    ),
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Slider(
+                    value = sliderValue,
+                    onValueChange = { newValue ->
+                        val stepped = ((newValue / step).roundToInt() * step)
+                            .coerceIn(minGap, maxGap)
+                        sliderValue = stepped.toFloat()
+                        if (stepped != clampedGap) {
+                            onGapChanged(stepped)
+                        }
+                    },
+                    valueRange = valueRange,
+                    steps = sliderSteps,
+                    enabled = !isSubmitting,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = feedbackText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(
+                    onClick = onDismiss,
+                    enabled = !isSubmitting,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(text = stringResource(id = R.string.wallet_detail_full_rescan_cancel))
+                }
+                Button(
+                    onClick = { onConfirm(clampedGap) },
+                    enabled = !isSubmitting,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (isSubmitting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(text = stringResource(id = R.string.wallet_detail_full_rescan_cta))
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun fullScanBaseline(network: BitcoinNetwork): Int = when (network) {
+    BitcoinNetwork.MAINNET -> 200
+    BitcoinNetwork.TESTNET,
+    BitcoinNetwork.TESTNET4,
+    BitcoinNetwork.SIGNET -> 120
+}
