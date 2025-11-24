@@ -34,6 +34,8 @@ import com.strhodler.utxopocket.presentation.settings.SettingsNavigation
 import com.strhodler.utxopocket.presentation.settings.HealthParametersRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsRoute
 import com.strhodler.utxopocket.presentation.settings.WalletSettingsRoute
+import com.strhodler.utxopocket.presentation.settings.logs.NetworkLogViewModel
+import com.strhodler.utxopocket.presentation.settings.logs.NetworkLogViewerRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsViewModel
 import com.strhodler.utxopocket.presentation.wallets.WalletsRoute
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
@@ -389,6 +391,18 @@ fun MainNavHost(
             val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
             SecurityAdvancedSettingsRoute(
                 viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onOpenNetworkLogs = {
+                    navController.navigate(SettingsNavigation.NetworkLogsRoute) {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+        composable(SettingsNavigation.NetworkLogsRoute) { _ ->
+            val logViewModel: NetworkLogViewModel = hiltViewModel()
+            NetworkLogViewerRoute(
+                viewModel = logViewModel,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -422,7 +436,12 @@ fun MainNavHost(
             NodeStatusRoute(
                 status = statusBarState,
                 onBack = { navController.popBackStack() },
-                initialTabIndex = initialTabIndex
+                initialTabIndex = initialTabIndex,
+                onOpenNetworkLogs = {
+                    navController.navigate(SettingsNavigation.NetworkLogsRoute) {
+                        launchSingleTop = true
+                    }
+                }
             )
         }
         navigation(

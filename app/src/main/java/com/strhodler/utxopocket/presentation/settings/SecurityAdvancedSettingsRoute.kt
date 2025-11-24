@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +23,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,7 +60,8 @@ import android.view.HapticFeedbackConstants
 @Composable
 fun SecurityAdvancedSettingsRoute(
     viewModel: SettingsViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenNetworkLogs: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showPinAdvanced by rememberSaveable { mutableStateOf(false) }
@@ -119,6 +123,8 @@ fun SecurityAdvancedSettingsRoute(
                 onUnlockRequested = { showPinAdvancedGate = true },
                 onPinAutoLockTimeoutSelected = viewModel::onPinAutoLockTimeoutSelected,
                 onConnectionIdleTimeoutSelected = viewModel::onConnectionIdleTimeoutSelected,
+                onNetworkLogsToggle = viewModel::onNetworkLogsToggled,
+                onOpenNetworkLogs = onOpenNetworkLogs,
                 modifier = Modifier.fillMaxSize()
             )
 
@@ -195,6 +201,8 @@ private fun SecurityAdvancedSettingsScreen(
     onUnlockRequested: () -> Unit,
     onPinAutoLockTimeoutSelected: (Int) -> Unit,
     onConnectionIdleTimeoutSelected: (Int) -> Unit,
+    onNetworkLogsToggle: (Boolean) -> Unit,
+    onOpenNetworkLogs: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val view = LocalView.current
@@ -335,6 +343,49 @@ private fun SecurityAdvancedSettingsScreen(
                 steps = (MAX_CONNECTION_IDLE_MINUTES - MIN_CONNECTION_IDLE_MINUTES - 1).coerceAtLeast(0),
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(id = R.string.settings_network_logs_title),
+                style = MaterialTheme.typography.titleSmall
+            )
+            Text(
+                text = stringResource(id = R.string.settings_network_logs_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (state.networkLogsEnabled) {
+                        stringResource(id = R.string.settings_network_logs_enabled_label)
+                    } else {
+                        stringResource(id = R.string.settings_network_logs_disabled_label)
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = state.networkLogsEnabled,
+                    onCheckedChange = onNetworkLogsToggle
+                )
+            }
+            if (state.networkLogsEnabled) {
+                Text(
+                    text = stringResource(id = R.string.settings_network_logs_sanitized_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(
+                    onClick = onOpenNetworkLogs,
+                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)
+                ) {
+                    Text(text = stringResource(id = R.string.settings_network_logs_open_viewer))
+                }
+            }
         }
     }
 }

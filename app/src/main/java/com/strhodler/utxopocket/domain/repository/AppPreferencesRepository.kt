@@ -33,6 +33,7 @@ interface AppPreferencesRepository {
     val walletHealthEnabled: Flow<Boolean>
     val transactionHealthParameters: Flow<TransactionHealthParameters>
     val utxoHealthParameters: Flow<UtxoHealthParameters>
+    val networkLogsEnabled: Flow<Boolean>
 
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setPreferredNetwork(network: BitcoinNetwork)
@@ -61,6 +62,7 @@ interface AppPreferencesRepository {
     suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters)
     suspend fun resetTransactionHealthParameters()
     suspend fun resetUtxoHealthParameters()
+    suspend fun setNetworkLogsEnabled(enabled: Boolean)
     suspend fun wipeAll()
 
     companion object {

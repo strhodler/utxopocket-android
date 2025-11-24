@@ -20,6 +20,7 @@ data class SettingsUiState(
     val utxoHealthEnabled: Boolean = true,
     val walletHealthEnabled: Boolean = false,
     val walletHealthToggleEnabled: Boolean = true,
+    val networkLogsEnabled: Boolean = false,
     val pinEnabled: Boolean = false,
     val pinShuffleEnabled: Boolean = false,
     val pinAutoLockTimeoutMinutes: Int = AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES,

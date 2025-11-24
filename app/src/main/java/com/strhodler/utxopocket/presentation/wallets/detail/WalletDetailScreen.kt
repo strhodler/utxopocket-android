@@ -128,6 +128,7 @@ import com.strhodler.utxopocket.presentation.common.QrCodeDisplayDialog
 import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.common.transactionAmount
+import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.wallets.components.onGradient
 import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
 import com.strhodler.utxopocket.presentation.wallets.components.toTheme
@@ -386,9 +387,14 @@ private fun WalletDetailContent(
         }
         walletErrorMessage?.let { message ->
             item(key = "error") {
-                WalletErrorMessage(
-                    message = message,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                ActionableStatusBanner(
+                    title = stringResource(id = R.string.wallet_detail_error_banner_title),
+                    supporting = message,
+                    icon = Icons.Outlined.Warning,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    onClick = null
                 )
             }
             item(key = "error_health_spacing") {
@@ -2241,36 +2247,6 @@ private fun EmptyPlaceholder(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun WalletErrorMessage(
-    message: String,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Warning,
-                contentDescription = stringResource(id = R.string.wallets_sync_error_icon_description),
-                tint = MaterialTheme.colorScheme.error
-            )
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onErrorContainer
             )
         }
     }

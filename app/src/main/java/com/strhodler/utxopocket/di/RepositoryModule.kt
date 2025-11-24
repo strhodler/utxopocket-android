@@ -11,6 +11,7 @@ import com.strhodler.utxopocket.data.wiki.DefaultWikiRepository
 import com.strhodler.utxopocket.data.wiki.WikiRepository
 import com.strhodler.utxopocket.data.glossary.DefaultGlossaryRepository
 import com.strhodler.utxopocket.data.glossary.GlossaryRepository
+import com.strhodler.utxopocket.data.logs.DefaultNetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
@@ -25,6 +26,7 @@ import com.strhodler.utxopocket.data.wallethealth.DefaultWalletHealthRepository
 import com.strhodler.utxopocket.domain.repository.UtxoHealthRepository
 import com.strhodler.utxopocket.domain.repository.WalletHealthRepository
 import com.strhodler.utxopocket.domain.service.WalletHealthAggregator
+import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -113,4 +115,10 @@ abstract class RepositoryModule {
     abstract fun bindGlossaryRepository(
         impl: DefaultGlossaryRepository
     ): GlossaryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindNetworkErrorLogRepository(
+        impl: DefaultNetworkErrorLogRepository
+    ): NetworkErrorLogRepository
 }

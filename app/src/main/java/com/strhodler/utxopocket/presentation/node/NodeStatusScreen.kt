@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -58,6 +59,7 @@ import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
+import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.tor.TorStatusActionUiState
 import com.strhodler.utxopocket.presentation.wallets.components.WalletColorTheme
 import com.strhodler.utxopocket.presentation.wallets.components.onGradient
@@ -75,6 +77,7 @@ fun NodeStatusScreen(
     state: NodeStatusUiState,
     snackbarHostState: SnackbarHostState,
     torActionsState: TorStatusActionUiState,
+    onOpenNetworkLogs: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
@@ -190,17 +193,30 @@ fun NodeStatusScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
 
-                            NodeStatusTab.Management -> NodeManagementContent(
-                                isNetworkOnline = status.isNetworkOnline,
-                                state = state,
-                                modifier = Modifier.fillMaxWidth(),
-                                onNetworkSelected = onNetworkSelected,
-                                onPublicNodeSelected = onPublicNodeSelected,
-                                onCustomNodeSelected = onCustomNodeSelected,
-                                onCustomNodeDetails = onCustomNodeDetails,
-                                onAddCustomNodeClick = onAddCustomNodeClick,
-                                onDisconnect = onDisconnect
-                            )
+                            NodeStatusTab.Management -> {
+                                if (state.networkLogsEnabled) {
+                                    ActionableStatusBanner(
+                                        title = stringResource(id = R.string.node_network_logs_banner_title),
+                                        supporting = stringResource(id = R.string.node_network_logs_banner_supporting),
+                                        icon = Icons.Outlined.Info,
+                                        onClick = onOpenNetworkLogs,
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        contentColor = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
+                                NodeManagementContent(
+                                    isNetworkOnline = status.isNetworkOnline,
+                                    state = state,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onNetworkSelected = onNetworkSelected,
+                                    onPublicNodeSelected = onPublicNodeSelected,
+                                    onCustomNodeSelected = onCustomNodeSelected,
+                                    onCustomNodeDetails = onCustomNodeDetails,
+                                    onAddCustomNodeClick = onAddCustomNodeClick,
+                                    onDisconnect = onDisconnect
+                                )
+                            }
                         }
                     }
                 }

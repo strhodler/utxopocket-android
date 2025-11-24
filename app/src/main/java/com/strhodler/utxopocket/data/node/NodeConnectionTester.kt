@@ -4,10 +4,15 @@ import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.requiresTor
+import com.strhodler.utxopocket.domain.model.NetworkLogOperation
+import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
+import com.strhodler.utxopocket.domain.model.NetworkNodeSource
+import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.domain.service.TorManager
 import javax.inject.Inject
 import javax.inject.Singleton
+import android.os.SystemClock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -15,12 +20,14 @@ import org.bitcoindevkit.ElectrumClient
 
 @Singleton
 class DefaultNodeConnectionTester @Inject constructor(
-    private val torManager: TorManager
+    private val torManager: TorManager,
+    private val networkErrorLogRepository: NetworkErrorLogRepository
 ) : NodeConnectionTester {
 
     override suspend fun test(node: CustomNode): NodeConnectionTestResult = withContext(Dispatchers.IO) {
         val normalized = node.normalizedCopy() ?: throw IllegalArgumentException("Invalid endpoint")
         val endpoint = normalized.endpoint
+        val startedAt = SystemClock.elapsedRealtime()
 
         return@withContext try {
             torManager.withTorProxy { proxy ->
@@ -31,6 +38,20 @@ class DefaultNodeConnectionTester @Inject constructor(
                 )
             }
         } catch (error: Throwable) {
+            val duration = SystemClock.elapsedRealtime() - startedAt
+            runCatching {
+                networkErrorLogRepository.record(
+                    NetworkErrorLogEvent(
+                        operation = NetworkLogOperation.NodeConnect,
+                        endpoint = endpoint,
+                        usedTor = true,
+                        error = error,
+                        durationMs = duration,
+                        torStatus = torManager.status.value,
+                        nodeSource = NetworkNodeSource.Custom
+                    )
+                )
+            }
             if (error is CancellationException) throw error
             val reason = error.toTorAwareMessage(
                 defaultMessage = error.message.orEmpty().ifBlank { DEFAULT_FAILURE_MESSAGE },

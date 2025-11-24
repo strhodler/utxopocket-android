@@ -15,6 +15,7 @@ data class NodeStatusUiState(
     val selectedCustomNodeId: String? = null,
     val isNodeConnected: Boolean = false,
     val isNodeActivating: Boolean = false,
+    val networkLogsEnabled: Boolean = false,
     val newCustomName: String = "",
     val newCustomOnion: String = "",
     val newCustomPort: String = DEFAULT_PORT,

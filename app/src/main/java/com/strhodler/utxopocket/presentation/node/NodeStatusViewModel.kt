@@ -15,6 +15,7 @@ import com.strhodler.utxopocket.domain.node.EndpointScheme
 import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
+import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.presentation.node.NodeQrParseResult
@@ -33,7 +34,8 @@ class NodeStatusViewModel @Inject constructor(
     private val appPreferencesRepository: AppPreferencesRepository,
     private val nodeConfigurationRepository: NodeConfigurationRepository,
     private val nodeConnectionTester: NodeConnectionTester,
-    private val walletRepository: WalletRepository
+    private val walletRepository: WalletRepository,
+    private val networkErrorLogRepository: NetworkErrorLogRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NodeStatusUiState())
@@ -44,8 +46,9 @@ class NodeStatusViewModel @Inject constructor(
             combine(
                 appPreferencesRepository.preferredNetwork,
                 nodeConfigurationRepository.nodeConfig,
-                walletRepository.observeNodeStatus()
-            ) { network, config, nodeSnapshot ->
+                walletRepository.observeNodeStatus(),
+                networkErrorLogRepository.loggingEnabled
+            ) { network, config, nodeSnapshot, loggingEnabled ->
                 val publicNodes = nodeConfigurationRepository.publicNodesFor(network)
                 val selectedPublic = config.selectedPublicNodeId?.takeIf { id ->
                     publicNodes.any { it.id == id }
@@ -65,7 +68,8 @@ class NodeStatusViewModel @Inject constructor(
                     selectedPublic = selectedPublic,
                     selectedCustom = selectedCustom,
                     isConnected = isConnected,
-                    isConnecting = isConnecting
+                    isConnecting = isConnecting,
+                    networkLogsEnabled = loggingEnabled
                 )
             }.collect { snapshot ->
                 _uiState.update { previous ->
@@ -77,7 +81,8 @@ class NodeStatusViewModel @Inject constructor(
                         customNodes = snapshot.customNodes,
                         selectedCustomNodeId = snapshot.selectedCustom,
                         isNodeConnected = snapshot.isConnected,
-                        isNodeActivating = snapshot.isConnecting
+                        isNodeActivating = snapshot.isConnecting,
+                        networkLogsEnabled = snapshot.networkLogsEnabled
                     )
                 }
             }
@@ -611,6 +616,7 @@ class NodeStatusViewModel @Inject constructor(
         val selectedPublic: String?,
         val selectedCustom: String?,
         val isConnected: Boolean,
-        val isConnecting: Boolean
+        val isConnecting: Boolean,
+        val networkLogsEnabled: Boolean
     )
 }

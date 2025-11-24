@@ -29,6 +29,7 @@ import com.strhodler.utxopocket.data.db.WalletUtxoEntity
 import com.strhodler.utxopocket.data.db.TransactionLabelProjection
 import com.strhodler.utxopocket.data.db.toDomain
 import com.strhodler.utxopocket.data.db.UtxoPocketDatabase
+import com.strhodler.utxopocket.data.logs.NetworkErrorLogDatabase
 import com.strhodler.utxopocket.data.db.toStorage
 import com.strhodler.utxopocket.data.db.markFullScanCompleted
 import com.strhodler.utxopocket.data.db.scheduleFullScan
@@ -71,10 +72,16 @@ import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.domain.model.toBdkNetwork
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
+import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.TorManager
+import com.strhodler.utxopocket.domain.model.NetworkLogOperation
+import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
+import com.strhodler.utxopocket.domain.model.NetworkNodeSource
+import com.strhodler.utxopocket.domain.model.NetworkEndpointType
+import com.strhodler.utxopocket.domain.model.NetworkTransport
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
 import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.tor.TorProxyProvider
@@ -135,6 +142,7 @@ class DefaultWalletRepository @Inject constructor(
     private val appPreferencesRepository: AppPreferencesRepository,
     private val nodeConfigurationRepository: NodeConfigurationRepository,
     private val networkStatusMonitor: NetworkStatusMonitor,
+    private val networkErrorLogRepository: NetworkErrorLogRepository,
     @ApplicationContext private val applicationContext: Context,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : WalletRepository {
@@ -276,6 +284,14 @@ class DefaultWalletRepository @Inject constructor(
         if (!online) {
             lastObservedNetworkOnline = false
             applyOfflineNodeStatus()
+            runCatching {
+                recordNetworkFailure(
+                    error = IllegalStateException("Network offline"),
+                    durationMs = null,
+                    attemptIndex = 0,
+                    networkType = "offline"
+                )
+            }
             return
         }
         val wasOffline = !lastObservedNetworkOnline
@@ -553,6 +569,7 @@ class DefaultWalletRepository @Inject constructor(
                     SecureLog.i(TAG) { "Skipping wallet refresh for $network because background grace expired" }
                     return@withContext
                 }
+                val attemptStarted = SystemClock.elapsedRealtime()
                 try {
                     performRefreshAttempt(network, targetWalletIds)
                     if (attempt > 0) {
@@ -565,6 +582,13 @@ class DefaultWalletRepository @Inject constructor(
                 } catch (error: Exception) {
                     val attemptIndex = attempt + 1
                     SecureLog.w(TAG, error) { "Node refresh attempt $attemptIndex failed for $network" }
+                    runCatching {
+                        recordNetworkFailure(
+                            error = error,
+                            durationMs = SystemClock.elapsedRealtime() - attemptStarted,
+                            attemptIndex = attemptIndex
+                        )
+                    }
                     val exhaustedAttempts = attempt >= policy.maxAttempts - 1
                     if (exhaustedAttempts) {
                         if (handlePresetRotationOnFailure(network, triedPresetKeys)) {
@@ -734,13 +758,24 @@ class DefaultWalletRepository @Inject constructor(
                                     val walletCancellationSignal = SyncCancellationSignal {
                                         cancellationSignal.shouldCancel() || cancelledForDeletion.get()
                                     }
-                                    blockchain.syncWallet(
-                                        wallet = wallet,
-                                        shouldRunFullScan = shouldRunFullScan,
-                                        fullScanStopGap = fullScanStopGap,
-                                        hasChangeKeychain = hasChangeKeychain,
-                                        cancellationSignal = walletCancellationSignal
-                                    )
+                                    try {
+                                        blockchain.syncWallet(
+                                            wallet = wallet,
+                                            shouldRunFullScan = shouldRunFullScan,
+                                            fullScanStopGap = fullScanStopGap,
+                                            hasChangeKeychain = hasChangeKeychain,
+                                            cancellationSignal = walletCancellationSignal
+                                        )
+                                    } catch (syncError: Exception) {
+                                        runCatching {
+                                            recordNetworkFailure(
+                                                error = syncError,
+                                                durationMs = null,
+                                                attemptIndex = 0
+                                            )
+                                        }
+                                        throw syncError
+                                    }
                                     if (cancelledForDeletion.get() || isWalletDeletionPending(entity.id)) {
                                         SecureLog.d(TAG) {
                                             "Wallet ${entity.id} sync cancelled mid-flight because it is being deleted."
@@ -1665,6 +1700,7 @@ class DefaultWalletRepository @Inject constructor(
         walletDao.deleteAllWallets()
         resetEncryptedDatabase()
         appPreferencesRepository.wipeAll()
+        runCatching { applicationContext.getDatabasePath(NetworkErrorLogDatabase.NAME).delete() }
         torManager.clearPersistentState()
         clearCacheDirectories()
     }
@@ -2200,6 +2236,40 @@ class DefaultWalletRepository @Inject constructor(
         pruningHeight = pruning
     )
 
+    private suspend fun recordNetworkFailure(
+        error: Throwable,
+        durationMs: Long?,
+        attemptIndex: Int,
+        networkType: String? = null
+    ) {
+        val endpoint = lastEndpointMetadata?.endpoint
+        val usedTor = endpoint?.transport == NodeTransport.TOR
+        val nodeSource = endpoint?.source?.toNodeSource() ?: NetworkNodeSource.Unknown
+        networkErrorLogRepository.record(
+            NetworkErrorLogEvent(
+                operation = NetworkLogOperation.NodeSync,
+                endpoint = endpoint?.url,
+                usedTor = usedTor,
+                error = error,
+                durationMs = durationMs,
+                retryCount = attemptIndex,
+                torStatus = torManager.status.value,
+                nodeSource = nodeSource,
+                endpointTypeHint = endpoint?.let {
+                    when (it.transport) {
+                        NodeTransport.TOR -> NetworkEndpointType.Onion
+                    }
+                },
+                transport = when {
+                    endpoint == null -> NetworkTransport.Unknown
+                    endpoint.url.startsWith("ssl://") -> NetworkTransport.SSL
+                    else -> NetworkTransport.TCP
+                },
+                networkType = networkType
+            )
+        )
+    }
+
     private fun containsPrivateMaterial(descriptor: String): Boolean {
         if (descriptor.contains("xprv", ignoreCase = true)) return true
         if (descriptor.contains("tprv", ignoreCase = true)) return true
@@ -2216,3 +2286,9 @@ class DefaultWalletRepository @Inject constructor(
     private fun descriptorInvalid(reason: String?): DescriptorValidationResult.Invalid =
         DescriptorValidationResult.Invalid(reason.orDescriptorError())
 }
+
+private fun ElectrumEndpointSource.toNodeSource(): NetworkNodeSource =
+    when (this) {
+        ElectrumEndpointSource.PUBLIC -> NetworkNodeSource.Public
+        ElectrumEndpointSource.CUSTOM -> NetworkNodeSource.Custom
+    }
