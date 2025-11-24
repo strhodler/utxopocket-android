@@ -28,7 +28,6 @@ import com.strhodler.utxopocket.presentation.more.MoreRoute
 import com.strhodler.utxopocket.presentation.more.PdfViewerRoute
 import com.strhodler.utxopocket.presentation.node.NodeStatusRoute
 import com.strhodler.utxopocket.presentation.settings.InterfaceSettingsRoute
-import com.strhodler.utxopocket.presentation.settings.SecurityAdvancedSettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SecuritySettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsNavigation
 import com.strhodler.utxopocket.presentation.settings.HealthParametersRoute
@@ -375,21 +374,6 @@ fun MainNavHost(
             }
             val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
             SecuritySettingsRoute(
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() },
-                onOpenAdvancedSettings = {
-                    navController.navigate(SettingsNavigation.SecurityAdvancedRoute) {
-                        launchSingleTop = true
-                    }
-                }
-            )
-        }
-        composable(SettingsNavigation.SecurityAdvancedRoute) { backStackEntry ->
-            val parentEntry = remember(backStackEntry) {
-                navController.getBackStackEntry(MainDestination.Settings.route)
-            }
-            val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
-            SecurityAdvancedSettingsRoute(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
                 onOpenNetworkLogs = {

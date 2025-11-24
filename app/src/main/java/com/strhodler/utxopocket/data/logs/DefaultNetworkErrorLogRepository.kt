@@ -39,6 +39,7 @@ class DefaultNetworkErrorLogRepository @Inject constructor(
         dao.observeLogs().map { list -> list.map { it.toDomain() } }
 
     override val loggingEnabled: Flow<Boolean> = appPreferencesRepository.networkLogsEnabled
+    override val infoSheetSeen: Flow<Boolean> = appPreferencesRepository.networkLogsInfoSeen
 
     private val appVersion by lazy { resolveAppVersion() }
     private val androidVersion by lazy { Build.VERSION.RELEASE ?: "unknown" }
@@ -52,6 +53,10 @@ class DefaultNetworkErrorLogRepository @Inject constructor(
 
     override suspend fun clear() {
         dao.clear()
+    }
+
+    override suspend fun setInfoSheetSeen(seen: Boolean) {
+        appPreferencesRepository.setNetworkLogsInfoSeen(seen)
     }
 
     override suspend fun record(event: NetworkErrorLogEvent) {

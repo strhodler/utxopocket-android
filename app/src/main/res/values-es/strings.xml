@@ -576,15 +576,9 @@
 
     <!-- Settings: wallet health gating -->
     <string name="settings_privacy_analysis_help_content_description">Abrir ayuda de salud de la billetera</string>
-    <string name="settings_pin_advanced_title">Avanzado</string>
-    <string name="settings_pin_advanced_subtitle">Ajusta el auto-bloqueo cuando la app está protegida con PIN.</string>
-    <string name="settings_pin_advanced_unlock">Ajustes avanzados</string>
     <string name="settings_pin_timeout_title">Bloquear tras</string>
     <string name="settings_pin_timeout_immediately_label">Inmediatamente (al salir)</string>
     <string name="settings_pin_timeout_minutes_label">%d min</string>
-    <string name="settings_pin_advanced_gate_title">Seguridad avanzada</string>
-    <string name="settings_pin_advanced_gate_description">Confirma tu PIN para ajustar el tiempo de auto-bloqueo.</string>
-    <string name="settings_pin_advanced_connection_hint">Mantén la conexión activa mientras supervisas la wallet. Amplía el tiempo sólo si confías en tu red y quieres menos reconexiones.</string>
     <string name="settings_network_logs_title">Registro de errores de red</string>
     <string name="settings_network_logs_description">Guarda un registro cifrado de errores de red/Tor para depurar la conectividad sin exponer datos de la wallet.</string>
     <string name="settings_network_logs_enabled_label">Registro activado (sólo local)</string>

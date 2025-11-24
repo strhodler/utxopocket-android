@@ -4,30 +4,27 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -46,11 +43,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_CONNECTION_IDLE_MINUTES
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_PIN_AUTO_LOCK_MINUTES
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_CONNECTION_IDLE_MINUTES
+import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_PIN_AUTO_LOCK_MINUTES
 import com.strhodler.utxopocket.presentation.MainActivity
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
@@ -62,7 +64,7 @@ import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
 import com.strhodler.utxopocket.presentation.pin.formatPinCountdownMessage
 import com.strhodler.utxopocket.presentation.pin.formatPinStaticError
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
-import com.strhodler.utxopocket.presentation.settings.SettingsNavigationRow
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -70,7 +72,7 @@ import kotlinx.coroutines.launch
 fun SecuritySettingsRoute(
     viewModel: SettingsViewModel,
     onBack: () -> Unit,
-    onOpenAdvancedSettings: () -> Unit
+    onOpenNetworkLogs: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showPinSetup by rememberSaveable { mutableStateOf(false) }
@@ -161,7 +163,10 @@ fun SecuritySettingsRoute(
                     }
                 },
                 onPinShuffleChanged = viewModel::onPinShuffleChanged,
-                onOpenPinAdvanced = onOpenAdvancedSettings,
+                onPinAutoLockTimeoutSelected = viewModel::onPinAutoLockTimeoutSelected,
+                onConnectionIdleTimeoutSelected = viewModel::onConnectionIdleTimeoutSelected,
+                onNetworkLogsToggle = viewModel::onNetworkLogsToggled,
+                onOpenNetworkLogs = onOpenNetworkLogs,
                 onTriggerPanicWipe = { showPanicFirstConfirmation = true },
                 panicEnabled = !isPanicInProgress,
                 modifier = Modifier.fillMaxSize()
@@ -347,11 +352,57 @@ private fun SecuritySettingsScreen(
     state: SettingsUiState,
     onPinToggleRequested: (Boolean) -> Unit,
     onPinShuffleChanged: (Boolean) -> Unit,
-    onOpenPinAdvanced: () -> Unit,
+    onPinAutoLockTimeoutSelected: (Int) -> Unit,
+    onConnectionIdleTimeoutSelected: (Int) -> Unit,
+    onNetworkLogsToggle: (Boolean) -> Unit,
+    onOpenNetworkLogs: () -> Unit,
     onTriggerPanicWipe: () -> Unit,
     panicEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val view = LocalView.current
+    val performSliderHaptic = remember(state.hapticsEnabled, view) {
+        {
+            if (state.hapticsEnabled) {
+                view.performHapticFeedback(SliderHapticFeedback)
+            }
+        }
+    }
+
+    var pinTimeoutSliderValue by rememberSaveable(state.pinAutoLockTimeoutMinutes) {
+        mutableStateOf(state.pinAutoLockTimeoutMinutes.toFloat())
+    }
+    var pinHapticStep by rememberSaveable(state.pinAutoLockTimeoutMinutes) {
+        mutableStateOf(state.pinAutoLockTimeoutMinutes)
+    }
+    LaunchedEffect(state.pinAutoLockTimeoutMinutes) {
+        pinTimeoutSliderValue = state.pinAutoLockTimeoutMinutes.toFloat()
+        pinHapticStep = state.pinAutoLockTimeoutMinutes
+    }
+
+    var connectionTimeoutValue by rememberSaveable(state.connectionIdleTimeoutMinutes) {
+        mutableStateOf(state.connectionIdleTimeoutMinutes.toFloat())
+    }
+    var connectionHapticStep by rememberSaveable(state.connectionIdleTimeoutMinutes) {
+        mutableStateOf(state.connectionIdleTimeoutMinutes)
+    }
+    LaunchedEffect(state.connectionIdleTimeoutMinutes) {
+        connectionTimeoutValue = state.connectionIdleTimeoutMinutes.toFloat()
+        connectionHapticStep = state.connectionIdleTimeoutMinutes
+    }
+
+    val connectionTimeoutMinutes = connectionTimeoutValue.roundToInt()
+        .coerceIn(MIN_CONNECTION_IDLE_MINUTES, MAX_CONNECTION_IDLE_MINUTES)
+    val connectionTimeoutLabel = stringResource(
+        id = R.string.settings_connection_timeout_minutes_label,
+        connectionTimeoutMinutes
+    )
+    val connectionTip = when (connectionTimeoutMinutes) {
+        in 3..5 -> stringResource(id = R.string.settings_connection_timeout_tip_short)
+        in 6..10 -> stringResource(id = R.string.settings_connection_timeout_tip_balanced)
+        else -> stringResource(id = R.string.settings_connection_timeout_tip_long)
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -382,6 +433,16 @@ private fun SecuritySettingsScreen(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
         )
         if (state.pinEnabled) {
+            val pinTimeoutMinutes = pinTimeoutSliderValue.roundToInt()
+                .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
+            val pinTimeoutLabel = if (pinTimeoutMinutes == 0) {
+                stringResource(id = R.string.settings_pin_timeout_immediately_label)
+            } else {
+                stringResource(
+                    id = R.string.settings_pin_timeout_minutes_label,
+                    pinTimeoutMinutes
+                )
+            }
             ListItem(
                 headlineContent = {
                     Text(text = stringResource(id = R.string.settings_pin_shuffle_title))
@@ -401,13 +462,112 @@ private fun SecuritySettingsScreen(
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
             )
-            SettingsNavigationRow(
-                title = stringResource(id = R.string.settings_pin_advanced_title),
-                supportingText = stringResource(id = R.string.settings_pin_advanced_subtitle),
-                onClick = onOpenPinAdvanced,
-                showDivider = true,
-                dividerPadding = PaddingValues(horizontal = 0.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(id = R.string.settings_pin_timeout_title),
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = pinTimeoutLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Slider(
+                    value = pinTimeoutSliderValue,
+                    onValueChange = { newValue ->
+                        pinTimeoutSliderValue = newValue
+                        val steppedValue = newValue.roundToInt()
+                            .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
+                        if (steppedValue != pinHapticStep) {
+                            pinHapticStep = steppedValue
+                            performSliderHaptic()
+                        }
+                    },
+                    onValueChangeFinished = {
+                        onPinAutoLockTimeoutSelected(pinTimeoutMinutes)
+                    },
+                    valueRange = MIN_PIN_AUTO_LOCK_MINUTES.toFloat()..MAX_PIN_AUTO_LOCK_MINUTES.toFloat(),
+                    steps = (MAX_PIN_AUTO_LOCK_MINUTES - MIN_PIN_AUTO_LOCK_MINUTES - 1).coerceAtLeast(0),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = stringResource(id = R.string.settings_connection_timeout_title),
+                style = MaterialTheme.typography.titleSmall
             )
+            Text(
+                text = connectionTimeoutLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Slider(
+                value = connectionTimeoutValue,
+                onValueChange = { newValue ->
+                    connectionTimeoutValue = newValue
+                    val steppedValue = newValue.roundToInt()
+                        .coerceIn(MIN_CONNECTION_IDLE_MINUTES, MAX_CONNECTION_IDLE_MINUTES)
+                    if (steppedValue != connectionHapticStep) {
+                        connectionHapticStep = steppedValue
+                        performSliderHaptic()
+                    }
+                },
+                onValueChangeFinished = {
+                    onConnectionIdleTimeoutSelected(connectionTimeoutMinutes)
+                },
+                valueRange = MIN_CONNECTION_IDLE_MINUTES.toFloat()..MAX_CONNECTION_IDLE_MINUTES.toFloat(),
+                steps = (MAX_CONNECTION_IDLE_MINUTES - MIN_CONNECTION_IDLE_MINUTES - 1).coerceAtLeast(0),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = connectionTip,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = stringResource(id = R.string.settings_network_logs_title),
+                style = MaterialTheme.typography.titleSmall
+            )
+            Text(
+                text = stringResource(id = R.string.settings_network_logs_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (state.networkLogsEnabled) {
+                        stringResource(id = R.string.settings_network_logs_enabled_label)
+                    } else {
+                        stringResource(id = R.string.settings_network_logs_disabled_label)
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = state.networkLogsEnabled,
+                    onCheckedChange = onNetworkLogsToggle
+                )
+            }
+            if (state.networkLogsEnabled) {
+                Text(
+                    text = stringResource(id = R.string.settings_network_logs_sanitized_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(
+                    onClick = onOpenNetworkLogs,
+                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)
+                ) {
+                    Text(text = stringResource(id = R.string.settings_network_logs_open_viewer))
+                }
+            }
         }
         Text(
             text = stringResource(id = R.string.settings_danger_zone_title),
@@ -445,3 +605,5 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is ContextWrapper -> baseContext.findActivity()
     else -> null
 }
+
+private const val SliderHapticFeedback = HapticFeedbackConstants.KEYBOARD_TAP

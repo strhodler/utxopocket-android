@@ -582,15 +582,9 @@
     <string name="settings_wallet_health_subtitle">Combine transaction and UTXO insights into a wallet-wide score.</string>
     <string name="settings_wallet_health_dependencies">Turn on transaction and UTXO analysis to enable Wallet health.</string>
     <string name="settings_privacy_analysis_help_content_description">Open wallet health help</string>
-    <string name="settings_pin_advanced_title">Advanced</string>
-    <string name="settings_pin_advanced_subtitle">Adjust auto-lock when the app is protected with a PIN.</string>
-    <string name="settings_pin_advanced_unlock">Advanced settings</string>
     <string name="settings_pin_timeout_title">Auto-lock after</string>
     <string name="settings_pin_timeout_immediately_label">Immediately (leave app)</string>
     <string name="settings_pin_timeout_minutes_label">%d min</string>
-    <string name="settings_pin_advanced_gate_title">Advanced security</string>
-    <string name="settings_pin_advanced_gate_description">Confirm your PIN to adjust the auto-lock timer.</string>
-    <string name="settings_pin_advanced_connection_hint">Keep the connection alive while you actively monitor the wallet. Increase the delay only if you trust your network and want fewer reconnects.</string>
     <string name="settings_network_logs_title">Network error log</string>
     <string name="settings_network_logs_description">Keep a local encrypted record of network/Tor errors to debug connectivity without exposing wallet details.</string>
     <string name="settings_network_logs_enabled_label">Logging enabled (local only)</string>

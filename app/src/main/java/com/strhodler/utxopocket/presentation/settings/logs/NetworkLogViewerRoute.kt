@@ -114,14 +114,6 @@ fun NetworkLogViewerRoute(
                     .padding(bottom = 72.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                state.logs.firstOrNull()?.let { first ->
-                    Text(
-                        text = headerText(first),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
                 Text(
                     text = stringResource(id = R.string.settings_network_logs_header),
                     style = MaterialTheme.typography.bodyMedium,
@@ -141,26 +133,42 @@ fun NetworkLogViewerRoute(
                             listState.animateScrollToItem(0)
                         }
                     }
-                    if (state.logs.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Top
+                    ) {
+                        state.logs.firstOrNull()?.let { first ->
                             Text(
-                                text = stringResource(id = R.string.settings_network_logs_waiting),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontFamily = FontFamily.Monospace
+                                text = headerText(first),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = FontFamily.Monospace,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)
                             )
+                            Divider(color = Color.White.copy(alpha = 0.2f))
                         }
-                    } else {
-                        LazyColumn(
-                            state = listState,
-                            reverseLayout = true,
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            contentPadding = PaddingValues(vertical = 12.dp, horizontal = 12.dp)
-                        ) {
-                            items(state.logs) { log ->
-                                ConsoleLogEntry(log = log)
+                        if (state.logs.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = stringResource(id = R.string.settings_network_logs_waiting),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                state = listState,
+                                reverseLayout = true,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                contentPadding = PaddingValues(vertical = 12.dp, horizontal = 12.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(state.logs) { log ->
+                                    ConsoleLogEntry(log = log)
+                                }
                             }
                         }
                     }

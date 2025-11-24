@@ -155,6 +155,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     override val networkLogsEnabled: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.NETWORK_LOGS_ENABLED] ?: false }
+    override val networkLogsInfoSeen: Flow<Boolean> =
+        dataStore.data.map { prefs -> prefs[Keys.NETWORK_LOGS_INFO_SEEN] ?: false }
 
     override val transactionHealthParameters: Flow<TransactionHealthParameters> =
         dataStore.data.map { prefs ->
@@ -459,6 +461,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
         dataStore.edit { prefs -> prefs[Keys.NETWORK_LOGS_ENABLED] = enabled }
     }
 
+    override suspend fun setNetworkLogsInfoSeen(seen: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.NETWORK_LOGS_INFO_SEEN] = seen }
+    }
+
     override val nodeConfig: Flow<NodeConfig> =
         dataStore.data.map { prefs -> prefs.toNodeConfig() }
 
@@ -691,6 +697,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val UTXO_HEALTH_ENABLED = booleanPreferencesKey("utxo_health_enabled")
         val WALLET_HEALTH_ENABLED = booleanPreferencesKey("wallet_health_enabled")
         val NETWORK_LOGS_ENABLED = booleanPreferencesKey("network_logs_enabled")
+        val NETWORK_LOGS_INFO_SEEN = booleanPreferencesKey("network_logs_info_seen")
         val TX_CHANGE_RATIO_HIGH = doublePreferencesKey("tx_change_ratio_high")
         val TX_CHANGE_RATIO_MEDIUM = doublePreferencesKey("tx_change_ratio_medium")
         val TX_LOW_FEE_THRESHOLD = doublePreferencesKey("tx_low_fee_threshold")

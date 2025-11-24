@@ -481,16 +481,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun verifyPinForAdvanced(pin: String, onResult: (PinVerificationResult) -> Unit) {
-        viewModelScope.launch {
-            val result = appPreferencesRepository.verifyPin(pin)
-            if (result is PinVerificationResult.Success) {
-                appPreferencesRepository.markPinUnlocked()
-            }
-            onResult(result)
-        }
-    }
-
     private companion object {
         private const val MAX_THRESHOLD_LENGTH = 18
     }

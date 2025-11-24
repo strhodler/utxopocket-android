@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 data class NetworkLogUiState(
     val logs: List<NetworkErrorLog> = emptyList(),
     val loggingEnabled: Boolean = false,
-    val showInfoSheet: Boolean = true
+    val showInfoSheet: Boolean = false
 )
 
 @HiltViewModel
@@ -34,14 +34,16 @@ class NetworkLogViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 networkErrorLogRepository.logs,
-                networkErrorLogRepository.loggingEnabled
-            ) { logs, enabled ->
-                logs to enabled
-            }.collect { (logs, enabled) ->
+                networkErrorLogRepository.loggingEnabled,
+                networkErrorLogRepository.infoSheetSeen
+            ) { logs, enabled, infoSeen ->
+                Triple(logs, enabled, infoSeen)
+            }.collect { (logs, enabled, infoSeen) ->
                 _uiState.update { current ->
                     current.copy(
                         logs = logs,
-                        loggingEnabled = enabled
+                        loggingEnabled = enabled,
+                        showInfoSheet = !infoSeen
                     )
                 }
             }
@@ -49,11 +51,9 @@ class NetworkLogViewModel @Inject constructor(
     }
 
     fun markInfoSheetShown() {
-        _uiState.update { it.copy(showInfoSheet = false) }
-    }
-
-    fun reopenInfoSheet() {
-        _uiState.update { it.copy(showInfoSheet = true) }
+        viewModelScope.launch {
+            networkErrorLogRepository.setInfoSheetSeen(true)
+        }
     }
 
     fun onClearLogs() {
