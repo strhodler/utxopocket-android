@@ -64,7 +64,7 @@ data class WalletCreationRequest(
     val descriptor: String,
     val changeDescriptor: String?,
     val network: BitcoinNetwork,
-    val sharedDescriptors: Boolean = true,
+    val sharedDescriptors: Boolean = false,
     val viewOnly: Boolean = false
 )
 

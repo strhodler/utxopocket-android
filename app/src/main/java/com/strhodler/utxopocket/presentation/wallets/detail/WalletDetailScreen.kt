@@ -1,7 +1,10 @@
 package com.strhodler.utxopocket.presentation.wallets.detail
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -36,6 +39,8 @@ import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.ShowChart
 import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.UnfoldMore
 import androidx.compose.material.icons.outlined.Warning
@@ -66,8 +71,8 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.surfaceColorAtElevation
@@ -123,6 +128,7 @@ import com.strhodler.utxopocket.presentation.common.QrCodeDisplayDialog
 import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.common.transactionAmount
+import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.wallets.components.onGradient
 import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
 import com.strhodler.utxopocket.presentation.wallets.components.toTheme
@@ -151,6 +157,7 @@ fun WalletDetailScreen(
     onAddressSelected: (WalletAddress) -> Unit,
     onReceiveAddressCopied: (WalletAddress) -> Unit,
     onBalanceRangeSelected: (BalanceRange) -> Unit,
+    onShowBalanceChartChanged: (Boolean) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     outerListState: LazyListState,
@@ -162,8 +169,6 @@ fun WalletDetailScreen(
     topContentPadding: Dp,
     showDescriptorsSheet: Boolean,
     onDescriptorsSheetDismissed: () -> Unit,
-    sharedDescriptorUpdating: Boolean,
-    onSharedDescriptorsChanged: (Boolean) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -212,21 +217,21 @@ fun WalletDetailScreen(
                     onTransactionSortSelected = onTransactionSortChange,
                     onUtxoSortSelected = onUtxoSortChange,
                     onUtxoLabelFilterChange = onUtxoLabelFilterChange,
-                    onTransactionSelected = onTransactionSelected,
-                    onUtxoSelected = onUtxoSelected,
-                    onAddressSelected = onAddressSelected,
-                    onReceiveAddressCopied = onReceiveAddressCopied,
-                    onBalanceRangeSelected = onBalanceRangeSelected,
-                    onCycleBalanceDisplay = onCycleBalanceDisplay,
-                    onOpenWikiTopic = onOpenWikiTopic,
-                    pagerState = pagerState,
-                    listStates = listStates,
-                    contentPadding = contentPadding,
+                onTransactionSelected = onTransactionSelected,
+                onUtxoSelected = onUtxoSelected,
+                onAddressSelected = onAddressSelected,
+                onReceiveAddressCopied = onReceiveAddressCopied,
+                onBalanceRangeSelected = onBalanceRangeSelected,
+                onShowBalanceChartChanged = onShowBalanceChartChanged,
+                onCycleBalanceDisplay = onCycleBalanceDisplay,
+                onRefreshRequested = onRefreshRequested,
+                onOpenWikiTopic = onOpenWikiTopic,
+                pagerState = pagerState,
+                listStates = listStates,
+                contentPadding = contentPadding,
                     topContentPadding = topContentPadding,
                     showDescriptorsSheet = showDescriptorsSheet,
                     onDescriptorsSheetDismissed = onDescriptorsSheetDismissed,
-                    sharedDescriptorUpdating = sharedDescriptorUpdating,
-                    onSharedDescriptorsChanged = onSharedDescriptorsChanged,
                     onShowMessage = onShowMessage,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -252,16 +257,16 @@ private fun WalletDetailContent(
     onAddressSelected: (WalletAddress) -> Unit,
     onReceiveAddressCopied: (WalletAddress) -> Unit,
     onBalanceRangeSelected: (BalanceRange) -> Unit,
+    onShowBalanceChartChanged: (Boolean) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
+    onRefreshRequested: () -> Unit,
     pagerState: PagerState,
     listStates: Map<WalletDetailTab, LazyListState>,
     contentPadding: PaddingValues,
     topContentPadding: Dp,
     showDescriptorsSheet: Boolean,
     onDescriptorsSheetDismissed: () -> Unit,
-    sharedDescriptorUpdating: Boolean,
-    onSharedDescriptorsChanged: (Boolean) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -369,6 +374,9 @@ private fun WalletDetailContent(
                 availableRanges = state.availableBalanceRanges,
                 selectedRange = state.selectedRange,
                 onRangeSelected = onBalanceRangeSelected,
+                showBalanceChart = state.showBalanceChart,
+                onShowBalanceChartChanged = onShowBalanceChartChanged,
+                onRefreshRequested = onRefreshRequested,
                 onCycleBalanceDisplay = onCycleBalanceDisplay
             )
         }
@@ -379,9 +387,14 @@ private fun WalletDetailContent(
         }
         walletErrorMessage?.let { message ->
             item(key = "error") {
-                WalletErrorMessage(
-                    message = message,
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                ActionableStatusBanner(
+                    title = stringResource(id = R.string.wallet_detail_error_banner_title),
+                    supporting = message,
+                    icon = Icons.Outlined.Warning,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    onClick = null
                 )
             }
             item(key = "error_health_spacing") {
@@ -674,11 +687,9 @@ private fun WalletDetailContent(
             WalletDescriptorsBottomSheet(
                 descriptor = descriptor,
                 changeDescriptor = state.changeDescriptor,
-                sharedDescriptors = state.sharedDescriptors,
-                sharedDescriptorUpdating = sharedDescriptorUpdating,
                 fullScanScheduled = state.fullScanScheduled,
+                fullScanStopGap = state.fullScanStopGap,
                 lastFullScanTime = state.lastFullScanTime,
-                onSharedDescriptorsChanged = onSharedDescriptorsChanged,
                 onCopyDescriptor = handleDescriptorCopy,
                 onShowDescriptorQr = { selected -> descriptorForQr = selected },
                 onDismiss = onDescriptorsSheetDismissed
@@ -722,6 +733,9 @@ private fun WalletSummaryHeader(
     availableRanges: List<BalanceRange>,
     selectedRange: BalanceRange,
     onRangeSelected: (BalanceRange) -> Unit,
+    showBalanceChart: Boolean,
+    onShowBalanceChartChanged: (Boolean) -> Unit,
+    onRefreshRequested: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -753,6 +767,9 @@ private fun WalletSummaryHeader(
         onSelectionChanged = onSelectionChanged,
         availableRanges = availableRanges,
         selectedRange = selectedRange,
+        showBalanceChart = showBalanceChart,
+        onShowBalanceChartChanged = onShowBalanceChartChanged,
+        onRefreshRequested = onRefreshRequested,
         onRangeSelected = onRangeSelected,
         onCycleBalanceDisplay = onCycleBalanceDisplay,
         modifier = modifier
@@ -782,6 +799,9 @@ private fun WalletDetailHeader(
     onSelectionChanged: (BalancePoint?) -> Unit,
     availableRanges: List<BalanceRange>,
     selectedRange: BalanceRange,
+    showBalanceChart: Boolean,
+    onShowBalanceChartChanged: (Boolean) -> Unit,
+    onRefreshRequested: () -> Unit,
     onRangeSelected: (BalanceRange) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier
@@ -819,52 +839,104 @@ private fun WalletDetailHeader(
             text = walletDescriptorTypeLabel(summary.descriptorType),
             contentColor = primaryContentColor
         )
-        val hasChartData = balancePoints.size > 2
-        if (hasChartData) {
-            StepLineChart(
-                data = balancePoints,
-                modifier = Modifier.fillMaxWidth(),
-                color = primaryContentColor,
-                interactive = balancePoints.size > 1,
-                axisLabelColor = secondaryTextColor,
-                chartTrailingPadding = 16.dp,
-                onSelectionChanged = onSelectionChanged
-            )
-        }
-        if (hasChartData && availableRanges.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically
+        val hasChartData = balancePoints.isNotEmpty()
+        val refreshLabel = stringResource(id = R.string.wallet_detail_pull_to_refresh_hint)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(
+                onClick = onRefreshRequested,
+                colors = ButtonDefaults.textButtonColors(contentColor = secondaryTextColor)
             ) {
-                availableRanges.forEach { range ->
-                    val isSelected = range == selectedRange
-                    AssistChip(
-                        onClick = { onRangeSelected(range) },
-                        label = {
-                            Text(
-                                text = shortRangeLabel(range),
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        },
-                        border = null,
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = if (isSelected) primaryContentColor.copy(alpha = 0.22f) else Color.Transparent,
-                            labelColor = primaryContentColor,
-                            leadingIconContentColor = primaryContentColor,
-                            trailingIconContentColor = primaryContentColor
-                        )
+                Icon(
+                    imageVector = Icons.Outlined.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                Text(
+                    text = refreshLabel,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            if (hasChartData) {
+                val chartToggleLabel = stringResource(
+                    id = if (showBalanceChart) {
+                        R.string.wallet_detail_hide_chart
+                    } else {
+                        R.string.wallet_detail_show_chart
+                    }
+                )
+                TextButton(
+                    onClick = { onShowBalanceChartChanged(!showBalanceChart) },
+                    colors = ButtonDefaults.textButtonColors(contentColor = secondaryTextColor)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ShowChart,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                    Text(
+                        text = chartToggleLabel,
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
             }
         }
-        Text(
-            text = stringResource(id = R.string.wallet_detail_pull_to_refresh_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = secondaryTextColor
-        )
+        val shouldShowChart = showBalanceChart && hasChartData
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .animateContentSize(
+                    animationSpec = spring(
+                        dampingRatio = 0.9f,
+                        stiffness = 700f
+                    )
+                ),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (shouldShowChart) {
+                StepLineChart(
+                    data = balancePoints,
+                    modifier = Modifier.fillMaxWidth(),
+                    color = primaryContentColor,
+                    interactive = balancePoints.size > 1,
+                    axisLabelColor = secondaryTextColor,
+                    chartTrailingPadding = 16.dp,
+                    onSelectionChanged = onSelectionChanged
+                )
+                if (availableRanges.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        availableRanges.forEach { range ->
+                            val isSelected = range == selectedRange
+                            AssistChip(
+                                onClick = { onRangeSelected(range) },
+                                label = {
+                                    Text(
+                                        text = shortRangeLabel(range),
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
+                                },
+                                border = null,
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = if (isSelected) primaryContentColor.copy(alpha = 0.22f) else Color.Transparent,
+                                    labelColor = primaryContentColor,
+                                    leadingIconContentColor = primaryContentColor,
+                                    trailingIconContentColor = primaryContentColor
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1048,11 +1120,9 @@ private fun WalletHealthSheetContent(
 private fun WalletDescriptorsBottomSheet(
     descriptor: String,
     changeDescriptor: String?,
-    sharedDescriptors: Boolean,
-    sharedDescriptorUpdating: Boolean,
     fullScanScheduled: Boolean,
+    fullScanStopGap: Int?,
     lastFullScanTime: Long?,
-    onSharedDescriptorsChanged: (Boolean) -> Unit,
     onCopyDescriptor: (String) -> Unit,
     onShowDescriptorQr: (String) -> Unit,
     onDismiss: () -> Unit
@@ -1066,11 +1136,9 @@ private fun WalletDescriptorsBottomSheet(
         WalletDescriptorsSheetContent(
             descriptor = descriptor,
             changeDescriptor = changeDescriptor,
-            sharedDescriptors = sharedDescriptors,
-            sharedDescriptorUpdating = sharedDescriptorUpdating,
             fullScanScheduled = fullScanScheduled,
+            fullScanStopGap = fullScanStopGap,
             lastFullScanTime = lastFullScanTime,
-            onSharedDescriptorsChanged = onSharedDescriptorsChanged,
             onCopyDescriptor = onCopyDescriptor,
             onShowDescriptorQr = onShowDescriptorQr,
             modifier = Modifier
@@ -1085,11 +1153,9 @@ private fun WalletDescriptorsBottomSheet(
 private fun WalletDescriptorsSheetContent(
     descriptor: String,
     changeDescriptor: String?,
-    sharedDescriptors: Boolean,
-    sharedDescriptorUpdating: Boolean,
     fullScanScheduled: Boolean,
+    fullScanStopGap: Int?,
     lastFullScanTime: Long?,
-    onSharedDescriptorsChanged: (Boolean) -> Unit,
     onCopyDescriptor: (String) -> Unit,
     onShowDescriptorQr: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -1132,37 +1198,22 @@ private fun WalletDescriptorsSheetContent(
             }
             else -> stringResource(id = R.string.wallet_detail_last_full_scan_never)
         }
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.wallet_detail_shared_descriptors_label),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = stringResource(id = R.string.wallet_detail_shared_descriptors_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = sharedDescriptors,
-                    onCheckedChange = { enabled -> onSharedDescriptorsChanged(enabled) },
-                    enabled = !sharedDescriptorUpdating
-                )
-            }
+        val nextFullScanGapLabel = fullScanStopGap?.let {
+            stringResource(id = R.string.wallet_detail_next_full_scan_gap, it)
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = lastFullScanLabel,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            nextFullScanGapLabel?.let { gapLabel ->
+                Text(
+                    text = gapLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -2196,36 +2247,6 @@ private fun EmptyPlaceholder(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun WalletErrorMessage(
-    message: String,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Warning,
-                contentDescription = stringResource(id = R.string.wallets_sync_error_icon_description),
-                tint = MaterialTheme.colorScheme.error
-            )
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onErrorContainer
             )
         }
     }

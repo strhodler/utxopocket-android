@@ -151,7 +151,7 @@ class AddWalletViewModelTest {
         viewModel.submit()
         advanceUntilIdle()
 
-        assertTrue(walletRepository.lastAddWalletRequest?.sharedDescriptors == true)
+        assertFalse(walletRepository.lastAddWalletRequest?.sharedDescriptors ?: true)
         assertTrue(events.firstOrNull() is AddWalletEvent.WalletCreated)
         job.cancel()
     }
@@ -171,37 +171,6 @@ class AddWalletViewModelTest {
             "Invalid or malformed descriptor; review the imported descriptor or the compatibility wiki article.",
             state.formError
         )
-    }
-
-    @Test
-    fun sharedDescriptorsToggleAffectsCreationRequest() = runTest {
-        walletRepository.validationResult = DescriptorValidationResult.Valid(
-            descriptor = "wpkh(test)",
-            changeDescriptor = null,
-            type = DescriptorType.P2WPKH,
-            hasWildcard = true
-        )
-        walletRepository.creationResult = WalletCreationResult.Success(
-            WalletSummary(
-                id = 2L,
-                name = "Shared off",
-                balanceSats = 0,
-                transactionCount = 0,
-                network = BitcoinNetwork.TESTNET,
-                lastSyncStatus = NodeStatus.Idle,
-                lastSyncTime = null
-            )
-        )
-
-        viewModel.onDescriptorChanged("wpkh(test)")
-        viewModel.onWalletNameChanged("Shared off")
-        viewModel.onSharedDescriptorsChanged(false)
-        advanceTimeBy(400)
-
-        viewModel.submit()
-        advanceUntilIdle()
-
-        assertFalse(walletRepository.lastAddWalletRequest?.sharedDescriptors ?: true)
     }
 
     @Test
@@ -433,9 +402,7 @@ private class FakeWalletRepository : WalletRepository {
 
     override suspend fun updateWalletColor(id: Long, color: WalletColor) = Unit
 
-    override suspend fun forceFullRescan(walletId: Long) = Unit
-
-    override suspend fun setWalletSharedDescriptors(walletId: Long, shared: Boolean) = Unit
+    override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
 
     override suspend fun listUnusedAddresses(
         walletId: Long,
@@ -477,6 +444,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val _balanceUnit = MutableStateFlow(BalanceUnit.SATS)
     private val _balancesHidden = MutableStateFlow(false)
     private val _walletBalanceRange = MutableStateFlow(BalanceRange.LastYear)
+    private val _showBalanceChart = MutableStateFlow(false)
     private val _walletAnimationsEnabled = MutableStateFlow(true)
     private val _advancedMode = MutableStateFlow(false)
     private val _pinAutoLockTimeoutMinutes =
@@ -498,6 +466,8 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val balanceUnit: Flow<BalanceUnit> = _balanceUnit
     override val balancesHidden: Flow<Boolean> = _balancesHidden
     override val walletBalanceRange: Flow<BalanceRange> = _walletBalanceRange
+    override val showBalanceChart: Flow<Boolean> = _showBalanceChart
+    override val pinShuffleEnabled: Flow<Boolean> = MutableStateFlow(false)
     override val walletAnimationsEnabled: Flow<Boolean> = _walletAnimationsEnabled
     override val advancedMode: Flow<Boolean> = _advancedMode
     override val pinAutoLockTimeoutMinutes: Flow<Int> = _pinAutoLockTimeoutMinutes
@@ -567,6 +537,14 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override suspend fun setWalletBalanceRange(range: BalanceRange) {
         _walletBalanceRange.value = range
     }
+
+    override suspend fun setShowBalanceChart(show: Boolean) {
+        _showBalanceChart.value = show
+    }
+
+    override suspend fun setPinShuffleEnabled(enabled: Boolean) = Unit
+
+    override suspend fun setHapticsEnabled(enabled: Boolean) = Unit
 
     override suspend fun setWalletAnimationsEnabled(enabled: Boolean) {
         _walletAnimationsEnabled.value = enabled

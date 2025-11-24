@@ -6,6 +6,10 @@ import androidx.core.content.ContextCompat
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.TorConfig
 import com.strhodler.utxopocket.domain.model.TorStatus
+import com.strhodler.utxopocket.domain.model.NetworkLogOperation
+import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
+import com.strhodler.utxopocket.domain.model.NetworkNodeSource
+import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.tor.TorForegroundService
 import com.strhodler.utxopocket.tor.TorRuntimeManager
@@ -14,6 +18,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,13 +35,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.net.InetSocketAddress
 import java.net.Proxy
+import android.os.SystemClock
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class DefaultTorManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val torRuntimeManager: TorRuntimeManager
+    private val torRuntimeManager: TorRuntimeManager,
+    private val networkErrorLogRepository: NetworkErrorLogRepository
 ) : TorManager {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -75,11 +82,30 @@ class DefaultTorManager @Inject constructor(
                 }
             }.collect { mappedStatus ->
                 _status.value = mappedStatus
+                if (mappedStatus is TorStatus.Error) {
+                    scope.launch(Dispatchers.IO) {
+                        runCatching {
+                            networkErrorLogRepository.record(
+                                NetworkErrorLogEvent(
+                                    operation = NetworkLogOperation.TorBootstrap,
+                                    endpoint = null,
+                                    usedTor = true,
+                                    error = IllegalStateException(mappedStatus.message),
+                                    durationMs = null,
+                                    retryCount = null,
+                                    torStatus = mappedStatus,
+                                    nodeSource = NetworkNodeSource.None
+                                )
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 
     override suspend fun start(config: TorConfig): Result<SocksProxyConfig> {
+        val startedAt = SystemClock.elapsedRealtime()
         var immediateResult: Result<SocksProxyConfig>? = null
         startMutex.withLock {
             lastConfig = config
@@ -93,7 +119,23 @@ class DefaultTorManager @Inject constructor(
             }
         }
         immediateResult?.let { return it }
-        return waitForRunning()
+        val result = waitForRunning()
+        if (result.isFailure) {
+            runCatching {
+                val error = result.exceptionOrNull() ?: IllegalStateException("Tor start failed")
+                networkErrorLogRepository.record(
+                    NetworkErrorLogEvent(
+                        operation = NetworkLogOperation.TorBootstrap,
+                        endpoint = null,
+                        usedTor = true,
+                        error = error,
+                        durationMs = SystemClock.elapsedRealtime() - startedAt,
+                        torStatus = _status.value
+                    )
+                )
+            }
+        }
+        return result
     }
 
     override suspend fun <T> withTorProxy(

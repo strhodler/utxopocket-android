@@ -28,12 +28,13 @@ import com.strhodler.utxopocket.presentation.more.MoreRoute
 import com.strhodler.utxopocket.presentation.more.PdfViewerRoute
 import com.strhodler.utxopocket.presentation.node.NodeStatusRoute
 import com.strhodler.utxopocket.presentation.settings.InterfaceSettingsRoute
-import com.strhodler.utxopocket.presentation.settings.SecurityAdvancedSettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SecuritySettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsNavigation
 import com.strhodler.utxopocket.presentation.settings.HealthParametersRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsRoute
 import com.strhodler.utxopocket.presentation.settings.WalletSettingsRoute
+import com.strhodler.utxopocket.presentation.settings.logs.NetworkLogViewModel
+import com.strhodler.utxopocket.presentation.settings.logs.NetworkLogViewerRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsViewModel
 import com.strhodler.utxopocket.presentation.wallets.WalletsRoute
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
@@ -230,6 +231,11 @@ fun MainNavHost(
                             restoreState = true
                         }
                     },
+                    onOpenGlossaryEntry = { entryId ->
+                        navController.navigate(GlossaryNavigation.detailRoute(entryId)) {
+                            launchSingleTop = true
+                        }
+                    },
                     onOpenExportLabels = { targetWalletId, walletName ->
                         navController.navigate(
                             WalletsNavigation.exportLabelsRoute(targetWalletId, walletName)
@@ -370,20 +376,17 @@ fun MainNavHost(
             SecuritySettingsRoute(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
-                onOpenAdvancedSettings = {
-                    navController.navigate(SettingsNavigation.SecurityAdvancedRoute) {
+                onOpenNetworkLogs = {
+                    navController.navigate(SettingsNavigation.NetworkLogsRoute) {
                         launchSingleTop = true
                     }
                 }
             )
         }
-        composable(SettingsNavigation.SecurityAdvancedRoute) { backStackEntry ->
-            val parentEntry = remember(backStackEntry) {
-                navController.getBackStackEntry(MainDestination.Settings.route)
-            }
-            val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
-            SecurityAdvancedSettingsRoute(
-                viewModel = viewModel,
+        composable(SettingsNavigation.NetworkLogsRoute) { _ ->
+            val logViewModel: NetworkLogViewModel = hiltViewModel()
+            NetworkLogViewerRoute(
+                viewModel = logViewModel,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -417,7 +420,12 @@ fun MainNavHost(
             NodeStatusRoute(
                 status = statusBarState,
                 onBack = { navController.popBackStack() },
-                initialTabIndex = initialTabIndex
+                initialTabIndex = initialTabIndex,
+                onOpenNetworkLogs = {
+                    navController.navigate(SettingsNavigation.NetworkLogsRoute) {
+                        launchSingleTop = true
+                    }
+                }
             )
         }
         navigation(

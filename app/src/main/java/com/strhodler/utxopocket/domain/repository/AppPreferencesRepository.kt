@@ -21,6 +21,8 @@ interface AppPreferencesRepository {
     val walletAnimationsEnabled: Flow<Boolean>
     val hapticsEnabled: Flow<Boolean>
     val walletBalanceRange: Flow<BalanceRange>
+    val showBalanceChart: Flow<Boolean>
+    val pinShuffleEnabled: Flow<Boolean>
     val advancedMode: Flow<Boolean>
     val pinAutoLockTimeoutMinutes: Flow<Int>
     val connectionIdleTimeoutMinutes: Flow<Int>
@@ -31,6 +33,8 @@ interface AppPreferencesRepository {
     val walletHealthEnabled: Flow<Boolean>
     val transactionHealthParameters: Flow<TransactionHealthParameters>
     val utxoHealthParameters: Flow<UtxoHealthParameters>
+    val networkLogsEnabled: Flow<Boolean>
+    val networkLogsInfoSeen: Flow<Boolean>
 
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setPreferredNetwork(network: BitcoinNetwork)
@@ -47,6 +51,8 @@ interface AppPreferencesRepository {
     suspend fun setWalletAnimationsEnabled(enabled: Boolean)
     suspend fun setHapticsEnabled(enabled: Boolean)
     suspend fun setWalletBalanceRange(range: BalanceRange)
+    suspend fun setShowBalanceChart(show: Boolean)
+    suspend fun setPinShuffleEnabled(enabled: Boolean)
     suspend fun setAdvancedMode(enabled: Boolean)
     suspend fun setDustThresholdSats(thresholdSats: Long)
     suspend fun setConnectionIdleTimeoutMinutes(minutes: Int)
@@ -57,12 +63,14 @@ interface AppPreferencesRepository {
     suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters)
     suspend fun resetTransactionHealthParameters()
     suspend fun resetUtxoHealthParameters()
+    suspend fun setNetworkLogsEnabled(enabled: Boolean)
+    suspend fun setNetworkLogsInfoSeen(seen: Boolean)
     suspend fun wipeAll()
 
     companion object {
         const val MIN_PIN_AUTO_LOCK_MINUTES = 0
         const val MAX_PIN_AUTO_LOCK_MINUTES = 15
-        const val DEFAULT_PIN_AUTO_LOCK_MINUTES = 5
+        const val DEFAULT_PIN_AUTO_LOCK_MINUTES = 0
 
         const val MIN_CONNECTION_IDLE_MINUTES = 3
         const val MAX_CONNECTION_IDLE_MINUTES = 15

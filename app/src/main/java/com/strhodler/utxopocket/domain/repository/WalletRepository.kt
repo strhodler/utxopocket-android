@@ -48,8 +48,7 @@ interface WalletRepository {
     suspend fun deleteWallet(id: Long)
     suspend fun wipeAllWalletData()
     suspend fun updateWalletColor(id: Long, color: WalletColor)
-    suspend fun forceFullRescan(walletId: Long)
-    suspend fun setWalletSharedDescriptors(walletId: Long, shared: Boolean)
+    suspend fun forceFullRescan(walletId: Long, stopGap: Int)
     suspend fun listUnusedAddresses(
         walletId: Long,
         type: WalletAddressType,

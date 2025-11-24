@@ -11,7 +11,6 @@ data class AddWalletUiState(
     val selectedNetwork: BitcoinNetwork = BitcoinNetwork.DEFAULT,
     val showAdvanced: Boolean = false,
     val showExtendedAdvanced: Boolean = false,
-    val sharedDescriptors: Boolean = true,
     val validation: DescriptorValidationResult = DescriptorValidationResult.Idle,
     val isValidating: Boolean = false,
     val isSaving: Boolean = false,

@@ -82,6 +82,7 @@ data class WalletSummary(
     val color: WalletColor = WalletColor.DEFAULT,
     val descriptorType: DescriptorType = DescriptorType.OTHER,
     val requiresFullScan: Boolean = false,
+    val fullScanStopGap: Int? = null,
     val sharedDescriptors: Boolean = false,
     val lastFullScanTime: Long? = null,
     val viewOnly: Boolean = false

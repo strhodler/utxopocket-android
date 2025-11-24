@@ -177,9 +177,7 @@ private class TestWalletRepository : WalletRepository {
 
     override suspend fun updateWalletColor(id: Long, color: WalletColor) = Unit
 
-    override suspend fun forceFullRescan(walletId: Long) = Unit
-
-    override suspend fun setWalletSharedDescriptors(walletId: Long, shared: Boolean) = Unit
+    override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
 
     override suspend fun listUnusedAddresses(
         walletId: Long,
@@ -253,6 +251,8 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
     override val balancesHidden: Flow<Boolean> = _balancesHidden
     override val walletAnimationsEnabled: Flow<Boolean> = MutableStateFlow(true)
     override val walletBalanceRange: Flow<BalanceRange> = MutableStateFlow(BalanceRange.LastYear)
+    override val showBalanceChart: Flow<Boolean> = MutableStateFlow(false)
+    override val pinShuffleEnabled: Flow<Boolean> = MutableStateFlow(false)
     override val advancedMode: Flow<Boolean> = MutableStateFlow(false)
     override val pinAutoLockTimeoutMinutes: Flow<Int> =
         MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
@@ -294,7 +294,9 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
         _balancesHidden.value = hidden
     }
 
-    override suspend fun cycleBalanceDisplayMode() {
+    override suspend fun setHapticsEnabled(enabled: Boolean) = Unit
+
+        override suspend fun cycleBalanceDisplayMode() {
         val currentUnit = _balanceUnit.value
         val currentlyHidden = _balancesHidden.value
         when {
@@ -310,6 +312,8 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
     override suspend fun setWalletAnimationsEnabled(enabled: Boolean) = Unit
 
     override suspend fun setWalletBalanceRange(range: BalanceRange) = Unit
+    override suspend fun setShowBalanceChart(show: Boolean) = Unit
+    override suspend fun setPinShuffleEnabled(enabled: Boolean) = Unit
 
     override suspend fun setAdvancedMode(enabled: Boolean) = Unit
 

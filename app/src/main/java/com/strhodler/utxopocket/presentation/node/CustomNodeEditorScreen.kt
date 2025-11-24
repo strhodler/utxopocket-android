@@ -3,8 +3,8 @@ package com.strhodler.utxopocket.presentation.node
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +22,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -53,82 +54,88 @@ fun CustomNodeEditorScreen(
     BackHandler(onBack = onDismiss)
     val scrollState = rememberScrollState()
     Scaffold(
-        bottomBar = {
-            Surface(tonalElevation = 4.dp) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    errorMessage?.let { error ->
-                        Text(
-                            text = error,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                    Button(
-                        onClick = onPrimaryAction,
-                        enabled = isPrimaryActionEnabled && !isTesting,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (isTesting) {
-                            CircularProgressIndicator(
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .padding(end = 8.dp),
-                                strokeWidth = 2.dp
-                            )
-                        }
-                        Text(text = primaryActionLabel)
-                    }
-                }
-            }
-        },
         contentWindowInsets = ScreenScaffoldInsets
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .applyScreenPadding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 24.dp)
-                .verticalScroll(scrollState),
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            OutlinedTextField(
-                value = nameValue,
-                onValueChange = onNameChanged,
-                label = { Text(text = stringResource(id = R.string.node_custom_name_label)) },
-                placeholder = { Text(text = stringResource(id = R.string.node_custom_name_placeholder)) },
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OutlinedTextField(
+                    value = nameValue,
+                    onValueChange = onNameChanged,
+                    label = { Text(text = stringResource(id = R.string.node_custom_name_label)) },
+                    placeholder = { Text(text = stringResource(id = R.string.node_custom_name_placeholder)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                OnionField(
+                    value = onionValue,
+                    qrErrorMessage = qrErrorMessage,
+                    onValueChange = {
+                        onClearQrError()
+                        onOnionChanged(it)
+                    },
+                    onStartQrScan = onStartQrScan
+                )
+
+                OutlinedTextField(
+                    value = portValue,
+                    onValueChange = {
+                        onClearQrError()
+                        onPortChanged(it)
+                    },
+                    label = { Text(text = stringResource(id = R.string.node_port_label)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number)
+                )
+
+                TransportModeBadge()
+            }
+            errorMessage?.let { error ->
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            OnionField(
-                value = onionValue,
-                qrErrorMessage = qrErrorMessage,
-                onValueChange = {
-                    onClearQrError()
-                    onOnionChanged(it)
-                },
-                onStartQrScan = onStartQrScan
-            )
-
-            OutlinedTextField(
-                value = portValue,
-                onValueChange = {
-                    onClearQrError()
-                    onPortChanged(it)
-                },
-                label = { Text(text = stringResource(id = R.string.node_port_label)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number)
-            )
-
-            TransportModeBadge()
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                TextButton(
+                    onClick = onDismiss,
+                    enabled = !isTesting,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(text = stringResource(id = R.string.add_wallet_cancel))
+                }
+                Button(
+                    onClick = onPrimaryAction,
+                    enabled = isPrimaryActionEnabled && !isTesting,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (isTesting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .padding(end = 8.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+                    Text(text = primaryActionLabel)
+                }
+            }
         }
     }
 }

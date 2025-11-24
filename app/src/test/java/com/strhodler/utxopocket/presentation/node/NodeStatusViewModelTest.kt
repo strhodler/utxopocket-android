@@ -142,8 +142,9 @@ class NodeStatusViewModelTest {
         override val balanceUnit: StateFlow<BalanceUnit> = _balanceUnit
         override val balancesHidden: StateFlow<Boolean> = _balancesHidden
         override val walletAnimationsEnabled: StateFlow<Boolean> = MutableStateFlow(true)
-        override val walletBalanceRange: StateFlow<BalanceRange> =
-            MutableStateFlow(BalanceRange.LastYear)
+        override val walletBalanceRange: StateFlow<BalanceRange> = MutableStateFlow(BalanceRange.LastYear)
+        override val showBalanceChart: StateFlow<Boolean> = MutableStateFlow(false)
+        override val pinShuffleEnabled: StateFlow<Boolean> = MutableStateFlow(false)
         override val advancedMode: StateFlow<Boolean> = MutableStateFlow(false)
         override val pinAutoLockTimeoutMinutes: StateFlow<Int> =
             MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
@@ -152,6 +153,7 @@ class NodeStatusViewModelTest {
         override val transactionAnalysisEnabled: StateFlow<Boolean> = MutableStateFlow(true)
         override val utxoHealthEnabled: StateFlow<Boolean> = MutableStateFlow(true)
         override val walletHealthEnabled: StateFlow<Boolean> = MutableStateFlow(false)
+        override val pinShuffleEnabled: StateFlow<Boolean> = MutableStateFlow(false)
         override val transactionHealthParameters: StateFlow<TransactionHealthParameters> =
             MutableStateFlow(TransactionHealthParameters())
         override val utxoHealthParameters: StateFlow<UtxoHealthParameters> =
@@ -178,6 +180,8 @@ class NodeStatusViewModelTest {
             _balancesHidden.value = hidden
         }
 
+        override suspend fun setHapticsEnabled(enabled: Boolean) = Unit
+
         override suspend fun cycleBalanceDisplayMode() {
             val currentUnit = _balanceUnit.value
             val currentlyHidden = _balancesHidden.value
@@ -192,11 +196,14 @@ class NodeStatusViewModelTest {
         }
         override suspend fun setWalletAnimationsEnabled(enabled: Boolean) = Unit
         override suspend fun setWalletBalanceRange(range: BalanceRange) = Unit
+        override suspend fun setShowBalanceChart(show: Boolean) = Unit
         override suspend fun setAdvancedMode(enabled: Boolean) = Unit
         override suspend fun setDustThresholdSats(thresholdSats: Long) = Unit
         override suspend fun setTransactionAnalysisEnabled(enabled: Boolean) = Unit
         override suspend fun setUtxoHealthEnabled(enabled: Boolean) = Unit
         override suspend fun setWalletHealthEnabled(enabled: Boolean) = Unit
+        override suspend fun setPinShuffleEnabled(enabled: Boolean) = Unit
+        override suspend fun setPinShuffleEnabled(enabled: Boolean) = Unit
         override suspend fun setTransactionHealthParameters(parameters: TransactionHealthParameters) = Unit
         override suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters) = Unit
         override suspend fun resetTransactionHealthParameters() = Unit
@@ -285,9 +292,7 @@ class NodeStatusViewModelTest {
 
         override suspend fun updateWalletColor(id: Long, color: WalletColor) = Unit
 
-        override suspend fun forceFullRescan(walletId: Long) = Unit
-
-        override suspend fun setWalletSharedDescriptors(walletId: Long, shared: Boolean) = Unit
+        override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
 
         override suspend fun listUnusedAddresses(
             walletId: Long,

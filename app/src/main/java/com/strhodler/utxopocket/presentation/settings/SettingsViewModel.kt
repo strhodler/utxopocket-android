@@ -14,6 +14,7 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Compa
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_PIN_AUTO_LOCK_MINUTES
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_CONNECTION_IDLE_MINUTES
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_PIN_AUTO_LOCK_MINUTES
+import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import com.strhodler.utxopocket.presentation.settings.model.TransactionHealthParameterInputs
@@ -32,7 +33,8 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val appPreferencesRepository: AppPreferencesRepository,
-    private val walletRepository: WalletRepository
+    private val walletRepository: WalletRepository,
+    private val networkErrorLogRepository: NetworkErrorLogRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -47,12 +49,14 @@ class SettingsViewModel @Inject constructor(
                 appPreferencesRepository.balanceUnit,
                 appPreferencesRepository.walletAnimationsEnabled,
                 appPreferencesRepository.hapticsEnabled,
+                appPreferencesRepository.pinShuffleEnabled,
                 appPreferencesRepository.advancedMode,
                 appPreferencesRepository.pinAutoLockTimeoutMinutes,
                 appPreferencesRepository.connectionIdleTimeoutMinutes,
                 appPreferencesRepository.transactionAnalysisEnabled,
                 appPreferencesRepository.utxoHealthEnabled,
                 appPreferencesRepository.walletHealthEnabled,
+                networkErrorLogRepository.loggingEnabled,
                 appPreferencesRepository.dustThresholdSats,
                 appPreferencesRepository.transactionHealthParameters,
                 appPreferencesRepository.utxoHealthParameters
@@ -63,15 +67,17 @@ class SettingsViewModel @Inject constructor(
                 val balanceUnit = values[3] as BalanceUnit
                 val walletAnimationsEnabled = values[4] as Boolean
                 val hapticsEnabled = values[5] as Boolean
-                val advancedMode = values[6] as Boolean
-                val pinAutoLockTimeoutMinutes = values[7] as Int
-                val connectionIdleTimeoutMinutes = values[8] as Int
-                val transactionAnalysisEnabled = values[9] as Boolean
-                val utxoHealthEnabled = values[10] as Boolean
-                val walletHealthEnabled = values[11] as Boolean
-                val dustThreshold = values[12] as Long
-                val transactionParameters = values[13] as TransactionHealthParameters
-                val utxoParameters = values[14] as UtxoHealthParameters
+                val pinShuffleEnabled = values[6] as Boolean
+                val advancedMode = values[7] as Boolean
+                val pinAutoLockTimeoutMinutes = values[8] as Int
+                val connectionIdleTimeoutMinutes = values[9] as Int
+                val transactionAnalysisEnabled = values[10] as Boolean
+                val utxoHealthEnabled = values[11] as Boolean
+                val walletHealthEnabled = values[12] as Boolean
+                val networkLogsEnabled = values[13] as Boolean
+                val dustThreshold = values[14] as Long
+                val transactionParameters = values[15] as TransactionHealthParameters
+                val utxoParameters = values[16] as UtxoHealthParameters
                 val previous = _uiState.value
 
                 val walletHealthToggleEnabled = transactionAnalysisEnabled && utxoHealthEnabled
@@ -87,10 +93,12 @@ class SettingsViewModel @Inject constructor(
                     walletAnimationsEnabled = walletAnimationsEnabled,
                     hapticsEnabled = hapticsEnabled,
                     pinAutoLockTimeoutMinutes = pinAutoLockTimeoutMinutes,
+                    pinShuffleEnabled = pinShuffleEnabled,
                     connectionIdleTimeoutMinutes = connectionIdleTimeoutMinutes,
                     transactionAnalysisEnabled = transactionAnalysisEnabled,
                     utxoHealthEnabled = utxoHealthEnabled,
                     walletHealthEnabled = normalizedWalletHealthEnabled,
+                    networkLogsEnabled = networkLogsEnabled,
                     walletHealthToggleEnabled = walletHealthToggleEnabled,
                     dustThresholdSats = dustThreshold,
                     dustThresholdInput = if (dustThreshold > 0L) dustThreshold.toString() else "",
@@ -148,6 +156,13 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun onPinShuffleChanged(enabled: Boolean) {
+        _uiState.update { it.copy(pinShuffleEnabled = enabled) }
+        viewModelScope.launch {
+            appPreferencesRepository.setPinShuffleEnabled(enabled)
+        }
+    }
+
     fun onTransactionAnalysisToggled(enabled: Boolean) {
         _uiState.update {
             val walletToggleEnabled = enabled && it.utxoHealthEnabled
@@ -182,6 +197,13 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(walletHealthEnabled = normalized) }
         viewModelScope.launch {
             appPreferencesRepository.setWalletHealthEnabled(normalized)
+        }
+    }
+
+    fun onNetworkLogsToggled(enabled: Boolean) {
+        _uiState.update { it.copy(networkLogsEnabled = enabled) }
+        viewModelScope.launch {
+            networkErrorLogRepository.setLoggingEnabled(enabled)
         }
     }
 
@@ -456,16 +478,6 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(connectionIdleTimeoutMinutes = clamped) }
         viewModelScope.launch {
             appPreferencesRepository.setConnectionIdleTimeoutMinutes(clamped)
-        }
-    }
-
-    fun verifyPinForAdvanced(pin: String, onResult: (PinVerificationResult) -> Unit) {
-        viewModelScope.launch {
-            val result = appPreferencesRepository.verifyPin(pin)
-            if (result is PinVerificationResult.Success) {
-                appPreferencesRepository.markPinUnlocked()
-            }
-            onResult(result)
         }
     }
 

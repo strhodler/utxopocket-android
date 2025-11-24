@@ -34,6 +34,7 @@ data class WalletEntity(
     @ColumnInfo(name = "last_sync_time") val lastSyncTime: Long? = null,
     @ColumnInfo(name = "requires_full_scan") val requiresFullScan: Boolean = true,
     @ColumnInfo(name = "shared_descriptors") val sharedDescriptors: Boolean = false,
+    @ColumnInfo(name = "full_scan_stop_gap") val fullScanStopGap: Int? = null,
     @ColumnInfo(name = "last_full_scan_time") val lastFullScanTime: Long? = null,
     @ColumnInfo(name = "view_only") val viewOnly: Boolean = false,
     @ColumnInfo(name = "color") val color: String = WalletColor.DEFAULT.storageKey
@@ -51,6 +52,7 @@ fun WalletEntity.toDomain(): WalletSummary =
         color = WalletColor.fromStorageKey(color),
         descriptorType = DescriptorType.fromDescriptorString(descriptor),
         requiresFullScan = requiresFullScan,
+        fullScanStopGap = fullScanStopGap,
         sharedDescriptors = sharedDescriptors,
         lastFullScanTime = lastFullScanTime,
         viewOnly = viewOnly
@@ -74,11 +76,16 @@ fun WalletEntity.withSyncResult(
     )
 }
 
-fun WalletEntity.scheduleFullScan(): WalletEntity = copy(requiresFullScan = true)
+fun WalletEntity.scheduleFullScan(stopGap: Int? = null): WalletEntity =
+    copy(
+        requiresFullScan = true,
+        fullScanStopGap = stopGap
+    )
 
 fun WalletEntity.markFullScanCompleted(timestamp: Long): WalletEntity =
     copy(
         requiresFullScan = false,
+        fullScanStopGap = null,
         lastFullScanTime = timestamp
     )
 

@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.components.DigitKey
 import com.strhodler.utxopocket.presentation.components.VirtualDigitKeyboard
+import com.strhodler.utxopocket.presentation.components.defaultDigitKeyboardLayout
+import com.strhodler.utxopocket.presentation.components.shuffledDigitKeyboardLayout
 import com.strhodler.utxopocket.presentation.navigation.HideMainBottomBar
 import com.strhodler.utxopocket.presentation.navigation.SetHiddenTopBar
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
@@ -49,7 +51,8 @@ fun PinSetupScreen(
     errorMessage: String?,
     onDismiss: () -> Unit,
     onPinConfirmed: (String) -> Unit,
-    hapticsEnabled: Boolean = true
+    hapticsEnabled: Boolean = true,
+    shuffleDigits: Boolean = false
 ) {
     HideMainBottomBar()
 
@@ -134,6 +137,7 @@ fun PinSetupScreen(
         topPadding = SecondaryTopBarHeight + 16.dp,
         keyboardEnabled = true,
         hapticsEnabled = hapticsEnabled,
+        shuffleDigits = shuffleDigits,
         onKeyPress = { key ->
             when (key) {
                 is DigitKey.Number -> {
@@ -178,7 +182,8 @@ fun PinVerificationScreen(
     allowDismiss: Boolean = true,
     onDismiss: () -> Unit,
     onPinVerified: (String) -> Unit,
-    hapticsEnabled: Boolean = true
+    hapticsEnabled: Boolean = true,
+    shuffleDigits: Boolean = false
 ) {
     HideMainBottomBar()
     if (!allowDismiss) {
@@ -232,6 +237,7 @@ fun PinVerificationScreen(
         topPadding = topPadding,
         keyboardEnabled = pin.length < PIN_LENGTH,
         hapticsEnabled = hapticsEnabled,
+        shuffleDigits = shuffleDigits,
         onKeyPress = { key ->
             when (key) {
                 is DigitKey.Number -> if (pin.length < PIN_LENGTH) {
@@ -261,6 +267,7 @@ private fun PinScreenScaffold(
     topPadding: Dp,
     keyboardEnabled: Boolean,
     hapticsEnabled: Boolean,
+    shuffleDigits: Boolean,
     onKeyPress: (DigitKey) -> Unit
 ) {
     Surface(
@@ -268,6 +275,13 @@ private fun PinScreenScaffold(
         color = MaterialTheme.colorScheme.background
     ) {
         val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+        val keyboardLayout = remember(shuffleDigits) {
+            if (shuffleDigits) {
+                shuffledDigitKeyboardLayout()
+            } else {
+                defaultDigitKeyboardLayout()
+            }
+        }
 
         Column(
             modifier = Modifier
@@ -318,6 +332,7 @@ private fun PinScreenScaffold(
                 VirtualDigitKeyboard(
                     modifier = Modifier.heightIn(max = screenHeight * 0.5f),
                     onKeyPress = onKeyPress,
+                    layout = keyboardLayout,
                     hapticsEnabled = hapticsEnabled,
                     enabled = keyboardEnabled
                 )

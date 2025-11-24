@@ -73,16 +73,12 @@ object UniformResourceImportParser {
             }
             val payload = result.ur.decodeFromRegistry()
             when (payload) {
-                is CryptoOutput -> {
-                    maybeBuildExtendedKeyFromOutput(payload, defaultNetwork)
-                        ?: buildDescriptorResult(renderCryptoOutput(payload, defaultNetwork))
-                }
+                is CryptoOutput -> buildDescriptorResult(renderCryptoOutput(payload, defaultNetwork))
                 is UROutputDescriptor -> buildDescriptorResult(renderOutputDescriptor(payload, defaultNetwork))
+                is CryptoAccount -> buildDescriptorResult(renderCryptoAccount(payload, defaultNetwork))
+                is URAccountDescriptor -> buildDescriptorResult(renderAccountDescriptor(payload, defaultNetwork))
                 is CryptoHDKey -> buildExtendedKeyResult(payload, defaultNetwork)
                 is URHDKey -> buildExtendedKeyResult(payload, defaultNetwork)
-                is CryptoAccount, is URAccountDescriptor -> UniformResourceResult.Failure(
-                    "Account-level UR payloads are not supported yet."
-                )
                 else -> UniformResourceResult.Failure("Unsupported UR type: ${result.ur.type}.")
             }
         } catch (e: Exception) {
@@ -109,7 +105,7 @@ object UniformResourceImportParser {
             }
 
             output.ecKey != null -> renderEcKey(output.ecKey)
-            output.hdKey != null -> renderHdKey(output.hdKey, defaultNetwork).expression
+            output.hdKey != null -> renderHdKey(output.hdKey, defaultNetwork, addDefaultBranch = true).expression
             else -> throw IllegalArgumentException("Unsupported crypto-output key payload.")
         }
         var descriptor = base
@@ -137,10 +133,32 @@ object UniformResourceImportParser {
         return splitDescriptorIfNeeded(resolved)
     }
 
+    private fun renderAccountDescriptor(
+        descriptor: URAccountDescriptor,
+        defaultNetwork: BitcoinNetwork
+    ): DescriptorStrings {
+        val outputs = descriptor.outputDescriptors ?: emptyList()
+        val rendered = outputs.firstNotNullOfOrNull {
+            runCatching { renderOutputDescriptor(it, defaultNetwork) }.getOrNull()
+        } ?: throw IllegalArgumentException("Account descriptor payload did not contain a supported output descriptor.")
+        return rendered
+    }
+
+    private fun renderCryptoAccount(
+        account: CryptoAccount,
+        defaultNetwork: BitcoinNetwork
+    ): DescriptorStrings {
+        val outputs = account.outputDescriptors ?: emptyList()
+        val rendered = outputs.firstNotNullOfOrNull {
+            runCatching { renderCryptoOutput(it, defaultNetwork) }.getOrNull()
+        } ?: throw IllegalArgumentException("Account payload did not contain a supported output descriptor.")
+        return rendered
+    }
+
     private fun renderRegistryKey(item: RegistryItem, defaultNetwork: BitcoinNetwork): String {
         return when (item) {
-            is URHDKey -> renderHdKey(item, defaultNetwork).expression
-            is CryptoHDKey -> renderHdKey(item, defaultNetwork).expression
+            is URHDKey -> renderHdKey(item, defaultNetwork, addDefaultBranch = false).expression
+            is CryptoHDKey -> renderHdKey(item, defaultNetwork, addDefaultBranch = false).expression
             is CryptoECKey -> renderEcKey(item)
             is URAddress -> throw IllegalArgumentException("Address UR entries are not supported.")
             is CryptoAddress -> throw IllegalArgumentException("Address UR entries are not supported.")
@@ -158,7 +176,7 @@ object UniformResourceImportParser {
         val keys = when {
             multiKey.ecKeys != null && multiKey.ecKeys.isNotEmpty() -> multiKey.ecKeys.map(::renderEcKey)
             multiKey.hdKeys != null && multiKey.hdKeys.isNotEmpty() -> multiKey.hdKeys.map {
-                renderHdKey(it, defaultNetwork).expression
+                renderHdKey(it, defaultNetwork, addDefaultBranch = true).expression
             }
             else -> emptyList()
         }
@@ -210,7 +228,11 @@ object UniformResourceImportParser {
         return key.data.toHex()
     }
 
-    private fun renderHdKey(key: CryptoHDKey, defaultNetwork: BitcoinNetwork): DescriptorKeyData {
+    private fun renderHdKey(
+        key: CryptoHDKey,
+        defaultNetwork: BitcoinNetwork,
+        addDefaultBranch: Boolean
+    ): DescriptorKeyData {
         if (key.isPrivateKey) {
             throw IllegalArgumentException("Private HD keys are not supported.")
         }
@@ -261,9 +283,12 @@ object UniformResourceImportParser {
                 append("]")
             }
             append(extendedKey)
-            key.children?.path?.takeIf { it.isNotBlank() }?.let { childPath ->
+            val childPath = key.children?.path?.takeIf { it.isNotBlank() }
+            if (childPath != null) {
                 append("/")
                 append(childPath)
+            } else if (addDefaultBranch) {
+                append("/<0;1>/*")
             }
         }
         val includesChange = key.children?.hasMultipleBranches() == true ||
@@ -305,7 +330,7 @@ object UniformResourceImportParser {
         payload: CryptoHDKey,
         defaultNetwork: BitcoinNetwork
     ): UniformResourceResult {
-        val descriptorData = renderHdKey(payload, defaultNetwork)
+        val descriptorData = renderHdKey(payload, defaultNetwork, addDefaultBranch = false)
         val derivationPath = descriptorData.derivationPath?.let { "m/$it" }
         return UniformResourceResult.ExtendedKey(
             extendedKey = descriptorData.extendedKey,
@@ -375,40 +400,8 @@ object UniformResourceImportParser {
         return String(result)
     }
 
-    private fun maybeBuildExtendedKeyFromOutput(
-        output: CryptoOutput,
-        defaultNetwork: BitcoinNetwork
-    ): UniformResourceResult.ExtendedKey? {
-        if (output.multiKey != null) return null
-        val hdKey = output.hdKey ?: return null
-        if (hdKey.children != null) return null
-        val scriptType = output.scriptExpressions.toExtendedKeyScriptType() ?: return null
-        val descriptorData = renderHdKey(hdKey, defaultNetwork)
-        return UniformResourceResult.ExtendedKey(
-            extendedKey = descriptorData.extendedKey,
-            derivationPath = descriptorData.derivationPath?.let { "m/$it" },
-            masterFingerprint = descriptorData.masterFingerprint,
-            includeChange = true,
-            detectedNetwork = descriptorData.network,
-            scriptType = scriptType
-        )
-    }
-
     private val HEX_DIGITS = charArrayOf(
         '0', '1', '2', '3', '4', '5', '6', '7',
         '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
     )
-
-    private fun List<ScriptExpression>.toExtendedKeyScriptType(): ExtendedKeyScriptType? {
-        if (isEmpty()) return null
-        val set = this.toSet()
-        return when {
-            set.contains(ScriptExpression.TAPROOT) -> ExtendedKeyScriptType.P2TR
-            set.contains(ScriptExpression.SCRIPT_HASH) && set.contains(ScriptExpression.WITNESS_PUBLIC_KEY_HASH) ->
-                ExtendedKeyScriptType.P2SH_P2WPKH
-            set.contains(ScriptExpression.WITNESS_PUBLIC_KEY_HASH) -> ExtendedKeyScriptType.P2WPKH
-            set.contains(ScriptExpression.PUBLIC_KEY_HASH) -> ExtendedKeyScriptType.P2PKH
-            else -> null
-        }
-    }
 }

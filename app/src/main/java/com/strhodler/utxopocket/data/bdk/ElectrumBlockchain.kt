@@ -62,13 +62,15 @@ class ElectrumBlockchain(
     suspend fun syncWallet(
         wallet: Wallet,
         shouldRunFullScan: Boolean,
+        fullScanStopGap: Int?,
         hasChangeKeychain: Boolean,
         cancellationSignal: SyncCancellationSignal
     ) = executeWithRetry("walletSync") { client ->
         ensureActive(cancellationSignal)
         val syncPrefs = endpoint.sync
-        val fullScanStopGap = syncPrefs.fullScanStopGap.coerceAtLeast(1)
-        val revealDepth = (fullScanStopGap - 1).toUInt()
+        val resolvedFullScanStopGap = (fullScanStopGap ?: syncPrefs.fullScanStopGap)
+            .coerceAtLeast(1)
+        val revealDepth = (resolvedFullScanStopGap - 1).toUInt()
         val fullScanBatchSize = syncPrefs.fullScanBatchSize.coerceAtLeast(1)
         val incrementalBatchSize = syncPrefs.incrementalBatchSize.coerceAtLeast(1)
 
@@ -88,7 +90,7 @@ class ElectrumBlockchain(
                     client.fullScan(
                         request = request,
                         batchSize = fullScanBatchSize.toULong(),
-                        stopGap = fullScanStopGap.toULong(),
+                        stopGap = resolvedFullScanStopGap.toULong(),
                         fetchPrevTxouts = false
                     ).use { update ->
                         ensureActive(cancellationSignal)

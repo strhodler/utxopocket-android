@@ -1269,7 +1269,7 @@ object WikiContent {
                 WikiTopic(
                     id = "utxopocket-overview",
                     title = "UtxoPocket Overview",
-                    summary = "Understand the product pillars, automation, and shared descriptor flow that power UtxoPocket.",
+                    summary = "Understand the product pillars, automation, and full-rescan flow that power UtxoPocket.",
                     sections = listOf(
                         WikiSection(
                             title = "Product Pillars",
@@ -1279,10 +1279,10 @@ object WikiContent {
                             )
                         ),
                         WikiSection(
-                            title = "Shared Descriptor Mode",
+                            title = "Full Rescans",
                             paragraphs = listOf(
-                                "Enable shared descriptors when the same descriptor pair is observed by other wallets or services. UtxoPocket widens the discovery gap limit, queues a full rescan, and refreshes address pools so deposits revealed elsewhere show up promptly.",
-                                "Disabling the toggle narrows the gap limit and skips wide rescans, ideal when UtxoPocket is the single watcher. Toggling the setting always prompts a rescan and the UI blocks further changes while the repository updates SQLite and schedules the job."
+                                "Use the full-rescan option when balances look stale or when other wallets may have revealed addresses for the same descriptors. Pick a gap limit (up to 500) from the rescan sheet; the app immediately runs a full scan with that window and shows the sync indicator until it finishes.",
+                                "Regular pull-to-refresh keeps using the incremental window. Reserve wide scans for periodic audits or after long inactivity to limit how many addresses get revealed to the backend."
                             )
                         ),
                         WikiSection(

@@ -74,6 +74,8 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val balancesHidden: Flow<Boolean> = balancesHiddenValue
     override val walletAnimationsEnabled: Flow<Boolean> = MutableStateFlow(true)
     override val walletBalanceRange: Flow<BalanceRange> = MutableStateFlow(BalanceRange.LastYear)
+    override val showBalanceChart: Flow<Boolean> = MutableStateFlow(false)
+    override val pinShuffleEnabled: Flow<Boolean> = MutableStateFlow(false)
     override val advancedMode: Flow<Boolean> = MutableStateFlow(false)
     override val pinAutoLockTimeoutMinutes: Flow<Int> =
         MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
@@ -129,8 +131,10 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     }
 
     override suspend fun setWalletAnimationsEnabled(enabled: Boolean) = Unit
-
+    override suspend fun setHapticsEnabled(enabled: Boolean) = Unit
     override suspend fun setWalletBalanceRange(range: BalanceRange) = Unit
+    override suspend fun setShowBalanceChart(show: Boolean) = Unit
+    override suspend fun setPinShuffleEnabled(enabled: Boolean) = Unit
 
     override suspend fun setAdvancedMode(enabled: Boolean) = Unit
 

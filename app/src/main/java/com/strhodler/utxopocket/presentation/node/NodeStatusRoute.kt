@@ -32,6 +32,7 @@ fun NodeStatusRoute(
     status: StatusBarUiState,
     onBack: () -> Unit,
     initialTabIndex: Int = NodeStatusTab.Management.ordinal,
+    onOpenNetworkLogs: () -> Unit,
     viewModel: NodeStatusViewModel = hiltViewModel()
 ) {
     val torViewModel: TorStatusViewModel = hiltViewModel()
@@ -203,6 +204,7 @@ fun NodeStatusRoute(
             state = state,
             snackbarHostState = snackbarHostState,
             torActionsState = torActionsState,
+            onOpenNetworkLogs = onOpenNetworkLogs,
             onNetworkSelected = viewModel::onNetworkSelected,
             onPublicNodeSelected = viewModel::onPublicNodeSelected,
             onCustomNodeSelected = viewModel::onCustomNodeSelected,
