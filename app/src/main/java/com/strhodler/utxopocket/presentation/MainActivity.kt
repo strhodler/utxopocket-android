@@ -346,7 +346,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
-        viewModel.onAppBackgrounded()
+        viewModel.onAppBackgrounded(fromConfigurationChange = isChangingConfigurations)
         super.onStop()
     }
 }

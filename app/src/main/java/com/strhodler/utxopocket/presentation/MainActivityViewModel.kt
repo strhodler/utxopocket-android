@@ -97,6 +97,10 @@ class MainActivityViewModel @Inject constructor(
         networkStatusFlow = networkStatusMonitor.isOnline
     )
 
+    // Skips the next lock refresh when the activity is recreated without leaving the app
+    // (e.g., configuration changes like orientation).
+    private var skipNextLockRefresh = false
+
     init {
         viewModelScope.launch {
             pinEnabledState.collect { enabled ->
@@ -191,15 +195,20 @@ class MainActivityViewModel @Inject constructor(
         initialValue = AppEntryUiState()
     )
 
-    fun onAppForegrounded() {
-        refreshLockState()
+    fun onAppForegrounded(skipLockRefresh: Boolean = false) {
+        val shouldSkipRefresh = skipLockRefresh || skipNextLockRefresh
+        if (!shouldSkipRefresh) {
+            refreshLockState()
+        }
+        skipNextLockRefresh = false
         walletRepository.setSyncForegroundState(true)
         viewModelScope.launch {
             resumeNodeIfNeeded()
         }
     }
 
-    fun onAppBackgrounded() {
+    fun onAppBackgrounded(fromConfigurationChange: Boolean = false) {
+        skipNextLockRefresh = fromConfigurationChange
         walletRepository.setSyncForegroundState(false)
     }
 

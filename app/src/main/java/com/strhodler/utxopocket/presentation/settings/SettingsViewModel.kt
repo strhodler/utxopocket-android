@@ -465,8 +465,8 @@ class SettingsViewModel @Inject constructor(
         )
         _uiState.update { it.copy(pinAutoLockTimeoutMinutes = clamped) }
         viewModelScope.launch {
-            appPreferencesRepository.setPinAutoLockTimeoutMinutes(clamped)
             appPreferencesRepository.markPinUnlocked()
+            appPreferencesRepository.setPinAutoLockTimeoutMinutes(clamped)
         }
     }
 
