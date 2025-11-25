@@ -31,6 +31,7 @@ import com.strhodler.utxopocket.data.db.toDomain
 import com.strhodler.utxopocket.data.db.UtxoPocketDatabase
 import com.strhodler.utxopocket.data.logs.NetworkErrorLogDatabase
 import com.strhodler.utxopocket.data.db.toStorage
+import com.strhodler.utxopocket.data.db.networkEnum
 import com.strhodler.utxopocket.data.db.markFullScanCompleted
 import com.strhodler.utxopocket.data.db.scheduleFullScan
 import com.strhodler.utxopocket.data.db.withSyncFailure
@@ -49,6 +50,14 @@ import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.NodeTransport
+import com.strhodler.utxopocket.domain.model.NodeDescriptor
+import com.strhodler.utxopocket.domain.model.NodeFailoverPolicy
+import com.strhodler.utxopocket.domain.model.failoverPolicyFor
+import com.strhodler.utxopocket.domain.model.autoReconnectFor
+import com.strhodler.utxopocket.domain.model.NodeConnectionOption
+import com.strhodler.utxopocket.domain.model.NodeHealthKey
+import com.strhodler.utxopocket.domain.model.NodeHealthSource
+import com.strhodler.utxopocket.domain.model.NodeHealthSnapshot
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.TransactionStructure
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
@@ -70,10 +79,13 @@ import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
+import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.toBdkNetwork
+import com.strhodler.utxopocket.domain.model.customNodesFor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
+import com.strhodler.utxopocket.domain.repository.NodeHealthRepository
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.TorManager
@@ -82,6 +94,7 @@ import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
 import com.strhodler.utxopocket.domain.model.NetworkNodeSource
 import com.strhodler.utxopocket.domain.model.NetworkEndpointType
 import com.strhodler.utxopocket.domain.model.NetworkTransport
+import com.strhodler.utxopocket.domain.model.activeTransport
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
 import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.tor.TorProxyProvider
@@ -142,6 +155,7 @@ class DefaultWalletRepository @Inject constructor(
     private val appPreferencesRepository: AppPreferencesRepository,
     private val nodeConfigurationRepository: NodeConfigurationRepository,
     private val networkStatusMonitor: NetworkStatusMonitor,
+    private val nodeHealthRepository: NodeHealthRepository,
     private val networkErrorLogRepository: NetworkErrorLogRepository,
     @ApplicationContext private val applicationContext: Context,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
@@ -270,6 +284,18 @@ class DefaultWalletRepository @Inject constructor(
         val endpoint: ElectrumEndpoint
     )
 
+    private data class SelectedEndpoint(
+        val endpoint: ElectrumEndpoint,
+        val descriptor: NodeDescriptor,
+        val autoReconnect: Boolean
+    )
+
+    private data class EndpointResolution(
+        val selection: SelectedEndpoint? = null,
+        val backoffUntil: Long? = null,
+        val reason: String? = null
+    )
+
     private val walletCacheMutex = Mutex()
     private val walletCache = mutableMapOf<Long, CachedWallet>()
     private val deletingWallets = ConcurrentHashMap<Long, Boolean>()
@@ -279,6 +305,182 @@ class DefaultWalletRepository @Inject constructor(
         val snapshot = nodeStatus.value
         nodeStatus.value = snapshot.copy(status = NodeStatus.Idle)
     }
+
+    private suspend fun resolveEndpoint(network: BitcoinNetwork): EndpointResolution {
+        val config = nodeConfigurationRepository.nodeConfig.first()
+        val policy = config.failoverPolicyFor(network)
+        val autoReconnect = config.autoReconnectFor(network)
+        val candidates = buildNodeCandidates(config, network)
+        if (candidates.isEmpty()) {
+            return EndpointResolution(
+                selection = null,
+                reason = applicationContext.getString(R.string.node_policy_no_candidates)
+            )
+        }
+        val healthSnapshots = nodeHealthRepository.snapshot()
+        val now = System.currentTimeMillis()
+        val skipBackoff = !autoReconnect
+        val readyCandidate = candidates.firstOrNull { candidate ->
+            if (skipBackoff) return@firstOrNull true
+            !isCoolingDown(candidate, healthSnapshots, now)
+        }
+        val selectionCandidate = readyCandidate ?: if (skipBackoff) candidates.firstOrNull() else null
+        if (selectionCandidate == null) {
+            val earliest = candidates.mapNotNull { candidate ->
+                healthSnapshots[candidate.key]?.backoffUntilMs
+            }.minOrNull()
+            return EndpointResolution(selection = null, backoffUntil = earliest)
+        }
+        ensureActiveSelection(config, selectionCandidate)
+        val endpoint = blockchainFactory.endpointFor(network)
+        return EndpointResolution(
+            selection = SelectedEndpoint(
+                endpoint = endpoint,
+                descriptor = selectionCandidate,
+                autoReconnect = autoReconnect
+            ),
+            backoffUntil = healthSnapshots[selectionCandidate.key]?.backoffUntilMs
+        )
+    }
+
+    private suspend fun ensureActiveSelection(
+        config: NodeConfig,
+        descriptor: NodeDescriptor
+    ) {
+        val targetConnectionOption = when (descriptor.source) {
+            NodeHealthSource.Public -> NodeConnectionOption.PUBLIC
+            NodeHealthSource.Custom -> NodeConnectionOption.CUSTOM
+        }
+        val shouldUpdate = when (descriptor.source) {
+            NodeHealthSource.Public -> config.connectionOption != targetConnectionOption ||
+                config.selectedPublicNodeId != descriptor.nodeId
+            NodeHealthSource.Custom -> config.connectionOption != targetConnectionOption ||
+                config.selectedCustomNodeId != descriptor.nodeId
+        }
+        if (!shouldUpdate) return
+        nodeConfigurationRepository.updateNodeConfig { current ->
+            val base = current.copy(connectionOption = targetConnectionOption)
+            when (descriptor.source) {
+                NodeHealthSource.Public -> base.copy(selectedPublicNodeId = descriptor.nodeId)
+                NodeHealthSource.Custom -> base.copy(selectedCustomNodeId = descriptor.nodeId)
+            }
+        }
+    }
+
+    private fun buildNodeCandidates(
+        config: NodeConfig,
+        network: BitcoinNetwork
+    ): List<NodeDescriptor> {
+        val publicNodes = nodeConfigurationRepository.publicNodesFor(network)
+        val customNodes = config.customNodesFor(network)
+        val effectivePolicy = effectivePolicy(
+            policy = config.failoverPolicyFor(network),
+            hasPublic = publicNodes.isNotEmpty(),
+            hasCustom = customNodes.isNotEmpty()
+        )
+        val orderedPublic = reorderPublicNodes(publicNodes, config.selectedPublicNodeId, network)
+        val orderedCustom = reorderCustomNodes(customNodes, config.selectedCustomNodeId, network)
+        val primary = when (effectivePolicy) {
+            NodeFailoverPolicy.PUBLIC_ONLY -> orderedPublic
+            NodeFailoverPolicy.CUSTOM_ONLY -> orderedCustom
+            NodeFailoverPolicy.PREFER_PUBLIC -> orderedPublic
+            NodeFailoverPolicy.PREFER_CUSTOM -> orderedCustom
+        }
+        val secondary = when (effectivePolicy) {
+            NodeFailoverPolicy.PUBLIC_ONLY -> emptyList()
+            NodeFailoverPolicy.CUSTOM_ONLY -> emptyList()
+            NodeFailoverPolicy.PREFER_PUBLIC -> orderedCustom
+            NodeFailoverPolicy.PREFER_CUSTOM -> orderedPublic
+        }
+        if (primary.isEmpty()) {
+            return secondary
+        }
+        return primary + secondary
+    }
+
+    private fun effectivePolicy(
+        policy: NodeFailoverPolicy,
+        hasPublic: Boolean,
+        hasCustom: Boolean
+    ): NodeFailoverPolicy = when (policy) {
+        NodeFailoverPolicy.PUBLIC_ONLY,
+        NodeFailoverPolicy.PREFER_PUBLIC -> if (hasPublic) {
+            policy
+        } else if (hasCustom) {
+            NodeFailoverPolicy.CUSTOM_ONLY
+        } else {
+            policy
+        }
+
+        NodeFailoverPolicy.CUSTOM_ONLY,
+        NodeFailoverPolicy.PREFER_CUSTOM -> if (hasCustom) {
+            policy
+        } else if (hasPublic) {
+            NodeFailoverPolicy.PUBLIC_ONLY
+        } else {
+            policy
+        }
+    }
+
+    private fun reorderPublicNodes(
+        nodes: List<com.strhodler.utxopocket.domain.model.PublicNode>,
+        selectedId: String?,
+        network: BitcoinNetwork
+    ): List<NodeDescriptor> {
+        if (nodes.isEmpty()) return emptyList()
+        val selectedFirst = selectedId?.let { id ->
+            nodes.firstOrNull { it.id == id }?.let { listOf(it) }
+        }.orEmpty()
+        val remaining = nodes.filterNot { it.id == selectedId }
+        val ordered = if (selectedFirst.isNotEmpty()) {
+            selectedFirst + remaining
+        } else {
+            remaining.ifEmpty { nodes }
+        }
+        return ordered.map { node ->
+            NodeDescriptor(
+                nodeId = node.id,
+                source = NodeHealthSource.Public,
+                network = network,
+                displayName = node.displayName,
+                endpoint = node.endpoint,
+                transport = NodeTransport.TOR
+            )
+        }
+    }
+
+    private fun reorderCustomNodes(
+        nodes: List<com.strhodler.utxopocket.domain.model.CustomNode>,
+        selectedId: String?,
+        network: BitcoinNetwork
+    ): List<NodeDescriptor> {
+        if (nodes.isEmpty()) return emptyList()
+        val selectedFirst = selectedId?.let { id ->
+            nodes.firstOrNull { it.id == id }?.let { listOf(it) }
+        }.orEmpty()
+        val remaining = nodes.filterNot { it.id == selectedId }
+        val ordered = if (selectedFirst.isNotEmpty()) {
+            selectedFirst + remaining
+        } else {
+            remaining.ifEmpty { nodes }
+        }
+        return ordered.map { node ->
+            NodeDescriptor(
+                nodeId = node.id,
+                source = NodeHealthSource.Custom,
+                network = node.network ?: network,
+                displayName = node.displayLabel(),
+                endpoint = node.endpoint,
+                transport = node.activeTransport()
+            )
+        }
+    }
+
+    private fun isCoolingDown(
+        descriptor: NodeDescriptor,
+        health: Map<NodeHealthKey, NodeHealthSnapshot>,
+        now: Long
+    ): Boolean = health[descriptor.key]?.backoffUntilMs?.let { it > now } ?: false
 
     private suspend fun handleNetworkConnectivityChange(online: Boolean) {
         if (!online) {
@@ -508,15 +710,13 @@ class DefaultWalletRepository @Inject constructor(
         }
     }
 
-    override suspend fun refresh(network: BitcoinNetwork) = withContext(ioDispatcher) {
-        refreshInternal(network = network, targetWalletIds = null)
+    override suspend fun refresh(network: BitcoinNetwork) {
+        refreshInternal(network, targetWalletIds = null)
     }
 
-    override suspend fun refreshWallet(walletId: Long) = withContext(ioDispatcher) {
-        val entity = walletDao.findById(walletId) ?: return@withContext
-        val walletNetwork = runCatching { BitcoinNetwork.valueOf(entity.network) }
-            .getOrDefault(BitcoinNetwork.DEFAULT)
-        refreshInternal(network = walletNetwork, targetWalletIds = setOf(walletId))
+    override suspend fun refreshWallet(walletId: Long) {
+        val wallet = walletDao.findById(walletId) ?: return
+        refreshInternal(wallet.networkEnum(), setOf(walletId))
     }
 
     private suspend fun refreshInternal(
@@ -525,27 +725,7 @@ class DefaultWalletRepository @Inject constructor(
     ) = withContext(ioDispatcher) {
         val targetLabel = targetWalletIds?.joinToString(prefix = "[", postfix = "]") ?: "all"
         SecureLog.d(TAG) { "Refresh requested for $network target=$targetLabel" }
-        val config = nodeConfigurationRepository.nodeConfig.first()
         val previousSnapshot = nodeStatus.value
-        if (!config.hasActiveSelection(network)) {
-            SecureLog.i(TAG) { "Skipping wallet refresh for $network: no active node selection" }
-            syncStatus.value = SyncStatusSnapshot(
-                isRefreshing = false,
-                network = network,
-                refreshingWalletIds = emptySet()
-            )
-            val snapshotMatchesNetwork = previousSnapshot.network == network
-            nodeStatus.value = NodeStatusSnapshot(
-                status = NodeStatus.Idle,
-                blockHeight = previousSnapshot.blockHeight.takeIf { snapshotMatchesNetwork },
-                serverInfo = previousSnapshot.serverInfo.takeIf { snapshotMatchesNetwork },
-                endpoint = null,
-                lastSyncCompletedAt = previousSnapshot.lastSyncCompletedAt.takeIf { snapshotMatchesNetwork },
-                network = network,
-                feeRateSatPerVb = previousSnapshot.feeRateSatPerVb.takeIf { snapshotMatchesNetwork }
-            )
-            return@withContext
-        }
         if (targetWalletIds == null) {
             syncStatus.value = SyncStatusSnapshot(
                 isRefreshing = true,
@@ -561,17 +741,46 @@ class DefaultWalletRepository @Inject constructor(
             }
         }
         val triedPresetKeys = mutableSetOf<String>()
+        val policy = retryPolicyFor(network)
+        var attempt = 0
         try {
-            val policy = retryPolicyFor(network)
-            var attempt = 0
             while (attempt < policy.maxAttempts) {
                 if (!isSyncAllowed()) {
                     SecureLog.i(TAG) { "Skipping wallet refresh for $network because background grace expired" }
                     return@withContext
                 }
+                val selectionResolution = resolveEndpoint(network)
+                val selection = selectionResolution.selection
+                if (selection == null) {
+                    val snapshotMatchesNetwork = previousSnapshot.network == network
+                    val message = selectionResolution.reason
+                        ?: selectionResolution.backoffUntil?.let {
+                            applicationContext.getString(R.string.node_policy_backoff_waiting)
+                        }
+                        ?: applicationContext.getString(R.string.node_policy_no_candidates)
+                    nodeStatus.value = NodeStatusSnapshot(
+                        status = NodeStatus.Error(message),
+                        blockHeight = previousSnapshot.blockHeight.takeIf { snapshotMatchesNetwork },
+                        serverInfo = previousSnapshot.serverInfo.takeIf { snapshotMatchesNetwork },
+                        endpoint = previousSnapshot.endpoint.takeIf { snapshotMatchesNetwork },
+                        lastSyncCompletedAt = previousSnapshot.lastSyncCompletedAt.takeIf { snapshotMatchesNetwork },
+                        network = network,
+                        feeRateSatPerVb = previousSnapshot.feeRateSatPerVb.takeIf { snapshotMatchesNetwork }
+                    )
+                    return@withContext
+                }
                 val attemptStarted = SystemClock.elapsedRealtime()
                 try {
-                    performRefreshAttempt(network, targetWalletIds)
+                    val completed = performRefreshAttempt(network, targetWalletIds, selection)
+                    if (!completed) {
+                        return@withContext
+                    }
+                    runCatching {
+                        nodeHealthRepository.recordSuccess(
+                            descriptor = selection.descriptor,
+                            latencyMs = SystemClock.elapsedRealtime() - attemptStarted
+                        )
+                    }
                     if (attempt > 0) {
                         SecureLog.i(TAG) { "Node refresh succeeded after ${attempt + 1} attempts on $network" }
                     }
@@ -582,16 +791,29 @@ class DefaultWalletRepository @Inject constructor(
                 } catch (error: Exception) {
                     val attemptIndex = attempt + 1
                     SecureLog.w(TAG, error) { "Node refresh attempt $attemptIndex failed for $network" }
+                    val duration = SystemClock.elapsedRealtime() - attemptStarted
+                    val reason = error.toTorAwareMessage(
+                        defaultMessage = error.message.orEmpty().ifBlank { "Electrum connection failed" },
+                        endpoint = selection.endpoint.url,
+                        usedTor = selection.endpoint.transport == NodeTransport.TOR
+                    )
+                    runCatching {
+                        nodeHealthRepository.recordFailure(
+                            descriptor = selection.descriptor,
+                            message = reason,
+                            durationMs = duration
+                        )
+                    }
                     runCatching {
                         recordNetworkFailure(
                             error = error,
-                            durationMs = SystemClock.elapsedRealtime() - attemptStarted,
+                            durationMs = duration,
                             attemptIndex = attemptIndex
                         )
                     }
                     val exhaustedAttempts = attempt >= policy.maxAttempts - 1
                     if (exhaustedAttempts) {
-                        if (handlePresetRotationOnFailure(network, triedPresetKeys)) {
+                        if (selection.autoReconnect && handlePresetRotationOnFailure(network, triedPresetKeys)) {
                             attempt = 0
                             continue
                         }
@@ -615,14 +837,19 @@ class DefaultWalletRepository @Inject constructor(
 
     private suspend fun performRefreshAttempt(
         network: BitcoinNetwork,
-        targetWalletIds: Set<Long>?
-    ) {
+        targetWalletIds: Set<Long>?,
+        selection: SelectedEndpoint
+    ): Boolean {
         val previousSnapshot = nodeStatus.value
         val lastSyncForNetwork = previousSnapshot.lastSyncCompletedAt
             .takeIf { previousSnapshot.network == network }
         var shouldSignalConnecting =
             previousSnapshot.network != network || previousSnapshot.status !is NodeStatus.Synced
         val previousEndpoint = previousSnapshot.endpoint.takeIf { previousSnapshot.network == network }
+        val targetEndpointLabel = selection.endpoint.url
+        if (previousEndpoint != targetEndpointLabel) {
+            shouldSignalConnecting = true
+        }
         val cancellationSignal = SyncCancellationSignal { !isSyncAllowed() }
         fun ensureForeground() {
             if (cancellationSignal.shouldCancel()) {
@@ -652,7 +879,7 @@ class DefaultWalletRepository @Inject constructor(
                 status = NodeStatus.Connecting,
                 blockHeight = previousSnapshot.blockHeight.takeIf { previousSnapshot.network == network },
                 serverInfo = previousSnapshot.serverInfo.takeIf { previousSnapshot.network == network },
-                endpoint = previousSnapshot.endpoint.takeIf { previousSnapshot.network == network },
+                endpoint = targetEndpointLabel,
                 lastSyncCompletedAt = lastSyncForNetwork,
                 network = network,
                 feeRateSatPerVb = previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network }
@@ -663,14 +890,14 @@ class DefaultWalletRepository @Inject constructor(
         var serverInfo: ElectrumServerInfo? =
             previousSnapshot.serverInfo.takeIf { previousSnapshot.network == network }
         var blockHeight: Long? = previousSnapshot.blockHeight.takeIf { previousSnapshot.network == network }
-        var endpoint: String? = previousEndpoint
+        var endpoint: String? = targetEndpointLabel
         var estimatedFeeRateSatPerVb: Double? =
             previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network }
         var lastWalletError: String? = null
-        var activeTransport: NodeTransport = NodeTransport.TOR
+        var activeTransport: NodeTransport = selection.endpoint.transport
         try {
             ensureForeground()
-            val electrumEndpoint = blockchainFactory.endpointFor(network)
+            val electrumEndpoint = selection.endpoint
             lastEndpointMetadata = EndpointAttemptMetadata(network, electrumEndpoint)
             activeTransport = electrumEndpoint.transport
             suspend fun runSyncWithProxy(proxy: SocksProxyConfig?) {
@@ -952,11 +1179,11 @@ class DefaultWalletRepository @Inject constructor(
                     if (error is CancellationException) throw error
                     if (!proxyAcquired) {
                         val torStatus = torManager.status.value
-                        signalWaitingForTor(previousEndpoint, torStatus)
+                        signalWaitingForTor(targetEndpointLabel, torStatus)
                         SecureLog.w(TAG, error) {
                             "Tor proxy unavailable while syncing $network, waiting for Tor"
                         }
-                        return
+                        return false
                     }
                     throw error
                 }
@@ -967,7 +1194,7 @@ class DefaultWalletRepository @Inject constructor(
         } catch (e: TorProxyUnavailableException) {
             signalWaitingForTor(endpoint, torManager.status.value)
             SecureLog.w(TAG, e) { "Tor proxy unavailable while syncing $network, waiting for Tor" }
-            return
+            return false
         } catch (e: CancellationException) {
             SecureLog.i(TAG) { "Electrum sync cancelled because app entered background on $network" }
             nodeStatus.value = NodeStatusSnapshot(
@@ -1005,6 +1232,7 @@ class DefaultWalletRepository @Inject constructor(
             )
             throw e
         }
+        return true
     }
 
     private suspend fun handlePresetRotationOnFailure(

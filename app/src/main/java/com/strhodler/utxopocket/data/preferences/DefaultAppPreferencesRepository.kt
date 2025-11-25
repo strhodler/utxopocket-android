@@ -17,6 +17,7 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
+import com.strhodler.utxopocket.domain.model.NodeFailoverPolicy
 import com.strhodler.utxopocket.domain.node.EndpointKind
 import com.strhodler.utxopocket.domain.node.EndpointScheme
 import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
@@ -477,6 +478,18 @@ class DefaultAppPreferencesRepository @Inject constructor(
             val updated = mutator(current).normalised()
 
             prefs[Keys.NODE_CONNECTION_OPTION] = updated.connectionOption.name
+            prefs[Keys.NODE_FAILOVER_POLICY] = updated.failoverPolicy.name
+            prefs[Keys.NODE_AUTO_RECONNECT_ENABLED] = updated.autoReconnectEnabled
+            if (updated.failoverPolicyByNetwork.isNotEmpty()) {
+                prefs[Keys.NODE_FAILOVER_POLICY_MAP] = encodePolicyMap(updated.failoverPolicyByNetwork)
+            } else {
+                prefs.remove(Keys.NODE_FAILOVER_POLICY_MAP)
+            }
+            if (updated.autoReconnectByNetwork.isNotEmpty()) {
+                prefs[Keys.NODE_AUTO_RECONNECT_MAP] = encodeAutoReconnectMap(updated.autoReconnectByNetwork)
+            } else {
+                prefs.remove(Keys.NODE_AUTO_RECONNECT_MAP)
+            }
             updated.selectedPublicNodeId?.let {
                 prefs[Keys.NODE_SELECTED_PUBLIC_ID] = it
             } ?: prefs.remove(Keys.NODE_SELECTED_PUBLIC_ID)
@@ -504,6 +517,14 @@ class DefaultAppPreferencesRepository @Inject constructor(
             runCatching { NodeConnectionOption.valueOf(it) }.getOrNull()
         } ?: NodeConnectionOption.PUBLIC
 
+        val failoverPolicy = this[Keys.NODE_FAILOVER_POLICY]?.let {
+            runCatching { NodeFailoverPolicy.valueOf(it) }.getOrNull()
+        } ?: NodeFailoverPolicy.DEFAULT
+
+        val autoReconnectEnabled = this[Keys.NODE_AUTO_RECONNECT_ENABLED] ?: false
+        val failoverMap = this[Keys.NODE_FAILOVER_POLICY_MAP]?.let(::decodePolicyMap) ?: emptyMap()
+        val autoReconnectMap = this[Keys.NODE_AUTO_RECONNECT_MAP]?.let(::decodeAutoReconnectMap) ?: emptyMap()
+
         val customNodes = this[Keys.NODE_CUSTOM_LIST]
             ?.let(::decodeCustomNodes)
             ?: emptyList()
@@ -526,7 +547,11 @@ class DefaultAppPreferencesRepository @Inject constructor(
             connectionOption = connectionOption,
             selectedPublicNodeId = this[Keys.NODE_SELECTED_PUBLIC_ID],
             customNodes = combinedNodes,
-            selectedCustomNodeId = selectedCustomId
+            selectedCustomNodeId = selectedCustomId,
+            failoverPolicy = failoverPolicy,
+            autoReconnectEnabled = autoReconnectEnabled,
+            failoverPolicyByNetwork = failoverMap,
+            autoReconnectByNetwork = autoReconnectMap
         ).normalised()
     }
 
@@ -596,6 +621,47 @@ class DefaultAppPreferencesRepository @Inject constructor(
             }
         }.getOrElse { emptyList() }
     }
+
+    private fun encodePolicyMap(map: Map<BitcoinNetwork, NodeFailoverPolicy>): String {
+        val obj = JSONObject()
+        map.forEach { (network, policy) ->
+            obj.put(network.name, policy.name)
+        }
+        return obj.toString()
+    }
+
+    private fun decodePolicyMap(raw: String): Map<BitcoinNetwork, NodeFailoverPolicy> =
+        runCatching {
+            val obj = JSONObject(raw)
+            buildMap {
+                obj.keys().forEach { key ->
+                    val network = runCatching { BitcoinNetwork.valueOf(key) }.getOrNull() ?: return@forEach
+                    val policyRaw = obj.optString(key)
+                    val policy = runCatching { NodeFailoverPolicy.valueOf(policyRaw) }.getOrNull()
+                        ?: NodeFailoverPolicy.DEFAULT
+                    put(network, policy)
+                }
+            }
+        }.getOrElse { emptyMap() }
+
+    private fun encodeAutoReconnectMap(map: Map<BitcoinNetwork, Boolean>): String {
+        val obj = JSONObject()
+        map.forEach { (network, enabled) ->
+            obj.put(network.name, enabled)
+        }
+        return obj.toString()
+    }
+
+    private fun decodeAutoReconnectMap(raw: String): Map<BitcoinNetwork, Boolean> =
+        runCatching {
+            val obj = JSONObject(raw)
+            buildMap {
+                obj.keys().forEach { key ->
+                    val network = runCatching { BitcoinNetwork.valueOf(key) }.getOrNull() ?: return@forEach
+                    put(network, obj.optBoolean(key, true))
+                }
+            }
+        }.getOrElse { emptyMap() }
 
     private fun sanitizeEndpoint(endpoint: String): String? {
         val normalized = runCatching {
@@ -674,6 +740,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val PIN_AUTO_LOCK_MINUTES = intPreferencesKey("pin_auto_lock_minutes")
         val PIN_LAST_UNLOCKED_AT = longPreferencesKey("pin_last_unlocked_at")
         val NODE_CONNECTION_OPTION = stringPreferencesKey("node_connection_option")
+        val NODE_FAILOVER_POLICY = stringPreferencesKey("node_failover_policy")
+        val NODE_AUTO_RECONNECT_ENABLED = booleanPreferencesKey("node_auto_reconnect_enabled")
+        val NODE_FAILOVER_POLICY_MAP = stringPreferencesKey("node_failover_policy_map")
+        val NODE_AUTO_RECONNECT_MAP = stringPreferencesKey("node_auto_reconnect_map")
         val NODE_ADDRESS_OPTION = stringPreferencesKey("node_address_option")
         val NODE_SELECTED_PUBLIC_ID = stringPreferencesKey("node_selected_public_id")
         val NODE_CUSTOM_HOST = stringPreferencesKey("node_custom_host")

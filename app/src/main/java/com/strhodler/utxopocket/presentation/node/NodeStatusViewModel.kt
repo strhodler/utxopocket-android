@@ -10,11 +10,21 @@ import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PublicNode
+import com.strhodler.utxopocket.domain.model.NodeFailoverPolicy
+import com.strhodler.utxopocket.domain.model.NodeDescriptor
+import com.strhodler.utxopocket.domain.model.NodeHealthKey
+import com.strhodler.utxopocket.domain.model.NodeHealthSnapshot
+import com.strhodler.utxopocket.domain.model.NodeHealthSource
+import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.customNodesFor
+import com.strhodler.utxopocket.domain.model.activeTransport
+import com.strhodler.utxopocket.domain.model.failoverPolicyFor
+import com.strhodler.utxopocket.domain.model.autoReconnectFor
 import com.strhodler.utxopocket.domain.node.EndpointScheme
 import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
+import com.strhodler.utxopocket.domain.repository.NodeHealthRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
@@ -35,11 +45,13 @@ class NodeStatusViewModel @Inject constructor(
     private val nodeConfigurationRepository: NodeConfigurationRepository,
     private val nodeConnectionTester: NodeConnectionTester,
     private val walletRepository: WalletRepository,
+    private val nodeHealthRepository: NodeHealthRepository,
     private val networkErrorLogRepository: NetworkErrorLogRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NodeStatusUiState())
     val uiState = _uiState.asStateFlow()
+    private var latestHealthSnapshots: Map<NodeHealthKey, NodeHealthSnapshot> = emptyMap()
 
     init {
         viewModelScope.launch {
@@ -47,8 +59,9 @@ class NodeStatusViewModel @Inject constructor(
                 appPreferencesRepository.preferredNetwork,
                 nodeConfigurationRepository.nodeConfig,
                 walletRepository.observeNodeStatus(),
-                networkErrorLogRepository.loggingEnabled
-            ) { network, config, nodeSnapshot, loggingEnabled ->
+                networkErrorLogRepository.loggingEnabled,
+                nodeHealthRepository.snapshots
+            ) { network, config, nodeSnapshot, loggingEnabled, healthSnapshots ->
                 val publicNodes = nodeConfigurationRepository.publicNodesFor(network)
                 val selectedPublic = config.selectedPublicNodeId?.takeIf { id ->
                     publicNodes.any { it.id == id }
@@ -57,9 +70,22 @@ class NodeStatusViewModel @Inject constructor(
                 val selectedCustom = config.selectedCustomNodeId?.takeIf { id ->
                     customNodes.any { it.id == id }
                 }
+                val hasCustom = customNodes.isNotEmpty()
+                val hasPublic = publicNodes.isNotEmpty()
+                val basePolicy = config.failoverPolicyFor(network)
+                val baseAutoReconnect = config.autoReconnectFor(network)
                 val snapshotMatchesNetwork = nodeSnapshot.network == network
                 val isConnected = nodeSnapshot.status is NodeStatus.Synced && snapshotMatchesNetwork
                 val isConnecting = nodeSnapshot.status is NodeStatus.Connecting && snapshotMatchesNetwork
+                val effectivePolicy = when {
+                    !hasCustom && (basePolicy == NodeFailoverPolicy.CUSTOM_ONLY ||
+                        basePolicy == NodeFailoverPolicy.PREFER_CUSTOM) -> NodeFailoverPolicy.PUBLIC_ONLY
+
+                    !hasPublic && (basePolicy == NodeFailoverPolicy.PUBLIC_ONLY ||
+                        basePolicy == NodeFailoverPolicy.PREFER_PUBLIC) -> NodeFailoverPolicy.CUSTOM_ONLY
+
+                    else -> basePolicy
+                }
                 NodeConfigSnapshot(
                     networkLabel = network,
                     connectionOption = config.connectionOption,
@@ -69,10 +95,52 @@ class NodeStatusViewModel @Inject constructor(
                     selectedCustom = selectedCustom,
                     isConnected = isConnected,
                     isConnecting = isConnecting,
-                    networkLogsEnabled = loggingEnabled
+                    networkLogsEnabled = loggingEnabled,
+                    failoverPolicy = effectivePolicy,
+                    autoReconnectEnabled = baseAutoReconnect,
+                    hasCustomNodes = hasCustom,
+                    hasPublicNodes = hasPublic,
+                    nodeHealthEventCount = healthSnapshots.values.sumOf { it.events.size },
+                    originalPolicy = basePolicy
                 )
             }.collect { snapshot ->
                 _uiState.update { previous ->
+                    val activeDescriptor = when (snapshot.connectionOption) {
+                        NodeConnectionOption.PUBLIC -> snapshot.publicNodes.firstOrNull { it.id == snapshot.selectedPublic }
+                            ?.let { node ->
+                                NodeDescriptor(
+                                    nodeId = node.id,
+                                    source = NodeHealthSource.Public,
+                                    network = snapshot.networkLabel,
+                                    displayName = node.displayName,
+                                    endpoint = node.endpoint,
+                                    transport = NodeTransport.TOR
+                                )
+                            }
+
+                        NodeConnectionOption.CUSTOM -> snapshot.customNodes.firstOrNull { it.id == snapshot.selectedCustom }
+                            ?.let { node ->
+                                NodeDescriptor(
+                                    nodeId = node.id,
+                                    source = NodeHealthSource.Custom,
+                                    network = node.network ?: snapshot.networkLabel,
+                                    displayName = node.displayLabel(),
+                                    endpoint = node.endpoint,
+                                    transport = node.activeTransport()
+                                )
+                            }
+                    }
+                    val activeSnapshot = activeDescriptor?.let { descriptor ->
+                        latestHealthSnapshots[descriptor.key]
+                    }
+                    val activeDetail = activeDescriptor?.let { descriptor ->
+                        NodeDetailUiState(
+                            descriptor = descriptor,
+                            events = activeSnapshot?.events ?: emptyList(),
+                            backoffUntilMs = activeSnapshot?.backoffUntilMs,
+                            failureStreak = activeSnapshot?.failureStreak ?: 0
+                        )
+                    }
                     previous.copy(
                         preferredNetwork = snapshot.networkLabel,
                         nodeConnectionOption = snapshot.connectionOption,
@@ -82,9 +150,31 @@ class NodeStatusViewModel @Inject constructor(
                         selectedCustomNodeId = snapshot.selectedCustom,
                         isNodeConnected = snapshot.isConnected,
                         isNodeActivating = snapshot.isConnecting,
-                        networkLogsEnabled = snapshot.networkLogsEnabled
+                        networkLogsEnabled = snapshot.networkLogsEnabled,
+                        failoverPolicy = snapshot.failoverPolicy,
+                        autoReconnectEnabled = snapshot.autoReconnectEnabled,
+                        hasCustomNodes = snapshot.hasCustomNodes,
+                        hasPublicNodes = snapshot.hasPublicNodes,
+                        nodeHealthEventCount = snapshot.nodeHealthEventCount,
+                        activeNodeDetail = activeDetail
                     )
                 }
+                if (snapshot.failoverPolicy != snapshot.originalPolicy) {
+                    viewModelScope.launch {
+                        nodeConfigurationRepository.updateNodeConfig { current ->
+                            current.copy(
+                                failoverPolicy = snapshot.failoverPolicy,
+                                failoverPolicyByNetwork = current.failoverPolicyByNetwork +
+                                    (snapshot.networkLabel to snapshot.failoverPolicy)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        viewModelScope.launch {
+            nodeHealthRepository.snapshots.collect { snapshots ->
+                latestHealthSnapshots = snapshots
             }
         }
     }
@@ -125,6 +215,87 @@ class NodeStatusViewModel @Inject constructor(
         }
     }
 
+    fun onFailoverPolicySelected(policy: NodeFailoverPolicy) {
+        val current = _uiState.value
+        val allowed = when (policy) {
+            NodeFailoverPolicy.CUSTOM_ONLY,
+            NodeFailoverPolicy.PREFER_CUSTOM -> current.hasCustomNodes
+
+            NodeFailoverPolicy.PUBLIC_ONLY,
+            NodeFailoverPolicy.PREFER_PUBLIC -> current.hasPublicNodes
+        }
+        if (!allowed) return
+        _uiState.update { it.copy(failoverPolicy = policy) }
+        viewModelScope.launch {
+            nodeConfigurationRepository.updateNodeConfig { current ->
+                current.copy(
+                    failoverPolicy = policy,
+                    failoverPolicyByNetwork = current.failoverPolicyByNetwork +
+                        (_uiState.value.preferredNetwork to policy)
+                )
+            }
+        }
+    }
+
+    fun onAutoReconnectToggled(enabled: Boolean) {
+        _uiState.update { it.copy(autoReconnectEnabled = enabled) }
+        viewModelScope.launch {
+            nodeConfigurationRepository.updateNodeConfig { current ->
+                current.copy(
+                    autoReconnectEnabled = enabled,
+                    autoReconnectByNetwork = current.autoReconnectByNetwork +
+                        (_uiState.value.preferredNetwork to enabled)
+                )
+            }
+        }
+    }
+
+    fun clearNodeHealth() {
+        viewModelScope.launch {
+            nodeHealthRepository.clear()
+        }
+    }
+
+    fun clearNodeHistory(nodeId: String, source: NodeHealthSource) {
+        val descriptor = buildDescriptorFor(nodeId, source) ?: return
+        viewModelScope.launch {
+            nodeHealthRepository.clear(descriptor.key)
+            if (_uiState.value.nodeDetail?.descriptor?.nodeId == nodeId &&
+                _uiState.value.nodeDetail?.descriptor?.source == source
+            ) {
+                _uiState.update { it.copy(nodeDetail = it.nodeDetail?.copy(events = emptyList(), failureStreak = 0, backoffUntilMs = null)) }
+            }
+        }
+    }
+
+    fun onShowNodeDetails(nodeId: String, source: NodeHealthSource) {
+        val descriptor = buildDescriptorFor(nodeId, source) ?: return
+        val key = NodeHealthKey(
+            network = descriptor.network,
+            source = source,
+            nodeId = descriptor.nodeId
+        )
+        val snapshot = latestHealthSnapshots[key]
+        val detail = NodeDetailUiState(
+            descriptor = descriptor,
+            events = snapshot?.events ?: emptyList(),
+            backoffUntilMs = snapshot?.backoffUntilMs,
+            failureStreak = snapshot?.failureStreak ?: 0
+        )
+        _uiState.update { it.copy(nodeDetail = detail) }
+    }
+
+    fun onDismissNodeDetail() {
+        _uiState.update { it.copy(nodeDetail = null) }
+    }
+
+    fun onTestNodeConnection(nodeId: String, source: NodeHealthSource) {
+        when (source) {
+            NodeHealthSource.Public -> onPublicNodeSelected(nodeId)
+            NodeHealthSource.Custom -> onCustomNodeSelected(nodeId)
+        }
+    }
+
     fun onNodeConnectionOptionSelected(option: NodeConnectionOption) {
         updateEditorState {
             it.copy(
@@ -141,6 +312,36 @@ class NodeStatusViewModel @Inject constructor(
         viewModelScope.launch {
             nodeConfigurationRepository.updateNodeConfig { current ->
                 current.copy(connectionOption = option)
+            }
+        }
+    }
+
+    private fun buildDescriptorFor(
+        nodeId: String,
+        source: NodeHealthSource
+    ): NodeDescriptor? {
+        val network = _uiState.value.preferredNetwork
+        return when (source) {
+            NodeHealthSource.Public -> _uiState.value.publicNodes.firstOrNull { it.id == nodeId }?.let { node ->
+                NodeDescriptor(
+                    nodeId = node.id,
+                    source = NodeHealthSource.Public,
+                    network = network,
+                    displayName = node.displayName,
+                    endpoint = node.endpoint,
+                    transport = NodeTransport.TOR
+                )
+            }
+
+            NodeHealthSource.Custom -> _uiState.value.customNodes.firstOrNull { it.id == nodeId }?.let { node ->
+                NodeDescriptor(
+                    nodeId = node.id,
+                    source = NodeHealthSource.Custom,
+                    network = node.network ?: network,
+                    displayName = node.displayLabel(),
+                    endpoint = node.endpoint,
+                    transport = node.activeTransport()
+                )
             }
         }
     }
@@ -257,6 +458,9 @@ class NodeStatusViewModel @Inject constructor(
                         customNodeSuccessMessage = R.string.node_custom_deleted
                     )
                 }
+            }
+            if (_uiState.value.nodeDetail?.descriptor?.nodeId == nodeId) {
+                _uiState.update { it.copy(nodeDetail = null) }
             }
         }
     }
@@ -617,6 +821,12 @@ class NodeStatusViewModel @Inject constructor(
         val selectedCustom: String?,
         val isConnected: Boolean,
         val isConnecting: Boolean,
-        val networkLogsEnabled: Boolean
+        val networkLogsEnabled: Boolean,
+        val failoverPolicy: NodeFailoverPolicy,
+        val autoReconnectEnabled: Boolean,
+        val hasCustomNodes: Boolean,
+        val hasPublicNodes: Boolean,
+        val nodeHealthEventCount: Int,
+        val originalPolicy: NodeFailoverPolicy
     )
 }

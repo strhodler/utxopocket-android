@@ -17,6 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
+import com.strhodler.utxopocket.presentation.settings.rememberNetworkLabel
 
 @Composable
 fun SettingsRoute(
@@ -34,6 +35,7 @@ fun SettingsRoute(
         onOpenInterfaceSettings = onOpenInterfaceSettings,
         onOpenWalletSettings = onOpenWalletSettings,
         onOpenSecuritySettings = onOpenSecuritySettings,
+        onClearNodeHistory = viewModel::clearNodeHealthForNetwork,
         modifier = Modifier.fillMaxSize()
     )
 }
@@ -44,11 +46,13 @@ private fun SettingsHomeScreen(
     onOpenInterfaceSettings: () -> Unit,
     onOpenWalletSettings: () -> Unit,
     onOpenSecuritySettings: () -> Unit,
+    onClearNodeHistory: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val languageLabel = rememberLanguageLabeler()
     val unitLabel = rememberUnitLabeler()
     val themeLabel = rememberThemePreferenceLabeler()
+    val networkLabel = rememberNetworkLabel()
     val interfaceSummary = stringResource(
         id = R.string.settings_interface_nav_description,
         languageLabel(state.appLanguage),
@@ -97,6 +101,16 @@ private fun SettingsHomeScreen(
                     pinStatus
                 ),
                 onClick = onOpenSecuritySettings,
+                showDivider = true,
+                dividerPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)
+            )
+            SettingsNavigationRow(
+                title = stringResource(id = R.string.settings_nodes_clear_history_title),
+                supportingText = stringResource(
+                    id = R.string.settings_nodes_clear_history_subtitle,
+                    networkLabel(state.preferredNetwork)
+                ),
+                onClick = onClearNodeHistory,
                 showDivider = true,
                 dividerPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)
             )

@@ -911,4 +911,42 @@
     <string name="wallet_detail_descriptor_type_segwit_p2wsh">SegWit (P2WSH)</string>
     <string name="wallet_detail_descriptor_type_taproot">Taproot</string>
 
+    <!-- Settings: nodes -->
+    <string name="settings_section_nodes">Nodos</string>
+    <string name="settings_nodes_nav_description">Política: %1$s • Reconexión auto: %2$s</string>
+    <string name="settings_nodes_policy_title">Política de conmutación</string>
+    <string name="settings_nodes_policy_public_only">Solo públicos</string>
+    <string name="settings_nodes_policy_custom_only">Solo privados</string>
+    <string name="settings_nodes_policy_prefer_public">Preferir públicos y luego privados</string>
+    <string name="settings_nodes_policy_prefer_custom">Preferir privados y luego públicos</string>
+    <string name="settings_nodes_policy_custom_hint">Añade un nodo privado para habilitar las políticas con privados.</string>
+    <string name="settings_nodes_policy_public_hint">No hay nodos públicos disponibles.</string>
+    <string name="settings_nodes_auto_reconnect_title">Reconexión automática entre nodos</string>
+    <string name="settings_nodes_privacy_notice">Se guardan en este dispositivo los últimos intentos y errores de conexión. No se envían datos fuera.</string>
+    <string name="settings_nodes_history_label">Eventos de nodo guardados: %1$d (máx. 21 por nodo)</string>
+    <string name="settings_nodes_clear_history">Borrar historial de conexión</string>
+    <string name="settings_nodes_manage_title">Abrir gestión de nodos</string>
+    <string name="settings_nodes_manage_supporting">Ver nodos públicos o editar tus nodos privados.</string>
+    <string name="settings_nodes_policy_fallback">Se ha establecido la política en %1$s porque no hay nodos privados disponibles.</string>
+    <string name="node_policy_no_candidates">No hay nodos disponibles para la política seleccionada.</string>
+    <string name="node_policy_backoff_waiting">Todos los nodos están en enfriamiento tras fallos recientes. Esperando antes de reintentar.</string>
+    <string name="node_detail_backoff">Backoff activo: reintentar en %1$s</string>
+    <string name="node_detail_failure_streak">Racha de fallos: %1$d</string>
+    <string name="node_detail_last_success">Último éxito: %1$s</string>
+    <string name="node_detail_last_failure">Último fallo: %1$s</string>
+    <string name="node_detail_latency_avg">Latencia media: %1$s</string>
+    <string name="node_detail_latency_unknown">n/d</string>
+    <string name="node_detail_events_title">Eventos recientes</string>
+    <string name="node_detail_events_empty">Aún no hay intentos de conexión registrados.</string>
+    <string name="node_detail_activate">Activar nodo</string>
+    <string name="node_detail_test">Probar conexión</string>
+    <string name="node_detail_edit">Editar</string>
+    <string name="node_detail_delete">Eliminar</string>
+    <string name="node_detail_close">Cerrar</string>
+    <string name="node_detail_event_success">Éxito</string>
+    <string name="node_detail_event_failure">Fallo</string>
+    <string name="node_detail_event_latency">Latencia: %1$s</string>
+
+    <string name="settings_nodes_clear_history_title">Borrar historial de conexión</string>
+    <string name="settings_nodes_clear_history_subtitle">Eventos de nodo guardados en %1$s</string>
 </resources>

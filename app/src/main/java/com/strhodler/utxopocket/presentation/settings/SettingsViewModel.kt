@@ -6,9 +6,13 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
+import com.strhodler.utxopocket.domain.model.NodeHealthSnapshot
+import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
+import com.strhodler.utxopocket.domain.repository.NodeHealthRepository
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_CONNECTION_IDLE_MINUTES
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_PIN_AUTO_LOCK_MINUTES
@@ -34,7 +38,9 @@ import kotlinx.coroutines.launch
 class SettingsViewModel @Inject constructor(
     private val appPreferencesRepository: AppPreferencesRepository,
     private val walletRepository: WalletRepository,
-    private val networkErrorLogRepository: NetworkErrorLogRepository
+    private val networkErrorLogRepository: NetworkErrorLogRepository,
+    private val nodeConfigurationRepository: NodeConfigurationRepository,
+    private val nodeHealthRepository: NodeHealthRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -47,6 +53,7 @@ class SettingsViewModel @Inject constructor(
                 appPreferencesRepository.themePreference,
                 appPreferencesRepository.appLanguage,
                 appPreferencesRepository.balanceUnit,
+                appPreferencesRepository.preferredNetwork,
                 appPreferencesRepository.walletAnimationsEnabled,
                 appPreferencesRepository.hapticsEnabled,
                 appPreferencesRepository.pinShuffleEnabled,
@@ -59,36 +66,44 @@ class SettingsViewModel @Inject constructor(
                 networkErrorLogRepository.loggingEnabled,
                 appPreferencesRepository.dustThresholdSats,
                 appPreferencesRepository.transactionHealthParameters,
-                appPreferencesRepository.utxoHealthParameters
+                appPreferencesRepository.utxoHealthParameters,
+                nodeHealthRepository.snapshots
             ) { values: Array<Any?> ->
                 val pinEnabled = values[0] as Boolean
                 val themePreference = values[1] as ThemePreference
                 val appLanguage = values[2] as AppLanguage
                 val balanceUnit = values[3] as BalanceUnit
-                val walletAnimationsEnabled = values[4] as Boolean
-                val hapticsEnabled = values[5] as Boolean
-                val pinShuffleEnabled = values[6] as Boolean
-                val advancedMode = values[7] as Boolean
-                val pinAutoLockTimeoutMinutes = values[8] as Int
-                val connectionIdleTimeoutMinutes = values[9] as Int
-                val transactionAnalysisEnabled = values[10] as Boolean
-                val utxoHealthEnabled = values[11] as Boolean
-                val walletHealthEnabled = values[12] as Boolean
-                val networkLogsEnabled = values[13] as Boolean
-                val dustThreshold = values[14] as Long
-                val transactionParameters = values[15] as TransactionHealthParameters
-                val utxoParameters = values[16] as UtxoHealthParameters
+                val preferredNetwork = values[4] as BitcoinNetwork
+                val walletAnimationsEnabled = values[5] as Boolean
+                val hapticsEnabled = values[6] as Boolean
+                val pinShuffleEnabled = values[7] as Boolean
+                val advancedMode = values[8] as Boolean
+                val pinAutoLockTimeoutMinutes = values[9] as Int
+                val connectionIdleTimeoutMinutes = values[10] as Int
+                val transactionAnalysisEnabled = values[11] as Boolean
+                val utxoHealthEnabled = values[12] as Boolean
+                val walletHealthEnabled = values[13] as Boolean
+                val networkLogsEnabled = values[14] as Boolean
+                val dustThreshold = values[15] as Long
+                val transactionParameters = values[16] as TransactionHealthParameters
+                val utxoParameters = values[17] as UtxoHealthParameters
+                val healthSnapshots = values[18] as Map<*, *>
                 val previous = _uiState.value
 
                 val walletHealthToggleEnabled = transactionAnalysisEnabled && utxoHealthEnabled
                 val normalizedWalletHealthEnabled =
                     walletHealthEnabled && walletHealthToggleEnabled
+                val nodeEventsForNetwork = healthSnapshots.values
+                    .filterIsInstance<NodeHealthSnapshot>()
+                    .filter { it.key.network == preferredNetwork }
+                    .sumOf { it.events.size }
 
                 previous.copy(
                     themePreference = themePreference,
                     appLanguage = appLanguage,
                     pinEnabled = pinEnabled,
                     preferredUnit = balanceUnit,
+                    preferredNetwork = preferredNetwork,
                     advancedMode = advancedMode,
                     walletAnimationsEnabled = walletAnimationsEnabled,
                     hapticsEnabled = hapticsEnabled,
@@ -113,7 +128,8 @@ class SettingsViewModel @Inject constructor(
                         previous.utxoHealthInputs
                     } else {
                         UtxoHealthParameterInputs.from(utxoParameters)
-                    }
+                    },
+                    nodeHealthEventCount = nodeEventsForNetwork
                 )
             }.collect { state ->
                 _uiState.value = state
@@ -478,6 +494,13 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(connectionIdleTimeoutMinutes = clamped) }
         viewModelScope.launch {
             appPreferencesRepository.setConnectionIdleTimeoutMinutes(clamped)
+        }
+    }
+
+    fun clearNodeHealthForNetwork() {
+        val network = _uiState.value.preferredNetwork
+        viewModelScope.launch {
+            nodeHealthRepository.clear(network)
         }
     }
 

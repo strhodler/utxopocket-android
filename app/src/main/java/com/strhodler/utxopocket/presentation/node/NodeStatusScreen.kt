@@ -54,6 +54,7 @@ import androidx.compose.ui.zIndex
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.NodeStatus
+import com.strhodler.utxopocket.domain.model.NodeFailoverPolicy
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
@@ -81,8 +82,12 @@ fun NodeStatusScreen(
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
+    onPublicNodeDetails: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
+    onFailoverPolicySelected: (NodeFailoverPolicy) -> Unit,
+    onAutoReconnectToggled: (Boolean) -> Unit,
+    onClearNodeHealth: () -> Unit,
     initialTabIndex: Int,
     onDisconnect: () -> Unit,
     onRenewTorIdentity: () -> Unit,
@@ -190,6 +195,7 @@ fun NodeStatusScreen(
                                 torActionsState = torActionsState,
                                 onRenewTorIdentity = onRenewTorIdentity,
                                 onStartTor = onStartTor,
+                                activeNodeDetail = state.activeNodeDetail,
                                 modifier = Modifier.fillMaxWidth()
                             )
 
@@ -212,8 +218,12 @@ fun NodeStatusScreen(
                                     onNetworkSelected = onNetworkSelected,
                                     onPublicNodeSelected = onPublicNodeSelected,
                                     onCustomNodeSelected = onCustomNodeSelected,
+                                    onPublicNodeDetails = onPublicNodeDetails,
                                     onCustomNodeDetails = onCustomNodeDetails,
                                     onAddCustomNodeClick = onAddCustomNodeClick,
+                                    onFailoverPolicySelected = onFailoverPolicySelected,
+                                    onAutoReconnectToggled = onAutoReconnectToggled,
+                                    onClearNodeHealth = onClearNodeHealth,
                                     onDisconnect = onDisconnect
                                 )
                             }

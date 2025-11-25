@@ -41,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.NodeFailoverPolicy
 import com.strhodler.utxopocket.domain.model.ThemePreference
 
 @Composable
@@ -286,10 +288,46 @@ internal fun rememberThemePreferenceLabeler(): (ThemePreference) -> String {
 }
 
 @Composable
+internal fun rememberNodePolicyLabeler(): (NodeFailoverPolicy) -> String {
+    val publicOnly = stringResource(id = R.string.settings_nodes_policy_public_only)
+    val customOnly = stringResource(id = R.string.settings_nodes_policy_custom_only)
+    val preferPublic = stringResource(id = R.string.settings_nodes_policy_prefer_public)
+    val preferCustom = stringResource(id = R.string.settings_nodes_policy_prefer_custom)
+    return remember(publicOnly, customOnly, preferPublic, preferCustom) {
+        { policy ->
+            when (policy) {
+                NodeFailoverPolicy.PUBLIC_ONLY -> publicOnly
+                NodeFailoverPolicy.CUSTOM_ONLY -> customOnly
+                NodeFailoverPolicy.PREFER_PUBLIC -> preferPublic
+                NodeFailoverPolicy.PREFER_CUSTOM -> preferCustom
+            }
+        }
+    }
+}
+
+@Composable
 internal fun rememberAnimationsLabeler(): (Boolean) -> String {
     val enabledLabel = stringResource(id = R.string.settings_option_enabled)
     val disabledLabel = stringResource(id = R.string.settings_option_disabled)
     return remember(enabledLabel, disabledLabel) {
         { enabled -> if (enabled) enabledLabel else disabledLabel }
+    }
+}
+
+@Composable
+internal fun rememberNetworkLabel(): (BitcoinNetwork) -> String {
+    val mainnet = stringResource(id = R.string.network_mainnet)
+    val testnet = stringResource(id = R.string.network_testnet)
+    val testnet4 = stringResource(id = R.string.network_testnet4)
+    val signet = stringResource(id = R.string.network_signet)
+    return remember(mainnet, testnet, testnet4, signet) {
+        { network ->
+            when (network) {
+                BitcoinNetwork.MAINNET -> mainnet
+                BitcoinNetwork.TESTNET -> testnet
+                BitcoinNetwork.TESTNET4 -> testnet4
+                BitcoinNetwork.SIGNET -> signet
+            }
+        }
     }
 }

@@ -10,6 +10,17 @@ enum class NodeConnectionOption {
     CUSTOM
 }
 
+enum class NodeFailoverPolicy {
+    PUBLIC_ONLY,
+    CUSTOM_ONLY,
+    PREFER_PUBLIC,
+    PREFER_CUSTOM;
+
+    companion object {
+        val DEFAULT: NodeFailoverPolicy = PREFER_CUSTOM
+    }
+}
+
 data class CustomNode(
     val id: String,
     val endpoint: String,
@@ -68,8 +79,18 @@ data class NodeConfig(
     val connectionOption: NodeConnectionOption = NodeConnectionOption.PUBLIC,
     val selectedPublicNodeId: String? = null,
     val customNodes: List<CustomNode> = emptyList(),
-    val selectedCustomNodeId: String? = null
+    val selectedCustomNodeId: String? = null,
+    val failoverPolicy: NodeFailoverPolicy = NodeFailoverPolicy.DEFAULT,
+    val autoReconnectEnabled: Boolean = false,
+    val failoverPolicyByNetwork: Map<BitcoinNetwork, NodeFailoverPolicy> = emptyMap(),
+    val autoReconnectByNetwork: Map<BitcoinNetwork, Boolean> = emptyMap()
 )
+
+fun NodeConfig.failoverPolicyFor(network: BitcoinNetwork): NodeFailoverPolicy =
+    failoverPolicyByNetwork[network] ?: failoverPolicy
+
+fun NodeConfig.autoReconnectFor(network: BitcoinNetwork): Boolean =
+    autoReconnectByNetwork[network] ?: autoReconnectEnabled
 
 fun NodeConfig.hasActiveSelection(): Boolean = when (connectionOption) {
     NodeConnectionOption.PUBLIC -> !selectedPublicNodeId.isNullOrBlank()

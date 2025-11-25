@@ -3,6 +3,7 @@ package com.strhodler.utxopocket.presentation.settings.model
 import androidx.annotation.StringRes
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
@@ -12,6 +13,7 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 data class SettingsUiState(
     val appLanguage: AppLanguage = AppLanguage.EN,
     val preferredUnit: BalanceUnit = BalanceUnit.DEFAULT,
+    val preferredNetwork: BitcoinNetwork = BitcoinNetwork.DEFAULT,
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
     val walletAnimationsEnabled: Boolean = true,
     val hapticsEnabled: Boolean = true,
@@ -34,7 +36,8 @@ data class SettingsUiState(
     val utxoHealthInputs: UtxoHealthParameterInputs = UtxoHealthParameterInputs(),
     val utxoInputsDirty: Boolean = false,
     val healthParameterError: String? = null,
-    @StringRes val healthParameterMessageRes: Int? = null
+    @StringRes val healthParameterMessageRes: Int? = null,
+    val nodeHealthEventCount: Int = 0
 )
 
 data class TransactionHealthParameterInputs(

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -48,6 +49,7 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
+import com.strhodler.utxopocket.domain.model.NodeFailoverPolicy
 import com.strhodler.utxopocket.domain.model.PublicNode
 
 @Composable
@@ -58,8 +60,12 @@ fun NodeManagementContent(
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
+    onPublicNodeDetails: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
+    onFailoverPolicySelected: (NodeFailoverPolicy) -> Unit,
+    onAutoReconnectToggled: (Boolean) -> Unit,
+    onClearNodeHealth: () -> Unit,
     onDisconnect: () -> Unit
 ) {
     Column(
@@ -76,11 +82,20 @@ fun NodeManagementContent(
             isNodeConnected = state.isNodeConnected,
             isNodeActivating = state.isNodeActivating,
             isNetworkOnline = isNetworkOnline,
+            failoverPolicy = state.failoverPolicy,
+            autoReconnectEnabled = state.autoReconnectEnabled,
+            hasCustomNodes = state.hasCustomNodes,
+            hasPublicNodes = state.hasPublicNodes,
+            nodeHealthEventCount = state.nodeHealthEventCount,
             onNetworkSelected = onNetworkSelected,
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
+            onPublicNodeDetails = onPublicNodeDetails,
             onCustomNodeDetails = onCustomNodeDetails,
             onAddCustomNodeClick = onAddCustomNodeClick,
+            onFailoverPolicySelected = onFailoverPolicySelected,
+            onAutoReconnectToggled = onAutoReconnectToggled,
+            onClearNodeHealth = onClearNodeHealth,
             onDisconnectNode = onDisconnect,
             showTorReminder = false
         )
@@ -98,14 +113,41 @@ fun NodeConfigurationContent(
     isNodeConnected: Boolean,
     isNodeActivating: Boolean,
     isNetworkOnline: Boolean,
+    failoverPolicy: NodeFailoverPolicy,
+    autoReconnectEnabled: Boolean,
+    hasCustomNodes: Boolean,
+    hasPublicNodes: Boolean,
+    nodeHealthEventCount: Int,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
+    onPublicNodeDetails: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
+    onFailoverPolicySelected: (NodeFailoverPolicy) -> Unit,
+    onAutoReconnectToggled: (Boolean) -> Unit,
+    onClearNodeHealth: () -> Unit,
     onDisconnectNode: (() -> Unit)? = null,
     showTorReminder: Boolean = true
 ) {
+    val nodePolicyLabel = rememberNodePolicyLabel()
+    val policyOptions = remember(
+        nodeConnectionOption,
+        selectedPublicNodeId,
+        selectedCustomNodeId,
+        customNodes,
+        publicNodes
+    ) {
+        NodeFailoverPolicy.values().filter { policy ->
+            when (policy) {
+                NodeFailoverPolicy.CUSTOM_ONLY,
+                NodeFailoverPolicy.PREFER_CUSTOM -> customNodes.isNotEmpty()
+
+                NodeFailoverPolicy.PUBLIC_ONLY,
+                NodeFailoverPolicy.PREFER_PUBLIC -> publicNodes.isNotEmpty()
+            }
+        }
+    }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(24.dp)
@@ -113,6 +155,17 @@ fun NodeConfigurationContent(
         NodeNetworkSelector(
             selectedNetwork = network,
             onNetworkSelected = onNetworkSelected
+        )
+
+        NodeFailoverSettings(
+            policy = failoverPolicy,
+            policyOptions = policyOptions,
+            policyLabel = nodePolicyLabel,
+            autoReconnectEnabled = autoReconnectEnabled,
+            onPolicySelected = onFailoverPolicySelected,
+            onAutoReconnectToggled = onAutoReconnectToggled,
+            hasCustomNodes = hasCustomNodes,
+            hasPublicNodes = hasPublicNodes
         )
 
         AvailableNodesSection(
@@ -127,10 +180,13 @@ fun NodeConfigurationContent(
             network = network,
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
+            onPublicNodeDetails = onPublicNodeDetails,
             onCustomNodeDetails = onCustomNodeDetails,
             onAddCustomNodeClick = onAddCustomNodeClick,
             onDisconnect = onDisconnectNode,
-            showTorReminder = showTorReminder
+            showTorReminder = showTorReminder,
+            failoverPolicy = failoverPolicy,
+            autoReconnectEnabled = autoReconnectEnabled
         )
     }
 }
@@ -212,10 +268,13 @@ private fun AvailableNodesSection(
     network: BitcoinNetwork,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
+    onPublicNodeDetails: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
     onDisconnect: (() -> Unit)?,
-    showTorReminder: Boolean
+    showTorReminder: Boolean,
+    failoverPolicy: NodeFailoverPolicy,
+    autoReconnectEnabled: Boolean
 ) {
     val publicTypeLabel = stringResource(id = R.string.node_item_type_public)
     val customTypeLabel = stringResource(id = R.string.node_item_type_custom)
@@ -232,8 +291,9 @@ private fun AvailableNodesSection(
                     connected = (isNodeConnected || isNodeActivating) &&
                         activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
                     onActivate = { onPublicNodeSelected(node.id) },
-                    onDetailsClick = { onPublicNodeSelected(node.id) },
-                    onDeactivate = onDisconnect
+                    onDetailsClick = { onPublicNodeDetails(node.id) },
+                    onDeactivate = onDisconnect,
+                    switchEnabled = isNetworkOnline && !(autoReconnectEnabled && failoverPolicy == NodeFailoverPolicy.CUSTOM_ONLY)
                 )
             )
         }
@@ -256,7 +316,8 @@ private fun AvailableNodesSection(
                         activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
                     onActivate = { onCustomNodeSelected(node.id) },
                     onDetailsClick = { onCustomNodeDetails(node.id) },
-                    onDeactivate = onDisconnect
+                    onDeactivate = onDisconnect,
+                    switchEnabled = isNetworkOnline && !(autoReconnectEnabled && failoverPolicy == NodeFailoverPolicy.PUBLIC_ONLY)
                 )
             )
         }
@@ -288,14 +349,15 @@ private fun AvailableNodesSection(
                         typeLabels = item.typeLabels,
                         selected = item.selected,
                         connected = item.connected,
-                        onActivate = item.onActivate,
-                        onDetailsClick = item.onDetailsClick,
-                        onDeactivate = item.onDeactivate,
-                        isNetworkOnline = isNetworkOnline,
-                        showDivider = index < nodes.lastIndex
-                    )
-                }
+                    onActivate = item.onActivate,
+                    onDetailsClick = item.onDetailsClick,
+                    onDeactivate = item.onDeactivate,
+                    isNetworkOnline = isNetworkOnline,
+                    switchEnabled = item.switchEnabled,
+                    showDivider = index < nodes.lastIndex
+                )
             }
+        }
         }
 
         TextButton(
@@ -338,7 +400,8 @@ private fun NodeListItem(
     onDeactivate: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     showDivider: Boolean = false,
-    isNetworkOnline: Boolean = true
+    isNetworkOnline: Boolean = true,
+    switchEnabled: Boolean = true
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         val supportingContent: (@Composable (() -> Unit))? =
@@ -383,7 +446,7 @@ private fun NodeListItem(
             trailingContent = {
                 Switch(
                     checked = connected,
-                    enabled = isNetworkOnline,
+                    enabled = isNetworkOnline && switchEnabled,
                     onCheckedChange = { checked ->
                         when {
                             checked && !connected -> onActivate()
@@ -424,7 +487,8 @@ data class AvailableNodeItem(
     val connected: Boolean,
     val onActivate: () -> Unit,
     val onDetailsClick: () -> Unit,
-    val onDeactivate: (() -> Unit)? = null
+    val onDeactivate: (() -> Unit)? = null,
+    val switchEnabled: Boolean = true
 )
 
 @Composable
@@ -441,3 +505,101 @@ private val AddCustomNodeButtonContentPadding =
 
 private fun sanitizeEndpoint(endpoint: String): String =
     endpoint.removePrefix("ssl://").removePrefix("tcp://")
+
+@Composable
+private fun rememberNodePolicyLabel(): (NodeFailoverPolicy) -> String {
+    val publicOnly = stringResource(id = R.string.settings_nodes_policy_public_only)
+    val customOnly = stringResource(id = R.string.settings_nodes_policy_custom_only)
+    val preferPublic = stringResource(id = R.string.settings_nodes_policy_prefer_public)
+    val preferCustom = stringResource(id = R.string.settings_nodes_policy_prefer_custom)
+    return remember(publicOnly, customOnly, preferPublic, preferCustom) {
+        { policy ->
+            when (policy) {
+                NodeFailoverPolicy.PUBLIC_ONLY -> publicOnly
+                NodeFailoverPolicy.CUSTOM_ONLY -> customOnly
+                NodeFailoverPolicy.PREFER_PUBLIC -> preferPublic
+                NodeFailoverPolicy.PREFER_CUSTOM -> preferCustom
+            }
+        }
+    }
+}
+
+@Composable
+private fun NodeFailoverSettings(
+    policy: NodeFailoverPolicy,
+    policyOptions: List<NodeFailoverPolicy>,
+    policyLabel: (NodeFailoverPolicy) -> String,
+    autoReconnectEnabled: Boolean,
+    onPolicySelected: (NodeFailoverPolicy) -> Unit,
+    onAutoReconnectToggled: (Boolean) -> Unit,
+    hasCustomNodes: Boolean,
+    hasPublicNodes: Boolean
+) {
+    val hint = when {
+        !hasCustomNodes -> stringResource(id = R.string.settings_nodes_policy_custom_hint)
+        !hasPublicNodes -> stringResource(id = R.string.settings_nodes_policy_public_hint)
+        else -> null
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(id = R.string.settings_nodes_auto_reconnect_title),
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Switch(
+                checked = autoReconnectEnabled,
+                onCheckedChange = onAutoReconnectToggled
+            )
+        }
+        if (autoReconnectEnabled) {
+            var expanded by remember { mutableStateOf(false) }
+            var dropdownWidth by remember { mutableStateOf(Dp.Unspecified) }
+            val density = LocalDensity.current
+            val focusManager = LocalFocusManager.current
+            TextButton(
+                onClick = { expanded = true },
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text(text = policyLabel(policy))
+                Icon(
+                    imageVector = if (expanded) Icons.Outlined.ArrowDropUp else Icons.Outlined.ArrowDropDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = {
+                    expanded = false
+                    focusManager.clearFocus(force = true)
+                },
+                modifier = if (dropdownWidth != Dp.Unspecified) {
+                    Modifier.width(dropdownWidth)
+                } else {
+                    Modifier
+                }
+            ) {
+                policyOptions.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(text = policyLabel(option)) },
+                        onClick = {
+                            onPolicySelected(option)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+            hint?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}

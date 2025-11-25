@@ -32,12 +32,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
+import com.strhodler.utxopocket.domain.model.NodeHealthOutcome
+import com.strhodler.utxopocket.presentation.node.NodeDetailUiState
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.tor.TorStatusActionUiState
 import java.text.NumberFormat
+import java.text.DateFormat
 import java.util.Locale
+import java.util.Date
 
 @Composable
 fun NodeOverviewContent(
@@ -45,6 +49,7 @@ fun NodeOverviewContent(
     torActionsState: TorStatusActionUiState,
     onRenewTorIdentity: () -> Unit,
     onStartTor: () -> Unit,
+    activeNodeDetail: NodeDetailUiState?,
     modifier: Modifier = Modifier
 ) {
     val resources = LocalContext.current.resources
@@ -95,6 +100,9 @@ fun NodeOverviewContent(
             NodeDetailsList(
                 details = nodeDetails
             )
+            activeNodeDetail?.let { detail ->
+                NodeHealthDetail(detail = detail)
+            }
         }
 
         NodeTorStatusSection(
@@ -103,6 +111,152 @@ fun NodeOverviewContent(
             onRenewIdentity = onRenewTorIdentity,
             onStartTor = onStartTor
         )
+    }
+}
+
+@Composable
+private fun NodeHealthDetail(
+    detail: NodeDetailUiState,
+    modifier: Modifier = Modifier
+) {
+    val timeFormatter = remember { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT) }
+    val lastSuccess = detail.events.firstOrNull { it.outcome == NodeHealthOutcome.Success }
+    val lastFailure = detail.events.firstOrNull { it.outcome == NodeHealthOutcome.Failure }
+    val avgLatency = detail.events.mapNotNull { it.latencyMs }.takeIf { it.isNotEmpty() }?.average()
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = detail.descriptor.displayName,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = detail.descriptor.endpoint,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            detail.backoffRemainingMs?.let { remaining ->
+                Text(
+                    text = stringResource(id = R.string.node_detail_backoff, formatLatency(remaining)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+            Text(
+                text = stringResource(id = R.string.node_detail_failure_streak, detail.failureStreak),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = stringResource(
+                    id = R.string.node_detail_last_success,
+                    formatTimestamp(lastSuccess?.timestampMs, timeFormatter)
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = stringResource(
+                    id = R.string.node_detail_last_failure,
+                    formatTimestamp(lastFailure?.timestampMs, timeFormatter)
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = stringResource(
+                    id = R.string.node_detail_latency_avg,
+                    avgLatency?.let { formatLatency(it.toLong()) }
+                        ?: stringResource(id = R.string.node_detail_latency_unknown)
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Divider()
+            Text(
+                text = stringResource(id = R.string.node_detail_events_title),
+                style = MaterialTheme.typography.titleSmall
+            )
+            if (detail.events.isEmpty()) {
+                Text(
+                    text = stringResource(id = R.string.node_detail_events_empty),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                detail.events.take(21).forEach { event ->
+                    NodeHealthEventRow(event = event, timeFormatter = timeFormatter)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NodeHealthEventRow(
+    event: com.strhodler.utxopocket.domain.model.NodeHealthEvent,
+    timeFormatter: DateFormat
+) {
+    val outcomeLabel = when (event.outcome) {
+        NodeHealthOutcome.Success -> stringResource(id = R.string.node_detail_event_success)
+        NodeHealthOutcome.Failure -> stringResource(id = R.string.node_detail_event_failure)
+    }
+    val outcomeColor = when (event.outcome) {
+        NodeHealthOutcome.Success -> MaterialTheme.colorScheme.primary
+        NodeHealthOutcome.Failure -> MaterialTheme.colorScheme.error
+    }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = outcomeLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = outcomeColor,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = formatTimestamp(event.timestampMs, timeFormatter),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        event.message?.takeIf { it.isNotBlank() }?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        event.latencyMs?.let { latency ->
+            Text(
+                text = stringResource(id = R.string.node_detail_event_latency, formatLatency(latency)),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Divider()
+    }
+}
+
+private fun formatTimestamp(timestampMs: Long?, formatter: DateFormat): String =
+    timestampMs?.let { formatter.format(Date(it)) } ?: "—"
+
+private fun formatLatency(latencyMs: Long?): String {
+    if (latencyMs == null) return "—"
+    return if (latencyMs >= 1000) {
+        String.format(Locale.US, "%.1fs", latencyMs / 1000.0)
+    } else {
+        "${latencyMs}ms"
     }
 }
 

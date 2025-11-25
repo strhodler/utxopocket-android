@@ -3,6 +3,7 @@ package com.strhodler.utxopocket.di
 import com.strhodler.utxopocket.data.bdk.DefaultWalletStorage
 import com.strhodler.utxopocket.data.bdk.WalletStorage
 import com.strhodler.utxopocket.data.node.DefaultNodeConnectionTester
+import com.strhodler.utxopocket.data.node.DefaultNodeHealthRepository
 import com.strhodler.utxopocket.data.preferences.DefaultAppPreferencesRepository
 import com.strhodler.utxopocket.data.tor.DefaultTorManager
 import com.strhodler.utxopocket.data.transactionhealth.DefaultTransactionHealthAnalyzer
@@ -14,6 +15,7 @@ import com.strhodler.utxopocket.data.glossary.GlossaryRepository
 import com.strhodler.utxopocket.data.logs.DefaultNetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
+import com.strhodler.utxopocket.domain.repository.NodeHealthRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.domain.repository.TransactionHealthRepository
@@ -66,6 +68,12 @@ abstract class RepositoryModule {
     abstract fun bindNodeConnectionTester(
         impl: DefaultNodeConnectionTester
     ): NodeConnectionTester
+
+    @Binds
+    @Singleton
+    abstract fun bindNodeHealthRepository(
+        impl: DefaultNodeHealthRepository
+    ): NodeHealthRepository
 
     @Binds
     @Singleton
