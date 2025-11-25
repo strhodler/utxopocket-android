@@ -99,6 +99,7 @@ dependencies {
     }
     implementation(libs.slf4j.api)
     implementation(libs.slf4j.android)
+    implementation(libs.jbox2d.library)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.zxing.android.embedded)
     implementation("com.github.mhiew:android-pdf-viewer:3.2.0-beta.1") {

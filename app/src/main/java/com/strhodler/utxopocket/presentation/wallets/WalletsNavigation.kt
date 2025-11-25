@@ -16,6 +16,8 @@ object WalletsNavigation {
     const val WalletIdArg: String = "walletId"
     const val WalletNameArg: String = "walletName"
     const val TransactionDetailRoute: String = "wallets/detail/{walletId}/transaction/{txId}"
+    const val TransactionVisualizerRoute: String =
+        "wallets/detail/{walletId}/transaction/{txId}/visualizer"
     const val TransactionIdArg: String = "txId"
     const val UtxoDetailRoute: String = "wallets/detail/{walletId}/utxo/{utxoTxId}/{vout}"
     const val UtxoTxIdArg: String = "utxoTxId"
@@ -54,6 +56,11 @@ object WalletsNavigation {
     fun transactionDetailRoute(walletId: Long, txId: String): String {
         val encodedTxId = Uri.encode(txId)
         return "wallets/detail/$walletId/transaction/$encodedTxId"
+    }
+
+    fun transactionVisualizerRoute(walletId: Long, txId: String): String {
+        val encodedTxId = Uri.encode(txId)
+        return "wallets/detail/$walletId/transaction/$encodedTxId/visualizer"
     }
 
     fun utxoDetailRoute(walletId: Long, txId: String, vout: Int): String {

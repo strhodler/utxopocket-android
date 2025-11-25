@@ -21,6 +21,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoGraph
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ExpandLess
@@ -60,6 +61,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -159,6 +161,7 @@ private val TRANSACTION_LABEL_DIALOG_STRINGS = LabelDialogStrings(
 fun TransactionDetailRoute(
     onBack: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
+    onOpenVisualizer: (Long, String) -> Unit,
     viewModel: TransactionDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -222,6 +225,7 @@ fun TransactionDetailRoute(
                 pendingLabel = label
                 showLabelDialog = true
             },
+            onOpenVisualizer = onOpenVisualizer,
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             onOpenWikiTopic = onOpenWikiTopic,
             onShowMessage = showSnackbar,
@@ -614,6 +618,7 @@ sealed interface UtxoDetailError {
 private fun TransactionDetailScreen(
     state: TransactionDetailUiState,
     onEditTransactionLabel: (String?) -> Unit,
+    onOpenVisualizer: (Long, String) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
@@ -635,6 +640,7 @@ private fun TransactionDetailScreen(
             TransactionDetailContent(
                 state = state,
                 onEditTransactionLabel = onEditTransactionLabel,
+                onOpenVisualizer = onOpenVisualizer,
                 onCycleBalanceDisplay = onCycleBalanceDisplay,
                 onOpenWikiTopic = onOpenWikiTopic,
                 onShowMessage = onShowMessage,
@@ -749,6 +755,7 @@ private fun LabelEditDialog(
 private fun TransactionDetailContent(
     state: TransactionDetailUiState,
     onEditTransactionLabel: (String?) -> Unit,
+    onOpenVisualizer: (Long, String) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
@@ -786,6 +793,9 @@ private fun TransactionDetailContent(
     val feeRateLabel = transaction.feeRateSatPerVb?.let { rate ->
         String.format(Locale.getDefault(), "%.2f sats/vB", rate)
     } ?: stringResource(id = R.string.transaction_detail_unknown)
+    val visualizerAction = state.walletSummary?.let { summary ->
+        { onOpenVisualizer(summary.id, transaction.id) }
+    }
 
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
@@ -799,6 +809,7 @@ private fun TransactionDetailContent(
             label = transaction.label,
             onEditLabel = { onEditTransactionLabel(transaction.label) },
             onCycleBalanceDisplay = onCycleBalanceDisplay,
+            onOpenVisualizer = visualizerAction,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -1049,6 +1060,7 @@ private fun TransactionDetailHeader(
     label: String?,
     onEditLabel: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
+    onOpenVisualizer: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
     val headerTheme = rememberDetailHeaderTheme()
@@ -1110,6 +1122,16 @@ private fun TransactionDetailHeader(
             editLabelRes = R.string.transaction_detail_label_edit_action,
             onClick = onEditLabel
         )
+        onOpenVisualizer?.let { open ->
+            OutlinedButton(onClick = open) {
+                Icon(
+                    imageVector = Icons.Outlined.AutoGraph,
+                    contentDescription = stringResource(id = R.string.transaction_detail_visualizer_content_description)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = stringResource(id = R.string.transaction_detail_open_visualizer))
+            }
+        }
     }
 }
 

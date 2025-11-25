@@ -253,6 +253,42 @@
     <string name="transaction_detail_copy_block_hash">Copiar hash del bloque</string>
     <string name="transaction_detail_copy_raw_hex">Copiar hex bruto</string>
     <string name="transaction_detail_raw_hex">Transacción cruda (hex)</string>
+    <string name="transaction_detail_open_visualizer">Abrir visualizador</string>
+    <string name="transaction_detail_visualizer_content_description">Abrir visualizador de transacciones</string>
+
+    <string name="transaction_visualizer_back">Atrás</string>
+    <string name="transaction_visualizer_summary_inputs">Entradas: %1$d</string>
+    <string name="transaction_visualizer_summary_outputs">Salidas: %1$d</string>
+    <string name="transaction_visualizer_summary_vbytes">%1$d vB</string>
+    <string name="transaction_visualizer_toggle_legend">Mostrar u ocultar la leyenda</string>
+    <string name="transaction_visualizer_legend_title">Leyenda</string>
+    <string name="transaction_visualizer_legend_wallet_owned">Propiedad de la billetera</string>
+    <string name="transaction_visualizer_legend_external">Externa</string>
+    <string name="transaction_visualizer_legend_change">Cambio</string>
+    <string name="transaction_visualizer_legend_fee">Tarifa</string>
+    <string name="transaction_visualizer_legend_group">Agrupado</string>
+    <string name="transaction_visualizer_fee_chip">Tarifa: %1$s</string>
+    <string name="transaction_visualizer_detail_title">Selección</string>
+    <string name="transaction_visualizer_close_details">Cerrar selección</string>
+    <string name="transaction_visualizer_value_label">Valor: %1$s</string>
+    <string name="transaction_visualizer_address_label">Dirección: %1$s</string>
+    <string name="transaction_visualizer_derivation_label">Ruta: %1$s</string>
+    <string name="transaction_visualizer_wallet_owned">Propiedad de la billetera</string>
+    <string name="transaction_visualizer_external_owned">Externa</string>
+    <string name="transaction_visualizer_group_child_count">%1$d elementos agrupados</string>
+    <string name="transaction_visualizer_warning_title">Datos insuficientes</string>
+    <string name="transaction_visualizer_warning_message">Faltan datos de hex o de entradas/salidas para esta transacción (%1$s). Puede que falten detalles en el diagrama.</string>
+    <string name="transaction_visualizer_warning_dismiss">Entendido</string>
+    <string name="transaction_visualizer_not_found">No se pudo cargar esta transacción.</string>
+    <string name="transaction_visualizer_toggle_details">Mostrar u ocultar detalles de la transacción</string>
+    <string name="transaction_visualizer_details_title">Detalles de la transacción</string>
+    <string name="transaction_visualizer_txid_label">Txid: %1$s</string>
+    <string name="transaction_visualizer_role_input">Entrada</string>
+    <string name="transaction_visualizer_role_output">Salida</string>
+    <string name="transaction_visualizer_role_change">Cambio</string>
+    <string name="transaction_visualizer_role_fee">Tarifa</string>
+    <string name="transaction_visualizer_role_group">Grupo</string>
+    <string name="transaction_visualizer_role_transaction">Transacción</string>
 
     <!-- UTXO detail (complementing existing) -->
     <string name="utxo_detail_title">Detalles del UTXO</string>

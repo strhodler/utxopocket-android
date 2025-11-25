@@ -40,9 +40,10 @@ import com.strhodler.utxopocket.presentation.wallets.WalletsRoute
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wallets.add.AddWalletRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.AddressDetailRoute
-import com.strhodler.utxopocket.presentation.wallets.detail.TransactionDetailRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.UtxoDetailRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.WalletDetailRoute
+import com.strhodler.utxopocket.presentation.wallets.detail.TransactionDetailRoute
+import com.strhodler.utxopocket.presentation.wallets.detail.TransactionVisualizerRoute
 import com.strhodler.utxopocket.presentation.wallets.labels.WalletLabelExportRoute
 import com.strhodler.utxopocket.presentation.wallets.labels.WalletLabelImportRoute
 import com.strhodler.utxopocket.presentation.wiki.WikiDetailRoute
@@ -289,7 +290,23 @@ fun MainNavHost(
                             launchSingleTop = true
                             restoreState = true
                         }
+                    },
+                    onOpenVisualizer = { walletId, txId ->
+                        navController.navigate(
+                            WalletsNavigation.transactionVisualizerRoute(walletId, txId)
+                        )
                     }
+                )
+            }
+            composable(
+                route = WalletsNavigation.TransactionVisualizerRoute,
+                arguments = listOf(
+                    navArgument(WalletsNavigation.WalletIdArg) { type = NavType.LongType },
+                    navArgument(WalletsNavigation.TransactionIdArg) { type = NavType.StringType }
+                )
+            ) {
+                TransactionVisualizerRoute(
+                    onBack = { navController.popBackStack() }
                 )
             }
             composable(
