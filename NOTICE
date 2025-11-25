@@ -11,6 +11,7 @@ This product bundles third-party components:
 - SQLCipher (GPLv3/commercial dual-license; used under GPLv3 terms)
 - ZXing (Apache License 2.0)
 - SLF4J (MIT License)
+- JBox2D (BSD 2-Clause)
 - Vico charts (Apache License 2.0)
 - Encode Sans & Encode Sans Expanded (SIL Open Font License 1.1)
 

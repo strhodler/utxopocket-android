@@ -13,6 +13,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
@@ -223,6 +225,13 @@ private fun TransactionVisualizerContent(
     val graph = requireNotNull(state.graph)
     var renderGraph by remember(graph) { mutableStateOf(graph) }
     var showDetails by remember { mutableStateOf(false) }
+    var selectedNodeId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(renderGraph) {
+        val currentSelection = selectedNodeId
+        if (currentSelection != null && renderGraph.nodes.none { it.id == currentSelection }) {
+            selectedNodeId = null
+        }
+    }
 
     BoxWithConstraints(
         modifier = Modifier
@@ -232,6 +241,8 @@ private fun TransactionVisualizerContent(
         Box(modifier = Modifier.fillMaxSize()) {
             TransactionGraphCanvas(
                 graph = renderGraph,
+                selectedNodeId = selectedNodeId,
+                onNodeSelected = { selectedNodeId = it.id },
                 onGroupExpand = { groupId ->
                     renderGraph = expandGroup(renderGraph, groupId)
                 },
@@ -278,6 +289,8 @@ private fun TransactionVisualizerContent(
                 TransactionDetailsPanel(
                     transaction = requireNotNull(state.transaction),
                     graph = renderGraph,
+                    selectedNodeId = selectedNodeId,
+                    onNodeSelected = { selectedNodeId = it.id },
                     modifier = Modifier
                         .fillMaxHeight()
                         .width(320.dp)
@@ -290,6 +303,8 @@ private fun TransactionVisualizerContent(
 @Composable
 private fun TransactionGraphCanvas(
     graph: TransactionGraph,
+    selectedNodeId: String?,
+    onNodeSelected: (GraphNode) -> Unit,
     onGroupExpand: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -331,6 +346,7 @@ private fun TransactionGraphCanvas(
                             onGroupExpand(tapped.node.id)
                             return@detectDragGestures
                         }
+                        onNodeSelected(tapped.node)
                         mouseJoint?.let { engine.world.destroyJoint(it) }
                         mouseJoint = engine.createMouseJoint(tapped.node.id, offset)
                         mouseJoint?.bodyB?.isAwake = true
@@ -349,8 +365,12 @@ private fun TransactionGraphCanvas(
                         } ?: run {
                             val tapped = nodeLayoutsState.value.findLast { it.contains(change.position) }
                             val currentGraph = graphState.value
-                            if (tapped != null && currentGraph.groups.containsKey(tapped.node.id)) {
-                                onGroupExpand(tapped.node.id)
+                            if (tapped != null) {
+                                if (currentGraph.groups.containsKey(tapped.node.id)) {
+                                    onGroupExpand(tapped.node.id)
+                                } else {
+                                    onNodeSelected(tapped.node)
+                                }
                             }
                         }
                     },
@@ -372,6 +392,8 @@ private fun TransactionGraphCanvas(
                     val currentGraph = graphState.value
                     if (tapped != null && currentGraph.groups.containsKey(tapped.node.id)) {
                         onGroupExpand(tapped.node.id)
+                    } else if (tapped != null) {
+                        onNodeSelected(tapped.node)
                     }
                 }
             }
@@ -381,7 +403,12 @@ private fun TransactionGraphCanvas(
             val from = layoutById[edge.from] ?: return@forEach
             val to = layoutById[edge.to] ?: return@forEach
             drawLine(
-                color = colorScheme.outlineVariant,
+                color = colorScheme.outlineVariant.copy(
+                    alpha = if (selectedNodeId == null ||
+                        selectedNodeId == from.node.id ||
+                        selectedNodeId == to.node.id
+                    ) 1f else 0.15f
+                ),
                 start = from.center,
                 end = to.center,
                 strokeWidth = 2.dp.toPx()
@@ -390,25 +417,31 @@ private fun TransactionGraphCanvas(
         nodeLayouts.forEach { state ->
             val fillColor = nodeColor(state.node, colorScheme)
             val stroke = Stroke(width = 1.dp.toPx())
+            val isSelected = selectedNodeId == null || selectedNodeId == state.node.id
+            val nodeAlpha = if (isSelected) 1f else 0.2f
             drawCircle(
-                color = fillColor.copy(alpha = 0.2f),
+                color = fillColor.copy(alpha = 0.2f * nodeAlpha),
                 radius = state.radiusPx + 6.dp.toPx(),
                 center = state.center
             )
             drawCircle(
-                color = fillColor,
+                color = fillColor.copy(alpha = nodeAlpha),
                 radius = state.radiusPx,
                 center = state.center,
                 style = stroke
             )
             drawIntoCanvas { canvas ->
                 val label = nodeLabel(state.node)
+                val textColor = colorScheme.onSurface.copy(alpha = nodeAlpha).toArgb()
+                val previousColor = textPaint.color
+                textPaint.color = textColor
                 canvas.nativeCanvas.drawText(
                     label,
                     state.center.x,
                     state.center.y + textPaint.textSize / 3,
                     textPaint
                 )
+                textPaint.color = previousColor
             }
         }
     }
@@ -498,6 +531,8 @@ private fun roleLabel(node: GraphNode): Int = when (node.role) {
 private fun TransactionDetailsPanel(
     transaction: WalletTransaction,
     graph: TransactionGraph,
+    selectedNodeId: String?,
+    onNodeSelected: (GraphNode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -547,7 +582,13 @@ private fun TransactionDetailsPanel(
             color = colorScheme.onSurface
         )
         inputNodes.sortedBy { it.id }.forEach { node ->
-            TransactionDetailEntry(node = node, colorScheme = colorScheme, graph = graph)
+            TransactionDetailEntry(
+                node = node,
+                colorScheme = colorScheme,
+                graph = graph,
+                isSelected = selectedNodeId == node.id,
+                onSelect = onNodeSelected
+            )
         }
         Spacer(modifier = Modifier.height(12.dp))
         SectionHeader(
@@ -555,7 +596,13 @@ private fun TransactionDetailsPanel(
             color = colorScheme.onSurface
         )
         outputNodes.sortedBy { it.id }.forEach { node ->
-            TransactionDetailEntry(node = node, colorScheme = colorScheme, graph = graph)
+            TransactionDetailEntry(
+                node = node,
+                colorScheme = colorScheme,
+                graph = graph,
+                isSelected = selectedNodeId == node.id,
+                onSelect = onNodeSelected
+            )
         }
         feeNode?.let { fee ->
             Spacer(modifier = Modifier.height(12.dp))
@@ -563,7 +610,13 @@ private fun TransactionDetailsPanel(
                 text = stringResource(id = R.string.transaction_visualizer_role_fee),
                 color = colorScheme.onSurface
             )
-            TransactionDetailEntry(node = fee, colorScheme = colorScheme, graph = graph)
+            TransactionDetailEntry(
+                node = fee,
+                colorScheme = colorScheme,
+                graph = graph,
+                isSelected = selectedNodeId == fee.id,
+                onSelect = onNodeSelected
+            )
         }
     }
 }
@@ -582,7 +635,9 @@ private fun SectionHeader(text: String, color: Color) {
 private fun TransactionDetailEntry(
     node: GraphNode,
     colorScheme: ColorScheme,
-    graph: TransactionGraph
+    graph: TransactionGraph,
+    isSelected: Boolean,
+    onSelect: (GraphNode) -> Unit
 ) {
     val indicatorColor = nodeColor(node, colorScheme)
     val groupChildren = graph.groups[node.id]?.members?.size ?: node.children
@@ -613,6 +668,12 @@ private fun TransactionDetailEntry(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
+            .background(
+                color = if (isSelected) colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .clickable { onSelect(node) }
+            .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically
