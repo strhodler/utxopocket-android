@@ -168,7 +168,7 @@
     <string name="wallet_detail_address_reuse_icon_description">Alerta de reutilización de dirección</string>
     <string name="wallet_detail_change_utxo_warning">Salida de cambio (sólo uso interno)</string>
     <string name="wallet_detail_dust_utxo_warning">Salida dust (&lt;= %1$s)</string>
-    <string name="wallet_detail_transaction_id_label">ID de transacción</string>
+    <string name="wallet_detail_transaction_id_label">Txid</string>
     <string name="wallet_detail_address_unknown">Dirección no disponible</string>
     <string name="wallet_detail_no_label_placeholder">Sin etiqueta</string>
 
@@ -302,7 +302,7 @@
     <string name="utxo_detail_deposit_info">Depositado el %1$s</string>
     <string name="utxo_detail_confirmations">Confirmaciones</string>
     <string name="utxo_detail_section_metadata">Metadatos</string>
-    <string name="utxo_detail_txid">ID de transacción</string>
+    <string name="utxo_detail_txid">Txid</string>
     <string name="utxo_detail_copy_txid">Copiar ID de transacción</string>
     <string name="utxo_detail_vout">Índice de salida</string>
     <string name="utxo_detail_label">Etiqueta</string>

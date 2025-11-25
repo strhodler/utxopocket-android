@@ -118,7 +118,7 @@
     <string name="wallet_detail_address_reuse_icon_description">Address reuse warning</string>
     <string name="wallet_detail_change_utxo_warning">Change output (internal use only)</string>
     <string name="wallet_detail_dust_utxo_warning">Dust output (&lt;= %1$s)</string>
-    <string name="wallet_detail_transaction_id_label">Tx ID</string>
+    <string name="wallet_detail_transaction_id_label">Txid</string>
     <string name="wallet_detail_address_unknown">Address unavailable</string>
     <string name="wallet_detail_no_label_placeholder">No label</string>
     <plurals name="wallet_detail_utxo_problem_count">
@@ -414,7 +414,7 @@
     <string name="utxo_detail_deposit_info">Deposited on %1$s</string>
     <string name="utxo_detail_confirmations">Confirmations</string>
     <string name="utxo_detail_section_metadata">Metadata</string>
-    <string name="utxo_detail_txid">Transaction ID</string>
+    <string name="utxo_detail_txid">Txid</string>
     <string name="utxo_detail_copy_txid">Copy transaction ID</string>
     <string name="utxo_detail_vout">Output index</string>
     <string name="utxo_detail_label">Label</string>

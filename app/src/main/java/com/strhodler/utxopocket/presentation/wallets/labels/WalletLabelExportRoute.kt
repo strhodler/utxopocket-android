@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -175,7 +176,8 @@ fun WalletLabelExportRoute(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .navigationBarsPadding(),
+                            .navigationBarsPadding()
+                            .imePadding(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         TextButton(

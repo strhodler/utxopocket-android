@@ -35,6 +35,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -100,7 +101,9 @@ import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
+import com.strhodler.utxopocket.domain.model.WalletColor
 import com.strhodler.utxopocket.presentation.wallets.components.WalletColorTheme
+import com.strhodler.utxopocket.presentation.wallets.components.toTheme
 import com.strhodler.utxopocket.presentation.wallets.components.onGradient
 import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
 import com.strhodler.utxopocket.presentation.wallets.components.walletCardBackground
@@ -796,6 +799,7 @@ private fun TransactionDetailContent(
     val visualizerAction = state.walletSummary?.let { summary ->
         { onOpenVisualizer(summary.id, transaction.id) }
     }
+    val headerTheme = rememberHeaderTheme(state.walletSummary?.color)
 
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
@@ -810,6 +814,7 @@ private fun TransactionDetailContent(
             onEditLabel = { onEditTransactionLabel(transaction.label) },
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             onOpenVisualizer = visualizerAction,
+            headerTheme = headerTheme,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -1061,9 +1066,9 @@ private fun TransactionDetailHeader(
     onEditLabel: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenVisualizer: (() -> Unit)?,
+    headerTheme: WalletColorTheme,
     modifier: Modifier = Modifier
 ) {
-    val headerTheme = rememberDetailHeaderTheme()
     val shimmerPhase = rememberWalletShimmerPhase(durationMillis = 3600, delayMillis = 300)
     val contentColor = headerTheme.onGradient
     Column(
@@ -1123,13 +1128,20 @@ private fun TransactionDetailHeader(
             onClick = onEditLabel
         )
         onOpenVisualizer?.let { open ->
-            OutlinedButton(onClick = open) {
+            TextButton(
+                onClick = open,
+                colors = ButtonDefaults.textButtonColors(contentColor = contentColor)
+            ) {
                 Icon(
                     imageVector = Icons.Outlined.AutoGraph,
-                    contentDescription = stringResource(id = R.string.transaction_detail_visualizer_content_description)
+                    contentDescription = stringResource(id = R.string.transaction_detail_visualizer_content_description),
+                    modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = stringResource(id = R.string.transaction_detail_open_visualizer))
+                Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                Text(
+                    text = stringResource(id = R.string.transaction_detail_open_visualizer),
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
     }
@@ -1198,6 +1210,8 @@ private fun UtxoDetailContent(
         }
     }
 
+    val headerTheme = rememberHeaderTheme(state.walletSummary?.color)
+
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
     ) {
@@ -1211,6 +1225,7 @@ private fun UtxoDetailContent(
             isInherited = isInheritedLabel,
             onEditLabel = { onEditLabel(displayLabel) },
             onCycleBalanceDisplay = onCycleBalanceDisplay,
+            headerTheme = headerTheme,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -1338,9 +1353,9 @@ private fun UtxoDetailHeader(
     isInherited: Boolean,
     onEditLabel: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
+    headerTheme: WalletColorTheme,
     modifier: Modifier = Modifier
 ) {
-    val headerTheme = rememberDetailHeaderTheme()
     val shimmerPhase = rememberWalletShimmerPhase(durationMillis = 3600, delayMillis = 300)
     val contentColor = headerTheme.onGradient
     Column(
@@ -2009,22 +2024,24 @@ private fun ErrorPlaceholder(
 }
 
 @Composable
-private fun rememberDetailHeaderTheme(): WalletColorTheme {
+private fun rememberHeaderTheme(walletColor: WalletColor?): WalletColorTheme {
     val colorScheme = MaterialTheme.colorScheme
     return remember(
+        walletColor,
         colorScheme.primary,
         colorScheme.primaryContainer,
         colorScheme.secondary,
         colorScheme.secondaryContainer
     ) {
-        WalletColorTheme(
-            gradient = listOf(
-                colorScheme.primary,
-                colorScheme.primaryContainer,
-                colorScheme.secondaryContainer
-            ),
-            accent = colorScheme.secondary
-        )
+        walletColor?.toTheme()
+            ?: WalletColorTheme(
+                gradient = listOf(
+                    colorScheme.primary,
+                    colorScheme.primaryContainer,
+                    colorScheme.secondaryContainer
+                ),
+                accent = colorScheme.secondary
+            )
     }
 }
 
