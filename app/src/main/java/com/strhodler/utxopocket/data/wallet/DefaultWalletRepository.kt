@@ -833,25 +833,35 @@ class DefaultWalletRepository @Inject constructor(
                                                 "Wallet ${entity.id} sync returned empty snapshot; " +
                                                     "preserving last known data."
                                             }
-                                            walletDao.upsert(
-                                                entity.withSyncFailure(
-                                                    status = NodeStatus.Error(
-                                                        "Sync returned empty data; showing last known state"
-                                                    ),
-                                                    timestamp = syncTimestamp
-                                                )
+                                            val failure = entity.withSyncFailure(
+                                                status = NodeStatus.Error(
+                                                    "Sync returned empty data; showing last known state"
+                                                ),
+                                                timestamp = syncTimestamp
+                                            )
+                                            walletDao.updateSyncFailure(
+                                                id = entity.id,
+                                                lastSyncStatus = failure.lastSyncStatus,
+                                                lastSyncError = failure.lastSyncError,
+                                                lastSyncTime = failure.lastSyncTime
+                                                    ?: syncTimestamp
                                             )
                                         } else if (shrunkSnapshot && isFreshMaterialization) {
                                             SecureLog.w(TAG) {
                                                 "Wallet ${entity.id} snapshot shrank after fresh store materialization; preserving previous data."
                                             }
-                                            walletDao.upsert(
-                                                entity.withSyncFailure(
-                                                    status = NodeStatus.Error(
-                                                        "Sync snapshot incomplete after restart; keeping previous state"
-                                                    ),
-                                                    timestamp = syncTimestamp
-                                                )
+                                            val failure = entity.withSyncFailure(
+                                                status = NodeStatus.Error(
+                                                    "Sync snapshot incomplete after restart; keeping previous state"
+                                                ),
+                                                timestamp = syncTimestamp
+                                            )
+                                            walletDao.updateSyncFailure(
+                                                id = entity.id,
+                                                lastSyncStatus = failure.lastSyncStatus,
+                                                lastSyncError = failure.lastSyncError,
+                                                lastSyncTime = failure.lastSyncTime
+                                                    ?: syncTimestamp
                                             )
                                         } else {
                                             walletDao.replaceTransactions(
@@ -872,7 +882,17 @@ class DefaultWalletRepository @Inject constructor(
                                             } else {
                                                 syncedEntity
                                             }
-                                            walletDao.upsert(finalEntity)
+                                            walletDao.updateSyncResult(
+                                                id = entity.id,
+                                                balanceSats = finalEntity.balanceSats,
+                                                txCount = finalEntity.transactionCount,
+                                                lastSyncStatus = finalEntity.lastSyncStatus,
+                                                lastSyncError = finalEntity.lastSyncError,
+                                                lastSyncTime = finalEntity.lastSyncTime,
+                                                requiresFullScan = finalEntity.requiresFullScan,
+                                                fullScanStopGap = finalEntity.fullScanStopGap,
+                                                lastFullScanTime = finalEntity.lastFullScanTime
+                                            )
                                         }
                                     } else {
                                         SecureLog.d(TAG) {
@@ -884,7 +904,17 @@ class DefaultWalletRepository @Inject constructor(
                                             status = NodeStatus.Synced,
                                             timestamp = syncTimestamp
                                         )
-                                        walletDao.upsert(syncedEntity)
+                                        walletDao.updateSyncResult(
+                                            id = entity.id,
+                                            balanceSats = syncedEntity.balanceSats,
+                                            txCount = syncedEntity.transactionCount,
+                                            lastSyncStatus = syncedEntity.lastSyncStatus,
+                                            lastSyncError = syncedEntity.lastSyncError,
+                                            lastSyncTime = syncedEntity.lastSyncTime,
+                                            requiresFullScan = syncedEntity.requiresFullScan,
+                                            fullScanStopGap = syncedEntity.fullScanStopGap,
+                                            lastFullScanTime = syncedEntity.lastFullScanTime
+                                        )
                                     }
                                 }
                             }.onFailure { error ->
@@ -906,17 +936,22 @@ class DefaultWalletRepository @Inject constructor(
                                     lastWalletError = reason
                                 }
                                 SecureLog.e(TAG, error) { "Sync failed for wallet ${entity.name} (${entity.id})" }
-                                walletDao.upsert(
-                                    entity.withSyncFailure(
-                                        status = NodeStatus.Error(reason),
-                                        timestamp = System.currentTimeMillis()
-                                    )
+                                val failure = entity.withSyncFailure(
+                                    status = NodeStatus.Error(reason),
+                                    timestamp = System.currentTimeMillis()
                                 )
+                                walletDao.updateSyncFailure(
+                                    id = entity.id,
+                                    lastSyncStatus = failure.lastSyncStatus,
+                                    lastSyncError = failure.lastSyncError,
+                                    lastSyncTime = failure.lastSyncTime
+                                        ?: System.currentTimeMillis()
+                                )
+                                }
+                            } finally {
+                                updateRefreshingWallets(network) { ids -> ids - entity.id }
                             }
-                        } finally {
-                            updateRefreshingWallets(network) { ids -> ids - entity.id }
                         }
-                    }
                     ensureForeground()
                     val finalStatus = if (hadWalletErrors) {
                         NodeStatus.Error(

@@ -102,6 +102,7 @@ dependencies {
     implementation(libs.jbox2d.library)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.zxing.android.embedded)
+    implementation(libs.identikon)
     implementation("com.github.mhiew:android-pdf-viewer:3.2.0-beta.1") {
         exclude(group = "com.android.support")
     }

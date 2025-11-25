@@ -72,9 +72,9 @@ import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
 import com.strhodler.utxopocket.domain.model.DescriptorWarning
 import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
-import com.strhodler.utxopocket.presentation.common.PortraitCaptureActivity
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
+import com.strhodler.utxopocket.presentation.common.UrMultiPartScanActivity
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBanner
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBannerStyle
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
@@ -784,7 +784,7 @@ private fun defaultWalletScanOptions(): ScanOptions = ScanOptions().apply {
     setDesiredBarcodeFormats(ScanOptions.QR_CODE)
     setBeepEnabled(false)
     setBarcodeImageEnabled(false)
-    setCaptureActivity(PortraitCaptureActivity::class.java)
+    setCaptureActivity(UrMultiPartScanActivity::class.java)
     setOrientationLocked(true)
 }
 @Composable

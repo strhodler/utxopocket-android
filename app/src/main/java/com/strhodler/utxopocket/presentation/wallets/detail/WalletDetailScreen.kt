@@ -39,6 +39,8 @@ import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.ShowChart
 import androidx.compose.material.icons.outlined.QrCode
@@ -2117,6 +2119,12 @@ private fun UtxoDetailedCard(
         NumberFormat.getInstance().format(dustThresholdSats)
     }
     val utxoCardColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+    val spendableIcon = if (utxo.spendable) Icons.Outlined.LockOpen else Icons.Outlined.Lock
+    val spendableTint = if (utxo.spendable) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
@@ -2171,8 +2179,14 @@ private fun UtxoDetailedCard(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Icon(
+                    imageVector = spendableIcon,
+                    contentDescription = null,
+                    tint = spendableTint
+                )
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp)

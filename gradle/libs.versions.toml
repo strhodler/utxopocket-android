@@ -35,6 +35,7 @@ hummingbird = "1.7.4"
 splashscreen = "1.2.0"
 paging = "3.3.6"
 jbox2d = "2.2.1.1"
+identikon = "1.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -91,6 +92,7 @@ androidx-paging-runtime = { group = "androidx.paging", name = "paging-runtime", 
 androidx-paging-compose = { group = "androidx.paging", name = "paging-compose", version.ref = "paging" }
 sparrow-hummingbird = { group = "com.sparrowwallet", name = "hummingbird", version.ref = "hummingbird" }
 jbox2d-library = { group = "org.jbox2d", name = "jbox2d-library", version.ref = "jbox2d" }
+identikon = { group = "io.github.thibseisel.identikon", name = "identikon", version.ref = "identikon" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

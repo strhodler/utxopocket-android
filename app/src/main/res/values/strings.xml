@@ -432,8 +432,7 @@
     <string name="utxo_detail_label_success">Label saved</string>
     <string name="utxo_detail_label_error">Unable to update label</string>
     <string name="utxo_detail_label_inherited">Inherited from the transaction label</string>
-    <string name="utxo_detail_spendable_toggle_label">Spendable in this wallet</string>
-    <string name="utxo_detail_spendable_toggle_hint">Decide whether this coin should appear as spendable when exporting BIP-329 to your signing wallet.</string>
+    <string name="utxo_detail_spendable_toggle_label">Spendable</string>
     <string name="utxo_detail_spendable_success">Spendable flag updated</string>
     <string name="utxo_detail_spendable_error">Unable to update the spendable flag</string>
     <string name="utxo_detail_network">Network</string>

@@ -1,5 +1,7 @@
 package com.strhodler.utxopocket.presentation.wallets.detail
 
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -53,6 +55,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -60,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.OutlinedButton
@@ -127,6 +133,8 @@ import com.strhodler.utxopocket.data.utxohealth.DefaultUtxoHealthAnalyzer
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import io.github.thibseisel.identikon.Identicon
+import io.github.thibseisel.identikon.drawToBitmap
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -1216,6 +1224,7 @@ private fun UtxoDetailContent(
         modifier = modifier.verticalScroll(rememberScrollState())
     ) {
         UtxoDetailHeader(
+            identiconSeed = fullOutpoint,
             outpoint = displayOutpoint,
             depositInfo = depositInfoText,
             valueSats = utxo.valueSats,
@@ -1344,6 +1353,7 @@ private fun UtxoDetailContent(
 
 @Composable
 private fun UtxoDetailHeader(
+    identiconSeed: String,
     outpoint: String,
     depositInfo: String,
     valueSats: Long,
@@ -1371,6 +1381,9 @@ private fun UtxoDetailHeader(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        UtxoIdenticon(
+            seed = identiconSeed
+        )
         Text(
             text = outpoint,
             style = MaterialTheme.typography.titleMedium,
@@ -1420,6 +1433,28 @@ private fun UtxoDetailHeader(
 }
 
 @Composable
+private fun UtxoIdenticon(
+    seed: String,
+    size: Dp = 88.dp,
+    modifier: Modifier = Modifier
+) {
+    val iconSizePx = with(LocalDensity.current) { size.roundToPx().coerceAtLeast(1) }
+    val bitmap = remember(seed, iconSizePx) {
+        val icon = Identicon.fromValue(seed, iconSizePx)
+        Bitmap.createBitmap(iconSizePx, iconSizePx, Bitmap.Config.ARGB_8888).apply {
+            icon.drawToBitmap(this)
+        }
+    }
+    Image(
+        bitmap = bitmap.asImageBitmap(),
+        contentDescription = null,
+        modifier = modifier
+            .size(size)
+            .clip(RoundedCornerShape(20.dp))
+    )
+}
+
+@Composable
 private fun SpendableToggleCard(
     spendable: Boolean,
     updating: Boolean,
@@ -1435,7 +1470,7 @@ private fun SpendableToggleCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1452,11 +1487,6 @@ private fun SpendableToggleCard(
                     enabled = !updating
                 )
             }
-            Text(
-                text = stringResource(id = R.string.utxo_detail_spendable_toggle_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

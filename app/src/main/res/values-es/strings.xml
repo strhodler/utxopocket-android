@@ -320,8 +320,7 @@
     <string name="utxo_detail_label_success">Etiqueta guardada</string>
     <string name="utxo_detail_label_error">No se pudo actualizar la etiqueta</string>
     <string name="utxo_detail_label_inherited">Heredada de la etiqueta de la transacción</string>
-    <string name="utxo_detail_spendable_toggle_label">Gastable desde esta wallet</string>
-    <string name="utxo_detail_spendable_toggle_hint">Define si esta moneda debe aparecer como gastable cuando exportes BIP-329 hacia tu billetera de gasto.</string>
+    <string name="utxo_detail_spendable_toggle_label">Gastable</string>
     <string name="utxo_detail_spendable_success">Estado de gasto actualizado</string>
     <string name="utxo_detail_spendable_error">No se pudo actualizar el estado de gasto</string>
     <string name="utxo_detail_network">Red</string>
