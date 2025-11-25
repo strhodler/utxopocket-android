@@ -292,7 +292,7 @@ class AddWalletViewModel @Inject constructor(
                                 nodeSnapshot.status is NodeStatus.Synced &&
                                 nodeSnapshot.network == result.wallet.network
                             ) {
-                                runCatching { walletRepository.refresh(result.wallet.network) }
+                                runCatching { walletRepository.refreshWallet(result.wallet.id) }
                             }
                         }
                         _events.emit(AddWalletEvent.WalletCreated(result.wallet))
