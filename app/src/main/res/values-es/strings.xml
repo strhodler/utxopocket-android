@@ -282,7 +282,7 @@
     <string name="transaction_visualizer_not_found">No se pudo cargar esta transacción.</string>
     <string name="transaction_visualizer_toggle_details">Mostrar u ocultar detalles de la transacción</string>
     <string name="transaction_visualizer_details_title">Detalles de la transacción</string>
-    <string name="transaction_visualizer_txid_label">Txid: %1$s</string>
+    <string name="transaction_visualizer_close_panel">Cerrar detalles</string>
     <string name="transaction_visualizer_role_input">Entrada</string>
     <string name="transaction_visualizer_role_output">Salida</string>
     <string name="transaction_visualizer_role_change">Cambio</string>

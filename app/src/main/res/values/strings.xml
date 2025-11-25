@@ -394,7 +394,7 @@
     <string name="transaction_visualizer_not_found">Unable to load this transaction.</string>
     <string name="transaction_visualizer_toggle_details">Toggle transaction details</string>
     <string name="transaction_visualizer_details_title">Transaction details</string>
-    <string name="transaction_visualizer_txid_label">Txid: %1$s</string>
+    <string name="transaction_visualizer_close_panel">Close details</string>
     <string name="transaction_visualizer_role_input">Input</string>
     <string name="transaction_visualizer_role_output">Output</string>
     <string name="transaction_visualizer_role_change">Change</string>

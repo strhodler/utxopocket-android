@@ -27,12 +27,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -79,6 +82,7 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
+import com.strhodler.utxopocket.presentation.format.formatBtc
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
@@ -225,11 +229,20 @@ private fun TransactionVisualizerContent(
     val graph = requireNotNull(state.graph)
     var renderGraph by remember(graph) { mutableStateOf(graph) }
     var showDetails by remember { mutableStateOf(false) }
+    var panelIconIsClose by remember { mutableStateOf(false) }
     var selectedNodeId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(renderGraph) {
         val currentSelection = selectedNodeId
         if (currentSelection != null && renderGraph.nodes.none { it.id == currentSelection }) {
             selectedNodeId = null
+        }
+    }
+    LaunchedEffect(showDetails) {
+        if (showDetails) {
+            panelIconIsClose = true
+        } else {
+            delay(200L)
+            panelIconIsClose = false
         }
     }
 
@@ -239,31 +252,57 @@ private fun TransactionVisualizerContent(
             .background(MaterialTheme.colorScheme.surface)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            TransactionGraphCanvas(
-                graph = renderGraph,
-                selectedNodeId = selectedNodeId,
-                onNodeSelected = { selectedNodeId = it.id },
-                onGroupExpand = { groupId ->
-                    renderGraph = expandGroup(renderGraph, groupId)
-                },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clipToBounds()
-            )
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(12.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                        shape = CircleShape
-                    )
+            Row(
+                modifier = Modifier.fillMaxSize()
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.ArrowBack,
-                    contentDescription = stringResource(id = R.string.transaction_visualizer_back)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                ) {
+                    TransactionGraphCanvas(
+                        graph = renderGraph,
+                        selectedNodeId = selectedNodeId,
+                        onNodeSelected = { selectedNodeId = it?.id },
+                        onGroupExpand = { groupId ->
+                            renderGraph = expandGroup(renderGraph, groupId)
+                        },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clipToBounds()
+                    )
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(12.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                shape = CircleShape
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.ArrowBack,
+                            contentDescription = stringResource(id = R.string.transaction_visualizer_back)
+                        )
+                    }
+                }
+                AnimatedVisibility(
+                    visible = showDetails,
+                    enter = slideInHorizontally(animationSpec = tween(durationMillis = 160)) { fullWidth -> fullWidth },
+                    exit = slideOutHorizontally(animationSpec = tween(durationMillis = 160)) { fullWidth -> fullWidth },
+                    modifier = Modifier.fillMaxHeight()
+                ) {
+                TransactionDetailsPanel(
+                    transaction = requireNotNull(state.transaction),
+                    graph = renderGraph,
+                    selectedNodeId = selectedNodeId,
+                    onNodeSelected = { selectedNodeId = it?.id },
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(320.dp)
                 )
+            }
             }
             IconButton(
                 onClick = { showDetails = !showDetails },
@@ -276,24 +315,8 @@ private fun TransactionVisualizerContent(
                     )
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Info,
+                    imageVector = if (panelIconIsClose) Icons.Outlined.Close else Icons.Outlined.Menu,
                     contentDescription = stringResource(id = R.string.transaction_visualizer_toggle_details)
-                )
-            }
-            AnimatedVisibility(
-                visible = showDetails,
-                enter = slideInHorizontally(animationSpec = tween(durationMillis = 160)) { fullWidth -> fullWidth / 2 },
-                exit = slideOutHorizontally(animationSpec = tween(durationMillis = 160)) { fullWidth -> fullWidth / 2 },
-                modifier = Modifier.align(Alignment.CenterEnd)
-            ) {
-                TransactionDetailsPanel(
-                    transaction = requireNotNull(state.transaction),
-                    graph = renderGraph,
-                    selectedNodeId = selectedNodeId,
-                    onNodeSelected = { selectedNodeId = it.id },
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .width(320.dp)
                 )
             }
         }
@@ -304,7 +327,7 @@ private fun TransactionVisualizerContent(
 private fun TransactionGraphCanvas(
     graph: TransactionGraph,
     selectedNodeId: String?,
-    onNodeSelected: (GraphNode) -> Unit,
+    onNodeSelected: (GraphNode?) -> Unit,
     onGroupExpand: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -394,6 +417,8 @@ private fun TransactionGraphCanvas(
                         onGroupExpand(tapped.node.id)
                     } else if (tapped != null) {
                         onNodeSelected(tapped.node)
+                    } else {
+                        onNodeSelected(null)
                     }
                 }
             }
@@ -527,16 +552,20 @@ private fun roleLabel(node: GraphNode): Int = when (node.role) {
     }
 }
 
+private sealed interface PanelItem {
+    data class Header(val title: String) : PanelItem
+    data class NodeEntry(val node: GraphNode) : PanelItem
+}
+
 @Composable
 private fun TransactionDetailsPanel(
     transaction: WalletTransaction,
     graph: TransactionGraph,
     selectedNodeId: String?,
-    onNodeSelected: (GraphNode) -> Unit,
+    onNodeSelected: (GraphNode?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val scrollState = rememberScrollState()
     val feeNode = remember(graph) { graph.nodes.firstOrNull { it.role == GraphRole.Fee } }
     val inputNodes = remember(graph) {
         graph.nodes.filter { node ->
@@ -555,68 +584,77 @@ private fun TransactionDetailsPanel(
                     graph.groups[node.id]?.members?.firstOrNull()?.role in outputRoles)
         }
     }
+    val listState = rememberLazyListState()
+    val items = buildList {
+        add(PanelItem.Header(stringResource(id = R.string.transaction_visualizer_summary_inputs, inputNodes.size)))
+        inputNodes.sortedBy { it.id }.forEach { add(PanelItem.NodeEntry(it)) }
+        add(PanelItem.Header(stringResource(id = R.string.transaction_visualizer_summary_outputs, outputNodes.size)))
+        outputNodes.sortedBy { it.id }.forEach { add(PanelItem.NodeEntry(it)) }
+        feeNode?.let { fee ->
+            add(PanelItem.Header(stringResource(id = R.string.transaction_visualizer_role_fee)))
+            add(PanelItem.NodeEntry(fee))
+        }
+    }
+
+    LaunchedEffect(selectedNodeId, items) {
+        val targetIndex = items.indexOfFirst { it is PanelItem.NodeEntry && it.node.id == selectedNodeId }
+        if (targetIndex >= 0) {
+            listState.animateScrollToItem(index = targetIndex, scrollOffset = 0)
+        }
+    }
 
     Column(
         modifier = modifier
-            .background(colorScheme.surface.copy(alpha = 0.95f))
+            .background(colorScheme.surface)
             .padding(16.dp)
-            .verticalScroll(scrollState)
     ) {
-        Text(
-            text = stringResource(id = R.string.transaction_visualizer_details_title),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(id = R.string.transaction_visualizer_txid_label, transaction.id),
-            style = MaterialTheme.typography.bodySmall,
-            color = colorScheme.onSurfaceVariant,
-            fontFamily = FontFamily.Monospace,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        SectionHeader(
-            text = stringResource(id = R.string.transaction_visualizer_summary_inputs, inputNodes.size),
-            color = colorScheme.onSurface
-        )
-        inputNodes.sortedBy { it.id }.forEach { node ->
-            TransactionDetailEntry(
-                node = node,
-                colorScheme = colorScheme,
-                graph = graph,
-                isSelected = selectedNodeId == node.id,
-                onSelect = onNodeSelected
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
+        ) {
+            Text(
+                text = stringResource(id = R.string.transaction_visualizer_details_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = formatTxidMiddle(transaction.id),
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onSurfaceVariant,
+                fontFamily = FontFamily.Monospace,
+                maxLines = 1,
+                overflow = TextOverflow.Visible
             )
         }
-        Spacer(modifier = Modifier.height(12.dp))
-        SectionHeader(
-            text = stringResource(id = R.string.transaction_visualizer_summary_outputs, outputNodes.size),
-            color = colorScheme.onSurface
-        )
-        outputNodes.sortedBy { it.id }.forEach { node ->
-            TransactionDetailEntry(
-                node = node,
-                colorScheme = colorScheme,
-                graph = graph,
-                isSelected = selectedNodeId == node.id,
-                onSelect = onNodeSelected
-            )
-        }
-        feeNode?.let { fee ->
-            Spacer(modifier = Modifier.height(12.dp))
-            SectionHeader(
-                text = stringResource(id = R.string.transaction_visualizer_role_fee),
-                color = colorScheme.onSurface
-            )
-            TransactionDetailEntry(
-                node = fee,
-                colorScheme = colorScheme,
-                graph = graph,
-                isSelected = selectedNodeId == fee.id,
-                onSelect = onNodeSelected
-            )
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxHeight()
+        ) {
+            itemsIndexed(items, key = { index, item ->
+                when (item) {
+                    is PanelItem.Header -> "header-$index-${item.title}"
+                    is PanelItem.NodeEntry -> "node-${item.node.id}"
+                }
+            }) { _, item ->
+                when (item) {
+                    is PanelItem.Header -> {
+                        SectionHeader(
+                            text = item.title,
+                            color = colorScheme.onSurface
+                        )
+                    }
+                    is PanelItem.NodeEntry -> {
+                        TransactionDetailEntry(
+                            node = item.node,
+                            colorScheme = colorScheme,
+                            graph = graph,
+                            isSelected = selectedNodeId == item.node.id,
+                            onSelect = onNodeSelected
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -627,7 +665,10 @@ private fun SectionHeader(text: String, color: Color) {
         text = text,
         style = MaterialTheme.typography.labelLarge,
         color = color,
-        fontWeight = FontWeight.Medium
+        fontWeight = FontWeight.Medium,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
     )
 }
 
@@ -637,7 +678,7 @@ private fun TransactionDetailEntry(
     colorScheme: ColorScheme,
     graph: TransactionGraph,
     isSelected: Boolean,
-    onSelect: (GraphNode) -> Unit
+    onSelect: (GraphNode?) -> Unit
 ) {
     val indicatorColor = nodeColor(node, colorScheme)
     val groupChildren = graph.groups[node.id]?.members?.size ?: node.children
@@ -655,14 +696,8 @@ private fun TransactionDetailEntry(
             groupChildren
         )
     }
-    val valueLabel = node.valueSats?.let { value ->
-        stringResource(id = R.string.transaction_visualizer_value_label, "$value sats")
-    }
     val addressLabel = node.address?.let { address ->
-        stringResource(id = R.string.transaction_visualizer_address_label, address)
-    }
-    val derivationLabel = node.derivationPath?.let { path ->
-        stringResource(id = R.string.transaction_visualizer_derivation_label, path)
+        formatTxidMiddle(address, keepStart = 10, keepEnd = 6)
     }
     Column(
         modifier = Modifier
@@ -687,15 +722,17 @@ private fun TransactionDetailEntry(
             Text(
                 text = indicatorLabel,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f)
             )
-        }
-        valueLabel?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodySmall,
-                color = colorScheme.onSurfaceVariant
-            )
+            node.valueSats?.let { value ->
+                Text(
+                    text = formatBtc(value),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
         addressLabel?.let {
             Text(
@@ -706,14 +743,14 @@ private fun TransactionDetailEntry(
                 overflow = TextOverflow.Ellipsis
             )
         }
-        derivationLabel?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodySmall,
-                color = colorScheme.onSurfaceVariant
-            )
-        }
     }
+}
+
+private fun formatTxidMiddle(txid: String, keepStart: Int = 10, keepEnd: Int = 6): String {
+    if (txid.length <= keepStart + keepEnd + 3) return txid
+    val prefix = txid.take(keepStart)
+    val suffix = txid.takeLast(keepEnd)
+    return "$prefix...$suffix"
 }
 
 @Composable
