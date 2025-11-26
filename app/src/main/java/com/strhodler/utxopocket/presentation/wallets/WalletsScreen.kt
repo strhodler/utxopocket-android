@@ -495,6 +495,7 @@ private fun WalletCard(
         wallet.lastSyncTime?.let { timestamp -> dateFormat.format(Date(timestamp)) }
     }
     val statusLabel = when {
+        nodeStatus is NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
         isSyncing && nodeStatus is NodeStatus.Synced -> stringResource(id = R.string.wallets_state_syncing)
         isQueued -> stringResource(id = R.string.wallets_state_queued)
         lastSyncText == null && nodeStatus is NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
@@ -800,6 +801,7 @@ private fun nodeStatusLabel(status: NodeStatus, isSyncing: Boolean): String {
     }
     return when (status) {
         NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
+        NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
         NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
         NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
         NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)

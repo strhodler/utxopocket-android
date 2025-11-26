@@ -81,9 +81,11 @@ import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import android.view.HapticFeedbackConstants
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.presentation.wallets.detail.WalletDetailEvent
 import kotlin.math.roundToInt
 
 private const val WALLET_NAME_MAX_LENGTH = 64
@@ -137,6 +139,18 @@ fun WalletDetailRoute(
                 )
             }
             Unit
+        }
+    }
+    LaunchedEffect(Unit) {
+        viewModel.events.collectLatest { event ->
+            when (event) {
+                WalletDetailEvent.RefreshQueued -> {
+                    showSnackbar(
+                        message = context.getString(R.string.wallet_detail_refresh_enqueued),
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            }
         }
     }
     val deleteSuccessMessage = stringResource(id = R.string.wallet_detail_delete_success)

@@ -330,6 +330,20 @@ class DefaultWalletRepository @Inject constructor(
     private fun launchSyncJob(network: BitcoinNetwork) {
         val job = repositoryScope.launch {
             while (true) {
+                if (!lastObservedNetworkOnline) {
+                    syncQueueMutex.withLock {
+                        val queue = queueFor(network)
+                        activeWalletByNetwork[network] = null
+                        updateSyncStatusLocked(
+                            network = network,
+                            activeWalletId = null,
+                            queue = queue.toList(),
+                            isRunning = false
+                        )
+                    }
+                    runningSyncJobs.remove(network)
+                    return@launch
+                }
                 val next = syncQueueMutex.withLock {
                     val queue = queueFor(network)
                     if (queue.isEmpty()) {
@@ -459,9 +473,21 @@ class DefaultWalletRepository @Inject constructor(
     private val deletingWallets = ConcurrentHashMap<Long, Boolean>()
 
     private fun applyOfflineNodeStatus() {
-        clearSyncStatus(syncStatus.value.network)
+        val currentSync = syncStatus.value
+        val pending = buildList {
+            currentSync.activeWalletId?.let { add(it) }
+            addAll(currentSync.queuedWalletIds)
+        }
+        syncStatus.update {
+            it.copy(
+                isRefreshing = false,
+                refreshingWalletIds = emptySet(),
+                activeWalletId = null,
+                queuedWalletIds = pending
+            )
+        }
         val snapshot = nodeStatus.value
-        nodeStatus.value = snapshot.copy(status = NodeStatus.Idle)
+        nodeStatus.value = snapshot.copy(status = NodeStatus.Offline)
     }
 
     private suspend fun handleNetworkConnectivityChange(online: Boolean) {
@@ -692,13 +718,27 @@ class DefaultWalletRepository @Inject constructor(
         }
     }
 
-    override suspend fun refresh(network: BitcoinNetwork) = withContext(ioDispatcher) {
-        val shouldStart: Boolean
-        syncQueueMutex.withLock {
-            shouldStart = queueFor(network).isNotEmpty() && runningSyncJobs[network]?.isActive != true
-        }
-        if (shouldStart) {
-            launchSyncJob(network)
+    override suspend fun refresh(network: BitcoinNetwork) {
+        withContext(ioDispatcher) {
+            val (hasQueued, hasRunning) = syncQueueMutex.withLock {
+                val queued = pendingWalletQueues[network]?.isNotEmpty() == true
+                val running = runningSyncJobs[network]?.isActive == true
+                queued to running
+            }
+            if (hasRunning) return@withContext
+            if (hasQueued) {
+                launchSyncJob(network)
+                return@withContext
+            }
+            // No queued wallets: perform a connection handshake so UI reflects network status.
+            runCatching {
+                refreshInternal(
+                    network = network,
+                    targetWalletIds = emptySet(),
+                    manageSyncStatus = false,
+                    syncWallets = false
+                )
+            }
         }
     }
 
@@ -712,7 +752,8 @@ class DefaultWalletRepository @Inject constructor(
     private suspend fun refreshInternal(
         network: BitcoinNetwork,
         targetWalletIds: Set<Long>?,
-        manageSyncStatus: Boolean = true
+        manageSyncStatus: Boolean = true,
+        syncWallets: Boolean = true
     ): Boolean = withContext(ioDispatcher) {
         val targetLabel = targetWalletIds?.joinToString(prefix = "[", postfix = "]") ?: "all"
         SecureLog.d(TAG) { "Refresh requested for $network target=$targetLabel" }
@@ -753,7 +794,12 @@ class DefaultWalletRepository @Inject constructor(
                 }
                 val attemptStarted = SystemClock.elapsedRealtime()
                 try {
-                    performRefreshAttempt(network, targetWalletIds, manageSyncStatus)
+                    performRefreshAttempt(
+                        network = network,
+                        targetWalletIds = targetWalletIds,
+                        manageSyncStatus = manageSyncStatus,
+                        syncWallets = syncWallets
+                    )
                     if (attempt > 0) {
                         SecureLog.i(TAG) { "Node refresh succeeded after ${attempt + 1} attempts on $network" }
                     }
@@ -818,7 +864,8 @@ class DefaultWalletRepository @Inject constructor(
     private suspend fun performRefreshAttempt(
         network: BitcoinNetwork,
         targetWalletIds: Set<Long>?,
-        manageSyncStatus: Boolean
+        manageSyncStatus: Boolean,
+        syncWallets: Boolean
     ) {
         val previousSnapshot = nodeStatus.value
         val lastSyncForNetwork = previousSnapshot.lastSyncCompletedAt
@@ -928,6 +975,18 @@ class DefaultWalletRepository @Inject constructor(
                         )
                     }
                     ensureForeground()
+                    if (!syncWallets) {
+                        nodeStatus.value = NodeStatusSnapshot(
+                            status = NodeStatus.Synced,
+                            blockHeight = blockHeight,
+                            serverInfo = serverInfo,
+                            endpoint = endpoint,
+                            lastSyncCompletedAt = lastSyncForNetwork,
+                            network = network,
+                            feeRateSatPerVb = estimatedFeeRateSatPerVb
+                        )
+                        return
+                    }
                     val snapshotWallets = walletDao.getWalletsSnapshot(network.name)
                     val filteredWallets = snapshotWallets
                         .filter { targetWalletIds == null || targetWalletIds.contains(it.id) }

@@ -291,6 +291,7 @@ fun WalletEntity.withSyncFailure(
 
 fun NodeStatus.toStorage(): Pair<String, String?> = when (this) {
     NodeStatus.Idle -> "IDLE" to null
+    NodeStatus.Offline -> "OFFLINE" to null
     NodeStatus.Connecting -> "CONNECTING" to null
     NodeStatus.WaitingForTor -> "WAITING_FOR_TOR" to null
     NodeStatus.Synced -> "SYNCED" to null
@@ -302,5 +303,6 @@ private fun String.toNodeStatus(error: String?): NodeStatus = when (uppercase())
     "WAITING_FOR_TOR" -> NodeStatus.WaitingForTor
     "SYNCED" -> NodeStatus.Synced
     "ERROR" -> NodeStatus.Error(error ?: "Unknown error")
+    "OFFLINE" -> NodeStatus.Offline
     else -> NodeStatus.Idle
 }

@@ -76,7 +76,8 @@ fun TopBarNodeStatusIcon(status: NodeStatus) {
             }
         }
 
-        NodeStatus.Idle -> Icon(
+        NodeStatus.Idle,
+        NodeStatus.Offline -> Icon(
             imageVector = Icons.Outlined.NetworkCheck,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -95,6 +96,7 @@ fun TopBarNodeStatusIcon(status: NodeStatus) {
 fun nodeStatusIndicatorColor(status: NodeStatus): Color? = when (status) {
     NodeStatus.Synced -> ConnectedBadgeColor
     NodeStatus.Idle,
+    NodeStatus.Offline,
     is NodeStatus.Error -> DisconnectedBadgeColor
     else -> null
 }

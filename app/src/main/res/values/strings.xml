@@ -235,6 +235,7 @@
     <string name="wallet_detail_last_full_scan">Last full scan: %1$s</string>
     <string name="wallet_detail_last_full_scan_never">Full scan not completed yet.</string>
     <string name="wallet_detail_full_scan_pending">Full rescan queued</string>
+    <string name="wallet_detail_refresh_enqueued">Refresh queued. Waiting for previous syncs to finish.</string>
     <string name="wallet_detail_delete_confirm_title">Delete wallet?</string>
     <string name="wallet_detail_delete_confirm_message">Do you want to remove "%1$s" from UtxoPocket?</string>
     <string name="wallet_detail_delete_continue">Continue</string>
@@ -526,6 +527,7 @@
     <string name="wallets_transactions">Transactions: %1$d</string>
     <string name="wallets_status">Status: %1$s</string>
     <string name="wallets_state_idle">Idle</string>
+    <string name="wallets_state_offline">Offline</string>
     <string name="wallets_state_connecting">Connecting</string>
     <string name="wallets_state_waiting_for_tor">Waiting for Tor</string>
     <string name="wallets_state_waiting_for_node">Waiting for node</string>

@@ -44,6 +44,7 @@
     <string name="wallets_transactions">Transacciones: %1$d</string>
     <string name="wallets_status">Estado: %1$s</string>
     <string name="wallets_state_idle">Inactivo</string>
+    <string name="wallets_state_offline">Sin conexión</string>
     <string name="wallets_state_connecting">Conectando</string>
     <string name="wallets_state_waiting_for_tor">Esperando Tor</string>
     <string name="wallets_state_waiting_for_node">Esperando nodo</string>
@@ -803,6 +804,7 @@
     <string name="wallet_detail_last_full_scan">Último reescaneo completo: %1$s</string>
     <string name="wallet_detail_last_full_scan_never">Aún no se completa un reescaneo completo.</string>
     <string name="wallet_detail_full_scan_pending">Rescan completo en cola</string>
+    <string name="wallet_detail_refresh_enqueued">Refresco en cola. Espera a que terminen las sincronizaciones previas.</string>
     <string name="wallet_detail_delete_confirm_title">¿Eliminar billetera?</string>
     <string name="wallet_detail_delete_confirm_message">¿Quieres eliminar "%1$s" de UtxoPocket?</string>
     <string name="wallet_detail_delete_continue">Continuar</string>

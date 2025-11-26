@@ -40,6 +40,7 @@ sealed class TorStatus {
 
 sealed class NodeStatus {
     data object Idle : NodeStatus()
+    data object Offline : NodeStatus()
     data object Connecting : NodeStatus()
     data object Synced : NodeStatus()
     data object WaitingForTor : NodeStatus()

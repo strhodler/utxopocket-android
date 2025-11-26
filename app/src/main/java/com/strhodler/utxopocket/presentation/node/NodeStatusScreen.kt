@@ -107,6 +107,7 @@ fun NodeStatusScreen(
             NodeStatus.Synced,
             NodeStatus.Connecting,
             NodeStatus.WaitingForTor,
+            NodeStatus.Offline,
             is NodeStatus.Error -> selectedNodeName
             else -> null
         }
@@ -437,7 +438,8 @@ private fun NodeStatusIcon(
             }
         }
 
-        NodeStatus.Idle -> Icon(
+        NodeStatus.Idle,
+        NodeStatus.Offline -> Icon(
             imageVector = Icons.Outlined.NetworkCheck,
             contentDescription = null,
             tint = tint,
@@ -512,7 +514,8 @@ private fun statusThemeFor(
         NodeStatus.Synced -> connectedGradient to Color(0xFFFFE0B2)
         NodeStatus.Connecting,
         NodeStatus.WaitingForTor -> greyGradient to colorScheme.onSurface
-        NodeStatus.Idle -> greyGradient to colorScheme.onSurface
+        NodeStatus.Idle,
+        NodeStatus.Offline -> greyGradient to colorScheme.onSurface
         is NodeStatus.Error -> errorGradient to colorScheme.onError
     }
     return WalletColorTheme(
@@ -524,6 +527,7 @@ private fun statusThemeFor(
 @Composable
 private fun nodeStatusMessage(status: NodeStatus): String = when (status) {
     NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
+    NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
     NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
     NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
     NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)

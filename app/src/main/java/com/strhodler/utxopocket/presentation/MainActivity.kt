@@ -409,6 +409,7 @@ private fun StatusBar(
         }
         val fallbackSubtitle = when (val status = state.nodeStatus) {
             NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
+            NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
             NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
             NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
             NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)

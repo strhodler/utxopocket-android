@@ -55,6 +55,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -89,6 +91,8 @@ class WalletDetailViewModel @Inject constructor(
     private val selectedBalanceRangeState = MutableStateFlow(BalanceRange.LastYear)
     private val showBalanceChartState = MutableStateFlow(false)
     private val balanceHistoryReducer = BalanceHistoryReducer()
+    private val _events = MutableSharedFlow<WalletDetailEvent>()
+    val events: SharedFlow<WalletDetailEvent> = _events
 
     val pagedTransactions: Flow<PagingData<WalletTransaction>> = combine(
         transactionSortState,
@@ -491,6 +495,7 @@ class WalletDetailViewModel @Inject constructor(
         val summary = uiState.value.summary ?: return
         viewModelScope.launch {
             walletRepository.refreshWallet(summary.id)
+            _events.emit(WalletDetailEvent.RefreshQueued)
         }
         refreshAddresses()
     }
@@ -687,6 +692,10 @@ class WalletDetailViewModel @Inject constructor(
         private const val ADDRESS_POOL_SIZE = 20
         private fun utxoKey(txid: String, vout: Int): String = "$txid:$vout"
     }
+}
+
+sealed interface WalletDetailEvent {
+    data object RefreshQueued : WalletDetailEvent
 }
 
 data class WalletDetailUiState(
