@@ -398,6 +398,7 @@ fun WalletDetailRoute(
                 transactions = transactionItems,
                 utxos = utxoItems,
                 onTransactionSortChange = viewModel::updateTransactionSort,
+                onTransactionLabelFilterChange = viewModel::setTransactionLabelFilter,
                 onUtxoSortChange = viewModel::updateUtxoSort,
                 onUtxoLabelFilterChange = viewModel::setUtxoLabelFilter,
                 onRefreshRequested = viewModel::refresh,

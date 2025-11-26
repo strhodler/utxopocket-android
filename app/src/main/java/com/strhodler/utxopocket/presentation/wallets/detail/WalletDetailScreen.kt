@@ -151,6 +151,7 @@ fun WalletDetailScreen(
     transactions: LazyPagingItems<WalletTransaction>,
     utxos: LazyPagingItems<WalletUtxo>,
     onTransactionSortChange: (WalletTransactionSort) -> Unit,
+    onTransactionLabelFilterChange: (TransactionLabelFilter) -> Unit,
     onUtxoSortChange: (WalletUtxoSort) -> Unit,
     onUtxoLabelFilterChange: (UtxoLabelFilter) -> Unit,
     onRefreshRequested: () -> Unit,
@@ -217,6 +218,7 @@ fun WalletDetailScreen(
                     selectedTab = selectedTab,
                     onTabSelected = onTabSelected,
                     onTransactionSortSelected = onTransactionSortChange,
+                    onTransactionLabelFilterChange = onTransactionLabelFilterChange,
                     onUtxoSortSelected = onUtxoSortChange,
                     onUtxoLabelFilterChange = onUtxoLabelFilterChange,
                 onTransactionSelected = onTransactionSelected,
@@ -252,6 +254,7 @@ private fun WalletDetailContent(
     selectedTab: WalletDetailTab,
     onTabSelected: (WalletDetailTab) -> Unit,
     onTransactionSortSelected: (WalletTransactionSort) -> Unit,
+    onTransactionLabelFilterChange: (TransactionLabelFilter) -> Unit,
     onUtxoSortSelected: (WalletUtxoSort) -> Unit,
     onUtxoLabelFilterChange: (UtxoLabelFilter) -> Unit,
     onTransactionSelected: (String) -> Unit,
@@ -464,16 +467,29 @@ private fun WalletDetailContent(
                 ) {
                     when (tab) {
                         WalletDetailTab.Transactions -> {
-                            if (transactions.itemCount > 0) {
+                            val hasAnyTransactions = state.transactionsCount > 0 || transactions.itemCount > 0
+                            if (hasAnyTransactions) {
                                 item(key = "transactions_sort") {
-                                    SortRow(
-                                        current = transactionSort,
-                                        options = transactionSortOptions,
-                                        optionLabelRes = { it.labelRes() },
-                                        onOptionSelected = { selected ->
-                                            onTransactionSortSelected(selected)
-                                        }
-                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        SortRow(
+                                            current = transactionSort,
+                                            options = transactionSortOptions,
+                                            optionLabelRes = { it.labelRes() },
+                                            onOptionSelected = { selected ->
+                                                onTransactionSortSelected(selected)
+                                            },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        TransactionFilterRow(
+                                            filter = state.transactionLabelFilter,
+                                            counts = state.transactionFilterCounts,
+                                            onFilterChange = onTransactionLabelFilterChange,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
                                 }
                             }
                             val transactionLoadState = transactions.loadState.refresh
@@ -552,6 +568,7 @@ private fun WalletDetailContent(
                                         )
                                         FilterRow(
                                             filter = state.utxoLabelFilter,
+                                            counts = state.utxoFilterCounts,
                                             onFilterChange = onUtxoLabelFilterChange,
                                             modifier = Modifier.weight(1f)
                                         )
@@ -1775,17 +1792,22 @@ private fun WalletUtxoSort.labelRes(): Int = when (this) {
 }
 
 @Composable
-private fun FilterRow(
-    filter: UtxoLabelFilter,
-    onFilterChange: (UtxoLabelFilter) -> Unit,
+private fun TransactionFilterRow(
+    filter: TransactionLabelFilter,
+    counts: TransactionFilterCounts,
+    onFilterChange: (TransactionLabelFilter) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    val summaryRes = when {
-        filter.showLabeled && filter.showUnlabeled -> R.string.wallet_detail_utxos_filter_summary_all
-        filter.showLabeled -> R.string.wallet_detail_utxos_filter_summary_labeled
-        filter.showUnlabeled -> R.string.wallet_detail_utxos_filter_summary_unlabeled
-        else -> R.string.wallet_detail_utxos_filter_summary_none
+    val withCount: (String, Int) -> String = remember {
+        { label, count -> "$label ($count)" }
+    }
+    val summaryText = when {
+        filter.showsNone -> stringResource(id = R.string.wallet_detail_transactions_filter_summary_none)
+        filter.showsAll -> stringResource(id = R.string.wallet_detail_transactions_filter_summary_all)
+        filter.showLabeled -> stringResource(id = R.string.wallet_detail_transactions_filter_labeled)
+        filter.showUnlabeled -> stringResource(id = R.string.wallet_detail_transactions_filter_unlabeled)
+        else -> stringResource(id = R.string.wallet_detail_transactions_filter_summary_none)
     }
     Card(
         onClick = { menuExpanded = true },
@@ -1802,7 +1824,111 @@ private fun FilterRow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = stringResource(id = summaryRes),
+                    text = summaryText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Icon(
+                    imageVector = Icons.Outlined.ExpandMore,
+                    contentDescription = stringResource(
+                        id = R.string.wallet_detail_transactions_filter_expand_content_description
+                    ),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false }
+            ) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = withCount(
+                                stringResource(id = R.string.wallet_detail_transactions_filter_labeled),
+                                counts.labeled
+                            )
+                        )
+                    },
+                    leadingIcon = {
+                        Checkbox(
+                            checked = filter.showLabeled,
+                            onCheckedChange = null
+                        )
+                    },
+                    onClick = {
+                        onFilterChange(filter.copy(showLabeled = !filter.showLabeled))
+                    }
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = withCount(
+                                stringResource(id = R.string.wallet_detail_transactions_filter_unlabeled),
+                                counts.unlabeled
+                            )
+                        )
+                    },
+                    leadingIcon = {
+                        Checkbox(
+                            checked = filter.showUnlabeled,
+                            onCheckedChange = null
+                        )
+                    },
+                    onClick = {
+                        onFilterChange(filter.copy(showUnlabeled = !filter.showUnlabeled))
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilterRow(
+    filter: UtxoLabelFilter,
+    counts: UtxoFilterCounts,
+    onFilterChange: (UtxoLabelFilter) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    val withCount: (String, Int) -> String = remember {
+        { label, count -> "$label ($count)" }
+    }
+    val labelSummary = when {
+        filter.showLabeled && filter.showUnlabeled -> stringResource(id = R.string.wallet_detail_utxos_filter_summary_labels_all)
+        filter.showLabeled -> stringResource(id = R.string.wallet_detail_utxos_filter_labeled)
+        filter.showUnlabeled -> stringResource(id = R.string.wallet_detail_utxos_filter_unlabeled)
+        else -> null
+    }
+    val spendableSummary = when {
+        filter.showSpendable && filter.showNotSpendable -> stringResource(id = R.string.wallet_detail_utxos_filter_summary_spendable_all)
+        filter.showSpendable -> stringResource(id = R.string.wallet_detail_utxos_filter_spendable)
+        filter.showNotSpendable -> stringResource(id = R.string.wallet_detail_utxos_filter_unspendable)
+        else -> null
+    }
+    val summaryText = when {
+        filter.showsNone -> stringResource(id = R.string.wallet_detail_utxos_filter_summary_none)
+        filter.showsAll -> stringResource(id = R.string.wallet_detail_utxos_filter_summary_all)
+        labelSummary == null -> spendableSummary ?: stringResource(id = R.string.wallet_detail_utxos_filter_summary_none)
+        spendableSummary == null -> labelSummary
+        else -> listOf(labelSummary, spendableSummary).joinToString(" • ")
+    }
+    Card(
+        onClick = { menuExpanded = true },
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = CardDefaults.shape
+    ) {
+        Box {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = summaryText,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -1819,7 +1945,14 @@ private fun FilterRow(
                 onDismissRequest = { menuExpanded = false }
             ) {
                 DropdownMenuItem(
-                    text = { Text(text = stringResource(id = R.string.wallet_detail_utxos_filter_labeled)) },
+                    text = {
+                        Text(
+                            text = withCount(
+                                stringResource(id = R.string.wallet_detail_utxos_filter_labeled),
+                                counts.labeled
+                            )
+                        )
+                    },
                     leadingIcon = {
                         Checkbox(
                             checked = filter.showLabeled,
@@ -1831,7 +1964,14 @@ private fun FilterRow(
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text(text = stringResource(id = R.string.wallet_detail_utxos_filter_unlabeled)) },
+                    text = {
+                        Text(
+                            text = withCount(
+                                stringResource(id = R.string.wallet_detail_utxos_filter_unlabeled),
+                                counts.unlabeled
+                            )
+                        )
+                    },
                     leadingIcon = {
                         Checkbox(
                             checked = filter.showUnlabeled,
@@ -1840,6 +1980,44 @@ private fun FilterRow(
                     },
                     onClick = {
                         onFilterChange(filter.copy(showUnlabeled = !filter.showUnlabeled))
+                    }
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = withCount(
+                                stringResource(id = R.string.wallet_detail_utxos_filter_spendable),
+                                counts.spendable
+                            )
+                        )
+                    },
+                    leadingIcon = {
+                        Checkbox(
+                            checked = filter.showSpendable,
+                            onCheckedChange = null
+                        )
+                    },
+                    onClick = {
+                        onFilterChange(filter.copy(showSpendable = !filter.showSpendable))
+                    }
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = withCount(
+                                stringResource(id = R.string.wallet_detail_utxos_filter_unspendable),
+                                counts.notSpendable
+                            )
+                        )
+                    },
+                    leadingIcon = {
+                        Checkbox(
+                            checked = filter.showNotSpendable,
+                            onCheckedChange = null
+                        )
+                    },
+                    onClick = {
+                        onFilterChange(filter.copy(showNotSpendable = !filter.showNotSpendable))
                     }
                 )
             }

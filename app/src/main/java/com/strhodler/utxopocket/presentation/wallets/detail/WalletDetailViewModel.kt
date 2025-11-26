@@ -84,14 +84,25 @@ class WalletDetailViewModel @Inject constructor(
     private val utxoHealthAnalyzer: UtxoHealthAnalyzer = DefaultUtxoHealthAnalyzer()
     private val transactionSortState = MutableStateFlow(WalletTransactionSort.NEWEST_FIRST)
     private val utxoSortState = MutableStateFlow(WalletUtxoSort.LARGEST_AMOUNT)
+    private val transactionLabelFilterState = MutableStateFlow(TransactionLabelFilter())
     private val utxoLabelFilterState = MutableStateFlow(UtxoLabelFilter())
     private val selectedBalanceRangeState = MutableStateFlow(BalanceRange.LastYear)
     private val showBalanceChartState = MutableStateFlow(false)
     private val balanceHistoryReducer = BalanceHistoryReducer()
 
-    val pagedTransactions: Flow<PagingData<WalletTransaction>> = transactionSortState
-        .flatMapLatest { sort ->
+    val pagedTransactions: Flow<PagingData<WalletTransaction>> = combine(
+        transactionSortState,
+        transactionLabelFilterState
+    ) { sort, filter -> sort to filter }
+        .flatMapLatest { (sort, filter) ->
             walletRepository.pageWalletTransactions(walletId, sort)
+                .map { pagingData ->
+                    if (filter.showsAll) {
+                        pagingData
+                    } else {
+                        pagingData.filter(filter::matches)
+                    }
+                }
         }
         .cachedIn(viewModelScope)
 
@@ -274,8 +285,9 @@ class WalletDetailViewModel @Inject constructor(
 
     val uiState: StateFlow<WalletDetailUiState> = combine(
         uiInputs,
-        utxoLabelFilterState
-    ) { inputs, utxoLabelFilter ->
+        utxoLabelFilterState,
+        transactionLabelFilterState
+    ) { inputs, utxoLabelFilter, transactionLabelFilter ->
         buildUiState(
             baseSnapshot = inputs.baseSnapshot,
             addresses = inputs.addresses,
@@ -283,6 +295,7 @@ class WalletDetailViewModel @Inject constructor(
             utxoSort = inputs.utxoSort,
             selectedRange = inputs.selectedRange,
             utxoLabelFilter = utxoLabelFilter,
+            transactionLabelFilter = transactionLabelFilter,
             showBalanceChart = inputs.showBalanceChart
         )
     }.stateIn(
@@ -298,6 +311,7 @@ class WalletDetailViewModel @Inject constructor(
         utxoSort: WalletUtxoSort,
         selectedRange: BalanceRange,
         utxoLabelFilter: UtxoLabelFilter,
+        transactionLabelFilter: TransactionLabelFilter,
         showBalanceChart: Boolean
     ): WalletDetailUiState {
         val detail = baseSnapshot.detail
@@ -353,7 +367,10 @@ class WalletDetailViewModel @Inject constructor(
                 balanceHistory = emptyList(),
                 displayBalancePoints = emptyList(),
                 showBalanceChart = showBalanceChart,
-                utxoLabelFilter = utxoLabelFilter
+                utxoLabelFilter = utxoLabelFilter,
+                utxoFilterCounts = UtxoFilterCounts(),
+                transactionLabelFilter = transactionLabelFilter,
+                transactionFilterCounts = TransactionFilterCounts()
             )
         } else {
             val summary = detail.summary
@@ -386,6 +403,8 @@ class WalletDetailViewModel @Inject constructor(
                 emptyList()
             }
             val dustBalanceSats = dustUtxos.sumOf { it.valueSats }
+            val utxoFilterCounts = computeUtxoFilterCounts(detail.utxos)
+            val transactionFilterCounts = computeTransactionFilterCounts(detail.transactions)
             WalletDetailUiState(
                 isLoading = false,
                 isRefreshing = isSyncing,
@@ -428,7 +447,10 @@ class WalletDetailViewModel @Inject constructor(
                 utxoSort = resolvedUtxoSort,
                 availableUtxoSorts = availableUtxoSorts,
                 availableBalanceRanges = BALANCE_RANGE_OPTIONS,
-                utxoLabelFilter = utxoLabelFilter
+                utxoLabelFilter = utxoLabelFilter,
+                utxoFilterCounts = utxoFilterCounts,
+                transactionLabelFilter = transactionLabelFilter,
+                transactionFilterCounts = transactionFilterCounts
             )
         }
     }
@@ -448,6 +470,12 @@ class WalletDetailViewModel @Inject constructor(
     fun setUtxoLabelFilter(filter: UtxoLabelFilter) {
         if (utxoLabelFilterState.value != filter) {
             utxoLabelFilterState.value = filter
+        }
+    }
+
+    fun setTransactionLabelFilter(filter: TransactionLabelFilter) {
+        if (transactionLabelFilterState.value != filter) {
+            transactionLabelFilterState.value = filter
         }
     }
 
@@ -616,6 +644,25 @@ class WalletDetailViewModel @Inject constructor(
         val balanceHistory: List<BalancePoint>
     )
 
+    private fun computeUtxoFilterCounts(utxos: List<WalletUtxo>): UtxoFilterCounts {
+        val labeled = utxos.count { !it.displayLabel.isNullOrBlank() }
+        val spendable = utxos.count { it.spendable }
+        return UtxoFilterCounts(
+            labeled = labeled,
+            unlabeled = utxos.size - labeled,
+            spendable = spendable,
+            notSpendable = utxos.size - spendable
+        )
+    }
+
+    private fun computeTransactionFilterCounts(transactions: List<WalletTransaction>): TransactionFilterCounts {
+        val labeled = transactions.count { !it.label.isNullOrBlank() }
+        return TransactionFilterCounts(
+            labeled = labeled,
+            unlabeled = transactions.size - labeled
+        )
+    }
+
     private fun availableTransactionSorts(analysisEnabled: Boolean): List<WalletTransactionSort> =
         if (analysisEnabled) {
             WalletTransactionSort.entries.toList()
@@ -682,7 +729,10 @@ data class WalletDetailUiState(
     val availableTransactionSorts: List<WalletTransactionSort> = WalletTransactionSort.entries.toList(),
     val utxoSort: WalletUtxoSort = WalletUtxoSort.LARGEST_AMOUNT,
     val availableUtxoSorts: List<WalletUtxoSort> = WalletUtxoSort.entries.toList(),
-    val utxoLabelFilter: UtxoLabelFilter = UtxoLabelFilter()
+    val transactionLabelFilter: TransactionLabelFilter = TransactionLabelFilter(),
+    val transactionFilterCounts: TransactionFilterCounts = TransactionFilterCounts(),
+    val utxoLabelFilter: UtxoLabelFilter = UtxoLabelFilter(),
+    val utxoFilterCounts: UtxoFilterCounts = UtxoFilterCounts()
 )
 
 sealed interface WalletDetailError {
@@ -691,16 +741,60 @@ sealed interface WalletDetailError {
 
 data class UtxoLabelFilter(
     val showLabeled: Boolean = true,
-    val showUnlabeled: Boolean = true
+    val showUnlabeled: Boolean = true,
+    val showSpendable: Boolean = true,
+    val showNotSpendable: Boolean = true
 ) {
-    val showsAll: Boolean get() = showLabeled && showUnlabeled
+    private val hasLabelSelection: Boolean get() = showLabeled || showUnlabeled
+    private val hasSpendableSelection: Boolean get() = showSpendable || showNotSpendable
+
+    val showsAll: Boolean get() = showLabeled && showUnlabeled && showSpendable && showNotSpendable
+    val showsNone: Boolean get() = !hasLabelSelection && !hasSpendableSelection
 
     fun matches(utxo: WalletUtxo): Boolean {
+        if (showsNone) return false
         val hasLabel = !utxo.displayLabel.isNullOrBlank()
-        return if (hasLabel) {
-            showLabeled
-        } else {
-            showUnlabeled
+        val labelAllowed = when {
+            hasLabelSelection -> if (hasLabel) showLabeled else showUnlabeled
+            else -> true
         }
+        val spendableAllowed = when {
+            hasSpendableSelection -> if (utxo.spendable) showSpendable else showNotSpendable
+            else -> true
+        }
+        return labelAllowed && spendableAllowed
     }
 }
+
+data class UtxoFilterCounts(
+    val labeled: Int = 0,
+    val unlabeled: Int = 0,
+    val spendable: Int = 0,
+    val notSpendable: Int = 0
+)
+
+data class TransactionLabelFilter(
+    val showLabeled: Boolean = true,
+    val showUnlabeled: Boolean = true
+) {
+    private val hasLabelSelection: Boolean get() = showLabeled || showUnlabeled
+
+    val showsAll: Boolean get() = showLabeled && showUnlabeled
+    val showsNone: Boolean get() = !hasLabelSelection
+
+    fun matches(transaction: WalletTransaction): Boolean {
+        if (showsNone) return false
+        val hasLabel = !transaction.label.isNullOrBlank()
+        val labelAllowed = if (hasLabelSelection) {
+            if (hasLabel) showLabeled else showUnlabeled
+        } else {
+            true
+        }
+        return labelAllowed
+    }
+}
+
+data class TransactionFilterCounts(
+    val labeled: Int = 0,
+    val unlabeled: Int = 0
+)

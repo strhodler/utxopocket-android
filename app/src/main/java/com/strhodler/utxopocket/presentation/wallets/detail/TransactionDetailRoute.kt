@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AutoGraph
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -1079,6 +1080,7 @@ private fun TransactionDetailHeader(
 ) {
     val shimmerPhase = rememberWalletShimmerPhase(durationMillis = 3600, delayMillis = 300)
     val contentColor = headerTheme.onGradient
+    val secondaryContentColor = contentColor.copy(alpha = 0.85f)
     Column(
         modifier = modifier
             .walletCardBackground(headerTheme, cornerRadius = 0.dp)
@@ -1133,6 +1135,7 @@ private fun TransactionDetailHeader(
             label = label,
             addLabelRes = R.string.transaction_detail_label_add_action,
             editLabelRes = R.string.transaction_detail_label_edit_action,
+            contentColor = secondaryContentColor,
             onClick = onEditLabel
         )
         onOpenVisualizer?.let { open ->
@@ -1368,6 +1371,7 @@ private fun UtxoDetailHeader(
 ) {
     val shimmerPhase = rememberWalletShimmerPhase(durationMillis = 3600, delayMillis = 300)
     val contentColor = headerTheme.onGradient
+    val secondaryContentColor = contentColor.copy(alpha = 0.85f)
     Column(
         modifier = modifier
             .walletCardBackground(headerTheme, cornerRadius = 0.dp)
@@ -1419,6 +1423,7 @@ private fun UtxoDetailHeader(
             label = label,
             addLabelRes = R.string.utxo_detail_label_add_action,
             editLabelRes = R.string.utxo_detail_label_edit_action,
+            contentColor = secondaryContentColor,
             onClick = onEditLabel
         )
         if (isInherited) {
@@ -1496,39 +1501,31 @@ private fun LabelChip(
     label: String?,
     @StringRes addLabelRes: Int,
     @StringRes editLabelRes: Int,
+    contentColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val hasLabel = !label.isNullOrBlank()
-    val chipText = label?.takeIf { hasLabel } ?: stringResource(id = addLabelRes)
-    val backgroundColor = if (hasLabel) {
-        MaterialTheme.colorScheme.surfaceVariant
-    } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-    }
-    Surface(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        color = backgroundColor,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val actionLabel = label?.takeIf { hasLabel } ?: stringResource(id = addLabelRes)
+    val actionColor = contentColor.copy(alpha = if (hasLabel) 0.95f else 0.85f)
+    val icon = if (hasLabel) Icons.Outlined.Edit else Icons.Outlined.Add
+    TextButton(
+        onClick = onClick,
+        colors = ButtonDefaults.textButtonColors(contentColor = actionColor),
+        modifier = modifier
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text(
-                text = chipText,
-                style = MaterialTheme.typography.labelMedium
-            )
-            if (hasLabel) {
-                Icon(
-                    imageVector = Icons.Outlined.Edit,
-                    contentDescription = stringResource(id = editLabelRes),
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = stringResource(id = if (hasLabel) editLabelRes else addLabelRes),
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+        Text(
+            text = actionLabel,
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
