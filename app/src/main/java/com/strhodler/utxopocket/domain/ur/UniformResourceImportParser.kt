@@ -94,14 +94,20 @@ object UniformResourceImportParser {
         output: CryptoOutput,
         defaultNetwork: BitcoinNetwork
     ): DescriptorStrings {
-        val expressions = ArrayDeque(output.scriptExpressions)
+        val expressions = output.scriptExpressions.toMutableList()
         if (expressions.isEmpty()) {
             throw IllegalArgumentException("Descriptor expression stack is empty.")
         }
         val base = when {
             output.multiKey != null -> {
-                val first = expressions.removeFirst()
-                buildMultiExpression(first, output.multiKey, defaultNetwork)
+                val multiIndex = expressions.indexOfFirst { expression ->
+                    expression == ScriptExpression.MULTISIG || expression == ScriptExpression.SORTED_MULTISIG
+                }
+                if (multiIndex < 0) {
+                    throw IllegalArgumentException("Expected multi/sortedmulti expression.")
+                }
+                val multiExpression = expressions.removeAt(multiIndex)
+                buildMultiExpression(multiExpression, output.multiKey, defaultNetwork)
             }
 
             output.ecKey != null -> renderEcKey(output.ecKey)
@@ -109,8 +115,8 @@ object UniformResourceImportParser {
             else -> throw IllegalArgumentException("Unsupported crypto-output key payload.")
         }
         var descriptor = base
-        while (expressions.isNotEmpty()) {
-            descriptor = wrapExpression(expressions.removeFirst(), descriptor)
+        expressions.forEach { expression ->
+            descriptor = wrapExpression(expression, descriptor)
         }
         return splitDescriptorIfNeeded(descriptor)
     }

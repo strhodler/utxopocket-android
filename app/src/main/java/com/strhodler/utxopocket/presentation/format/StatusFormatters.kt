@@ -20,3 +20,11 @@ fun formatFeeRateSatPerVb(value: Double): String {
 fun sanitizeFeeRateSatPerVb(value: Double?): Double? = value?.takeIf { rate ->
     !rate.isNaN() && !rate.isInfinite() && rate > 0.0
 }
+
+fun formatBtc(valueSats: Long): String {
+    val btc = valueSats.toDouble() / 100_000_000.0
+    val formatter = NumberFormat.getNumberInstance(Locale.getDefault())
+    formatter.minimumFractionDigits = 2
+    formatter.maximumFractionDigits = 8
+    return "${formatter.format(btc)} BTC"
+}

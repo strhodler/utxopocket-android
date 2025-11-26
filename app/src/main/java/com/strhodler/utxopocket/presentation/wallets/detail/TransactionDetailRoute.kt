@@ -1,5 +1,7 @@
 package com.strhodler.utxopocket.presentation.wallets.detail
 
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,6 +23,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoGraph
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ExpandLess
@@ -34,6 +37,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -51,6 +55,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -58,8 +65,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -98,7 +107,9 @@ import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
+import com.strhodler.utxopocket.domain.model.WalletColor
 import com.strhodler.utxopocket.presentation.wallets.components.WalletColorTheme
+import com.strhodler.utxopocket.presentation.wallets.components.toTheme
 import com.strhodler.utxopocket.presentation.wallets.components.onGradient
 import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
 import com.strhodler.utxopocket.presentation.wallets.components.walletCardBackground
@@ -122,6 +133,8 @@ import com.strhodler.utxopocket.data.utxohealth.DefaultUtxoHealthAnalyzer
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import io.github.thibseisel.identikon.Identicon
+import io.github.thibseisel.identikon.drawToBitmap
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -159,6 +172,7 @@ private val TRANSACTION_LABEL_DIALOG_STRINGS = LabelDialogStrings(
 fun TransactionDetailRoute(
     onBack: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
+    onOpenVisualizer: (Long, String) -> Unit,
     viewModel: TransactionDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -222,6 +236,7 @@ fun TransactionDetailRoute(
                 pendingLabel = label
                 showLabelDialog = true
             },
+            onOpenVisualizer = onOpenVisualizer,
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             onOpenWikiTopic = onOpenWikiTopic,
             onShowMessage = showSnackbar,
@@ -614,6 +629,7 @@ sealed interface UtxoDetailError {
 private fun TransactionDetailScreen(
     state: TransactionDetailUiState,
     onEditTransactionLabel: (String?) -> Unit,
+    onOpenVisualizer: (Long, String) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
@@ -635,6 +651,7 @@ private fun TransactionDetailScreen(
             TransactionDetailContent(
                 state = state,
                 onEditTransactionLabel = onEditTransactionLabel,
+                onOpenVisualizer = onOpenVisualizer,
                 onCycleBalanceDisplay = onCycleBalanceDisplay,
                 onOpenWikiTopic = onOpenWikiTopic,
                 onShowMessage = onShowMessage,
@@ -749,6 +766,7 @@ private fun LabelEditDialog(
 private fun TransactionDetailContent(
     state: TransactionDetailUiState,
     onEditTransactionLabel: (String?) -> Unit,
+    onOpenVisualizer: (Long, String) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
@@ -786,6 +804,10 @@ private fun TransactionDetailContent(
     val feeRateLabel = transaction.feeRateSatPerVb?.let { rate ->
         String.format(Locale.getDefault(), "%.2f sats/vB", rate)
     } ?: stringResource(id = R.string.transaction_detail_unknown)
+    val visualizerAction = state.walletSummary?.let { summary ->
+        { onOpenVisualizer(summary.id, transaction.id) }
+    }
+    val headerTheme = rememberHeaderTheme(state.walletSummary?.color)
 
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
@@ -799,6 +821,8 @@ private fun TransactionDetailContent(
             label = transaction.label,
             onEditLabel = { onEditTransactionLabel(transaction.label) },
             onCycleBalanceDisplay = onCycleBalanceDisplay,
+            onOpenVisualizer = visualizerAction,
+            headerTheme = headerTheme,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -1049,9 +1073,10 @@ private fun TransactionDetailHeader(
     label: String?,
     onEditLabel: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
+    onOpenVisualizer: (() -> Unit)?,
+    headerTheme: WalletColorTheme,
     modifier: Modifier = Modifier
 ) {
-    val headerTheme = rememberDetailHeaderTheme()
     val shimmerPhase = rememberWalletShimmerPhase(durationMillis = 3600, delayMillis = 300)
     val contentColor = headerTheme.onGradient
     Column(
@@ -1110,6 +1135,23 @@ private fun TransactionDetailHeader(
             editLabelRes = R.string.transaction_detail_label_edit_action,
             onClick = onEditLabel
         )
+        onOpenVisualizer?.let { open ->
+            TextButton(
+                onClick = open,
+                colors = ButtonDefaults.textButtonColors(contentColor = contentColor)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.AutoGraph,
+                    contentDescription = stringResource(id = R.string.transaction_detail_visualizer_content_description),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                Text(
+                    text = stringResource(id = R.string.transaction_detail_open_visualizer),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
     }
 }
 
@@ -1176,10 +1218,13 @@ private fun UtxoDetailContent(
         }
     }
 
+    val headerTheme = rememberHeaderTheme(state.walletSummary?.color)
+
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
     ) {
         UtxoDetailHeader(
+            identiconSeed = fullOutpoint,
             outpoint = displayOutpoint,
             depositInfo = depositInfoText,
             valueSats = utxo.valueSats,
@@ -1189,6 +1234,7 @@ private fun UtxoDetailContent(
             isInherited = isInheritedLabel,
             onEditLabel = { onEditLabel(displayLabel) },
             onCycleBalanceDisplay = onCycleBalanceDisplay,
+            headerTheme = headerTheme,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -1307,6 +1353,7 @@ private fun UtxoDetailContent(
 
 @Composable
 private fun UtxoDetailHeader(
+    identiconSeed: String,
     outpoint: String,
     depositInfo: String,
     valueSats: Long,
@@ -1316,9 +1363,9 @@ private fun UtxoDetailHeader(
     isInherited: Boolean,
     onEditLabel: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
+    headerTheme: WalletColorTheme,
     modifier: Modifier = Modifier
 ) {
-    val headerTheme = rememberDetailHeaderTheme()
     val shimmerPhase = rememberWalletShimmerPhase(durationMillis = 3600, delayMillis = 300)
     val contentColor = headerTheme.onGradient
     Column(
@@ -1334,6 +1381,9 @@ private fun UtxoDetailHeader(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        UtxoIdenticon(
+            seed = identiconSeed
+        )
         Text(
             text = outpoint,
             style = MaterialTheme.typography.titleMedium,
@@ -1383,6 +1433,28 @@ private fun UtxoDetailHeader(
 }
 
 @Composable
+private fun UtxoIdenticon(
+    seed: String,
+    size: Dp = 88.dp,
+    modifier: Modifier = Modifier
+) {
+    val iconSizePx = with(LocalDensity.current) { size.roundToPx().coerceAtLeast(1) }
+    val bitmap = remember(seed, iconSizePx) {
+        val icon = Identicon.fromValue(seed, iconSizePx)
+        Bitmap.createBitmap(iconSizePx, iconSizePx, Bitmap.Config.ARGB_8888).apply {
+            icon.drawToBitmap(this)
+        }
+    }
+    Image(
+        bitmap = bitmap.asImageBitmap(),
+        contentDescription = null,
+        modifier = modifier
+            .size(size)
+            .clip(RoundedCornerShape(20.dp))
+    )
+}
+
+@Composable
 private fun SpendableToggleCard(
     spendable: Boolean,
     updating: Boolean,
@@ -1398,7 +1470,7 @@ private fun SpendableToggleCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1415,11 +1487,6 @@ private fun SpendableToggleCard(
                     enabled = !updating
                 )
             }
-            Text(
-                text = stringResource(id = R.string.utxo_detail_spendable_toggle_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -1987,22 +2054,24 @@ private fun ErrorPlaceholder(
 }
 
 @Composable
-private fun rememberDetailHeaderTheme(): WalletColorTheme {
+private fun rememberHeaderTheme(walletColor: WalletColor?): WalletColorTheme {
     val colorScheme = MaterialTheme.colorScheme
     return remember(
+        walletColor,
         colorScheme.primary,
         colorScheme.primaryContainer,
         colorScheme.secondary,
         colorScheme.secondaryContainer
     ) {
-        WalletColorTheme(
-            gradient = listOf(
-                colorScheme.primary,
-                colorScheme.primaryContainer,
-                colorScheme.secondaryContainer
-            ),
-            accent = colorScheme.secondary
-        )
+        walletColor?.toTheme()
+            ?: WalletColorTheme(
+                gradient = listOf(
+                    colorScheme.primary,
+                    colorScheme.primaryContainer,
+                    colorScheme.secondaryContainer
+                ),
+                accent = colorScheme.secondary
+            )
     }
 }
 

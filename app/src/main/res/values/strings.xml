@@ -118,7 +118,7 @@
     <string name="wallet_detail_address_reuse_icon_description">Address reuse warning</string>
     <string name="wallet_detail_change_utxo_warning">Change output (internal use only)</string>
     <string name="wallet_detail_dust_utxo_warning">Dust output (&lt;= %1$s)</string>
-    <string name="wallet_detail_transaction_id_label">Tx ID</string>
+    <string name="wallet_detail_transaction_id_label">Txid</string>
     <string name="wallet_detail_address_unknown">Address unavailable</string>
     <string name="wallet_detail_no_label_placeholder">No label</string>
     <plurals name="wallet_detail_utxo_problem_count">
@@ -362,9 +362,45 @@
     <string name="transaction_detail_copy_block_hash">Copy block hash</string>
     <string name="transaction_detail_copy_raw_hex">Copy raw hex</string>
     <string name="transaction_detail_raw_hex">Raw transaction (hex)</string>
+    <string name="transaction_detail_open_visualizer">Open visualizer</string>
+    <string name="transaction_detail_visualizer_content_description">Open transaction visualizer</string>
     <string name="transaction_structure_legacy">Legacy</string>
     <string name="transaction_structure_segwit">SegWit</string>
     <string name="transaction_structure_taproot">Taproot</string>
+
+    <string name="transaction_visualizer_back">Back</string>
+    <string name="transaction_visualizer_summary_inputs">Inputs: %1$d</string>
+    <string name="transaction_visualizer_summary_outputs">Outputs: %1$d</string>
+    <string name="transaction_visualizer_summary_vbytes">%1$d vB</string>
+    <string name="transaction_visualizer_toggle_legend">Toggle legend</string>
+    <string name="transaction_visualizer_legend_title">Legend</string>
+    <string name="transaction_visualizer_legend_wallet_owned">Wallet-owned</string>
+    <string name="transaction_visualizer_legend_external">External</string>
+    <string name="transaction_visualizer_legend_change">Change</string>
+    <string name="transaction_visualizer_legend_fee">Fee</string>
+    <string name="transaction_visualizer_legend_group">Grouped</string>
+    <string name="transaction_visualizer_fee_chip">Fee: %1$s</string>
+    <string name="transaction_visualizer_detail_title">Selection</string>
+    <string name="transaction_visualizer_close_details">Close selection</string>
+    <string name="transaction_visualizer_value_label">Value: %1$s</string>
+    <string name="transaction_visualizer_address_label">Address: %1$s</string>
+    <string name="transaction_visualizer_derivation_label">Path: %1$s</string>
+    <string name="transaction_visualizer_wallet_owned">Wallet-owned</string>
+    <string name="transaction_visualizer_external_owned">External</string>
+    <string name="transaction_visualizer_group_child_count">%1$d grouped entries</string>
+    <string name="transaction_visualizer_warning_title">Visualizer limited</string>
+    <string name="transaction_visualizer_warning_message">This transaction is missing raw hex or I/O data (%1$s). Some diagram details may be unavailable.</string>
+    <string name="transaction_visualizer_warning_dismiss">Got it</string>
+    <string name="transaction_visualizer_not_found">Unable to load this transaction.</string>
+    <string name="transaction_visualizer_toggle_details">Toggle transaction details</string>
+    <string name="transaction_visualizer_details_title">Transaction details</string>
+    <string name="transaction_visualizer_close_panel">Close details</string>
+    <string name="transaction_visualizer_role_input">Input</string>
+    <string name="transaction_visualizer_role_output">Output</string>
+    <string name="transaction_visualizer_role_change">Change</string>
+    <string name="transaction_visualizer_role_fee">Fee</string>
+    <string name="transaction_visualizer_role_group">Group</string>
+    <string name="transaction_visualizer_role_transaction">Transaction hub</string>
 
     <string name="utxo_detail_title">UTXO details</string>
     <string name="utxo_detail_not_found">UTXO not found.</string>
@@ -378,7 +414,7 @@
     <string name="utxo_detail_deposit_info">Deposited on %1$s</string>
     <string name="utxo_detail_confirmations">Confirmations</string>
     <string name="utxo_detail_section_metadata">Metadata</string>
-    <string name="utxo_detail_txid">Transaction ID</string>
+    <string name="utxo_detail_txid">Txid</string>
     <string name="utxo_detail_copy_txid">Copy transaction ID</string>
     <string name="utxo_detail_vout">Output index</string>
     <string name="utxo_detail_label">Label</string>
@@ -396,8 +432,7 @@
     <string name="utxo_detail_label_success">Label saved</string>
     <string name="utxo_detail_label_error">Unable to update label</string>
     <string name="utxo_detail_label_inherited">Inherited from the transaction label</string>
-    <string name="utxo_detail_spendable_toggle_label">Spendable in this wallet</string>
-    <string name="utxo_detail_spendable_toggle_hint">Decide whether this coin should appear as spendable when exporting BIP-329 to your signing wallet.</string>
+    <string name="utxo_detail_spendable_toggle_label">Spendable</string>
     <string name="utxo_detail_spendable_success">Spendable flag updated</string>
     <string name="utxo_detail_spendable_error">Unable to update the spendable flag</string>
     <string name="utxo_detail_network">Network</string>

@@ -168,7 +168,7 @@
     <string name="wallet_detail_address_reuse_icon_description">Alerta de reutilización de dirección</string>
     <string name="wallet_detail_change_utxo_warning">Salida de cambio (sólo uso interno)</string>
     <string name="wallet_detail_dust_utxo_warning">Salida dust (&lt;= %1$s)</string>
-    <string name="wallet_detail_transaction_id_label">ID de transacción</string>
+    <string name="wallet_detail_transaction_id_label">Txid</string>
     <string name="wallet_detail_address_unknown">Dirección no disponible</string>
     <string name="wallet_detail_no_label_placeholder">Sin etiqueta</string>
 
@@ -253,6 +253,42 @@
     <string name="transaction_detail_copy_block_hash">Copiar hash del bloque</string>
     <string name="transaction_detail_copy_raw_hex">Copiar hex bruto</string>
     <string name="transaction_detail_raw_hex">Transacción cruda (hex)</string>
+    <string name="transaction_detail_open_visualizer">Abrir visualizador</string>
+    <string name="transaction_detail_visualizer_content_description">Abrir visualizador de transacciones</string>
+
+    <string name="transaction_visualizer_back">Atrás</string>
+    <string name="transaction_visualizer_summary_inputs">Entradas: %1$d</string>
+    <string name="transaction_visualizer_summary_outputs">Salidas: %1$d</string>
+    <string name="transaction_visualizer_summary_vbytes">%1$d vB</string>
+    <string name="transaction_visualizer_toggle_legend">Mostrar u ocultar la leyenda</string>
+    <string name="transaction_visualizer_legend_title">Leyenda</string>
+    <string name="transaction_visualizer_legend_wallet_owned">Propiedad de la billetera</string>
+    <string name="transaction_visualizer_legend_external">Externa</string>
+    <string name="transaction_visualizer_legend_change">Cambio</string>
+    <string name="transaction_visualizer_legend_fee">Tarifa</string>
+    <string name="transaction_visualizer_legend_group">Agrupado</string>
+    <string name="transaction_visualizer_fee_chip">Tarifa: %1$s</string>
+    <string name="transaction_visualizer_detail_title">Selección</string>
+    <string name="transaction_visualizer_close_details">Cerrar selección</string>
+    <string name="transaction_visualizer_value_label">Valor: %1$s</string>
+    <string name="transaction_visualizer_address_label">Dirección: %1$s</string>
+    <string name="transaction_visualizer_derivation_label">Ruta: %1$s</string>
+    <string name="transaction_visualizer_wallet_owned">Propiedad de la billetera</string>
+    <string name="transaction_visualizer_external_owned">Externa</string>
+    <string name="transaction_visualizer_group_child_count">%1$d elementos agrupados</string>
+    <string name="transaction_visualizer_warning_title">Datos insuficientes</string>
+    <string name="transaction_visualizer_warning_message">Faltan datos de hex o de entradas/salidas para esta transacción (%1$s). Puede que falten detalles en el diagrama.</string>
+    <string name="transaction_visualizer_warning_dismiss">Entendido</string>
+    <string name="transaction_visualizer_not_found">No se pudo cargar esta transacción.</string>
+    <string name="transaction_visualizer_toggle_details">Mostrar u ocultar detalles de la transacción</string>
+    <string name="transaction_visualizer_details_title">Detalles de la transacción</string>
+    <string name="transaction_visualizer_close_panel">Cerrar detalles</string>
+    <string name="transaction_visualizer_role_input">Entrada</string>
+    <string name="transaction_visualizer_role_output">Salida</string>
+    <string name="transaction_visualizer_role_change">Cambio</string>
+    <string name="transaction_visualizer_role_fee">Tarifa</string>
+    <string name="transaction_visualizer_role_group">Grupo</string>
+    <string name="transaction_visualizer_role_transaction">Transacción</string>
 
     <!-- UTXO detail (complementing existing) -->
     <string name="utxo_detail_title">Detalles del UTXO</string>
@@ -266,7 +302,7 @@
     <string name="utxo_detail_deposit_info">Depositado el %1$s</string>
     <string name="utxo_detail_confirmations">Confirmaciones</string>
     <string name="utxo_detail_section_metadata">Metadatos</string>
-    <string name="utxo_detail_txid">ID de transacción</string>
+    <string name="utxo_detail_txid">Txid</string>
     <string name="utxo_detail_copy_txid">Copiar ID de transacción</string>
     <string name="utxo_detail_vout">Índice de salida</string>
     <string name="utxo_detail_label">Etiqueta</string>
@@ -284,8 +320,7 @@
     <string name="utxo_detail_label_success">Etiqueta guardada</string>
     <string name="utxo_detail_label_error">No se pudo actualizar la etiqueta</string>
     <string name="utxo_detail_label_inherited">Heredada de la etiqueta de la transacción</string>
-    <string name="utxo_detail_spendable_toggle_label">Gastable desde esta wallet</string>
-    <string name="utxo_detail_spendable_toggle_hint">Define si esta moneda debe aparecer como gastable cuando exportes BIP-329 hacia tu billetera de gasto.</string>
+    <string name="utxo_detail_spendable_toggle_label">Gastable</string>
     <string name="utxo_detail_spendable_success">Estado de gasto actualizado</string>
     <string name="utxo_detail_spendable_error">No se pudo actualizar el estado de gasto</string>
     <string name="utxo_detail_network">Red</string>

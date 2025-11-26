@@ -97,6 +97,14 @@ class MainActivityViewModel @Inject constructor(
         networkStatusFlow = networkStatusMonitor.isOnline
     )
 
+    // Skips the next lock refresh when the activity is recreated without leaving the app
+    // (e.g., configuration changes like orientation).
+    private var skipNextLockRefresh = false
+    // Tracks whether the app actually went to background (no resumed activities).
+    private var wasBackgrounded = true
+    // When true, ignore the next background event (used for config changes).
+    private var ignoreNextBackgroundEvent = false
+
     init {
         viewModelScope.launch {
             pinEnabledState.collect { enabled ->
@@ -191,16 +199,31 @@ class MainActivityViewModel @Inject constructor(
         initialValue = AppEntryUiState()
     )
 
-    fun onAppForegrounded() {
-        refreshLockState()
+    fun onAppForegrounded(skipLockRefresh: Boolean = false) {
+        val shouldSkipRefresh = skipLockRefresh || skipNextLockRefresh || !wasBackgrounded
+        if (!shouldSkipRefresh) {
+            refreshLockState()
+        }
+        skipNextLockRefresh = false
+        wasBackgrounded = false
         walletRepository.setSyncForegroundState(true)
         viewModelScope.launch {
             resumeNodeIfNeeded()
         }
     }
 
-    fun onAppBackgrounded() {
+    fun onAppBackgrounded(fromConfigurationChange: Boolean = false) {
+        skipNextLockRefresh = fromConfigurationChange
+        ignoreNextBackgroundEvent = fromConfigurationChange
         walletRepository.setSyncForegroundState(false)
+    }
+
+    fun onAppSentToBackground() {
+        if (ignoreNextBackgroundEvent) {
+            ignoreNextBackgroundEvent = false
+            return
+        }
+        wasBackgrounded = true
     }
 
     fun unlockWithPin(pin: String, onResult: (PinVerificationResult) -> Unit) {

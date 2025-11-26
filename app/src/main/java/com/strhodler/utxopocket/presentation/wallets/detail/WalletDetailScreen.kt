@@ -39,6 +39,8 @@ import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.ShowChart
 import androidx.compose.material.icons.outlined.QrCode
@@ -887,18 +889,18 @@ private fun WalletDetailHeader(
             }
         }
         val shouldShowChart = showBalanceChart && hasChartData
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .animateContentSize(
-                    animationSpec = spring(
-                        dampingRatio = 0.9f,
-                        stiffness = 700f
-                    )
-                ),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (shouldShowChart) {
+        if (shouldShowChart) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateContentSize(
+                        animationSpec = spring(
+                            dampingRatio = 0.9f,
+                            stiffness = 700f
+                        )
+                    ),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 StepLineChart(
                     data = balancePoints,
                     modifier = Modifier.fillMaxWidth(),
@@ -2067,19 +2069,22 @@ private fun TransactionDetailedCard(
                 }
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalAlignment = Alignment.End
                 ) {
                     Text(
                         text = stringResource(id = R.string.transaction_detail_date),
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.End
                     )
                     Text(
                         text = dateText,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.End
                     )
                 }
             }
@@ -2114,6 +2119,12 @@ private fun UtxoDetailedCard(
         NumberFormat.getInstance().format(dustThresholdSats)
     }
     val utxoCardColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+    val spendableIcon = if (utxo.spendable) Icons.Outlined.LockOpen else Icons.Outlined.Lock
+    val spendableTint = if (utxo.spendable) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
@@ -2168,8 +2179,14 @@ private fun UtxoDetailedCard(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Icon(
+                    imageVector = spendableIcon,
+                    contentDescription = null,
+                    tint = spendableTint
+                )
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -2191,12 +2208,14 @@ private fun UtxoDetailedCard(
                 }
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalAlignment = Alignment.End
                 ) {
                     Text(
                         text = stringResource(id = R.string.utxo_detail_txid),
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.End
                     )
                     SelectionContainer {
                         Text(
@@ -2204,7 +2223,8 @@ private fun UtxoDetailedCard(
                             style = MaterialTheme.typography.bodySmall,
                             fontFamily = FontFamily.Monospace,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.End
                         )
                     }
                 }

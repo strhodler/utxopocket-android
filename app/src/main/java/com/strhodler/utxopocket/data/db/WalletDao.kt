@@ -49,6 +49,50 @@ interface WalletDao {
     @Query("UPDATE wallets SET color = :color WHERE id = :id")
     suspend fun updateColor(id: Long, color: String)
 
+    @Query(
+        """
+        UPDATE wallets
+        SET
+            balance_sats = :balanceSats,
+            tx_count = :txCount,
+            last_sync_status = :lastSyncStatus,
+            last_sync_error = :lastSyncError,
+            last_sync_time = :lastSyncTime,
+            requires_full_scan = :requiresFullScan,
+            full_scan_stop_gap = :fullScanStopGap,
+            last_full_scan_time = :lastFullScanTime
+        WHERE id = :id
+        """
+    )
+    suspend fun updateSyncResult(
+        id: Long,
+        balanceSats: Long,
+        txCount: Int,
+        lastSyncStatus: String,
+        lastSyncError: String?,
+        lastSyncTime: Long?,
+        requiresFullScan: Boolean,
+        fullScanStopGap: Int?,
+        lastFullScanTime: Long?
+    )
+
+    @Query(
+        """
+        UPDATE wallets
+        SET
+            last_sync_status = :lastSyncStatus,
+            last_sync_error = :lastSyncError,
+            last_sync_time = :lastSyncTime
+        WHERE id = :id
+        """
+    )
+    suspend fun updateSyncFailure(
+        id: Long,
+        lastSyncStatus: String,
+        lastSyncError: String?,
+        lastSyncTime: Long
+    )
+
     @Transaction
     @Query(
         """

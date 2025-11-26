@@ -14,8 +14,8 @@ android {
         applicationId = "com.strhodler.utxopocket"
         minSdk = 28
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.7.0"
+        versionCode = 9
+        versionName = "0.8.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -60,6 +60,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.reactivex.rxjava)
@@ -99,8 +100,10 @@ dependencies {
     }
     implementation(libs.slf4j.api)
     implementation(libs.slf4j.android)
+    implementation(libs.jbox2d.library)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.zxing.android.embedded)
+    implementation(libs.identikon)
     implementation("com.github.mhiew:android-pdf-viewer:3.2.0-beta.1") {
         exclude(group = "com.android.support")
     }

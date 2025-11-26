@@ -287,16 +287,16 @@ class AddWalletViewModel @Inject constructor(
                 is WalletCreationResult.Success -> {
                     _uiState.update { it.copy(isSaving = false) }
                     applicationScope.launch {
-                        val nodeSnapshot = walletRepository.observeNodeStatus().first()
-                        if (
-                            nodeSnapshot.status is NodeStatus.Synced &&
-                            nodeSnapshot.network == result.wallet.network
-                        ) {
-                            runCatching { walletRepository.refresh(result.wallet.network) }
+                            val nodeSnapshot = walletRepository.observeNodeStatus().first()
+                            if (
+                                nodeSnapshot.status is NodeStatus.Synced &&
+                                nodeSnapshot.network == result.wallet.network
+                            ) {
+                                runCatching { walletRepository.refreshWallet(result.wallet.id) }
+                            }
                         }
+                        _events.emit(AddWalletEvent.WalletCreated(result.wallet))
                     }
-                    _events.emit(AddWalletEvent.WalletCreated(result.wallet))
-                }
 
                 is WalletCreationResult.Failure -> {
                     _uiState.update { it.copy(isSaving = false, formError = result.reason) }

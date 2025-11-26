@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.ArrowDropUp
@@ -70,9 +72,9 @@ import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
 import com.strhodler.utxopocket.domain.model.DescriptorWarning
 import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
-import com.strhodler.utxopocket.presentation.common.PortraitCaptureActivity
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
+import com.strhodler.utxopocket.presentation.common.UrMultiPartScanActivity
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBanner
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBannerStyle
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
@@ -780,7 +782,7 @@ private fun defaultWalletScanOptions(): ScanOptions = ScanOptions().apply {
     setDesiredBarcodeFormats(ScanOptions.QR_CODE)
     setBeepEnabled(false)
     setBarcodeImageEnabled(false)
-    setCaptureActivity(PortraitCaptureActivity::class.java)
+    setCaptureActivity(UrMultiPartScanActivity::class.java)
     setOrientationLocked(true)
 }
 @Composable
