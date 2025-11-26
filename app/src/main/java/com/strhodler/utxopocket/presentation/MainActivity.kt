@@ -7,6 +7,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
+import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,25 +60,23 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
-import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.presentation.pin.PinLockoutMessageType
 import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
 import com.strhodler.utxopocket.presentation.pin.formatPinCountdownMessage
@@ -105,15 +107,23 @@ import kotlinx.coroutines.delay
 class MainActivity : AppCompatActivity() {
 
     private val viewModel: MainActivityViewModel by viewModels()
+    private val processLifecycleObserver = object : DefaultLifecycleObserver {
+        override fun onStop(owner: LifecycleOwner) {
+            viewModel.onAppSentToBackground()
+        }
+    }
+    private val obscureScreen = MutableStateFlow(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+        ProcessLifecycleOwner.get().lifecycle.addObserver(processLifecycleObserver)
 
         splashScreen.setKeepOnScreenCondition { !viewModel.uiState.value.isReady }
 
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            val obscure by obscureScreen.collectAsStateWithLifecycle()
             LaunchedEffect(uiState.appLanguage) {
                 val desiredLocales = LocaleListCompat.forLanguageTags(uiState.appLanguage.languageTag)
                 val currentLocales = AppCompatDelegate.getApplicationLocales()
@@ -198,137 +208,147 @@ class MainActivity : AppCompatActivity() {
                             LocalMainTopBarStateHolder provides topBarStateHolder,
                             LocalMainBottomBarVisibility provides bottomBarVisibilityController
                         ) {
+                            val obfuscationModifier = if (obscure) {
+                                Modifier
+                                    .fillMaxSize()
+                                    .blur(16.dp)
+                                    .graphicsLayer { alpha = 0.45f }
+                            } else {
+                                Modifier.fillMaxSize()
+                            }
                             Box(modifier = Modifier.fillMaxSize()) {
-                                Scaffold(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentWindowInsets = WindowInsets.safeDrawing,
-                                    topBar = {
-                                        when (val topBarState = topBarStateHolder.state) {
-                                            is MainTopBarState.Primary -> {
-                                                StatusBar(
-                                                    state = uiState.status,
-                                                    onNodeStatusClick = onNodeStatusClick,
-                                                    modifier = Modifier.windowInsetsPadding(
-                                                        WindowInsets.safeDrawing.only(
-                                                            WindowInsetsSides.Top
+                                Box(modifier = obfuscationModifier) {
+                                    Scaffold(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentWindowInsets = WindowInsets.safeDrawing,
+                                        topBar = {
+                                            when (val topBarState = topBarStateHolder.state) {
+                                                is MainTopBarState.Primary -> {
+                                                    StatusBar(
+                                                        state = uiState.status,
+                                                        onNodeStatusClick = onNodeStatusClick,
+                                                        modifier = Modifier.windowInsetsPadding(
+                                                            WindowInsets.safeDrawing.only(
+                                                                WindowInsetsSides.Top
+                                                            )
                                                         )
+                                                    )
+                                                }
+
+                                                is MainTopBarState.Secondary -> {
+                                                    SecondaryTopBar(
+                                                        title = topBarState.title,
+                                                        onBackClick = topBarState.onBackClick,
+                                                        actions = topBarState.actions,
+                                                        modifier = Modifier.windowInsetsPadding(
+                                                            WindowInsets.safeDrawing.only(
+                                                                WindowInsetsSides.Top
+                                                            )
+                                                        ),
+                                                        containerColor = topBarState.containerColor,
+                                                        contentColor = topBarState.contentColor,
+                                                        tonalElevation = topBarState.tonalElevation
+                                                    )
+                                                }
+
+                                                MainTopBarState.Hidden -> {}
+                                            }
+                                        },
+                                        bottomBar = {
+                                            if (shouldShowBottomBar) {
+                                                MainBottomBar(
+                                                    navController = navController,
+                                                    modifier = Modifier.windowInsetsPadding(
+                                                        WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)
                                                     )
                                                 )
                                             }
-
-                                            is MainTopBarState.Secondary -> {
-                                                SecondaryTopBar(
-                                                    title = topBarState.title,
-                                                    onBackClick = topBarState.onBackClick,
-                                                    actions = topBarState.actions,
-                                                    modifier = Modifier.windowInsetsPadding(
-                                                        WindowInsets.safeDrawing.only(
-                                                            WindowInsetsSides.Top
-                                                        )
-                                                    ),
-                                                    containerColor = topBarState.containerColor,
-                                                    contentColor = topBarState.contentColor,
-                                                    tonalElevation = topBarState.tonalElevation
-                                                )
+                                        }
+                                    ) { paddingValues ->
+                                        val layoutDirection = LocalLayoutDirection.current
+                                        val overlayContent =
+                                            when (val topBarState = topBarStateHolder.state) {
+                                                is MainTopBarState.Secondary -> topBarState.overlayContent
+                                                else -> false
                                             }
-
-                                            MainTopBarState.Hidden -> {}
+                                        val startPadding =
+                                            paddingValues.calculateStartPadding(layoutDirection)
+                                        val endPadding =
+                                            paddingValues.calculateEndPadding(layoutDirection)
+                                        val topPadding = if (overlayContent) {
+                                            0.dp
+                                        } else {
+                                            paddingValues.calculateTopPadding()
                                         }
-                                    },
-                                    bottomBar = {
-                                        if (shouldShowBottomBar) {
-                                            MainBottomBar(
-                                                navController = navController,
-                                                modifier = Modifier.windowInsetsPadding(
-                                                    WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)
-                                                )
-                                            )
-                                        }
+                                        val bottomPadding = paddingValues.calculateBottomPadding()
+                                        MainNavHost(
+                                            navController = navController,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(
+                                                    start = startPadding,
+                                                    top = topPadding,
+                                                    end = endPadding,
+                                                    bottom = bottomPadding
+                                                ),
+                                            statusBarState = uiState.status
+                                        )
                                     }
-                                ) { paddingValues ->
-                                    val layoutDirection = LocalLayoutDirection.current
-                                    val overlayContent =
-                                        when (val topBarState = topBarStateHolder.state) {
-                                            is MainTopBarState.Secondary -> topBarState.overlayContent
-                                            else -> false
-                                        }
-                                    val startPadding =
-                                        paddingValues.calculateStartPadding(layoutDirection)
-                                    val endPadding =
-                                        paddingValues.calculateEndPadding(layoutDirection)
-                                    val topPadding = if (overlayContent) {
-                                        0.dp
-                                    } else {
-                                        paddingValues.calculateTopPadding()
-                                    }
-                                    val bottomPadding = paddingValues.calculateBottomPadding()
-                                    MainNavHost(
-                                        navController = navController,
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(
-                                                start = startPadding,
-                                                top = topPadding,
-                                                end = endPadding,
-                                                bottom = bottomPadding
-                                            ),
-                                        statusBarState = uiState.status
-                                    )
-                                }
 
-                                if (uiState.appLocked) {
-                                    PinVerificationScreen(
-                                        title = stringResource(id = R.string.pin_unlock_title),
-                                        description = stringResource(id = R.string.pin_unlock_description),
-                                        errorMessage = pinErrorMessage,
-                                        allowDismiss = false,
-                                        onDismiss = {},
-                                        onPinVerified = { pin ->
-                                            val resources = resourcesState.value
-                                            viewModel.unlockWithPin(pin) { result ->
-                                                when (result) {
-                                                    PinVerificationResult.Success -> {
-                                                        pinErrorMessage = null
-                                                        pinLockoutExpiry = null
-                                                        pinLockoutType = null
-                                                    }
+                                    if (uiState.appLocked) {
+                                        PinVerificationScreen(
+                                            title = stringResource(id = R.string.pin_unlock_title),
+                                            description = stringResource(id = R.string.pin_unlock_description),
+                                            errorMessage = pinErrorMessage,
+                                            allowDismiss = false,
+                                            onDismiss = {},
+                                            onPinVerified = { pin ->
+                                                val resources = resourcesState.value
+                                                viewModel.unlockWithPin(pin) { result ->
+                                                    when (result) {
+                                                        PinVerificationResult.Success -> {
+                                                            pinErrorMessage = null
+                                                            pinLockoutExpiry = null
+                                                            pinLockoutType = null
+                                                        }
 
-                                                    PinVerificationResult.InvalidFormat,
-                                                    PinVerificationResult.NotConfigured -> {
-                                                        pinLockoutExpiry = null
-                                                        pinLockoutType = null
-                                                        pinErrorMessage = formatPinStaticError(resources, result)
-                                                    }
+                                                        PinVerificationResult.InvalidFormat,
+                                                        PinVerificationResult.NotConfigured -> {
+                                                            pinLockoutExpiry = null
+                                                            pinLockoutType = null
+                                                            pinErrorMessage = formatPinStaticError(resources, result)
+                                                        }
 
-                                                    is PinVerificationResult.Incorrect -> {
-                                                        val expiresAt =
-                                                            System.currentTimeMillis() + result.lockDurationMillis
-                                                        pinLockoutType = PinLockoutMessageType.Incorrect
-                                                        pinLockoutExpiry = expiresAt
-                                                        pinErrorMessage = formatPinCountdownMessage(
-                                                            resources,
-                                                            PinLockoutMessageType.Incorrect,
-                                                            result.lockDurationMillis
-                                                        )
-                                                    }
+                                                        is PinVerificationResult.Incorrect -> {
+                                                            val expiresAt =
+                                                                System.currentTimeMillis() + result.lockDurationMillis
+                                                            pinLockoutType = PinLockoutMessageType.Incorrect
+                                                            pinLockoutExpiry = expiresAt
+                                                            pinErrorMessage = formatPinCountdownMessage(
+                                                                resources,
+                                                                PinLockoutMessageType.Incorrect,
+                                                                result.lockDurationMillis
+                                                            )
+                                                        }
 
-                                                    is PinVerificationResult.Locked -> {
-                                                        val expiresAt =
-                                                            System.currentTimeMillis() + result.remainingMillis
-                                                        pinLockoutType = PinLockoutMessageType.Locked
-                                                        pinLockoutExpiry = expiresAt
-                                                        pinErrorMessage = formatPinCountdownMessage(
-                                                            resources,
-                                                            PinLockoutMessageType.Locked,
-                                                            result.remainingMillis
-                                                        )
+                                                        is PinVerificationResult.Locked -> {
+                                                            val expiresAt =
+                                                                System.currentTimeMillis() + result.remainingMillis
+                                                            pinLockoutType = PinLockoutMessageType.Locked
+                                                            pinLockoutExpiry = expiresAt
+                                                            pinErrorMessage = formatPinCountdownMessage(
+                                                                resources,
+                                                                PinLockoutMessageType.Locked,
+                                                                result.remainingMillis
+                                                            )
+                                                        }
                                                     }
                                                 }
-                                            }
-                                        },
-                                        hapticsEnabled = uiState.hapticsEnabled,
-                                        shuffleDigits = uiState.pinShuffleEnabled
-                                    )
+                                            },
+                                            hapticsEnabled = uiState.hapticsEnabled,
+                                            shuffleDigits = uiState.pinShuffleEnabled
+                                        )
+                                    }
                                 }
                             }
 
@@ -343,11 +363,29 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         viewModel.onAppForegrounded()
+        obscureScreen.value = false
     }
 
     override fun onStop() {
         viewModel.onAppBackgrounded(fromConfigurationChange = isChangingConfigurations)
         super.onStop()
+    }
+
+    override fun onPause() {
+        if (!isChangingConfigurations) {
+            obscureScreen.value = true
+        }
+        super.onPause()
+    }
+
+    override fun onResume() {
+        obscureScreen.value = false
+        super.onResume()
+    }
+
+    override fun onDestroy() {
+        ProcessLifecycleOwner.get().lifecycle.removeObserver(processLifecycleObserver)
+        super.onDestroy()
     }
 }
 
