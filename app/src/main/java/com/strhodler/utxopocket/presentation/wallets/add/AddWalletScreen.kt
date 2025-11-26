@@ -173,8 +173,6 @@ fun AddWalletScreen(
                 onCancel = onBack,
                 onSubmit = onSubmit,
                 modifier = Modifier
-                    .navigationBarsPadding()
-                    .imePadding()
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp)
             )

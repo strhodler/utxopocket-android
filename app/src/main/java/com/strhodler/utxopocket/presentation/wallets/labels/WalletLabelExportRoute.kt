@@ -175,9 +175,7 @@ fun WalletLabelExportRoute(
 
                     Row(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .imePadding(),
+                            .fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         TextButton(
