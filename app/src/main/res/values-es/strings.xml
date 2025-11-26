@@ -46,7 +46,9 @@
     <string name="wallets_state_idle">Inactivo</string>
     <string name="wallets_state_connecting">Conectando</string>
     <string name="wallets_state_waiting_for_tor">Esperando Tor</string>
+    <string name="wallets_state_waiting_for_node">Esperando nodo</string>
     <string name="wallets_state_syncing">Sincronizando…</string>
+    <string name="wallets_state_queued">En cola</string>
     <string name="wallets_state_synced">Sincronizado</string>
     <string name="wallets_state_error">Error</string>
     <string name="wallets_last_sync">Última sincronización: %1$s</string>
@@ -759,8 +761,8 @@
     <string name="wallet_detail_force_rescan_started">Reescaneo completo iniciado con gap %1$d.</string>
     <string name="wallet_detail_force_rescan_failed">No se pudo iniciar el reescaneo completo. Inténtalo de nuevo.</string>
     <string name="wallet_detail_pull_to_refresh_hint">Toca o desliza para actualizar</string>
-    <string name="wallet_detail_show_chart">Mostrar gráfico</string>
-    <string name="wallet_detail_hide_chart">Ocultar gráfico</string>
+    <string name="wallet_detail_show_chart">Ver gráfico de saldo</string>
+    <string name="wallet_detail_hide_chart">Ocultar gráfico de saldo</string>
     <string name="settings_pin_shuffle_title">Aleatorizar teclado PIN</string>
     <string name="settings_pin_shuffle_subtitle">Desordena los dígitos cada vez que se muestra el teclado PIN.</string>
     <string name="wallet_labels_export_title">Exportar etiquetas</string>

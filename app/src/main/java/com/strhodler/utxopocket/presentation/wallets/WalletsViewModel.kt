@@ -37,8 +37,6 @@ class WalletsViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val selectedNetwork = MutableStateFlow(BitcoinNetwork.DEFAULT)
-    private val hasWallets = MutableStateFlow(false)
-    private var lastObservedNodeStatus: NodeStatus? = null
 
     private val walletData = selectedNetwork.flatMapLatest { network ->
         walletRepository.observeWalletSummaries(network)
@@ -70,43 +68,10 @@ class WalletsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             walletData.collect { data ->
-                hasWallets.value = data.wallets.isNotEmpty()
+                // No-op collector to keep snapshot flow active on network changes.
             }
         }
-        viewModelScope.launch {
-            combine(
-                walletRepository.observeNodeStatus(),
-                walletRepository.observeSyncStatus(),
-                selectedNetwork,
-                hasWallets
-            ) { nodeSnapshot, syncSnapshot, network, hasWallets ->
-                AutoRefreshSignal(
-                    nodeSnapshot = nodeSnapshot,
-                    syncSnapshot = syncSnapshot,
-                    selectedNetwork = network,
-                    hasWallets = hasWallets
-                )
-            }.collect { signal ->
-                val previousStatus = lastObservedNodeStatus
-                val currentStatus = signal.nodeSnapshot.status
-                val matchesNetwork = signal.nodeSnapshot.network == signal.selectedNetwork
-                val syncBusy = (
-                    signal.syncSnapshot.isRefreshing &&
-                        signal.syncSnapshot.network == signal.selectedNetwork
-                    ) || signal.syncSnapshot.refreshingWalletIds.isNotEmpty()
-                if (
-                    previousStatus != null &&
-                    previousStatus !is NodeStatus.Synced &&
-                    currentStatus is NodeStatus.Synced &&
-                    matchesNetwork &&
-                    signal.hasWallets &&
-                    !syncBusy
-                ) {
-                    walletRepository.refresh(signal.selectedNetwork)
-                }
-                lastObservedNodeStatus = currentStatus
-            }
-        }
+        // Removed auto-refresh on node connect; syncing is now user-driven or targeted.
         refresh()
     }
 
@@ -187,7 +152,9 @@ class WalletsViewModel @Inject constructor(
             errorMessage = errorMessage,
             walletAnimationsEnabled = animationsEnabled,
             hasActiveNodeSelection = snapshot.nodeConfig.hasActiveSelection(data.network),
-            refreshingWalletIds = syncStatus.refreshingWalletIds
+            refreshingWalletIds = syncStatus.refreshingWalletIds,
+            activeWalletId = syncStatus.activeWalletId.takeIf { syncStatus.network == data.network },
+            queuedWalletIds = if (syncStatus.network == data.network) syncStatus.queuedWalletIds else emptyList()
         )
     }.stateIn(
         scope = viewModelScope,
@@ -233,12 +200,6 @@ class WalletsViewModel @Inject constructor(
         val hapticsEnabled: Boolean
     )
 
-    private data class AutoRefreshSignal(
-        val nodeSnapshot: NodeStatusSnapshot,
-        val syncSnapshot: SyncStatusSnapshot,
-        val selectedNetwork: BitcoinNetwork,
-        val hasWallets: Boolean
-    )
 }
 
 data class WalletsUiState(
@@ -257,5 +218,7 @@ data class WalletsUiState(
     val errorMessage: String? = null,
     val walletAnimationsEnabled: Boolean = true,
     val hasActiveNodeSelection: Boolean = false,
-    val refreshingWalletIds: Set<Long> = emptySet()
+    val refreshingWalletIds: Set<Long> = emptySet(),
+    val activeWalletId: Long? = null,
+    val queuedWalletIds: List<Long> = emptyList()
 )

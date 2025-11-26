@@ -335,10 +335,14 @@ class WalletDetailViewModel @Inject constructor(
         }
         return if (detail == null) {
             balanceHistoryReducer.clear()
-            WalletDetailUiState(
-                isLoading = false,
-                isRefreshing = baseSnapshot.syncStatus.isRefreshing ||
-                    baseSnapshot.syncStatus.refreshingWalletIds.isNotEmpty(),
+                WalletDetailUiState(
+                    isLoading = false,
+                    isRefreshing = baseSnapshot.nodeSnapshot.status is NodeStatus.Synced &&
+                        (
+                            baseSnapshot.syncStatus.isRefreshing ||
+                                baseSnapshot.syncStatus.refreshingWalletIds.isNotEmpty() ||
+                                baseSnapshot.syncStatus.activeWalletId != null
+                        ),
                 summary = null,
                 descriptor = null,
                 changeDescriptor = null,
@@ -375,13 +379,11 @@ class WalletDetailViewModel @Inject constructor(
         } else {
             val summary = detail.summary
             val snapshotMatchesNetwork = baseSnapshot.nodeSnapshot.network == summary.network
-            val refreshingIds = baseSnapshot.syncStatus.refreshingWalletIds
-            val isSyncing = refreshingIds.contains(summary.id) ||
-                (
-                    baseSnapshot.syncStatus.isRefreshing &&
-                        baseSnapshot.syncStatus.network == summary.network &&
-                        refreshingIds.isEmpty()
-                )
+            val syncSnapshot = baseSnapshot.syncStatus
+            val matchesSyncNetwork = syncSnapshot.network == summary.network
+            val isSyncing = matchesSyncNetwork &&
+                baseSnapshot.nodeSnapshot.status is NodeStatus.Synced &&
+                (syncSnapshot.activeWalletId == summary.id || syncSnapshot.refreshingWalletIds.contains(summary.id))
             val balanceHistoryPoints = baseSnapshot.balanceHistory
             val displayBalancePoints = balanceHistoryReducer.pointsForRange(
                 balanceHistoryPoints,

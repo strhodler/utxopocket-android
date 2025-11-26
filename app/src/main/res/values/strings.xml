@@ -218,8 +218,8 @@
     <string name="wallet_labels_import_history_empty">No imports yet.</string>
     <string name="wallet_labels_import_reset">Reset</string>
     <string name="wallet_detail_pull_to_refresh_hint">Tap or pull to refresh</string>
-    <string name="wallet_detail_show_chart">Show chart</string>
-    <string name="wallet_detail_hide_chart">Hide chart</string>
+    <string name="wallet_detail_show_chart">Show balance chart</string>
+    <string name="wallet_detail_hide_chart">Hide balance chart</string>
     <string name="settings_pin_shuffle_title">Randomize PIN keypad</string>
     <string name="settings_pin_shuffle_subtitle">Shuffle digit positions each time the PIN keypad is shown.</string>
     <string name="wallet_detail_full_rescan_title">Full rescan</string>
@@ -528,7 +528,9 @@
     <string name="wallets_state_idle">Idle</string>
     <string name="wallets_state_connecting">Connecting</string>
     <string name="wallets_state_waiting_for_tor">Waiting for Tor</string>
+    <string name="wallets_state_waiting_for_node">Waiting for node</string>
     <string name="wallets_state_syncing">Syncing…</string>
+    <string name="wallets_state_queued">Queued</string>
     <string name="wallets_state_synced">Synced</string>
     <string name="wallets_state_error">Error</string>
     <string name="wallets_last_sync">Last sync: %1$s</string>

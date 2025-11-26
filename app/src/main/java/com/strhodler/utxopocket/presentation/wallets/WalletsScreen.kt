@@ -309,8 +309,10 @@ private fun WalletsContent(
             showPendingSyncHint = showPendingSyncHint,
             showNodePrompt = showNodePrompt,
             walletAnimationsEnabled = state.walletAnimationsEnabled,
-            isRefreshing = state.isRefreshing,
             refreshingWalletIds = state.refreshingWalletIds,
+            activeWalletId = state.activeWalletId,
+            queuedWalletIds = state.queuedWalletIds,
+            nodeStatus = state.nodeStatus,
             modifier = Modifier.fillMaxSize(),
             additionalBottomPadding = if (bannerContent != null) AddWalletBottomSpacer else 0.dp,
             onCycleBalanceDisplay = onCycleBalanceDisplay
@@ -344,8 +346,10 @@ private fun WalletsList(
     showPendingSyncHint: Boolean,
     showNodePrompt: Boolean,
     walletAnimationsEnabled: Boolean,
-    isRefreshing: Boolean,
     refreshingWalletIds: Set<Long> = emptySet(),
+    activeWalletId: Long? = null,
+    queuedWalletIds: List<Long> = emptyList(),
+    nodeStatus: NodeStatus,
     additionalBottomPadding: Dp = 0.dp,
     modifier: Modifier = Modifier,
     onCycleBalanceDisplay: () -> Unit
@@ -396,7 +400,8 @@ private fun WalletsList(
                 )
             }
             items(wallets, key = { it.id }) { wallet ->
-                val walletRefreshing = refreshingWalletIds.contains(wallet.id)
+                val walletRefreshing = wallet.id == activeWalletId || refreshingWalletIds.contains(wallet.id)
+                val walletQueued = queuedWalletIds.contains(wallet.id)
                 WalletCard(
                     wallet = wallet,
                     balanceUnit = balanceUnit,
@@ -404,7 +409,9 @@ private fun WalletsList(
                     onClick = { onWalletSelected(wallet.id, wallet.name) },
                     modifier = Modifier.fillMaxWidth(),
                     animationsEnabled = walletAnimationsEnabled,
-                    isSyncing = walletRefreshing || (isRefreshing && refreshingWalletIds.isEmpty())
+                    isSyncing = walletRefreshing,
+                    isQueued = walletQueued,
+                    nodeStatus = nodeStatus
                 )
             }
             item(key = "wallets-add-descriptor") {
@@ -478,7 +485,9 @@ private fun WalletCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     animationsEnabled: Boolean,
-    isSyncing: Boolean
+    isSyncing: Boolean,
+    isQueued: Boolean,
+    nodeStatus: NodeStatus
 ) {
     val syncStatus = wallet.lastSyncStatus
     val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT) }
@@ -486,7 +495,10 @@ private fun WalletCard(
         wallet.lastSyncTime?.let { timestamp -> dateFormat.format(Date(timestamp)) }
     }
     val statusLabel = when {
-        isSyncing -> stringResource(id = R.string.wallets_state_syncing)
+        isSyncing && nodeStatus is NodeStatus.Synced -> stringResource(id = R.string.wallets_state_syncing)
+        isQueued -> stringResource(id = R.string.wallets_state_queued)
+        lastSyncText == null && nodeStatus is NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
+        lastSyncText == null && nodeStatus is NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_waiting_for_node)
         lastSyncText != null -> stringResource(id = R.string.wallets_last_sync, lastSyncText)
         else -> nodeStatusLabel(syncStatus, false)
     }
@@ -494,7 +506,11 @@ private fun WalletCard(
     val shimmerPhase = if (animationsEnabled) rememberWalletShimmerPhase() else 0f
     val contentColor = theme.onGradient
     val secondaryTextColor = contentColor.copy(alpha = 0.85f)
-    val statusColor = if (isSyncing) contentColor else secondaryTextColor
+    val statusColor = when {
+        isSyncing && nodeStatus is NodeStatus.Synced -> contentColor
+        isQueued -> contentColor.copy(alpha = 0.9f)
+        else -> secondaryTextColor
+    }
     Card(
         onClick = onClick,
         modifier = modifier,

@@ -881,7 +881,6 @@ private fun TransactionDetailContent(
                         input.prevVout
                     )
                     val secondary = input.valueSats?.let { balanceText(it, state.balanceUnit) }
-                        ?: stringResource(id = R.string.transaction_detail_unknown)
                     val tertiary = if (hasAddress) {
                         formatOutPoint(input.prevTxid, input.prevVout)
                     } else {
@@ -1575,7 +1574,7 @@ private fun TransactionHexBlock(
 
 private data class FlowDisplay(
     val primary: String,
-    val secondary: String,
+    val secondary: String? = null,
     val tertiary: String? = null,
     val badges: List<String> = emptyList(),
     val highlighted: Boolean = false
@@ -1629,11 +1628,13 @@ private fun TransactionFlowItem(display: FlowDisplay) {
                     }
                 }
             }
-            Text(
-                text = display.secondary,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium
-            )
+            display.secondary?.takeUnless { it.isBlank() }?.let { secondary ->
+                Text(
+                    text = secondary,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
+                )
+            }
             display.tertiary?.let { tertiary ->
                 Text(
                     text = tertiary,
