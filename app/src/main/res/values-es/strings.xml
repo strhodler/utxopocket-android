@@ -458,7 +458,7 @@
     <string name="tor_overview_start_error">No se pudo conectar con Tor. Inténtalo nuevamente.</string>
     <string name="tor_status_banner_ready_title">Tor listo</string>
     <string name="tor_status_banner_ready_supporting">Las sincronizaciones y llamadas Electrum usarán Tor automáticamente.</string>
-    <string name="tor_status_banner_connecting_title">Arrancando Tor (%1$d%%)…</string>
+    <string name="tor_status_banner_connecting_title">Arrancando Tor…</string>
     <string name="tor_status_banner_error_title">Error de Tor: %1$s</string>
     <string name="tor_status_banner_stopped_title">Tor está desconectado. Inícialo antes de conectarte a un nodo.</string>
     <string name="tor_status_banner_action">Abrir estado de Tor</string>

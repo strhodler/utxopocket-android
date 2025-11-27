@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.lazy.animateItemPlacement
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -246,10 +247,7 @@ private fun WalletsContent(
                 val scheme = MaterialTheme.colorScheme
                 when (torStatus) {
                     is TorStatus.Connecting -> ActionableStatusBanner(
-                        title = stringResource(
-                            id = R.string.tor_status_banner_connecting_title,
-                            torStatus.progress.coerceIn(0, 100)
-                        ),
+                        title = stringResource(id = R.string.tor_status_banner_connecting_title),
                         supporting = torStatus.message ?: stringResource(id = R.string.tor_status_banner_action),
                         icon = Icons.Outlined.Info,
                         containerColor = scheme.surfaceContainerHigh,
@@ -493,7 +491,18 @@ private fun WalletsList(
                     ),
                     label = "walletDragScale"
                 )
+                val placementModifier = if (walletAnimationsEnabled) {
+                    Modifier.animateItemPlacement(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
+                    )
+                } else {
+                    Modifier
+                }
                 val dragModifier = Modifier
+                    .then(placementModifier)
                     .graphicsLayer {
                         translationY = if (isDragging) dragOffset else 0f
                         scaleX = dragScale
@@ -576,6 +585,7 @@ private fun WalletsList(
                 if (draggingWalletId != null && currentTargetIndex == stagedWallets.indexOf(wallet)) {
                     Spacer(
                         modifier = Modifier
+                            .then(placementModifier)
                             .fillMaxWidth()
                             .height(10.dp)
                             .padding(vertical = 2.dp)
@@ -604,6 +614,12 @@ private fun WalletsList(
                 item(key = "wallets-drop-slot-end") {
                     Spacer(
                         modifier = Modifier
+                            .animateItemPlacement(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessLow
+                                )
+                            )
                             .fillMaxWidth()
                             .height(10.dp)
                             .padding(top = 6.dp)

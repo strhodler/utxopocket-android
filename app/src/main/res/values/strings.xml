@@ -492,7 +492,7 @@
     <string name="tor_overview_start_error">Could not connect to Tor. Try again shortly.</string>
     <string name="tor_status_banner_ready_title">Tor ready</string>
     <string name="tor_status_banner_ready_supporting">Syncs and Electrum calls route through Tor automatically.</string>
-    <string name="tor_status_banner_connecting_title">Bootstrapping Tor (%1$d%%)…</string>
+    <string name="tor_status_banner_connecting_title">Bootstrapping Tor…</string>
     <string name="tor_status_banner_error_title">Tor error: %1$s</string>
     <string name="tor_status_banner_stopped_title">Tor disconnected. Start Tor before connecting to nodes.</string>
     <string name="tor_status_banner_action">Open Tor status</string>
