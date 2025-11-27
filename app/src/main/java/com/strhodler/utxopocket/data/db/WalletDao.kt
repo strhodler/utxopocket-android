@@ -22,6 +22,9 @@ interface WalletDao {
     @Query("SELECT * FROM wallets WHERE id = :id")
     fun observeWalletById(id: Long): Flow<WalletEntity?>
 
+    @Query("SELECT * FROM wallets WHERE sync_applied = 0")
+    suspend fun getPendingSyncSessions(): List<WalletEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(wallet: WalletEntity)
 
@@ -98,6 +101,58 @@ interface WalletDao {
         lastSyncError: String?,
         lastSyncTime: Long
     )
+
+    @Query(
+        """
+        UPDATE wallets
+        SET
+            sync_session_id = :sessionId,
+            sync_tip_height = :tipHeight,
+            sync_tip_hash = :tipHash,
+            sync_applied = 0,
+            sync_started_at = :startedAt,
+            sync_completed_at = NULL
+        WHERE id = :id
+        """
+    )
+    suspend fun startSyncSession(
+        id: Long,
+        sessionId: String,
+        tipHeight: Long?,
+        tipHash: String?,
+        startedAt: Long
+    )
+
+    @Query(
+        """
+        UPDATE wallets
+        SET
+            sync_applied = 1,
+            sync_completed_at = :completedAt,
+            sync_session_id = NULL
+        WHERE id = :id
+        """
+    )
+    suspend fun markSyncSessionApplied(
+        id: Long,
+        completedAt: Long
+    )
+
+    @Query(
+        """
+        UPDATE wallets
+        SET
+            sync_session_id = NULL,
+            sync_tip_height = NULL,
+            sync_tip_hash = NULL,
+            sync_applied = 1,
+            sync_started_at = NULL,
+            sync_completed_at = NULL,
+            requires_full_scan = 1
+        WHERE id = :id
+        """
+    )
+    suspend fun resetSyncSessionAndForceFullScan(id: Long)
 
     @Query("UPDATE wallets SET sort_order = :sortOrder WHERE id = :id")
     suspend fun updateSortOrder(id: Long, sortOrder: Int)

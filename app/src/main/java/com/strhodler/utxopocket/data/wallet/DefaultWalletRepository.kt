@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.SystemClock
 import androidx.annotation.VisibleForTesting
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.BuildConfig
 import com.strhodler.utxopocket.data.bdk.BdkBlockchainFactory
 import com.strhodler.utxopocket.data.bdk.BdkManagedWallet
 import com.strhodler.utxopocket.data.bdk.BdkWalletFactory
@@ -111,6 +112,7 @@ import java.io.File
 import java.util.ArrayDeque
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.text.Charsets
+import java.util.UUID
 import org.bitcoindevkit.Address
 import org.bitcoindevkit.ChainPosition
 import org.bitcoindevkit.Descriptor
@@ -473,6 +475,9 @@ class DefaultWalletRepository @Inject constructor(
             processOrchestratorIntents()
         }
         repositoryScope.launch {
+            rehydratePendingSyncSessions()
+        }
+        repositoryScope.launch {
             networkStatusMonitor.isOnline.collect { online ->
                 orchestratorIntents.emit(NetworkIntent.UpdateOnline(online))
             }
@@ -483,6 +488,18 @@ class DefaultWalletRepository @Inject constructor(
                     minutes.coerceAtLeast(AppPreferencesRepository.MIN_CONNECTION_IDLE_MINUTES) *
                         MILLIS_PER_MINUTE
             }
+        }
+    }
+
+    private suspend fun rehydratePendingSyncSessions() = withContext(ioDispatcher) {
+        val pending = walletDao.getPendingSyncSessions()
+        if (pending.isEmpty()) return@withContext
+        SecureLog.w(TAG) { "Found ${pending.size} wallets with unapplied sync session; forcing full scan." }
+        pending.forEach { wallet ->
+            runCatching { walletDao.resetSyncSessionAndForceFullScan(wallet.id) }
+                .onFailure { error ->
+                    SecureLog.w(TAG, error) { "Failed to reset pending sync session for wallet ${wallet.id}" }
+                }
         }
     }
 
@@ -512,6 +529,41 @@ class DefaultWalletRepository @Inject constructor(
         val network: BitcoinNetwork,
         val endpoint: ElectrumEndpoint
     )
+
+    private data class WalletSyncMetrics(
+        val walletId: Long,
+        val network: BitcoinNetwork,
+        val endpoint: String?,
+        val durationMs: Long,
+        val deltaGraph: Boolean?,
+        val deltaChain: Boolean?,
+        val deltaIndexer: Boolean?,
+        val txBefore: Int?,
+        val txAfter: Int?,
+        val utxoBefore: Int?,
+        val utxoAfter: Int?,
+        val fullScan: Boolean?,
+        val incrementalBatchSize: Int?,
+        val fullScanBatchSize: Int?,
+        val result: String
+    )
+
+    private fun logSyncMetrics(metrics: WalletSyncMetrics) {
+        if (!BuildConfig.DEBUG) return
+        SecureLog.d(TAG) {
+            "SyncMetrics wallet=${metrics.walletId} network=${metrics.network} " +
+                "endpoint=${metrics.endpoint ?: "unknown"} result=${metrics.result} " +
+                "durationMs=${metrics.durationMs} " +
+                "deltaGraph=${metrics.deltaGraph ?: "-"} " +
+                "deltaChain=${metrics.deltaChain ?: "-"} " +
+                "deltaIndexer=${metrics.deltaIndexer ?: "-"} " +
+                "tx=${metrics.txBefore ?: "?"}->${metrics.txAfter ?: "?"} " +
+                "utxo=${metrics.utxoBefore ?: "?"}->${metrics.utxoAfter ?: "?"} " +
+                "fullScan=${metrics.fullScan} " +
+                "batchInc=${metrics.incrementalBatchSize} " +
+                "batchFull=${metrics.fullScanBatchSize}"
+        }
+    }
 
     private val walletCacheMutex = Mutex()
     private val walletCache = mutableMapOf<Long, CachedWallet>()
@@ -1160,6 +1212,28 @@ class DefaultWalletRepository @Inject constructor(
                             advanceSyncQueue(network, remainingQueue)
                             return@forEach
                         }
+                        val metricsEnabled = BuildConfig.DEBUG
+                        val walletSyncStart = if (metricsEnabled) SystemClock.elapsedRealtime() else 0L
+                        val endpointLabelForMetrics = lastEndpointMetadata?.endpoint?.displayName
+                            ?: endpoint
+                        var metrics: WalletSyncMetrics? = null
+                        var metricsError: Throwable? = null
+                        val sessionId = UUID.randomUUID().toString()
+                        var txBeforeForMetrics: Int? = null
+                        var txAfterForMetrics: Int? = null
+                        var utxoBeforeForMetrics: Int? = null
+                        var utxoAfterForMetrics: Int? = null
+                        runCatching {
+                            walletDao.startSyncSession(
+                                id = entity.id,
+                                sessionId = sessionId,
+                                tipHeight = blockHeight,
+                                tipHash = null,
+                                startedAt = System.currentTimeMillis()
+                            )
+                        }.onFailure { error ->
+                            SecureLog.w(TAG, error) { "Unable to record sync session start for wallet ${entity.id}" }
+                        }
                         val cancelledForDeletion = AtomicBoolean(false)
                         val syncResult = runCatching {
                             withWallet(entity, sealAfterUse = true) { wallet, persister, materializationSource ->
@@ -1175,6 +1249,7 @@ class DefaultWalletRepository @Inject constructor(
                                 val walletCancellationSignal = SyncCancellationSignal {
                                     cancellationSignal.shouldCancel() || cancelledForDeletion.get()
                                 }
+                                txBeforeForMetrics = entity.transactionCount
                                 try {
                                     blockchain.syncWallet(
                                         wallet = wallet,
@@ -1230,12 +1305,15 @@ class DefaultWalletRepository @Inject constructor(
                                                 spendable = projection.spendable
                                             )
                                         }
+                                    utxoBeforeForMetrics = existingUtxoMetadata.size
                                     val utxoEntities = captureUtxos(
                                         walletId = entity.id,
                                         wallet = wallet,
                                         currentHeight = blockHeight,
                                         existingMetadata = existingUtxoMetadata
                                     )
+                                    txAfterForMetrics = capturedTransactions.transactions.size
+                                    utxoAfterForMetrics = utxoEntities.size
                                     val hadPreviousData =
                                         entity.transactionCount > 0 || entity.balanceSats > 0
                                     val shrunkSnapshot =
@@ -1315,6 +1393,7 @@ class DefaultWalletRepository @Inject constructor(
                                     SecureLog.d(TAG) {
                                         "No data changes detected for wallet ${entity.id}, skipping DB refresh."
                                     }
+                                    txAfterForMetrics = entity.transactionCount
                                     val syncedEntity = entity.withSyncResult(
                                         balanceSats = balanceSats,
                                         txCount = entity.transactionCount,
@@ -1333,9 +1412,39 @@ class DefaultWalletRepository @Inject constructor(
                                         lastFullScanTime = syncedEntity.lastFullScanTime
                                     )
                                 }
+                                runCatching {
+                                    walletDao.markSyncSessionApplied(
+                                        id = entity.id,
+                                        completedAt = syncTimestamp
+                                    )
+                                }.onFailure { error ->
+                                    SecureLog.w(TAG, error) { "Unable to mark sync session applied for wallet ${entity.id}" }
+                                }
+                                if (metricsEnabled) {
+                                    metrics = WalletSyncMetrics(
+                                        walletId = entity.id,
+                                        network = network,
+                                        endpoint = endpointLabelForMetrics,
+                                        durationMs = SystemClock.elapsedRealtime() - walletSyncStart,
+                                        deltaGraph = delta.hasGraphChanges,
+                                        deltaChain = delta.hasChainChanges,
+                                        deltaIndexer = delta.hasIndexerChanges,
+                                        txBefore = txBeforeForMetrics,
+                                        txAfter = txAfterForMetrics,
+                                        utxoBefore = utxoBeforeForMetrics,
+                                        utxoAfter = utxoAfterForMetrics,
+                                        fullScan = shouldRunFullScan,
+                                        incrementalBatchSize = electrumEndpoint.sync.incrementalBatchSize,
+                                        fullScanBatchSize = electrumEndpoint.sync.fullScanBatchSize,
+                                        result = "success"
+                                    )
+                                }
                             }
                         }
                         syncResult.onFailure { error ->
+                            if (metricsEnabled) {
+                                metricsError = error
+                            }
                             if (cancelledForDeletion.get() || isWalletDeletionPending(entity.id)) {
                                 SecureLog.d(TAG) { "Wallet ${entity.id} sync aborted because it is being deleted." }
                                 return@forEach
@@ -1365,6 +1474,32 @@ class DefaultWalletRepository @Inject constructor(
                                 lastSyncTime = failure.lastSyncTime
                                     ?: System.currentTimeMillis()
                             )
+                            runCatching { walletDao.resetSyncSessionAndForceFullScan(entity.id) }
+                                .onFailure { resetError ->
+                                    SecureLog.w(TAG, resetError) {
+                                        "Unable to reset sync session after failure for wallet ${entity.id}"
+                                    }
+                                }
+                        }
+                        if (metricsEnabled) {
+                            val metric = metrics ?: WalletSyncMetrics(
+                                walletId = entity.id,
+                                network = network,
+                                endpoint = endpointLabelForMetrics,
+                                durationMs = SystemClock.elapsedRealtime() - walletSyncStart,
+                                deltaGraph = null,
+                                deltaChain = null,
+                                deltaIndexer = null,
+                                txBefore = txBeforeForMetrics,
+                                txAfter = txAfterForMetrics,
+                                utxoBefore = utxoBeforeForMetrics,
+                                utxoAfter = utxoAfterForMetrics,
+                                fullScan = null,
+                                incrementalBatchSize = electrumEndpoint.sync.incrementalBatchSize,
+                                fullScanBatchSize = electrumEndpoint.sync.fullScanBatchSize,
+                                result = metricsError?.let { "failure:${it.javaClass.simpleName}" } ?: "failure"
+                            )
+                            logSyncMetrics(metric)
                         }
                         remainingQueue = remainingQueue.drop(1)
                         if (manageSyncStatus) {

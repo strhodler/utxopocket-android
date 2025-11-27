@@ -25,7 +25,19 @@ object WalletMigrations {
         }
     }
 
+    val MIGRATION_17_18 = object : Migration(17, 18) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE wallets ADD COLUMN sync_session_id TEXT")
+            database.execSQL("ALTER TABLE wallets ADD COLUMN sync_tip_height INTEGER")
+            database.execSQL("ALTER TABLE wallets ADD COLUMN sync_tip_hash TEXT")
+            database.execSQL("ALTER TABLE wallets ADD COLUMN sync_applied INTEGER NOT NULL DEFAULT 1")
+            database.execSQL("ALTER TABLE wallets ADD COLUMN sync_started_at INTEGER")
+            database.execSQL("ALTER TABLE wallets ADD COLUMN sync_completed_at INTEGER")
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
-        MIGRATION_16_17
+        MIGRATION_16_17,
+        MIGRATION_17_18
     )
 }

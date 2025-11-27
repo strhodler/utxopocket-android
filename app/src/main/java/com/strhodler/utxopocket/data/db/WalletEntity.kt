@@ -38,7 +38,13 @@ data class WalletEntity(
     @ColumnInfo(name = "last_full_scan_time") val lastFullScanTime: Long? = null,
     @ColumnInfo(name = "view_only") val viewOnly: Boolean = false,
     @ColumnInfo(name = "color") val color: String = WalletColor.DEFAULT.storageKey,
-    @ColumnInfo(name = "sort_order") val sortOrder: Int = 0
+    @ColumnInfo(name = "sort_order") val sortOrder: Int = 0,
+    @ColumnInfo(name = "sync_session_id") val syncSessionId: String? = null,
+    @ColumnInfo(name = "sync_tip_height") val syncTipHeight: Long? = null,
+    @ColumnInfo(name = "sync_tip_hash") val syncTipHash: String? = null,
+    @ColumnInfo(name = "sync_applied") val syncApplied: Boolean = true,
+    @ColumnInfo(name = "sync_started_at") val syncStartedAt: Long? = null,
+    @ColumnInfo(name = "sync_completed_at") val syncCompletedAt: Long? = null
 )
 
 fun WalletEntity.toDomain(): WalletSummary =

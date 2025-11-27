@@ -5,7 +5,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.lazy.animateItemPlacement
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -491,16 +490,7 @@ private fun WalletsList(
                     ),
                     label = "walletDragScale"
                 )
-                val placementModifier = if (walletAnimationsEnabled) {
-                    Modifier.animateItemPlacement(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        )
-                    )
-                } else {
-                    Modifier
-                }
+                val placementModifier = Modifier
                 val dragModifier = Modifier
                     .then(placementModifier)
                     .graphicsLayer {
@@ -610,16 +600,10 @@ private fun WalletsList(
                     isDragging = isDragging
                 )
             }
-            if (draggingWalletId != null && currentTargetIndex == stagedWallets.size) {
-                item(key = "wallets-drop-slot-end") {
-                    Spacer(
-                        modifier = Modifier
-                            .animateItemPlacement(
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessLow
-                                )
-                            )
+                if (draggingWalletId != null && currentTargetIndex == stagedWallets.size) {
+                    item(key = "wallets-drop-slot-end") {
+                        Spacer(
+                            modifier = Modifier
                             .fillMaxWidth()
                             .height(10.dp)
                             .padding(top = 6.dp)
