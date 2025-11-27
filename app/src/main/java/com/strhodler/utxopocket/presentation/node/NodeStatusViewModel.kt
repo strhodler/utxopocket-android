@@ -23,11 +23,15 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import androidx.annotation.StringRes
 
 @HiltViewModel
 class NodeStatusViewModel @Inject constructor(
@@ -40,6 +44,13 @@ class NodeStatusViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(NodeStatusUiState())
     val uiState = _uiState.asStateFlow()
+    private val disconnectRequested = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val _events = MutableSharedFlow<NodeStatusEvent>(
+        replay = 0,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val events = _events
 
     init {
         viewModelScope.launch {
@@ -47,8 +58,9 @@ class NodeStatusViewModel @Inject constructor(
                 appPreferencesRepository.preferredNetwork,
                 nodeConfigurationRepository.nodeConfig,
                 walletRepository.observeNodeStatus(),
+                walletRepository.observeSyncStatus(),
                 networkErrorLogRepository.loggingEnabled
-            ) { network, config, nodeSnapshot, loggingEnabled ->
+            ) { network, config, nodeSnapshot, syncStatus, loggingEnabled ->
                 val publicNodes = nodeConfigurationRepository.publicNodesFor(network)
                 val selectedPublic = config.selectedPublicNodeId?.takeIf { id ->
                     publicNodes.any { it.id == id }
@@ -60,6 +72,10 @@ class NodeStatusViewModel @Inject constructor(
                 val snapshotMatchesNetwork = nodeSnapshot.network == network
                 val isConnected = nodeSnapshot.status is NodeStatus.Synced && snapshotMatchesNetwork
                 val isConnecting = nodeSnapshot.status is NodeStatus.Connecting && snapshotMatchesNetwork
+                val syncBusy = syncStatus.network == network &&
+                    (syncStatus.isRefreshing ||
+                        syncStatus.activeWalletId != null ||
+                        syncStatus.queuedWalletIds.isNotEmpty())
                 NodeConfigSnapshot(
                     networkLabel = network,
                     connectionOption = config.connectionOption,
@@ -69,7 +85,8 @@ class NodeStatusViewModel @Inject constructor(
                     selectedCustom = selectedCustom,
                     isConnected = isConnected,
                     isConnecting = isConnecting,
-                    networkLogsEnabled = loggingEnabled
+                    networkLogsEnabled = loggingEnabled,
+                    isSyncBusy = syncBusy
                 )
             }.collect { snapshot ->
                 _uiState.update { previous ->
@@ -82,7 +99,8 @@ class NodeStatusViewModel @Inject constructor(
                         selectedCustomNodeId = snapshot.selectedCustom,
                         isNodeConnected = snapshot.isConnected,
                         isNodeActivating = snapshot.isConnecting,
-                        networkLogsEnabled = snapshot.networkLogsEnabled
+                        networkLogsEnabled = snapshot.networkLogsEnabled,
+                        isSyncBusy = snapshot.isSyncBusy
                     )
                 }
             }
@@ -100,6 +118,14 @@ class NodeStatusViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
+            if (isSyncActive(_uiState.value.preferredNetwork)) {
+                _events.tryEmit(
+                    NodeStatusEvent.Info(
+                        message = R.string.node_interaction_blocked_sync
+                    )
+                )
+                return@launch
+            }
             appPreferencesRepository.setPreferredNetwork(network)
             nodeConfigurationRepository.updateNodeConfig { current ->
                 current.copy(
@@ -114,6 +140,14 @@ class NodeStatusViewModel @Inject constructor(
 
     fun disconnectNode() {
         viewModelScope.launch {
+            if (isSyncActive(_uiState.value.preferredNetwork)) {
+                _events.tryEmit(
+                    NodeStatusEvent.Info(
+                        message = R.string.node_interaction_blocked_sync
+                    )
+                )
+                return@launch
+            }
             nodeConfigurationRepository.updateNodeConfig { current ->
                 current.copy(
                     connectionOption = NodeConnectionOption.PUBLIC,
@@ -121,7 +155,8 @@ class NodeStatusViewModel @Inject constructor(
                     selectedCustomNodeId = null
                 )
             }
-            walletRepository.refresh(_uiState.value.preferredNetwork)
+            walletRepository.disconnect(_uiState.value.preferredNetwork)
+            disconnectRequested.emit(Unit)
         }
     }
 
@@ -158,6 +193,14 @@ class NodeStatusViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
+            if (isSyncActive(_uiState.value.preferredNetwork)) {
+                _events.tryEmit(
+                    NodeStatusEvent.Info(
+                        message = R.string.node_interaction_blocked_sync
+                    )
+                )
+                return@launch
+            }
             nodeConfigurationRepository.updateNodeConfig { current ->
                 current.copy(
                     connectionOption = NodeConnectionOption.PUBLIC,
@@ -181,6 +224,14 @@ class NodeStatusViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
+            if (isSyncActive(_uiState.value.preferredNetwork)) {
+                _events.tryEmit(
+                    NodeStatusEvent.Info(
+                        message = R.string.node_interaction_blocked_sync
+                    )
+                )
+                return@launch
+            }
             nodeConfigurationRepository.updateNodeConfig { current ->
                 current.copy(
                     connectionOption = NodeConnectionOption.CUSTOM,
@@ -193,6 +244,16 @@ class NodeStatusViewModel @Inject constructor(
 
     fun onSelectionNoticeConsumed() {
         _uiState.update { it.copy(selectionNotice = null) }
+    }
+
+    fun notifyInteractionBlocked() {
+        viewModelScope.launch {
+            _events.tryEmit(
+                NodeStatusEvent.Info(
+                    message = R.string.node_interaction_blocked_sync
+                )
+            )
+        }
     }
 
     fun onEditCustomNode(nodeId: String) {
@@ -512,6 +573,14 @@ class NodeStatusViewModel @Inject constructor(
         val hasChanges: Boolean
     )
 
+    private suspend fun isSyncActive(network: BitcoinNetwork): Boolean {
+        val syncStatus = walletRepository.observeSyncStatus().first()
+        return syncStatus.network == network &&
+            (syncStatus.isRefreshing ||
+                syncStatus.activeWalletId != null ||
+                syncStatus.queuedWalletIds.isNotEmpty())
+    }
+
     private fun NodeStatusUiState.buildCustomNodeCandidate(existingId: String?): Pair<String?, CustomNode?> {
         val input = newCustomOnion.trim()
         if (input.isEmpty()) {
@@ -608,15 +677,20 @@ class NodeStatusViewModel @Inject constructor(
             name == other.name &&
             network == other.network
 
-    private data class NodeConfigSnapshot(
-        val networkLabel: BitcoinNetwork,
-        val connectionOption: NodeConnectionOption,
-        val publicNodes: List<PublicNode>,
-        val customNodes: List<CustomNode>,
-        val selectedPublic: String?,
-        val selectedCustom: String?,
-        val isConnected: Boolean,
-        val isConnecting: Boolean,
-        val networkLogsEnabled: Boolean
-    )
+private data class NodeConfigSnapshot(
+    val networkLabel: BitcoinNetwork,
+    val connectionOption: NodeConnectionOption,
+    val publicNodes: List<PublicNode>,
+    val customNodes: List<CustomNode>,
+    val selectedPublic: String?,
+    val selectedCustom: String?,
+    val isConnected: Boolean,
+    val isConnecting: Boolean,
+    val networkLogsEnabled: Boolean,
+    val isSyncBusy: Boolean
+)
+
+sealed class NodeStatusEvent {
+    data class Info(@StringRes val message: Int) : NodeStatusEvent()
+}
 }

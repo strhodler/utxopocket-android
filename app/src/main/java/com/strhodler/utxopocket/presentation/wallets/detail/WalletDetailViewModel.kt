@@ -494,6 +494,10 @@ class WalletDetailViewModel @Inject constructor(
     fun refresh() {
         val summary = uiState.value.summary ?: return
         viewModelScope.launch {
+            val hasNode = walletRepository.hasActiveNodeSelection(summary.network)
+            if (!hasNode) {
+                return@launch
+            }
             walletRepository.refreshWallet(summary.id)
             _events.emit(WalletDetailEvent.RefreshQueued)
         }

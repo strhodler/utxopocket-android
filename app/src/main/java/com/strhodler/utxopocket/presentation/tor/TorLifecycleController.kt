@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.presentation.tor
 
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.NodeConfig
+import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
 import com.strhodler.utxopocket.domain.model.requiresTor
@@ -22,7 +23,8 @@ class TorLifecycleController @Inject constructor(
     private val refreshWallets: suspend (BitcoinNetwork) -> Unit,
     private val nodeConfigFlow: Flow<NodeConfig>,
     private val networkFlow: Flow<BitcoinNetwork>,
-    private val networkStatusFlow: Flow<Boolean>
+    private val networkStatusFlow: Flow<Boolean>,
+    private val syncStatusFlow: Flow<SyncStatusSnapshot>
 ) {
 
     private var lastTorWasRunning = false
@@ -38,13 +40,15 @@ class TorLifecycleController @Inject constructor(
                 torManager.status,
                 nodeConfigFlow,
                 networkFlow,
-                networkStatusFlow
-            ) { status, config, network, online ->
+                networkStatusFlow,
+                syncStatusFlow
+            ) { status, config, network, online, syncStatus ->
                 TorLifecycleSnapshot(
                     status = status,
                     config = config,
                     network = network,
-                    networkOnline = online
+                    networkOnline = online,
+                    syncStatus = syncStatus
                 )
             }.collect { snapshot ->
                 handleSnapshot(snapshot)
@@ -58,6 +62,8 @@ class TorLifecycleController @Inject constructor(
         val torRunning = torStatus is TorStatus.Running
         val torConnecting = torStatus is TorStatus.Connecting
         val torActive = torRunning || torConnecting
+        val hasActiveSync = snapshot.syncStatus.isRefreshing ||
+            snapshot.syncStatus.activeWalletId != null
 
         if (!snapshot.networkOnline) {
             cancelPendingTorStart()
@@ -78,7 +84,11 @@ class TorLifecycleController @Inject constructor(
         }
 
         if (!requiresTor && torActive) {
-            scheduleTorStop()
+            if (hasActiveSync) {
+                cancelPendingTorStop()
+            } else {
+                scheduleTorStop()
+            }
         } else {
             cancelPendingTorStop()
         }
@@ -166,7 +176,8 @@ class TorLifecycleController @Inject constructor(
         val status: TorStatus,
         val config: NodeConfig,
         val network: BitcoinNetwork,
-        val networkOnline: Boolean
+        val networkOnline: Boolean,
+        val syncStatus: SyncStatusSnapshot
     )
 
     private companion object {

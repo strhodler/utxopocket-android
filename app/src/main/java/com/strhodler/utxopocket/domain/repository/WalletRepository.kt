@@ -39,6 +39,8 @@ interface WalletRepository {
     fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>>
     suspend fun refresh(network: BitcoinNetwork)
     suspend fun refreshWallet(walletId: Long)
+    suspend fun disconnect(network: BitcoinNetwork)
+    suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean
     suspend fun validateDescriptor(
         descriptor: String,
         changeDescriptor: String?,

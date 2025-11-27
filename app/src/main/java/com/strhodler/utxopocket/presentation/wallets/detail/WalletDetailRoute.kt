@@ -145,10 +145,7 @@ fun WalletDetailRoute(
         viewModel.events.collectLatest { event ->
             when (event) {
                 WalletDetailEvent.RefreshQueued -> {
-                    showSnackbar(
-                        message = context.getString(R.string.wallet_detail_refresh_enqueued),
-                        duration = SnackbarDuration.Short
-                    )
+                    showSnackbar(context.getString(R.string.wallet_detail_refresh_enqueued), SnackbarDuration.Short)
                 }
             }
         }

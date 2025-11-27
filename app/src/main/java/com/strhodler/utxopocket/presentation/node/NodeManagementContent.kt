@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -24,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,8 +33,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -55,6 +59,8 @@ fun NodeManagementContent(
     isNetworkOnline: Boolean,
     state: NodeStatusUiState,
     modifier: Modifier = Modifier,
+    interactionsLocked: Boolean,
+    onInteractionBlocked: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
@@ -76,6 +82,8 @@ fun NodeManagementContent(
             isNodeConnected = state.isNodeConnected,
             isNodeActivating = state.isNodeActivating,
             isNetworkOnline = isNetworkOnline,
+            interactionsLocked = interactionsLocked,
+            onInteractionBlocked = onInteractionBlocked,
             onNetworkSelected = onNetworkSelected,
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
@@ -98,6 +106,8 @@ fun NodeConfigurationContent(
     isNodeConnected: Boolean,
     isNodeActivating: Boolean,
     isNetworkOnline: Boolean,
+    interactionsLocked: Boolean,
+    onInteractionBlocked: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
@@ -112,7 +122,16 @@ fun NodeConfigurationContent(
     ) {
         NodeNetworkSelector(
             selectedNetwork = network,
-            onNetworkSelected = onNetworkSelected
+            enabled = isNetworkOnline,
+            interactionsLocked = interactionsLocked,
+            onNetworkSelected = { selected ->
+                if (interactionsLocked) {
+                    onInteractionBlocked()
+                } else {
+                    onNetworkSelected(selected)
+                }
+            },
+            onInteractionBlocked = onInteractionBlocked
         )
 
         AvailableNodesSection(
@@ -124,6 +143,8 @@ fun NodeConfigurationContent(
             isNodeConnected = isNodeConnected,
             isNodeActivating = isNodeActivating,
             isNetworkOnline = isNetworkOnline,
+            interactionsLocked = interactionsLocked,
+            onInteractionBlocked = onInteractionBlocked,
             network = network,
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
@@ -138,7 +159,10 @@ fun NodeConfigurationContent(
 @Composable
 private fun NodeNetworkSelector(
     selectedNetwork: BitcoinNetwork,
-    onNetworkSelected: (BitcoinNetwork) -> Unit
+    enabled: Boolean,
+    interactionsLocked: Boolean,
+    onNetworkSelected: (BitcoinNetwork) -> Unit,
+    onInteractionBlocked: () -> Unit
 ) {
     val options = remember { BitcoinNetwork.entries }
     var expanded by remember { mutableStateOf(false) }
@@ -147,22 +171,36 @@ private fun NodeNetworkSelector(
     val focusManager = LocalFocusManager.current
     val trailingIcon = if (expanded) Icons.Outlined.ArrowDropUp else Icons.Outlined.ArrowDropDown
 
+    val boxModifier = Modifier
+        .alpha(if (!enabled || interactionsLocked) 0.5f else 1f)
+        .clickable {
+            if (!enabled || interactionsLocked) {
+                onInteractionBlocked()
+            }
+        }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = stringResource(id = R.string.network_select_title),
             style = MaterialTheme.typography.titleMedium
         )
-        Box {
+        Box(modifier = boxModifier) {
             OutlinedTextField(
                 value = networkLabel(selectedNetwork),
                 onValueChange = {},
                 readOnly = true,
+                enabled = enabled,
                 modifier = Modifier
                     .fillMaxWidth()
                     .onGloballyPositioned { coordinates ->
                         fieldWidth = with(density) { coordinates.size.width.toDp() }
                     }
-                    .onFocusChanged { state -> expanded = state.isFocused },
+                    .onFocusChanged { state ->
+                        expanded = state.isFocused && enabled && !interactionsLocked
+                        if (state.isFocused && (!enabled || interactionsLocked)) {
+                            onInteractionBlocked()
+                            focusManager.clearFocus(force = true)
+                        }
+                    },
                 trailingIcon = {
                     Icon(
                         imageVector = trailingIcon,
@@ -209,6 +247,8 @@ private fun AvailableNodesSection(
     isNodeConnected: Boolean,
     isNodeActivating: Boolean,
     isNetworkOnline: Boolean,
+    interactionsLocked: Boolean,
+    onInteractionBlocked: () -> Unit,
     network: BitcoinNetwork,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
@@ -292,6 +332,8 @@ private fun AvailableNodesSection(
                         onDetailsClick = item.onDetailsClick,
                         onDeactivate = item.onDeactivate,
                         isNetworkOnline = isNetworkOnline,
+                        interactionsLocked = interactionsLocked,
+                        onInteractionBlocked = onInteractionBlocked,
                         showDivider = index < nodes.lastIndex
                     )
                 }
@@ -299,7 +341,13 @@ private fun AvailableNodesSection(
         }
 
         TextButton(
-            onClick = onAddCustomNodeClick,
+            onClick = {
+                if (interactionsLocked) {
+                    onInteractionBlocked()
+                } else {
+                    onAddCustomNodeClick()
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = AddCustomNodeButtonMinHeight),
@@ -338,7 +386,9 @@ private fun NodeListItem(
     onDeactivate: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     showDivider: Boolean = false,
-    isNetworkOnline: Boolean = true
+    isNetworkOnline: Boolean = true,
+    interactionsLocked: Boolean = false,
+    onInteractionBlocked: () -> Unit = {}
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         val supportingContent: (@Composable (() -> Unit))? =
@@ -381,23 +431,43 @@ private fun NodeListItem(
             },
             supportingContent = supportingContent,
             trailingContent = {
+                val switchColors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
                 Switch(
                     checked = connected,
                     enabled = isNetworkOnline,
+                    interactionSource = remember { MutableInteractionSource() },
                     onCheckedChange = { checked ->
+                        if (interactionsLocked) {
+                            onInteractionBlocked()
+                            return@Switch
+                        }
                         when {
                             checked && !connected -> onActivate()
                             !checked && connected -> onDeactivate?.invoke()
                         }
-                    }
+                    },
+                    colors = switchColors
                 )
             },
             modifier = Modifier
                 .fillMaxWidth()
                 .selectable(
                     selected = selected,
-                    onClick = onDetailsClick,
-                    role = Role.Button
+                    onClick = {
+                        if (interactionsLocked) {
+                            onInteractionBlocked()
+                        } else {
+                            onDetailsClick()
+                        }
+                    },
+                    role = Role.Button,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
                 ),
             colors = ListItemDefaults.colors(
                 containerColor = if (selected) {
@@ -406,6 +476,7 @@ private fun NodeListItem(
                     Color.Transparent
                 }
             )
+        , tonalElevation = 0.dp
         )
         if (showDivider) {
             Divider(

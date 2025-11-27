@@ -94,7 +94,8 @@ class MainActivityViewModel @Inject constructor(
         refreshWallets = { network -> walletRepository.refresh(network) },
         nodeConfigFlow = nodeConfigurationRepository.nodeConfig,
         networkFlow = appPreferencesRepository.preferredNetwork,
-        networkStatusFlow = networkStatusMonitor.isOnline
+        networkStatusFlow = networkStatusMonitor.isOnline,
+        syncStatusFlow = walletRepository.observeSyncStatus()
     )
 
     // Skips the next lock refresh when the activity is recreated without leaving the app

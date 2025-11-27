@@ -858,6 +858,7 @@
     <string name="node_section_available_title">Available nodes</string>
     <string name="node_section_available_description">Switch between preset and custom nodes for this network.</string>
     <string name="node_section_available_empty">Add your first node to get started.</string>
+    <string name="node_interaction_blocked_sync">Finish the current wallet sync before changing node settings.</string>
     <string name="node_item_type_public">Public node</string>
     <string name="node_item_type_custom">Custom node</string>
     <string name="node_item_type_no_tor">No Tor</string>

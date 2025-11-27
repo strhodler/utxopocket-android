@@ -22,10 +22,12 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.collectLatest
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.tor.TorStatusViewModel
+import com.strhodler.utxopocket.presentation.node.NodeStatusViewModel.NodeStatusEvent
 
 @Composable
 fun NodeStatusRoute(
@@ -68,6 +70,16 @@ fun NodeStatusRoute(
         val messageRes = state.customNodeSuccessMessage ?: return@LaunchedEffect
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         snackbarHostState.showSnackbar(context.getString(messageRes))
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collectLatest { event ->
+            if (event is NodeStatusEvent.Info) {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                val text = context.getString(event.message)
+                snackbarHostState.showSnackbar(text, duration = SnackbarDuration.Short)
+            }
+        }
     }
 
     val editorVisible = state.isCustomNodeEditorVisible
@@ -204,6 +216,8 @@ fun NodeStatusRoute(
             state = state,
             snackbarHostState = snackbarHostState,
             torActionsState = torActionsState,
+            interactionsLocked = state.isSyncBusy,
+            onInteractionBlocked = viewModel::notifyInteractionBlocked,
             onOpenNetworkLogs = onOpenNetworkLogs,
             onNetworkSelected = viewModel::onNetworkSelected,
             onPublicNodeSelected = viewModel::onPublicNodeSelected,
