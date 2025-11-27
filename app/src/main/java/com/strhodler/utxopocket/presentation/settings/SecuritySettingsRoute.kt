@@ -14,15 +14,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
@@ -30,6 +37,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -68,6 +76,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SecuritySettingsRoute(
     viewModel: SettingsViewModel,
@@ -92,6 +101,8 @@ fun SecuritySettingsRoute(
     var showPanicFinalConfirmation by rememberSaveable { mutableStateOf(false) }
     var isPanicInProgress by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    var showNetworkLogsInfoSheet by rememberSaveable { mutableStateOf(false) }
+    val networkLogsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LaunchedEffect(pinDisableLockoutExpiry, pinDisableLockoutType) {
         val expiry = pinDisableLockoutExpiry
@@ -166,6 +177,7 @@ fun SecuritySettingsRoute(
                 onPinAutoLockTimeoutSelected = viewModel::onPinAutoLockTimeoutSelected,
                 onConnectionIdleTimeoutSelected = viewModel::onConnectionIdleTimeoutSelected,
                 onNetworkLogsToggle = viewModel::onNetworkLogsToggled,
+                onNetworkLogsInfoClick = { showNetworkLogsInfoSheet = true },
                 onOpenNetworkLogs = onOpenNetworkLogs,
                 onTriggerPanicWipe = { showPanicFirstConfirmation = true },
                 panicEnabled = !isPanicInProgress,
@@ -343,6 +355,37 @@ fun SecuritySettingsRoute(
                 )
             }
 
+            if (showNetworkLogsInfoSheet) {
+                ModalBottomSheet(
+                    onDismissRequest = { showNetworkLogsInfoSheet = false },
+                    sheetState = networkLogsSheetState,
+                    dragHandle = { BottomSheetDefaults.DragHandle() }
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 24.dp, vertical = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.settings_network_logs_sheet_title),
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Text(
+                            text = stringResource(id = R.string.settings_network_logs_sheet_body),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = stringResource(id = R.string.settings_network_logs_sheet_guardrails),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
         }
     }
 }
@@ -355,6 +398,7 @@ private fun SecuritySettingsScreen(
     onPinAutoLockTimeoutSelected: (Int) -> Unit,
     onConnectionIdleTimeoutSelected: (Int) -> Unit,
     onNetworkLogsToggle: (Boolean) -> Unit,
+    onNetworkLogsInfoClick: () -> Unit,
     onOpenNetworkLogs: () -> Unit,
     onTriggerPanicWipe: () -> Unit,
     panicEnabled: Boolean,
@@ -493,6 +537,46 @@ private fun SecuritySettingsScreen(
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ListItem(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onNetworkLogsInfoClick),
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.settings_network_logs_title),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        text = stringResource(id = R.string.settings_network_logs_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                trailingContent = {
+                    Switch(
+                        checked = state.networkLogsEnabled,
+                        onCheckedChange = onNetworkLogsToggle
+                    )
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+            if (state.networkLogsEnabled) {
+                Text(
+                    text = stringResource(id = R.string.settings_network_logs_sanitized_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(
+                    onClick = onOpenNetworkLogs,
+                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)
+                ) {
+                    Text(text = stringResource(id = R.string.settings_network_logs_open_viewer))
+                }
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = stringResource(id = R.string.settings_connection_timeout_title),
                 style = MaterialTheme.typography.titleSmall
@@ -526,69 +610,37 @@ private fun SecuritySettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = stringResource(id = R.string.settings_network_logs_title),
-                style = MaterialTheme.typography.titleSmall
-            )
-            Text(
-                text = stringResource(id = R.string.settings_network_logs_description),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        ListItem(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = panicEnabled, onClick = onTriggerPanicWipe),
+            headlineContent = {
                 Text(
-                    text = if (state.networkLogsEnabled) {
-                        stringResource(id = R.string.settings_network_logs_enabled_label)
-                    } else {
-                        stringResource(id = R.string.settings_network_logs_disabled_label)
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
+                    text = stringResource(id = R.string.settings_panic_list_title),
+                    style = MaterialTheme.typography.bodyLarge
                 )
-                Switch(
-                    checked = state.networkLogsEnabled,
-                    onCheckedChange = onNetworkLogsToggle
-                )
-            }
-            if (state.networkLogsEnabled) {
+            },
+            supportingContent = {
                 Text(
-                    text = stringResource(id = R.string.settings_network_logs_sanitized_hint),
+                    text = stringResource(id = R.string.settings_panic_description),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                TextButton(
-                    onClick = onOpenNetworkLogs,
-                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)
+            },
+            trailingContent = {
+                IconButton(
+                    onClick = onTriggerPanicWipe,
+                    enabled = panicEnabled
                 ) {
-                    Text(text = stringResource(id = R.string.settings_network_logs_open_viewer))
+                    Icon(
+                        imageVector = Icons.Outlined.DeleteForever,
+                        contentDescription = stringResource(id = R.string.settings_panic_action),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
                 }
-            }
-        }
-        Text(
-            text = stringResource(id = R.string.settings_danger_zone_title),
-            style = MaterialTheme.typography.titleSmall
+            },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
         )
-        Text(
-            text = stringResource(id = R.string.settings_panic_description),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Button(
-            onClick = onTriggerPanicWipe,
-            enabled = panicEnabled,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.error,
-                contentColor = MaterialTheme.colorScheme.onError
-            )
-        ) {
-            Text(text = stringResource(id = R.string.settings_panic_action))
-        }
     }
 }
 

@@ -634,9 +634,7 @@
     <string name="settings_pin_timeout_immediately_label">Immediately (leave app)</string>
     <string name="settings_pin_timeout_minutes_label">%d min</string>
     <string name="settings_network_logs_title">Network error log</string>
-    <string name="settings_network_logs_description">Keep a local encrypted record of network/Tor errors to debug connectivity without exposing wallet details.</string>
-    <string name="settings_network_logs_enabled_label">Logging enabled (local only)</string>
-    <string name="settings_network_logs_disabled_label">Logging disabled</string>
+    <string name="settings_network_logs_description">Encrypted on-device log for network/Tor errors.</string>
     <string name="settings_network_logs_sanitized_hint">Entries are already sanitized: hosts are masked/hashed and no wallet data is stored.</string>
     <string name="settings_network_logs_open_viewer">Open log viewer</string>
     <string name="settings_network_logs_header">Visible entries are already sanitized (masked hosts, no wallet data) and stored encrypted on this device.</string>
@@ -664,6 +662,7 @@
     <string name="wallet_detail_error_banner_title">Error</string>
     <string name="settings_network_logs_waiting">Waiting for logs…</string>
     <string name="settings_danger_zone_title">Danger zone</string>
+    <string name="settings_panic_list_title">Wipe app</string>
     <string name="settings_panic_description">Erase every wallet, transaction, UTXO, and health record stored on this device.</string>
     <string name="settings_panic_action">Erase all wallet data</string>
     <string name="settings_panic_confirm_title">Erase all wallet data?</string>

@@ -77,6 +77,7 @@ data class NodeStatusSnapshot(
 data class WalletSummary(
     val id: Long,
     val name: String,
+    val sortOrder: Int = 0,
     val balanceSats: Long,
     val transactionCount: Int,
     val network: BitcoinNetwork,

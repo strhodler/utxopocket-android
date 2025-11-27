@@ -13,10 +13,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface WalletDao {
 
-    @Query("SELECT * FROM wallets WHERE network = :network ORDER BY name")
+    @Query("SELECT * FROM wallets WHERE network = :network ORDER BY sort_order, name, id")
     fun observeWallets(network: String): Flow<List<WalletEntity>>
 
-    @Query("SELECT * FROM wallets WHERE network = :network ORDER BY name")
+    @Query("SELECT * FROM wallets WHERE network = :network ORDER BY sort_order, name, id")
     suspend fun getWalletsSnapshot(network: String): List<WalletEntity>
 
     @Query("SELECT * FROM wallets WHERE id = :id")
@@ -39,6 +39,12 @@ interface WalletDao {
 
     @Query("SELECT * FROM wallets")
     suspend fun getAllWallets(): List<WalletEntity>
+
+    @Query("SELECT id FROM wallets WHERE network = :network ORDER BY sort_order, name, id")
+    suspend fun getWalletIds(network: String): List<Long>
+
+    @Query("SELECT MAX(sort_order) FROM wallets WHERE network = :network")
+    suspend fun getMaxSortOrder(network: String): Int?
 
     @Query("DELETE FROM wallets WHERE id = :id")
     suspend fun deleteById(id: Long)
@@ -92,6 +98,9 @@ interface WalletDao {
         lastSyncError: String?,
         lastSyncTime: Long
     )
+
+    @Query("UPDATE wallets SET sort_order = :sortOrder WHERE id = :id")
+    suspend fun updateSortOrder(id: Long, sortOrder: Int)
 
     @Transaction
     @Query(

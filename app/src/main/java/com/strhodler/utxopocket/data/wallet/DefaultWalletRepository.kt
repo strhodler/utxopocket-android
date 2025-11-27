@@ -2073,7 +2073,7 @@ class DefaultWalletRepository @Inject constructor(
             }
 
             val (statusValue, statusError) = NodeStatus.Idle.toStorage()
-            val entity = WalletEntity(
+            val entityTemplate = WalletEntity(
                 name = name,
                 descriptor = validation.descriptor,
                 changeDescriptor = validation.changeDescriptor,
@@ -2088,7 +2088,10 @@ class DefaultWalletRepository @Inject constructor(
             )
 
             return@withContext runCatching {
-                val id = walletDao.insert(entity)
+                val id = database.withTransaction {
+                    val nextSortOrder = (walletDao.getMaxSortOrder(networkName) ?: -1) + 1
+                    walletDao.insert(entityTemplate.copy(sortOrder = nextSortOrder))
+                }
                 val inserted = walletDao.findById(id)
                 if (inserted != null) {
                     WalletCreationResult.Success(inserted.toDomain())
@@ -2347,6 +2350,22 @@ class DefaultWalletRepository @Inject constructor(
         }
         walletDao.updateWalletName(id, trimmed)
     }
+
+    override suspend fun reorderWallets(network: BitcoinNetwork, orderedWalletIds: List<Long>) =
+        withContext(ioDispatcher) {
+            if (orderedWalletIds.isEmpty()) return@withContext
+            database.withTransaction {
+                val existingIds = walletDao.getWalletIds(network.name)
+                val normalizedOrder = orderedWalletIds
+                    .distinct()
+                    .filter(existingIds::contains)
+                val remaining = existingIds.filterNot(normalizedOrder::contains)
+                val finalOrder = normalizedOrder + remaining
+                finalOrder.forEachIndexed { index, walletId ->
+                    walletDao.updateSortOrder(walletId, index)
+                }
+            }
+        }
 
     override suspend fun exportWalletLabels(walletId: Long): WalletLabelExport =
         withContext(ioDispatcher) {

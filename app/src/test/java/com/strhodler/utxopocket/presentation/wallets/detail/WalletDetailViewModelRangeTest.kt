@@ -187,6 +187,8 @@ class WalletDetailViewModelRangeTest {
         override suspend fun refresh(network: BitcoinNetwork) = Unit
 
         override suspend fun refreshWallet(walletId: Long) = Unit
+        override suspend fun disconnect(network: BitcoinNetwork) = Unit
+        override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
 
         override suspend fun validateDescriptor(
             descriptor: String,
@@ -239,6 +241,8 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun importWalletLabels(walletId: Long, payload: ByteArray): com.strhodler.utxopocket.domain.model.Bip329ImportResult =
             com.strhodler.utxopocket.domain.model.Bip329ImportResult(0, 0, 0, 0, 0)
+
+        override suspend fun reorderWallets(network: BitcoinNetwork, orderedWalletIds: List<Long>) = Unit
 
         override fun setSyncForegroundState(isForeground: Boolean) = Unit
 

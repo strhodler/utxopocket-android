@@ -37,7 +37,8 @@ data class WalletEntity(
     @ColumnInfo(name = "full_scan_stop_gap") val fullScanStopGap: Int? = null,
     @ColumnInfo(name = "last_full_scan_time") val lastFullScanTime: Long? = null,
     @ColumnInfo(name = "view_only") val viewOnly: Boolean = false,
-    @ColumnInfo(name = "color") val color: String = WalletColor.DEFAULT.storageKey
+    @ColumnInfo(name = "color") val color: String = WalletColor.DEFAULT.storageKey,
+    @ColumnInfo(name = "sort_order") val sortOrder: Int = 0
 )
 
 fun WalletEntity.toDomain(): WalletSummary =
@@ -55,7 +56,8 @@ fun WalletEntity.toDomain(): WalletSummary =
         fullScanStopGap = fullScanStopGap,
         sharedDescriptors = sharedDescriptors,
         lastFullScanTime = lastFullScanTime,
-        viewOnly = viewOnly
+        viewOnly = viewOnly,
+        sortOrder = sortOrder
     )
 
 fun WalletEntity.networkEnum(): BitcoinNetwork = BitcoinNetwork.valueOf(network)

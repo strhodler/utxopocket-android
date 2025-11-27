@@ -270,6 +270,8 @@ class NodeStatusViewModelTest {
         }
 
         override suspend fun refreshWallet(walletId: Long) = Unit
+        override suspend fun disconnect(network: BitcoinNetwork) = Unit
+        override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
 
         override suspend fun validateDescriptor(
             descriptor: String,
@@ -321,6 +323,8 @@ class NodeStatusViewModelTest {
 
         override suspend fun importWalletLabels(walletId: Long, payload: ByteArray): Bip329ImportResult =
             Bip329ImportResult(0, 0, 0, 0, 0)
+
+        override suspend fun reorderWallets(network: BitcoinNetwork, orderedWalletIds: List<Long>) = Unit
 
         override fun setSyncForegroundState(isForeground: Boolean) = Unit
     }

@@ -608,6 +608,7 @@
 
     <!-- Settings: panic wipe -->
     <string name="settings_danger_zone_title">Zona de peligro</string>
+    <string name="settings_panic_list_title">Borrar app</string>
     <string name="settings_panic_description">Borra todas las billeteras, transacciones, UTXOs y registros de salud almacenados en este dispositivo.</string>
     <string name="settings_panic_action">Borrar todos los datos de billeteras</string>
     <string name="settings_panic_confirm_title">¿Borrar todos los datos de billeteras?</string>
@@ -627,9 +628,7 @@
     <string name="settings_pin_timeout_immediately_label">Inmediatamente (al salir)</string>
     <string name="settings_pin_timeout_minutes_label">%d min</string>
     <string name="settings_network_logs_title">Registro de errores de red</string>
-    <string name="settings_network_logs_description">Guarda un registro cifrado de errores de red/Tor para depurar la conectividad sin exponer datos de la wallet.</string>
-    <string name="settings_network_logs_enabled_label">Registro activado (sólo local)</string>
-    <string name="settings_network_logs_disabled_label">Registro desactivado</string>
+    <string name="settings_network_logs_description">Registro cifrado en el dispositivo para errores de red/Tor.</string>
     <string name="settings_network_logs_sanitized_hint">Las entradas ya están saneadas: hosts enmascarados/hasheados y sin datos de la wallet.</string>
     <string name="settings_network_logs_open_viewer">Abrir visor de registros</string>
     <string name="settings_network_logs_header">Lo que ves ya está saneado (hosts enmascarados, sin datos de la wallet) y guardado cifrado en este dispositivo.</string>

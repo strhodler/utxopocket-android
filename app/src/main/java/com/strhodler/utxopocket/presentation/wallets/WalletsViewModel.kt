@@ -179,6 +179,13 @@ class WalletsViewModel @Inject constructor(
         }
     }
 
+    fun reorderWallets(walletIds: List<Long>) {
+        viewModelScope.launch {
+            if (walletIds.isEmpty()) return@launch
+            walletRepository.reorderWallets(selectedNetwork.value, walletIds)
+        }
+    }
+
     private data class WalletData(
         val network: BitcoinNetwork,
         val wallets: List<WalletSummary>
