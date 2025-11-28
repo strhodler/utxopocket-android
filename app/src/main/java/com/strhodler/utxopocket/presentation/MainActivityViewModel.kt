@@ -33,6 +33,8 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlin.time.Duration.Companion.minutes
 
 data class StatusBarUiState(
@@ -105,6 +107,7 @@ class MainActivityViewModel @Inject constructor(
     private var wasBackgrounded = true
     // When true, ignore the next background event (used for config changes).
     private var ignoreNextBackgroundEvent = false
+    private var nodeMetadataPollJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -211,13 +214,16 @@ class MainActivityViewModel @Inject constructor(
         walletRepository.setSyncForegroundState(true)
         viewModelScope.launch {
             resumeNodeIfNeeded()
+            refreshNodeMetadataIfActive()
         }
+        startNodeMetadataPolling()
     }
 
     fun onAppBackgrounded(fromConfigurationChange: Boolean = false) {
         skipNextLockRefresh = fromConfigurationChange
         ignoreNextBackgroundEvent = fromConfigurationChange
         walletRepository.setSyncForegroundState(false)
+        stopNodeMetadataPolling()
     }
 
     fun onAppSentToBackground() {
@@ -287,6 +293,31 @@ class MainActivityViewModel @Inject constructor(
         }
     }
 
+    private fun startNodeMetadataPolling() {
+        if (nodeMetadataPollJob?.isActive == true) return
+        nodeMetadataPollJob = viewModelScope.launch {
+            while (true) {
+                refreshNodeMetadataIfActive()
+                delay(NODE_METADATA_POLL_INTERVAL_MS)
+            }
+        }
+    }
+
+    private fun stopNodeMetadataPolling() {
+        nodeMetadataPollJob?.cancel()
+        nodeMetadataPollJob = null
+    }
+
+    private suspend fun refreshNodeMetadataIfActive() {
+        val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
+        val nodeConfig = nodeConfigurationRepository.nodeConfig.first()
+        val isOnline = networkStatusMonitor.isOnline.first()
+        if (!isOnline || !nodeConfig.hasActiveSelection(preferredNetwork)) {
+            return
+        }
+        walletRepository.refresh(preferredNetwork)
+    }
+
     private fun refreshLockState() {
         viewModelScope.launch {
             val shouldLock = shouldLockNow(
@@ -320,5 +351,6 @@ class MainActivityViewModel @Inject constructor(
 
     private companion object {
         private const val IMMEDIATE_TIMEOUT_GRACE_MS = 1_000L
+        private const val NODE_METADATA_POLL_INTERVAL_MS = 60_000L
     }
 }

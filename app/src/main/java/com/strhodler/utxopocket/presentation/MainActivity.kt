@@ -10,6 +10,8 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -396,6 +398,24 @@ private fun StatusBar(
     onNodeStatusClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+        val baseSubtitleColor = MaterialTheme.colorScheme.onSurfaceVariant
+        var lastSeenBlockHeight by remember(state.network) { mutableStateOf<Long?>(null) }
+        var highlightBlockHeight by remember { mutableStateOf(false) }
+        val subtitleColor by animateColorAsState(
+            targetValue = if (highlightBlockHeight) MaterialTheme.colorScheme.primary else baseSubtitleColor,
+            animationSpec = tween(durationMillis = 250),
+            label = "statusSubtitleColor"
+        )
+        LaunchedEffect(state.nodeBlockHeight, state.network) {
+            val currentHeight = state.nodeBlockHeight
+            val previousHeight = lastSeenBlockHeight
+            if (currentHeight != null && previousHeight != null && currentHeight > previousHeight) {
+                highlightBlockHeight = true
+                delay(900)
+                highlightBlockHeight = false
+            }
+            lastSeenBlockHeight = currentHeight
+        }
         val blockHeightLabel = state.nodeBlockHeight?.let { height ->
             val formattedHeight = remember(height) { formatBlockHeight(height) }
             stringResource(id = R.string.status_block_height_short, formattedHeight)
@@ -441,7 +461,7 @@ private fun StatusBar(
                     Text(
                         text = subtitleText,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = subtitleColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Start
