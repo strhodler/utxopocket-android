@@ -144,6 +144,9 @@ fun MainNavHost(
                     onWalletCreated = { message ->
                         runCatching {
                             navController.getBackStackEntry(WalletsNavigation.ListRoute).savedStateHandle[
+                                WalletsNavigation.WalletDeletedMessageKey
+                            ] = null
+                            navController.getBackStackEntry(WalletsNavigation.ListRoute).savedStateHandle[
                                 WalletsNavigation.WalletCreatedMessageKey
                             ] = message
                         }
@@ -193,6 +196,9 @@ fun MainNavHost(
                     onBack = { navController.popBackStack() },
                     onWalletDeleted = { message ->
                         runCatching {
+                            navController.getBackStackEntry(WalletsNavigation.ListRoute).savedStateHandle[
+                                WalletsNavigation.WalletCreatedMessageKey
+                            ] = null
                             navController.getBackStackEntry(WalletsNavigation.ListRoute).savedStateHandle[
                                 WalletsNavigation.WalletDeletedMessageKey
                             ] = message
