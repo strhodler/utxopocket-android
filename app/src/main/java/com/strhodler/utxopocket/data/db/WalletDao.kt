@@ -43,9 +43,6 @@ interface WalletDao {
     @Query("SELECT * FROM wallets")
     suspend fun getAllWallets(): List<WalletEntity>
 
-    @Query("SELECT id FROM wallets WHERE network = :network ORDER BY sort_order, name, id")
-    suspend fun getWalletIds(network: String): List<Long>
-
     @Query("SELECT MAX(sort_order) FROM wallets WHERE network = :network")
     suspend fun getMaxSortOrder(network: String): Int?
 
@@ -153,9 +150,6 @@ interface WalletDao {
         """
     )
     suspend fun resetSyncSessionAndForceFullScan(id: Long)
-
-    @Query("UPDATE wallets SET sort_order = :sortOrder WHERE id = :id")
-    suspend fun updateSortOrder(id: Long, sortOrder: Int)
 
     @Transaction
     @Query(

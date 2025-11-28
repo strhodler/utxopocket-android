@@ -434,8 +434,6 @@ private class FakeWalletRepository : WalletRepository {
     override suspend fun importWalletLabels(walletId: Long, payload: ByteArray): Bip329ImportResult =
         Bip329ImportResult(0, 0, 0, 0, 0)
 
-    override suspend fun reorderWallets(network: BitcoinNetwork, orderedWalletIds: List<Long>) = Unit
-
     override fun setSyncForegroundState(isForeground: Boolean) = Unit
 }
 

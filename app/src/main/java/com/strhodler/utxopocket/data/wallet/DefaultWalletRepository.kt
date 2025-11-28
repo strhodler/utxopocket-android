@@ -2486,22 +2486,6 @@ class DefaultWalletRepository @Inject constructor(
         walletDao.updateWalletName(id, trimmed)
     }
 
-    override suspend fun reorderWallets(network: BitcoinNetwork, orderedWalletIds: List<Long>) =
-        withContext(ioDispatcher) {
-            if (orderedWalletIds.isEmpty()) return@withContext
-            database.withTransaction {
-                val existingIds = walletDao.getWalletIds(network.name)
-                val normalizedOrder = orderedWalletIds
-                    .distinct()
-                    .filter(existingIds::contains)
-                val remaining = existingIds.filterNot(normalizedOrder::contains)
-                val finalOrder = normalizedOrder + remaining
-                finalOrder.forEachIndexed { index, walletId ->
-                    walletDao.updateSortOrder(walletId, index)
-                }
-            }
-        }
-
     override suspend fun exportWalletLabels(walletId: Long): WalletLabelExport =
         withContext(ioDispatcher) {
             val entity =

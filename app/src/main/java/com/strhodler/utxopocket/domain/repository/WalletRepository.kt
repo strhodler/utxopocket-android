@@ -68,7 +68,6 @@ interface WalletRepository {
     suspend fun renameWallet(id: Long, name: String)
     suspend fun exportWalletLabels(walletId: Long): WalletLabelExport
     suspend fun importWalletLabels(walletId: Long, payload: ByteArray): Bip329ImportResult
-    suspend fun reorderWallets(network: BitcoinNetwork, orderedWalletIds: List<Long>)
     fun setSyncForegroundState(isForeground: Boolean)
 }
 

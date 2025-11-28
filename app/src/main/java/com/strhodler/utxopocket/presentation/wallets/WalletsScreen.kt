@@ -1,12 +1,7 @@
 package com.strhodler.utxopocket.presentation.wallets
 
 import android.view.HapticFeedbackConstants
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -45,23 +39,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -69,10 +54,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.DescriptorType
@@ -96,8 +79,6 @@ import com.strhodler.utxopocket.presentation.wallets.components.walletShimmer
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import java.text.DateFormat
 import java.util.Date
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 
 private const val DefaultBalanceAnimationDuration = 220
 private val AddWalletBottomSpacer: Dp = 64.dp
@@ -137,8 +118,7 @@ fun WalletsRoute(
         snackbarMessage = snackbarMessage,
         onSnackbarConsumed = onSnackbarConsumed,
         isNetworkOnline = statusBarState.isNetworkOnline,
-        onCycleBalanceDisplay = onCycleBalanceDisplay,
-        onReorderWallets = viewModel::reorderWallets
+        onCycleBalanceDisplay = onCycleBalanceDisplay
     )
 }
 
@@ -155,7 +135,6 @@ fun WalletsScreen(
     onSnackbarConsumed: () -> Unit = {},
     isNetworkOnline: Boolean,
     onCycleBalanceDisplay: () -> Unit,
-    onReorderWallets: (List<Long>) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -191,7 +170,6 @@ fun WalletsScreen(
             onAddWallet = onAddWallet,
             isNetworkOnline = isNetworkOnline,
             onCycleBalanceDisplay = onCycleBalanceDisplay,
-            onReorderWallets = onReorderWallets,
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
@@ -210,7 +188,6 @@ private fun WalletsContent(
     onAddWallet: () -> Unit,
     isNetworkOnline: Boolean,
     onCycleBalanceDisplay: () -> Unit,
-    onReorderWallets: (List<Long>) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val canAddWallet = state.hasActiveNodeSelection || !isNetworkOnline
@@ -335,9 +312,7 @@ private fun WalletsContent(
             nodeStatus = state.nodeStatus,
             modifier = Modifier.fillMaxSize(),
             additionalBottomPadding = if (bannerContent != null) AddWalletBottomSpacer else 0.dp,
-            onCycleBalanceDisplay = onCycleBalanceDisplay,
-            onReorderWallets = onReorderWallets,
-            hapticsEnabled = state.hapticsEnabled
+            onCycleBalanceDisplay = onCycleBalanceDisplay
         )
 
         bannerContent?.let { content ->
@@ -353,7 +328,6 @@ private fun WalletsContent(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun WalletsList(
     wallets: List<WalletSummary>,
@@ -375,9 +349,7 @@ private fun WalletsList(
     nodeStatus: NodeStatus,
     additionalBottomPadding: Dp = 0.dp,
     modifier: Modifier = Modifier,
-    onCycleBalanceDisplay: () -> Unit,
-    onReorderWallets: (List<Long>) -> Unit,
-    hapticsEnabled: Boolean
+    onCycleBalanceDisplay: () -> Unit
 ) {
     if (wallets.isEmpty()) {
         Box(
@@ -404,60 +376,6 @@ private fun WalletsList(
         }
     } else {
         val listState = rememberLazyListState()
-        val view = LocalView.current
-        val density = LocalDensity.current
-        val haptic = LocalHapticFeedback.current
-        val autoScrollThresholdPx = with(density) { 88.dp.toPx() }
-        val autoScrollStepPx = with(density) { 28.dp.toPx() }
-        val coroutineScope = rememberCoroutineScope()
-        val stagedWallets = remember { mutableStateListOf<WalletSummary>() }
-        var draggingWalletId by remember { mutableStateOf<Long?>(null) }
-        var dragOffset by remember { mutableStateOf(0f) }
-        var initialOrder by remember { mutableStateOf<List<Long>>(emptyList()) }
-        var currentTargetIndex by remember { mutableStateOf<Int?>(null) }
-        var autoScrollJob by remember { mutableStateOf<Job?>(null) }
-        var dragProgress by remember { mutableStateOf(0f) }
-
-        LaunchedEffect(wallets, draggingWalletId) {
-            if (stagedWallets.isEmpty() || draggingWalletId == null) {
-                stagedWallets.clear()
-                stagedWallets.addAll(wallets)
-            } else {
-                val incomingById = wallets.associateBy { it.id }
-                stagedWallets.indices.forEach { index ->
-                    val existing = stagedWallets[index]
-                    incomingById[existing.id]?.let { updated ->
-                        if (existing != updated) {
-                            stagedWallets[index] = updated
-                        }
-                    }
-                }
-                wallets.forEach { wallet ->
-                    if (stagedWallets.none { it.id == wallet.id }) {
-                        stagedWallets.add(wallet)
-                    }
-                }
-                val incomingIds = incomingById.keys
-                stagedWallets.removeAll { wallet ->
-                    wallet.id !in incomingIds && wallet.id != draggingWalletId
-                }
-            }
-        }
-
-        fun finishDrag() {
-            val newOrder = stagedWallets.map { it.id }
-            val changed = initialOrder != newOrder
-            draggingWalletId = null
-            dragOffset = 0f
-            dragProgress = 0f
-            initialOrder = emptyList()
-            currentTargetIndex = null
-            autoScrollJob?.cancel()
-            if (changed) {
-                onReorderWallets(newOrder)
-            }
-        }
-
         LazyColumn(
             state = listState,
             modifier = modifier.fillMaxWidth(),
@@ -478,139 +396,20 @@ private fun WalletsList(
                     onCycleBalanceDisplay = onCycleBalanceDisplay
                 )
             }
-            itemsIndexed(stagedWallets, key = { _, wallet -> wallet.id }) { _, wallet ->
+            itemsIndexed(wallets, key = { _, wallet -> wallet.id }) { _, wallet ->
                 val walletRefreshing = wallet.id == activeWalletId || refreshingWalletIds.contains(wallet.id)
                 val walletQueued = queuedWalletIds.contains(wallet.id)
-                val isDragging = draggingWalletId == wallet.id
-                val dragScale by animateFloatAsState(
-                    targetValue = if (walletAnimationsEnabled && isDragging) 1.02f + (dragProgress * 0.02f) else 1f,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioLowBouncy,
-                        stiffness = Spring.StiffnessMedium
-                    ),
-                    label = "walletDragScale"
-                )
-                val placementModifier = Modifier
-                val dragModifier = Modifier
-                    .then(placementModifier)
-                    .graphicsLayer {
-                        translationY = if (isDragging) dragOffset else 0f
-                        scaleX = dragScale
-                        scaleY = dragScale
-                        shadowElevation = if (isDragging) 12.dp.toPx() else 0f
-                    }
-                    .zIndex(if (isDragging) 1f else 0f)
-                    .pointerInput(wallet.id, hapticsEnabled) {
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = {
-                                if (draggingWalletId == null) {
-                                    draggingWalletId = wallet.id
-                                    initialOrder = stagedWallets.map { it.id }
-                                    dragOffset = 0f
-                                    dragProgress = 0f
-                                    currentTargetIndex = stagedWallets.indexOfFirst { it.id == wallet.id }
-                                    if (hapticsEnabled) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    }
-                                }
-                            },
-                            onDrag = { change, dragAmount ->
-                                if (draggingWalletId != wallet.id) return@detectDragGesturesAfterLongPress
-                                change.consume()
-                                dragOffset += dragAmount.y
-                                val draggedInfo = listState.layoutInfo.visibleItemsInfo
-                                    .firstOrNull { it.key == wallet.id }
-                                val itemHeightPx = draggedInfo?.size?.toFloat() ?: 1f
-                                dragProgress = (dragOffset / itemHeightPx).coerceIn(-1f, 1f)
-                                var currentIndex = stagedWallets.indexOfFirst { it.id == wallet.id }
-                                val threshold = (draggedInfo?.size ?: 0) / 2f
-                                while (draggedInfo != null && dragOffset > threshold && currentIndex < stagedWallets.lastIndex) {
-                                    stagedWallets.move(currentIndex, currentIndex + 1)
-                                    dragOffset -= threshold
-                                    currentIndex += 1
-                                }
-                                while (draggedInfo != null && dragOffset < -threshold && currentIndex > 0) {
-                                    stagedWallets.move(currentIndex, currentIndex - 1)
-                                    dragOffset += threshold
-                                    currentIndex -= 1
-                                }
-                                currentTargetIndex = currentIndex
-                                if (draggedInfo != null) {
-                                    val itemTop = draggedInfo.offset + dragOffset
-                                    val itemBottom = itemTop + draggedInfo.size
-                                    val viewportStart = listState.layoutInfo.viewportStartOffset.toFloat()
-                                    val viewportEnd = listState.layoutInfo.viewportEndOffset.toFloat()
-                                    val scrollAmount = when {
-                                        itemTop < viewportStart + autoScrollThresholdPx -> {
-                                            (itemTop - (viewportStart + autoScrollThresholdPx))
-                                                .coerceAtLeast(-autoScrollStepPx)
-                                        }
-                                        itemBottom > viewportEnd - autoScrollThresholdPx -> {
-                                            (itemBottom - (viewportEnd - autoScrollThresholdPx))
-                                                .coerceAtMost(autoScrollStepPx)
-                                        }
-                                        else -> 0f
-                                    }
-                                    if (scrollAmount != 0f) {
-                                        autoScrollJob?.cancel()
-                                        autoScrollJob = coroutineScope.launch {
-                                            val preFirst = listState.firstVisibleItemIndex
-                                            val preOffset = listState.firstVisibleItemScrollOffset
-                                            listState.scroll {
-                                                this.scrollBy(scrollAmount)
-                                            }
-                                            val deltaIndex = listState.firstVisibleItemIndex - preFirst
-                                            val deltaOffset = listState.firstVisibleItemScrollOffset - preOffset
-                                            if (deltaIndex != 0 || deltaOffset != 0) {
-                                                dragOffset += deltaOffset
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            onDragEnd = { finishDrag() },
-                            onDragCancel = { finishDrag() }
-                        )
-                    }
-                if (draggingWalletId != null && currentTargetIndex == stagedWallets.indexOf(wallet)) {
-                    Spacer(
-                        modifier = Modifier
-                            .then(placementModifier)
-                            .fillMaxWidth()
-                            .height(10.dp)
-                            .padding(vertical = 2.dp)
-                            .shadow(2.dp, RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
-                    )
-                }
                 WalletCard(
                     wallet = wallet,
                     balanceUnit = balanceUnit,
                     balancesHidden = balancesHidden,
-                    onClick = {
-                        if (draggingWalletId == null) {
-                            onWalletSelected(wallet.id, wallet.name)
-                        }
-                    },
-                    modifier = dragModifier.fillMaxWidth(),
+                    onClick = { onWalletSelected(wallet.id, wallet.name) },
+                    modifier = Modifier.fillMaxWidth(),
                     animationsEnabled = walletAnimationsEnabled,
                     isSyncing = walletRefreshing,
                     isQueued = walletQueued,
-                    nodeStatus = nodeStatus,
-                    isDragging = isDragging
+                    nodeStatus = nodeStatus
                 )
-            }
-                if (draggingWalletId != null && currentTargetIndex == stagedWallets.size) {
-                    item(key = "wallets-drop-slot-end") {
-                        Spacer(
-                            modifier = Modifier
-                            .fillMaxWidth()
-                            .height(10.dp)
-                            .padding(top = 6.dp)
-                            .shadow(2.dp, RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
-                    )
-                }
             }
             item(key = "wallets-add-descriptor") {
                 AddDescriptorCtaButton(
@@ -685,8 +484,7 @@ private fun WalletCard(
     animationsEnabled: Boolean,
     isSyncing: Boolean,
     isQueued: Boolean,
-    nodeStatus: NodeStatus,
-    isDragging: Boolean = false
+    nodeStatus: NodeStatus
 ) {
     val syncStatus = wallet.lastSyncStatus
     val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT) }
@@ -711,13 +509,12 @@ private fun WalletCard(
         isQueued -> contentColor.copy(alpha = 0.9f)
         else -> secondaryTextColor
     }
-    val cardElevation = if (isDragging) 12.dp else 4.dp
     Card(
         onClick = onClick,
         modifier = modifier,
         shape = RoundedCornerShape(WalletCardCornerRadius),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = cardElevation)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
             modifier = Modifier
