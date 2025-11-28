@@ -940,13 +940,13 @@ private fun ActionButtons(
                     strokeWidth = 2.dp,
                     color = MaterialTheme.colorScheme.onPrimary
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(12.dp))
             } else {
                 Icon(
                     imageVector = Icons.Outlined.Check,
                     contentDescription = null
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(12.dp))
             }
             Text(text = stringResource(id = R.string.add_wallet_submit))
         }

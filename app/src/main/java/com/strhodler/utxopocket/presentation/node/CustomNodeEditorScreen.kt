@@ -129,8 +129,12 @@ fun CustomNodeEditorScreen(
                     Text(text = stringResource(id = R.string.add_wallet_cancel))
                 }
                 Button(
-                    onClick = onPrimaryAction,
-                    enabled = isPrimaryActionEnabled && !isTesting,
+                    onClick = {
+                        if (!isTesting) {
+                            onPrimaryAction()
+                        }
+                    },
+                    enabled = isPrimaryActionEnabled,
                     modifier = Modifier.weight(1f)
                 ) {
                     if (isTesting) {
@@ -138,7 +142,8 @@ fun CustomNodeEditorScreen(
                             modifier = Modifier
                                 .size(18.dp)
                                 .padding(end = 8.dp),
-                            strokeWidth = 2.dp
+                            strokeWidth = 2.dp,
+                            color = androidx.compose.material3.LocalContentColor.current
                         )
                     }
                     Text(text = primaryActionLabel)

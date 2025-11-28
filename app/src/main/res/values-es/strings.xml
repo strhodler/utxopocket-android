@@ -515,7 +515,7 @@
     <string name="add_wallet_change_descriptor_placeholder">wpkh([fingerprint/84\'/0\'/0\']xpub…/1/*)#checksum</string>
     <string name="add_wallet_network_label">Red</string>
     <string name="add_wallet_network_hint">Usando la red de la aplicación: %1$s</string>
-    <string name="add_wallet_name_label">Nombre de la billetera</string>
+    <string name="add_wallet_name_label">Nombre de billetera (requerido)</string>
     <string name="add_wallet_name_placeholder">Mi billetera Bitcoin</string>
     <string name="add_wallet_validation_loading">Validando descriptor…</string>
     <string name="add_wallet_descriptor_help_action">Compatibilidad de descriptores</string>

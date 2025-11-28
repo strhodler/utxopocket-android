@@ -556,7 +556,7 @@
     <string name="add_wallet_change_descriptor_placeholder">wpkh([fingerprint/84\'/0\'/0\']xpub…/1/*)#checksum</string>
     <string name="add_wallet_network_label">Network</string>
     <string name="add_wallet_network_hint">Using application network: %1$s</string>
-    <string name="add_wallet_name_label">Wallet name</string>
+    <string name="add_wallet_name_label">Wallet name (required)</string>
     <string name="add_wallet_name_placeholder">My Bitcoin Wallet</string>
     <string name="add_wallet_validation_loading">Validating descriptor…</string>
     <string name="add_wallet_descriptor_help_action">Descriptor compatibility</string>

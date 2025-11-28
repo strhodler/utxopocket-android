@@ -275,7 +275,7 @@ private fun TransactionVisualizerContent(
                         onClick = onBack,
                         modifier = Modifier
                             .align(Alignment.TopStart)
-                            .padding(12.dp)
+                            .padding(4.dp)
                             .background(
                                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
                                 shape = CircleShape

@@ -449,7 +449,7 @@ private object BalanceHeaderMetrics {
 }
 
 private val AddDescriptorCtaMinHeight = 64.dp
-private val AddDescriptorCtaContentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp)
+private val AddDescriptorCtaContentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
 
 @Composable
 private fun AddDescriptorCtaButton(
@@ -577,7 +577,8 @@ private fun WalletCard(
                         color = contentColor
                     ),
                     monospaced = true,
-                    animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0
+                    animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0,
+                    autoScale = false
                 )
             }
             Row(
@@ -622,7 +623,7 @@ private fun WalletsBalanceHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 24.dp),
+                .padding(vertical = 36.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -634,11 +635,12 @@ private fun WalletsBalanceHeader(
                 balanceSats = totalBalanceSats,
                 unit = balanceUnit,
                 hidden = balancesHidden,
-                style = MaterialTheme.typography.displaySmall.copy(
+                style = MaterialTheme.typography.headlineLarge.copy(
                     fontWeight = FontWeight.Medium
                 ),
                 monospaced = true,
                 animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0,
+                autoScale = true,
                 modifier = Modifier.clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,

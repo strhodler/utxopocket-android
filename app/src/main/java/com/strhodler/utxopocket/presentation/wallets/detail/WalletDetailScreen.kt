@@ -843,11 +843,12 @@ private fun WalletDetailHeader(
             balanceSats = balanceSats,
             unit = balanceUnit,
             hidden = balancesHidden,
-            style = MaterialTheme.typography.displaySmall.copy(
+            style = MaterialTheme.typography.headlineLarge.copy(
                 fontWeight = FontWeight.SemiBold,
                 color = primaryContentColor
             ),
             monospaced = true,
+            autoScale = true,
             modifier = Modifier.clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

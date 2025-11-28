@@ -1407,11 +1407,12 @@ private fun UtxoDetailHeader(
             balanceSats = valueSats,
             unit = unit,
             hidden = balancesHidden,
-            style = MaterialTheme.typography.displaySmall.copy(
+            style = MaterialTheme.typography.headlineLarge.copy(
                 fontWeight = FontWeight.SemiBold,
                 color = contentColor
             ),
             monospaced = true,
+            autoScale = true,
             modifier = Modifier.clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
