@@ -63,7 +63,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ScrollableTabRow
@@ -706,9 +705,6 @@ private fun WalletDetailContent(
             WalletDescriptorsBottomSheet(
                 descriptor = descriptor,
                 changeDescriptor = state.changeDescriptor,
-                fullScanScheduled = state.fullScanScheduled,
-                fullScanStopGap = state.fullScanStopGap,
-                lastFullScanTime = state.lastFullScanTime,
                 onCopyDescriptor = handleDescriptorCopy,
                 onShowDescriptorQr = { selected -> descriptorForQr = selected },
                 onDismiss = onDescriptorsSheetDismissed
@@ -1140,14 +1136,15 @@ private fun WalletHealthSheetContent(
 private fun WalletDescriptorsBottomSheet(
     descriptor: String,
     changeDescriptor: String?,
-    fullScanScheduled: Boolean,
-    fullScanStopGap: Int?,
-    lastFullScanTime: Long?,
     onCopyDescriptor: (String) -> Unit,
     onShowDescriptorQr: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val configuration = LocalConfiguration.current
+    val maxSheetHeight = remember(configuration.screenHeightDp) {
+        configuration.screenHeightDp.dp * 0.9f
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -1156,13 +1153,11 @@ private fun WalletDescriptorsBottomSheet(
         WalletDescriptorsSheetContent(
             descriptor = descriptor,
             changeDescriptor = changeDescriptor,
-            fullScanScheduled = fullScanScheduled,
-            fullScanStopGap = fullScanStopGap,
-            lastFullScanTime = lastFullScanTime,
             onCopyDescriptor = onCopyDescriptor,
             onShowDescriptorQr = onShowDescriptorQr,
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(max = maxSheetHeight)
                 .navigationBarsPadding()
                 .padding(horizontal = 24.dp, vertical = 24.dp)
         )
@@ -1173,21 +1168,24 @@ private fun WalletDescriptorsBottomSheet(
 private fun WalletDescriptorsSheetContent(
     descriptor: String,
     changeDescriptor: String?,
-    fullScanScheduled: Boolean,
-    fullScanStopGap: Int?,
-    lastFullScanTime: Long?,
     onCopyDescriptor: (String) -> Unit,
     onShowDescriptorQr: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val combinedDescriptor = remember(descriptor, changeDescriptor) {
+        combineDescriptorBranches(descriptor, changeDescriptor)
+    }
     Column(
-        modifier = modifier,
+        modifier = modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         Text(
             text = stringResource(id = R.string.wallet_detail_descriptors_title),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold
+        )
+        DescriptorWarningBanner(
+            message = stringResource(id = R.string.wallet_detail_descriptors_hint)
         )
         DescriptorEntry(
             label = stringResource(id = R.string.wallet_detail_descriptor_label),
@@ -1203,37 +1201,13 @@ private fun WalletDescriptorsSheetContent(
                 onShowQr = { onShowDescriptorQr(changeDescriptorValue) }
             )
         }
-        Text(
-            text = stringResource(id = R.string.wallet_detail_descriptors_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-        val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT) }
-        val lastFullScanLabel = when {
-            fullScanScheduled -> stringResource(id = R.string.wallet_detail_full_scan_pending)
-            lastFullScanTime != null -> {
-                val formatted = dateFormat.format(Date(lastFullScanTime))
-                stringResource(id = R.string.wallet_detail_last_full_scan, formatted)
-            }
-            else -> stringResource(id = R.string.wallet_detail_last_full_scan_never)
-        }
-        val nextFullScanGapLabel = fullScanStopGap?.let {
-            stringResource(id = R.string.wallet_detail_next_full_scan_gap, it)
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = lastFullScanLabel,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        combinedDescriptor?.let { combined ->
+            DescriptorEntry(
+                label = stringResource(id = R.string.wallet_detail_combined_descriptor_label),
+                value = combined,
+                onCopy = { onCopyDescriptor(combined) },
+                onShowQr = { onShowDescriptorQr(combined) }
             )
-            nextFullScanGapLabel?.let { gapLabel ->
-                Text(
-                    text = gapLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
 }
@@ -1278,6 +1252,36 @@ private fun DescriptorEntry(
                 text = value,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun DescriptorWarningBanner(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Warning,
+                contentDescription = null
+            )
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer
             )
         }
     }

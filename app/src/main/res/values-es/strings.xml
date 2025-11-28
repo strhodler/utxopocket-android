@@ -721,6 +721,9 @@
     <!-- Wallet detail remaining menu/actions -->
     <string name="wallet_detail_descriptor_label">Descriptor</string>
     <string name="wallet_detail_change_descriptor_label">Descriptor de cambio</string>
+    <string name="wallet_detail_combined_descriptor_label">Descriptor combinado (externo + cambio)</string>
+    <string name="wallet_detail_descriptor_pin_title">Desbloquear descriptores</string>
+    <string name="wallet_detail_descriptor_pin_description">Introduce tu PIN para ver los descriptores de la billetera.</string>
     <string name="wallet_detail_flip_hint_show_chart">Toca la tarjeta para explorar tu gráfico de balance.</string>
     <string name="wallet_detail_flip_hint_show_summary">Toca la tarjeta para volver al resumen.</string>
     <string name="wallet_detail_descriptor_copy_action">Copiar descriptor</string>

@@ -259,6 +259,9 @@
     <string name="wallet_color_option_cyan">Cyan</string>
     <string name="wallet_detail_descriptor_label">Descriptor</string>
     <string name="wallet_detail_change_descriptor_label">Change descriptor</string>
+    <string name="wallet_detail_combined_descriptor_label">Combined descriptor (external + change)</string>
+    <string name="wallet_detail_descriptor_pin_title">Unlock descriptors</string>
+    <string name="wallet_detail_descriptor_pin_description">Enter your PIN to view wallet descriptors.</string>
     <string name="wallet_detail_flip_hint_show_chart">Tap the card to explore your balance chart.</string>
     <string name="wallet_detail_flip_hint_show_summary">Tap the card to return to the summary.</string>
     <string name="wallet_detail_descriptor_copy_action">Copy descriptor</string>

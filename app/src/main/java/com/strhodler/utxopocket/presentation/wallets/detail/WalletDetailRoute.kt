@@ -53,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
@@ -80,6 +81,7 @@ import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import android.view.HapticFeedbackConstants
+import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -87,6 +89,11 @@ import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsExcepti
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.presentation.wallets.detail.WalletDetailEvent
 import kotlin.math.roundToInt
+import com.strhodler.utxopocket.presentation.pin.PinLockoutMessageType
+import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
+import com.strhodler.utxopocket.presentation.pin.formatPinCountdownMessage
+import com.strhodler.utxopocket.presentation.pin.formatPinStaticError
+import kotlinx.coroutines.delay
 
 private const val WALLET_NAME_MAX_LENGTH = 64
 private const val FULL_SCAN_GAP_MAX = 500
@@ -129,6 +136,7 @@ fun WalletDetailRoute(
     val hapticFeedback = LocalHapticFeedback.current
     val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
+    val resourcesState = rememberUpdatedState(context.resources)
     val showSnackbar = remember(coroutineScope, snackbarHostState) {
         { message: String, duration: SnackbarDuration ->
             coroutineScope.launch {
@@ -163,6 +171,10 @@ fun WalletDetailRoute(
     val listStates = remember {
         tabs.associateWith { LazyListState() }
     }
+    var showDescriptorPinPrompt by remember { mutableStateOf(false) }
+    var descriptorPinError by remember { mutableStateOf<String?>(null) }
+    var descriptorPinLockoutExpiry by remember { mutableStateOf<Long?>(null) }
+    var descriptorPinLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
     LaunchedEffect(resolvedName) {
         resolvedName?.let { topBarTitle = it }
     }
@@ -178,9 +190,39 @@ fun WalletDetailRoute(
         }
     }
 
+    LaunchedEffect(descriptorPinLockoutExpiry, descriptorPinLockoutType) {
+        val expiry = descriptorPinLockoutExpiry
+        val type = descriptorPinLockoutType
+        if (expiry == null || type == null) return@LaunchedEffect
+        while (true) {
+            val remaining = expiry - System.currentTimeMillis()
+            if (remaining <= 0L) {
+                descriptorPinError = null
+                descriptorPinLockoutExpiry = null
+                descriptorPinLockoutType = null
+                break
+            }
+            descriptorPinError = formatPinCountdownMessage(
+                resourcesState.value,
+                type,
+                remaining
+            )
+            delay(1_000)
+        }
+    }
+
     LaunchedEffect(state.summary) {
         if (state.summary == null && showDescriptorsSheet) {
             showDescriptorsSheet = false
+        }
+    }
+
+    LaunchedEffect(state.pinLockEnabled) {
+        if (!state.pinLockEnabled) {
+            showDescriptorPinPrompt = false
+            descriptorPinError = null
+            descriptorPinLockoutExpiry = null
+            descriptorPinLockoutType = null
         }
     }
 
@@ -293,7 +335,14 @@ fun WalletDetailRoute(
                         },
                         onClick = {
                             menuExpanded = false
-                            showDescriptorsSheet = true
+                            if (state.pinLockEnabled) {
+                                descriptorPinError = null
+                                descriptorPinLockoutExpiry = null
+                                descriptorPinLockoutType = null
+                                showDescriptorPinPrompt = true
+                            } else {
+                                showDescriptorsSheet = true
+                            }
                         }
                     )
                     DropdownMenuItem(
@@ -485,6 +534,65 @@ fun WalletDetailRoute(
         } else {
             showFullRescanSheet = false
         }
+    }
+
+    if (showDescriptorPinPrompt) {
+        PinVerificationScreen(
+            title = stringResource(id = R.string.wallet_detail_descriptor_pin_title),
+            description = stringResource(id = R.string.wallet_detail_descriptor_pin_description),
+            errorMessage = descriptorPinError,
+            onDismiss = {
+                showDescriptorPinPrompt = false
+                descriptorPinError = null
+                descriptorPinLockoutExpiry = null
+                descriptorPinLockoutType = null
+            },
+            onPinVerified = { pin ->
+                val resources = resourcesState.value
+                viewModel.verifyPin(pin) { result ->
+                    when (result) {
+                        PinVerificationResult.Success -> {
+                            descriptorPinError = null
+                            descriptorPinLockoutExpiry = null
+                            descriptorPinLockoutType = null
+                            showDescriptorPinPrompt = false
+                            showDescriptorsSheet = true
+                        }
+
+                        PinVerificationResult.InvalidFormat,
+                        PinVerificationResult.NotConfigured -> {
+                            descriptorPinLockoutExpiry = null
+                            descriptorPinLockoutType = null
+                            descriptorPinError = formatPinStaticError(resources, result)
+                        }
+
+                        is PinVerificationResult.Incorrect -> {
+                            val expiresAt = System.currentTimeMillis() + result.lockDurationMillis
+                            descriptorPinLockoutType = PinLockoutMessageType.Incorrect
+                            descriptorPinLockoutExpiry = expiresAt
+                            descriptorPinError = formatPinCountdownMessage(
+                                resources,
+                                PinLockoutMessageType.Incorrect,
+                                result.lockDurationMillis
+                            )
+                        }
+
+                        is PinVerificationResult.Locked -> {
+                            val expiresAt = System.currentTimeMillis() + result.remainingMillis
+                            descriptorPinLockoutType = PinLockoutMessageType.Locked
+                            descriptorPinLockoutExpiry = expiresAt
+                            descriptorPinError = formatPinCountdownMessage(
+                                resources,
+                                PinLockoutMessageType.Locked,
+                                result.remainingMillis
+                            )
+                        }
+                    }
+                }
+            },
+            hapticsEnabled = state.hapticsEnabled,
+            shuffleDigits = state.pinShuffleEnabled
+        )
     }
 
     if (showColorPicker) {

@@ -29,6 +29,7 @@ import com.strhodler.utxopocket.domain.model.displayLabel
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import com.strhodler.utxopocket.domain.model.WalletLabelExport
 import com.strhodler.utxopocket.domain.model.Bip329ImportResult
+import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.TransactionHealthRepository
 import com.strhodler.utxopocket.domain.repository.UtxoHealthRepository
@@ -143,7 +144,9 @@ class WalletDetailViewModel @Inject constructor(
         storedUtxoHealthState,
         appPreferencesRepository.walletHealthEnabled,
         storedWalletHealthState,
-        appPreferencesRepository.hapticsEnabled
+        appPreferencesRepository.hapticsEnabled,
+        appPreferencesRepository.pinLockEnabled,
+        appPreferencesRepository.pinShuffleEnabled
     ) { values: Array<Any?> ->
         val detail = values[0] as WalletDetail?
         val nodeSnapshot = values[1] as NodeStatusSnapshot
@@ -164,6 +167,8 @@ class WalletDetailViewModel @Inject constructor(
         val walletHealthEnabled = values[14] as Boolean
         val storedWalletHealth = values[15] as WalletHealthResult?
         val hapticsEnabled = values[16] as Boolean
+        val pinLockEnabled = values[17] as Boolean
+        val pinShuffleEnabled = values[18] as Boolean
         val transactionHealthMap = if (transactionAnalysisEnabled && detail != null) {
             val computed = transactionHealthAnalyzer
                 .analyze(detail, dustThreshold, transactionParameters)
@@ -259,7 +264,9 @@ class WalletDetailViewModel @Inject constructor(
             utxoHealth = if (utxoHealthEnabled) utxoHealthMap else emptyMap(),
             walletHealthEnabled = walletHealthEnabled,
             walletHealth = walletHealth,
-            balanceHistory = balanceHistoryPoints
+            balanceHistory = balanceHistoryPoints,
+            pinLockEnabled = pinLockEnabled,
+            pinShuffleEnabled = pinShuffleEnabled
         )
     }
 
@@ -353,6 +360,8 @@ class WalletDetailViewModel @Inject constructor(
                 balanceUnit = baseSnapshot.balanceUnit,
                 balancesHidden = baseSnapshot.balancesHidden,
                 hapticsEnabled = baseSnapshot.hapticsEnabled,
+                pinLockEnabled = baseSnapshot.pinLockEnabled,
+                pinShuffleEnabled = baseSnapshot.pinShuffleEnabled,
                 advancedMode = baseSnapshot.advancedMode,
                 nodeStatus = NodeStatus.Idle,
                 torStatus = baseSnapshot.torStatus,
@@ -420,6 +429,8 @@ class WalletDetailViewModel @Inject constructor(
                 balanceUnit = baseSnapshot.balanceUnit,
                 balancesHidden = baseSnapshot.balancesHidden,
                 hapticsEnabled = baseSnapshot.hapticsEnabled,
+                pinLockEnabled = baseSnapshot.pinLockEnabled,
+                pinShuffleEnabled = baseSnapshot.pinShuffleEnabled,
                 advancedMode = baseSnapshot.advancedMode,
                 nodeStatus = if (snapshotMatchesNetwork) baseSnapshot.nodeSnapshot.status else NodeStatus.Idle,
                 torStatus = baseSnapshot.torStatus,
@@ -482,6 +493,13 @@ class WalletDetailViewModel @Inject constructor(
     fun setTransactionLabelFilter(filter: TransactionLabelFilter) {
         if (transactionLabelFilterState.value != filter) {
             transactionLabelFilterState.value = filter
+        }
+    }
+
+    fun verifyPin(pin: String, onResult: (PinVerificationResult) -> Unit) {
+        viewModelScope.launch {
+            val result = appPreferencesRepository.verifyPin(pin)
+            onResult(result)
         }
     }
 
@@ -652,7 +670,9 @@ class WalletDetailViewModel @Inject constructor(
         val utxoHealth: Map<String, UtxoHealthResult>,
         val walletHealthEnabled: Boolean,
         val walletHealth: WalletHealthResult?,
-        val balanceHistory: List<BalancePoint>
+        val balanceHistory: List<BalancePoint>,
+        val pinLockEnabled: Boolean,
+        val pinShuffleEnabled: Boolean
     )
 
     private fun computeUtxoFilterCounts(utxos: List<WalletUtxo>): UtxoFilterCounts {
@@ -711,6 +731,8 @@ data class WalletDetailUiState(
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
     val balancesHidden: Boolean = false,
     val hapticsEnabled: Boolean = true,
+    val pinLockEnabled: Boolean = false,
+    val pinShuffleEnabled: Boolean = false,
     val advancedMode: Boolean = false,
     val nodeStatus: NodeStatus = NodeStatus.Idle,
     val torStatus: TorStatus = TorStatus.Stopped,
