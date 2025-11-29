@@ -477,16 +477,6 @@ private fun SecuritySettingsScreen(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
         )
         if (state.pinEnabled) {
-            val pinTimeoutMinutes = pinTimeoutSliderValue.roundToInt()
-                .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
-            val pinTimeoutLabel = if (pinTimeoutMinutes == 0) {
-                stringResource(id = R.string.settings_pin_timeout_immediately_label)
-            } else {
-                stringResource(
-                    id = R.string.settings_pin_timeout_minutes_label,
-                    pinTimeoutMinutes
-                )
-            }
             ListItem(
                 headlineContent = {
                     Text(text = stringResource(id = R.string.settings_pin_shuffle_title))
@@ -506,35 +496,6 @@ private fun SecuritySettingsScreen(
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
             )
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = stringResource(id = R.string.settings_pin_timeout_title),
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Text(
-                    text = pinTimeoutLabel,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Slider(
-                    value = pinTimeoutSliderValue,
-                    onValueChange = { newValue ->
-                        pinTimeoutSliderValue = newValue
-                        val steppedValue = newValue.roundToInt()
-                            .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
-                        if (steppedValue != pinHapticStep) {
-                            pinHapticStep = steppedValue
-                            performSliderHaptic()
-                        }
-                    },
-                    onValueChangeFinished = {
-                        onPinAutoLockTimeoutSelected(pinTimeoutMinutes)
-                    },
-                    valueRange = MIN_PIN_AUTO_LOCK_MINUTES.toFloat()..MAX_PIN_AUTO_LOCK_MINUTES.toFloat(),
-                    steps = (MAX_PIN_AUTO_LOCK_MINUTES - MIN_PIN_AUTO_LOCK_MINUTES - 1).coerceAtLeast(0),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ListItem(
@@ -563,17 +524,52 @@ private fun SecuritySettingsScreen(
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
             )
             if (state.networkLogsEnabled) {
-                Text(
-                    text = stringResource(id = R.string.settings_network_logs_sanitized_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 TextButton(
-                    onClick = onOpenNetworkLogs,
-                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)
+                    onClick = onOpenNetworkLogs
                 ) {
                     Text(text = stringResource(id = R.string.settings_network_logs_open_viewer))
                 }
+            }
+        }
+        if (state.pinEnabled) {
+            val pinTimeoutMinutes = pinTimeoutSliderValue.roundToInt()
+                .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
+            val pinTimeoutLabel = if (pinTimeoutMinutes == 0) {
+                stringResource(id = R.string.settings_pin_timeout_immediately_label)
+            } else {
+                stringResource(
+                    id = R.string.settings_pin_timeout_minutes_label,
+                    pinTimeoutMinutes
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(id = R.string.settings_pin_timeout_title),
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = pinTimeoutLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Slider(
+                    value = pinTimeoutSliderValue,
+                    onValueChange = { newValue ->
+                        pinTimeoutSliderValue = newValue
+                        val steppedValue = newValue.roundToInt()
+                            .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
+                        if (steppedValue != pinHapticStep) {
+                            pinHapticStep = steppedValue
+                            performSliderHaptic()
+                        }
+                    },
+                    onValueChangeFinished = {
+                        onPinAutoLockTimeoutSelected(pinTimeoutMinutes)
+                    },
+                    valueRange = MIN_PIN_AUTO_LOCK_MINUTES.toFloat()..MAX_PIN_AUTO_LOCK_MINUTES.toFloat(),
+                    steps = (MAX_PIN_AUTO_LOCK_MINUTES - MIN_PIN_AUTO_LOCK_MINUTES - 1).coerceAtLeast(0),
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

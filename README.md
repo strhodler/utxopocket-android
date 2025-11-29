@@ -7,7 +7,7 @@ UtxoPocket is an open-source Android app for monitoring multiple Bitcoin wallets
 ## Value proposition
 - **Privacy by default**: embedded Tor, zero telemetry, no clearnet fallbacks for curated or custom onion nodes.
 - **Complete visibility**: clear dashboards plus wallet-level warnings whenever a sync misbehaves.
-- **UX with intent**: adaptive Compose UI, responsive loaders (e.g., Tor bootstrap progress), intentional micro-interactions.
+- **UX with intent**: adaptive Compose UI grounded in Material Design 3 + Expressive motion/shape/type guidance, responsive loaders (e.g., Tor bootstrap progress), intentional micro-interactions.
 - **Reproducible & auditable**: deterministic build scripts and a strictly watch-only trust model.
 
 ### Acknowledgements
@@ -88,11 +88,15 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 
 ## Technology stack
 - Build: Kotlin 2.2.21, JDK 21, AGP 8.13, Gradle VCs, KSP.
-- UI: Jetpack Compose (Material 3), Navigation, Vico charts; bundled fonts (SIL OFL).
+- UI: Jetpack Compose (Material 3 + Expressive motion/shape/type APIs where adopted), Navigation, Vico charts; bundled fonts (SIL OFL).
 - Architecture: MVVM + Clean Architecture, coroutines/Flows, Hilt DI.
 - Data & privacy: Room + SQLCipher, EncryptedFile + EncryptedSharedPreferences, DataStore.
 - Bitcoin & networking: BDK 2.2.0, Tor + jtorctl, Electrum nodes, ZXing QR.
 - Testing: JUnit, coroutines test, Room testing, Compose UI tests.
+
+## Design system references
+- Material component patterns are mirrored locally in `misc/material-components-android-master` (catalog, theming, motion, layout specs) and the Material 3 Expressive notes live in `misc/material-expresive` (expressive components, motion physics, typography, shape, and color tactics).
+- Compose implementations should align with `UtxoPocketTheme` tokens (colors, typography, shapes) and the Expressive motion scheme before deviating with custom easing or radii.
 
 ---
 
