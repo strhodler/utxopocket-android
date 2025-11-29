@@ -534,8 +534,8 @@ private fun WalletCard(
                         )
                         WalletInfoChip(
                             text = walletDescriptorTypeLabel(wallet.descriptorType),
-                            containerColor = theme.primaryContainer,
-                            contentColor = theme.onPrimaryContainer
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

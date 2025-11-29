@@ -24,8 +24,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -53,6 +51,7 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.PublicNode
+import com.strhodler.utxopocket.presentation.components.WalletSwitch
 
 @Composable
 fun NodeManagementContent(
@@ -431,27 +430,20 @@ private fun NodeListItem(
             },
             supportingContent = supportingContent,
             trailingContent = {
-                val switchColors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.primary,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-                Switch(
+                WalletSwitch(
                     checked = connected,
                     enabled = isNetworkOnline,
                     interactionSource = remember { MutableInteractionSource() },
                     onCheckedChange = { checked ->
                         if (interactionsLocked) {
                             onInteractionBlocked()
-                            return@Switch
+                            return@WalletSwitch
                         }
                         when {
                             checked && !connected -> onActivate()
                             !checked && connected -> onDeactivate?.invoke()
                         }
-                    },
-                    colors = switchColors
+                    }
                 )
             },
             modifier = Modifier
@@ -469,13 +461,7 @@ private fun NodeListItem(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ),
-            colors = ListItemDefaults.colors(
-                containerColor = if (selected) {
-                    MaterialTheme.colorScheme.surfaceContainerHigh
-                } else {
-                    Color.Transparent
-                }
-            )
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
         , tonalElevation = 0.dp
         )
         if (showDivider) {

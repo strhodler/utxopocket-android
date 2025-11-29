@@ -41,7 +41,7 @@
     <string name="wallets_empty_add_action">Añadir billetera</string>
     <string name="wallets_total_balance_label">Balance total</string>
     <string name="wallets_balance">Balance: %1$s %2$s</string>
-    <string name="wallets_transactions">Transacciones: %1$d</string>
+    <string name="wallets_transactions">%1$d txs</string>
     <string name="wallets_status">Estado: %1$s</string>
     <string name="wallets_state_idle">Inactivo</string>
     <string name="wallets_state_offline">Sin conexión</string>
@@ -98,6 +98,7 @@
     <string name="settings_theme_value_dark">Oscuro</string>
     <string name="settings_theme_dynamic_available">Usa los colores del sistema en Android 12+ cuando está seleccionada la paleta Estándar.</string>
     <string name="settings_theme_dynamic_unavailable">Los colores del sistema requieren Android 12+ y la paleta Estándar. Se usará la paleta de la app.</string>
+    <string name="splash_subtitle">Solo lectura. Privada. Lista.</string>
     <string name="settings_connection_timeout_title">Desconexión por inactividad</string>
     <string name="settings_connection_timeout_minutes_label">%1$d min</string>
     <string name="settings_connection_timeout_tip_short">Menor batería; más reconexiones.</string>
@@ -166,6 +167,8 @@
     <string name="wallet_detail_utxos_filter_summary_none">Sin UTXOs seleccionados</string>
     <string name="wallet_detail_transactions_filter_labeled">Etiquetadas</string>
     <string name="wallet_detail_transactions_filter_unlabeled">Sin etiqueta</string>
+    <string name="wallet_detail_transactions_filter_received">Entradas</string>
+    <string name="wallet_detail_transactions_filter_sent">Salidas</string>
     <string name="wallet_detail_transactions_filter_summary_all">Todas las transacciones</string>
     <string name="wallet_detail_transactions_filter_summary_labeled">Sólo etiquetadas</string>
     <string name="wallet_detail_transactions_filter_summary_unlabeled">Sólo sin etiqueta</string>

@@ -131,6 +131,7 @@ import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.common.transactionAmount
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
+import com.strhodler.utxopocket.presentation.theme.WalletColorTheme
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import com.strhodler.utxopocket.presentation.wallets.sanitizeWalletErrorMessage
 import java.text.DateFormat
@@ -428,9 +429,7 @@ private fun WalletDetailContent(
                         transactionsCount = state.transactionsCount,
                         utxosCount = state.utxosCount,
                         pagerState = pagerState,
-                        accentColor = walletTheme.primary,
                         modifier = Modifier
-                            .padding(horizontal = 16.dp)
                             .padding(top = tabsTopPadding)
                     )
                 }
@@ -521,6 +520,7 @@ private fun WalletDetailContent(
                                                 balancesHidden = state.balancesHidden,
                                                 healthResult = state.transactionHealth[transaction.id],
                                                 analysisEnabled = state.transactionAnalysisEnabled,
+                                                palette = walletTheme,
                                                 onClick = { onTransactionSelected(transaction.id) }
                                             )
                                         }
@@ -605,6 +605,7 @@ private fun WalletDetailContent(
                                                 dustThresholdSats = state.dustThresholdSats,
                                                 healthResult = state.utxoHealth["${utxo.txid}:${utxo.vout}"],
                                                 analysisEnabled = state.utxoHealthEnabled,
+                                                palette = walletTheme,
                                                 onClick = { onUtxoSelected(utxo.txid, utxo.vout) }
                                             )
                                         }
@@ -929,6 +930,9 @@ private fun WalletDetailHeader(
                         horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val selectedContainer = MaterialTheme.colorScheme.secondaryContainer
+                        val selectedLabel = MaterialTheme.colorScheme.onSecondaryContainer
+                        val unselectedLabel = MaterialTheme.colorScheme.onSurfaceVariant
                         availableRanges.forEach { range ->
                             val isSelected = range == selectedRange
                             AssistChip(
@@ -941,10 +945,10 @@ private fun WalletDetailHeader(
                                 },
                                 border = null,
                                 colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = if (isSelected) accentColor.copy(alpha = 0.16f) else Color.Transparent,
-                                    labelColor = accentColor,
-                                    leadingIconContentColor = accentColor,
-                                    trailingIconContentColor = accentColor
+                                    containerColor = if (isSelected) selectedContainer else Color.Transparent,
+                                    labelColor = if (isSelected) selectedLabel else unselectedLabel,
+                                    leadingIconContentColor = if (isSelected) selectedLabel else unselectedLabel,
+                                    trailingIconContentColor = if (isSelected) selectedLabel else unselectedLabel
                                 )
                             )
                         }
@@ -1617,10 +1621,12 @@ private fun WalletTabs(
     transactionsCount: Int,
     utxosCount: Int,
     pagerState: PagerState,
-    accentColor: Color,
     modifier: Modifier = Modifier
 ) {
     val tabs = remember { WalletDetailTab.entries.toTypedArray() }
+    val indicatorColor = MaterialTheme.colorScheme.onSurface
+    val selectedTextColor = MaterialTheme.colorScheme.onSurface
+    val unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     ScrollableTabRow(
         modifier = modifier.fillMaxWidth(),
         selectedTabIndex = selected.ordinal,
@@ -1630,7 +1636,7 @@ private fun WalletTabs(
             if (tabPositions.isNotEmpty()) {
                 TabRowDefaults.Indicator(
                     modifier = Modifier.tabIndicatorOffset(tabPositions[selected.ordinal]),
-                    color = accentColor
+                    color = indicatorColor
                 )
             }
         }
@@ -1639,8 +1645,8 @@ private fun WalletTabs(
             Tab(
                 selected = selected == tab,
                 onClick = { onTabSelected(tab) },
-                selectedContentColor = accentColor,
-                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                selectedContentColor = selectedTextColor,
+                unselectedContentColor = unselectedTextColor,
                 text = {
                     Text(
                         text = when (tab) {
@@ -1809,9 +1815,14 @@ private fun TransactionFilterRow(
     val summaryText = when {
         filter.showsNone -> stringResource(id = R.string.wallet_detail_transactions_filter_summary_none)
         filter.showsAll -> stringResource(id = R.string.wallet_detail_transactions_filter_summary_all)
-        filter.showLabeled -> stringResource(id = R.string.wallet_detail_transactions_filter_labeled)
-        filter.showUnlabeled -> stringResource(id = R.string.wallet_detail_transactions_filter_unlabeled)
-        else -> stringResource(id = R.string.wallet_detail_transactions_filter_summary_none)
+        else -> buildList {
+            if (filter.showLabeled) add(stringResource(id = R.string.wallet_detail_transactions_filter_labeled))
+            if (filter.showUnlabeled) add(stringResource(id = R.string.wallet_detail_transactions_filter_unlabeled))
+            if (filter.showReceived) add(stringResource(id = R.string.wallet_detail_transactions_filter_received))
+            if (filter.showSent) add(stringResource(id = R.string.wallet_detail_transactions_filter_sent))
+        }.joinToString(" • ").ifBlank {
+            stringResource(id = R.string.wallet_detail_transactions_filter_summary_none)
+        }
     }
     Card(
         onClick = { menuExpanded = true },
@@ -1880,6 +1891,44 @@ private fun TransactionFilterRow(
                     },
                     onClick = {
                         onFilterChange(filter.copy(showUnlabeled = !filter.showUnlabeled))
+                    }
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = withCount(
+                                stringResource(id = R.string.wallet_detail_transactions_filter_received),
+                                counts.received
+                            )
+                        )
+                    },
+                    leadingIcon = {
+                        Checkbox(
+                            checked = filter.showReceived,
+                            onCheckedChange = null
+                        )
+                    },
+                    onClick = {
+                        onFilterChange(filter.copy(showReceived = !filter.showReceived))
+                    }
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = withCount(
+                                stringResource(id = R.string.wallet_detail_transactions_filter_sent),
+                                counts.sent
+                            )
+                        )
+                    },
+                    leadingIcon = {
+                        Checkbox(
+                            checked = filter.showSent,
+                            onCheckedChange = null
+                        )
+                    },
+                    onClick = {
+                        onFilterChange(filter.copy(showSent = !filter.showSent))
                     }
                 )
             }
@@ -2100,6 +2149,7 @@ private fun TransactionRow(
     balancesHidden: Boolean,
     healthResult: TransactionHealthResult?,
     analysisEnabled: Boolean,
+    palette: WalletColorTheme,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2109,6 +2159,7 @@ private fun TransactionRow(
         balancesHidden = balancesHidden,
         healthResult = healthResult,
         analysisEnabled = analysisEnabled,
+        palette = palette,
         onClick = onClick,
         modifier = modifier
     )
@@ -2122,6 +2173,7 @@ private fun UtxoRow(
     dustThresholdSats: Long,
     healthResult: UtxoHealthResult?,
     analysisEnabled: Boolean,
+    palette: WalletColorTheme,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2132,6 +2184,7 @@ private fun UtxoRow(
         dustThresholdSats = dustThresholdSats,
         healthResult = healthResult,
         analysisEnabled = analysisEnabled,
+        palette = palette,
         onClick = onClick,
         modifier = modifier
     )
@@ -2144,6 +2197,7 @@ private fun TransactionDetailedCard(
     balancesHidden: Boolean,
     healthResult: TransactionHealthResult?,
     analysisEnabled: Boolean,
+    palette: WalletColorTheme,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2211,7 +2265,7 @@ private fun TransactionDetailedCard(
                         Text(
                             text = stringResource(id = R.string.transaction_health_score_chip, score),
                             style = MaterialTheme.typography.labelMedium,
-                            color = healthTextColor(score)
+                            color = healthTextColor(score, palette)
                         )
                     }
                     Text(
@@ -2282,6 +2336,7 @@ private fun UtxoDetailedCard(
     dustThresholdSats: Long,
     healthResult: UtxoHealthResult?,
     analysisEnabled: Boolean,
+    palette: WalletColorTheme,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2346,7 +2401,7 @@ private fun UtxoDetailedCard(
                         Text(
                             text = stringResource(id = R.string.transaction_health_score_chip, score),
                             style = MaterialTheme.typography.labelMedium,
-                            color = healthTextColor(score)
+                            color = healthTextColor(score, palette)
                         )
                     }
                     Text(
@@ -2489,10 +2544,13 @@ private fun confirmationLabel(confirmations: Int): String = when {
 }
 
 @Composable
-private fun healthTextColor(score: Int): Color = when {
-    score >= 85 -> MaterialTheme.colorScheme.tertiary
-    score >= 60 -> MaterialTheme.colorScheme.secondary
-    else -> MaterialTheme.colorScheme.error
+private fun healthTextColor(score: Int, palette: WalletColorTheme): Color {
+    val scheme = MaterialTheme.colorScheme
+    return when {
+        score >= 85 -> palette.onSuccess
+        score >= 60 -> palette.onWarning
+        else -> scheme.error
+    }
 }
 
 enum class WalletDetailTab {

@@ -799,7 +799,6 @@ private fun FullRescanBottomSheet(
         sliderValue = gap.toFloat()
     }
     val valueRange = minGap.toFloat()..maxGap.toFloat()
-    val sliderSteps = ((maxGap - minGap) / step - 1).coerceAtLeast(0)
     val clampedGap = gap.coerceIn(minGap, maxGap)
     val feedbackText = when {
         clampedGap <= minGap -> stringResource(id = R.string.wallet_detail_full_rescan_feedback_fast)
@@ -888,7 +887,6 @@ private fun FullRescanBottomSheet(
                         }
                     },
                     valueRange = valueRange,
-                    steps = sliderSteps,
                     enabled = !isSubmitting,
                     modifier = Modifier.fillMaxWidth()
                 )

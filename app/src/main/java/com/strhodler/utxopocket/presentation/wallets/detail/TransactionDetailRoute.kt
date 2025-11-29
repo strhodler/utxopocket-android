@@ -47,7 +47,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -111,6 +110,7 @@ import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
+import com.strhodler.utxopocket.presentation.components.WalletSwitch
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import androidx.compose.material3.surfaceColorAtElevation
@@ -1478,7 +1478,7 @@ private fun SpendableToggleCard(
                     text = stringResource(id = R.string.utxo_detail_spendable_toggle_label),
                     style = MaterialTheme.typography.titleMedium
                 )
-                Switch(
+                WalletSwitch(
                     checked = spendable,
                     onCheckedChange = { onToggle(it) },
                     enabled = !updating

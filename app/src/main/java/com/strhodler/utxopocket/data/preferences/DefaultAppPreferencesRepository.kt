@@ -9,7 +9,6 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
@@ -48,8 +47,8 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import kotlin.math.min
 
-private const val USER_PREFERENCES_NAME = "user_preferences"
-private val Context.userPreferencesDataStore by preferencesDataStore(name = USER_PREFERENCES_NAME)
+import com.strhodler.utxopocket.data.preferences.userPreferencesDataStore
+import com.strhodler.utxopocket.data.preferences.USER_PREFERENCES_NAME
 
 @Singleton
 class DefaultAppPreferencesRepository @Inject constructor(

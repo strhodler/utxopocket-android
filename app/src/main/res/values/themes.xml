@@ -5,8 +5,8 @@
 
     <style name="Theme.UtxoPocket.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
-        <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <item name="windowSplashScreenIconBackgroundColor">@color/splash_icon_background</item>
+        <item name="windowSplashScreenBackground">@android:color/transparent</item>
+        <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
         <item name="colorPrimary">@color/splash_icon_primary</item>
         <item name="postSplashScreenTheme">@style/Theme.UtxoPocket</item>
     </style>

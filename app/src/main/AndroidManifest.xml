@@ -21,6 +21,11 @@
         android:appComponentFactory="androidx.core.app.CoreComponentFactory"
         tools:replace="android:appComponentFactory"
         tools:targetApi="36">
+        <provider
+            android:name=".presentation.theme.ThemeInitProvider"
+            android:authorities="${applicationId}.themeinitprovider"
+            android:exported="false"
+            android:initOrder="50" />
         <activity
             android:name=".presentation.MainActivity"
             android:exported="true"

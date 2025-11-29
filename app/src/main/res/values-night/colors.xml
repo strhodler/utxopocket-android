@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Dark-mode overrides for splash screen -->
-    <color name="splash_background">#0F1115</color>
-    <color name="splash_icon_background">#2A1C14</color>
-    <color name="splash_icon_primary">#E3B58D</color>
+    <color name="splash_background">#0D1117</color>
+    <color name="splash_icon_background">#1F2937</color>
+    <color name="splash_icon_primary">#E5E7EB</color>
 </resources>

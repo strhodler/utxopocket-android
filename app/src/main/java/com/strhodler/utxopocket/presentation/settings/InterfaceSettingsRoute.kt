@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.presentation.settings
 
 import android.os.Build
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,7 +25,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -48,6 +48,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Check
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
+import com.strhodler.utxopocket.presentation.components.WalletSwitch
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import com.strhodler.utxopocket.presentation.theme.colorSchemeFor
@@ -186,7 +187,7 @@ private fun InterfaceSettingsScreen(
                 )
             },
             trailingContent = {
-                Switch(
+                WalletSwitch(
                     checked = state.hapticsEnabled,
                     onCheckedChange = onHapticsToggled
                 )
@@ -298,9 +299,11 @@ private fun ThemePreviewDots(preview: ThemePreviewColors) {
 
 @Composable
 private fun PreviewDot(color: Color) {
+    val stroke = androidx.compose.material3.MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
     Box(
         modifier = Modifier
             .size(18.dp)
+            .border(width = 1.dp, color = stroke, shape = CircleShape)
             .background(color = color, shape = CircleShape)
     )
 }

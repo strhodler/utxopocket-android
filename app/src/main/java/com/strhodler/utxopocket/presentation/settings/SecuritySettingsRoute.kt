@@ -34,7 +34,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -65,6 +64,7 @@ import com.strhodler.utxopocket.presentation.MainActivity
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
+import com.strhodler.utxopocket.presentation.components.WalletSwitch
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.pin.PinLockoutMessageType
 import com.strhodler.utxopocket.presentation.pin.PinSetupScreen
@@ -469,7 +469,7 @@ private fun SecuritySettingsScreen(
                 )
             },
             trailingContent = {
-                Switch(
+                WalletSwitch(
                     checked = state.pinEnabled,
                     onCheckedChange = onPinToggleRequested
                 )
@@ -489,7 +489,7 @@ private fun SecuritySettingsScreen(
                     )
                 },
                 trailingContent = {
-                    Switch(
+                    WalletSwitch(
                         checked = state.pinShuffleEnabled,
                         onCheckedChange = onPinShuffleChanged
                     )
@@ -516,7 +516,7 @@ private fun SecuritySettingsScreen(
                     )
                 },
                 trailingContent = {
-                    Switch(
+                    WalletSwitch(
                         checked = state.networkLogsEnabled,
                         onCheckedChange = onNetworkLogsToggle
                     )
@@ -555,9 +555,11 @@ private fun SecuritySettingsScreen(
                 Slider(
                     value = pinTimeoutSliderValue,
                     onValueChange = { newValue ->
-                        pinTimeoutSliderValue = newValue
-                        val steppedValue = newValue.roundToInt()
+                        val quantized = newValue.roundToInt()
                             .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
+                            .toFloat()
+                        pinTimeoutSliderValue = quantized
+                        val steppedValue = quantized.toInt()
                         if (steppedValue != pinHapticStep) {
                             pinHapticStep = steppedValue
                             performSliderHaptic()
@@ -567,7 +569,6 @@ private fun SecuritySettingsScreen(
                         onPinAutoLockTimeoutSelected(pinTimeoutMinutes)
                     },
                     valueRange = MIN_PIN_AUTO_LOCK_MINUTES.toFloat()..MAX_PIN_AUTO_LOCK_MINUTES.toFloat(),
-                    steps = (MAX_PIN_AUTO_LOCK_MINUTES - MIN_PIN_AUTO_LOCK_MINUTES - 1).coerceAtLeast(0),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -585,9 +586,11 @@ private fun SecuritySettingsScreen(
             Slider(
                 value = connectionTimeoutValue,
                 onValueChange = { newValue ->
-                    connectionTimeoutValue = newValue
-                    val steppedValue = newValue.roundToInt()
+                    val quantized = newValue.roundToInt()
                         .coerceIn(MIN_CONNECTION_IDLE_MINUTES, MAX_CONNECTION_IDLE_MINUTES)
+                        .toFloat()
+                    connectionTimeoutValue = quantized
+                    val steppedValue = quantized.toInt()
                     if (steppedValue != connectionHapticStep) {
                         connectionHapticStep = steppedValue
                         performSliderHaptic()
@@ -597,7 +600,6 @@ private fun SecuritySettingsScreen(
                     onConnectionIdleTimeoutSelected(connectionTimeoutMinutes)
                 },
                 valueRange = MIN_CONNECTION_IDLE_MINUTES.toFloat()..MAX_CONNECTION_IDLE_MINUTES.toFloat(),
-                steps = (MAX_CONNECTION_IDLE_MINUTES - MIN_CONNECTION_IDLE_MINUTES - 1).coerceAtLeast(0),
                 modifier = Modifier.fillMaxWidth()
             )
             Text(

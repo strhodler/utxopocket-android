@@ -166,9 +166,7 @@ fun NodeStatusScreen(
                                 pagerState.animateScrollToPage(tab.ordinal)
                             }
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -247,9 +245,9 @@ private fun NodeStatusTabs(
 ) {
     TabRow(
         selectedTabIndex = pagerState.currentPage,
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.primary
+        modifier = modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         tabs.forEach { tab ->
             Tab(

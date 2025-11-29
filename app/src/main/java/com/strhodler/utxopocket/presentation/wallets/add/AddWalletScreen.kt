@@ -41,7 +41,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -77,6 +76,7 @@ import com.strhodler.utxopocket.presentation.common.UrMultiPartScanActivity
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBanner
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBannerStyle
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
+import com.strhodler.utxopocket.presentation.components.WalletSwitch
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import kotlinx.coroutines.launch
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -134,9 +134,7 @@ fun AddWalletScreen(
             ImportModeTabs(
                 selectedMode = state.importMode,
                 onSelect = onImportModeSelected,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                modifier = Modifier.fillMaxWidth()
             )
             Column(
                 modifier = Modifier
@@ -387,9 +385,9 @@ private fun ImportModeTabs(
     val selectedIndex = modes.indexOf(selectedMode).coerceAtLeast(0)
     TabRow(
         selectedTabIndex = selectedIndex,
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.primary
+        modifier = modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         modes.forEach { mode ->
             val label = when (mode) {
@@ -547,7 +545,7 @@ private fun ExtendedKeyInputs(
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
-            Switch(
+            WalletSwitch(
                 checked = form.includeChangeBranch,
                 onCheckedChange = onIncludeChangeBranch
             )

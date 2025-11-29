@@ -688,9 +688,12 @@ class WalletDetailViewModel @Inject constructor(
 
     private fun computeTransactionFilterCounts(transactions: List<WalletTransaction>): TransactionFilterCounts {
         val labeled = transactions.count { !it.label.isNullOrBlank() }
+        val received = transactions.count { it.type == TransactionType.RECEIVED }
         return TransactionFilterCounts(
             labeled = labeled,
-            unlabeled = transactions.size - labeled
+            unlabeled = transactions.size - labeled,
+            received = received,
+            sent = transactions.size - received
         )
     }
 
@@ -812,12 +815,15 @@ data class UtxoFilterCounts(
 
 data class TransactionLabelFilter(
     val showLabeled: Boolean = true,
-    val showUnlabeled: Boolean = true
+    val showUnlabeled: Boolean = true,
+    val showReceived: Boolean = true,
+    val showSent: Boolean = true
 ) {
     private val hasLabelSelection: Boolean get() = showLabeled || showUnlabeled
+    private val hasDirectionSelection: Boolean get() = showReceived || showSent
 
-    val showsAll: Boolean get() = showLabeled && showUnlabeled
-    val showsNone: Boolean get() = !hasLabelSelection
+    val showsAll: Boolean get() = showLabeled && showUnlabeled && showReceived && showSent
+    val showsNone: Boolean get() = !hasLabelSelection || !hasDirectionSelection
 
     fun matches(transaction: WalletTransaction): Boolean {
         if (showsNone) return false
@@ -827,11 +833,17 @@ data class TransactionLabelFilter(
         } else {
             true
         }
-        return labelAllowed
+        val directionAllowed = when (transaction.type) {
+            TransactionType.RECEIVED -> showReceived
+            TransactionType.SENT -> showSent
+        }
+        return labelAllowed && directionAllowed
     }
 }
 
 data class TransactionFilterCounts(
     val labeled: Int = 0,
-    val unlabeled: Int = 0
+    val unlabeled: Int = 0,
+    val received: Int = 0,
+    val sent: Int = 0
 )

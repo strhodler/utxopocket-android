@@ -107,6 +107,8 @@
     <string name="wallet_detail_utxos_filter_summary_none">No UTXOs selected</string>
     <string name="wallet_detail_transactions_filter_labeled">Labeled</string>
     <string name="wallet_detail_transactions_filter_unlabeled">Unlabeled</string>
+    <string name="wallet_detail_transactions_filter_received">Incoming</string>
+    <string name="wallet_detail_transactions_filter_sent">Outgoing</string>
     <string name="wallet_detail_transactions_filter_summary_all">All transactions</string>
     <string name="wallet_detail_transactions_filter_summary_labeled">Labeled only</string>
     <string name="wallet_detail_transactions_filter_summary_unlabeled">Unlabeled only</string>
@@ -531,7 +533,7 @@
     <string name="node_manage_prompt">Select a node under the Manage tab to reconnect and resume syncing.</string>
     <string name="node_disconnect_action">Disconnect</string>
     <string name="wallets_balance">Balance: %1$s %2$s</string>
-    <string name="wallets_transactions">Transactions: %1$d</string>
+    <string name="wallets_transactions">%1$d txs</string>
     <string name="wallets_status">Status: %1$s</string>
     <string name="wallets_state_idle">Idle</string>
     <string name="wallets_state_offline">Offline</string>
@@ -793,6 +795,7 @@
     <string name="settings_theme_profile_deuteranopia">Deuteranopia-safe</string>
     <string name="settings_theme_profile_protanopia">Protanopia-safe</string>
     <string name="settings_theme_profile_tritanopia">Tritanopia-safe</string>
+    <string name="splash_subtitle">Watch-only. Private. Ready.</string>
     <string name="onboarding_title">Welcome to UtxoPocket</string>
     <string name="onboarding_subtitle">Mirror your hardware wallets, monitor health scores, and stay behind Tor without exposing a single private key.</string>
     <string name="onboarding_get_started">Get started</string>

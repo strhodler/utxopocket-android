@@ -20,7 +20,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
+import com.strhodler.utxopocket.presentation.components.WalletSwitch
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
@@ -211,7 +211,7 @@ private fun WalletSettingsScreen(
                 )
             },
             trailingContent = {
-                Switch(
+                WalletSwitch(
                     checked = state.transactionAnalysisEnabled,
                     onCheckedChange = onTransactionAnalysisToggled
                 )
@@ -233,7 +233,7 @@ private fun WalletSettingsScreen(
                 )
             },
             trailingContent = {
-                Switch(
+                WalletSwitch(
                     checked = state.utxoHealthEnabled,
                     onCheckedChange = onUtxoHealthToggled
                 )
@@ -255,7 +255,7 @@ private fun WalletSettingsScreen(
                 )
             },
             trailingContent = {
-                Switch(
+                WalletSwitch(
                     checked = state.walletHealthEnabled,
                     onCheckedChange = onWalletHealthToggled,
                     enabled = state.walletHealthToggleEnabled
