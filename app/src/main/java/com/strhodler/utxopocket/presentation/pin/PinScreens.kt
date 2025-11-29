@@ -300,7 +300,7 @@ private fun PinScreenScaffold(
                 .systemBarsPadding()
                 .padding(horizontal = 20.dp)
                 .padding(top = topPadding)
-                .padding(bottom = 24.dp),
+                .padding(bottom = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.weight(1f))
@@ -350,7 +350,7 @@ private fun PinScreenScaffold(
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(40.dp))
         }
     }
 }

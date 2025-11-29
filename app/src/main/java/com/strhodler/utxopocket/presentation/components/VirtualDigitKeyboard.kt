@@ -45,7 +45,7 @@ sealed interface DigitKey {
 
 object VirtualDigitKeyboardDefaults {
     val keySpacing = 16.dp
-    val maxKeySize = 68.dp
+    val maxKeySize = 76.dp
 }
 
 private val DefaultKeyboardLayout = listOf(
