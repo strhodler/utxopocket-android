@@ -1,5 +1,6 @@
 package com.strhodler.utxopocket.presentation.settings
 
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -16,10 +17,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -43,12 +46,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Check
-import com.strhodler.utxopocket.presentation.theme.primaryDark
-import com.strhodler.utxopocket.presentation.theme.primaryLight
-import com.strhodler.utxopocket.presentation.theme.primaryContainerDark
-import com.strhodler.utxopocket.presentation.theme.primaryContainerLight
-import com.strhodler.utxopocket.presentation.theme.secondaryDark
-import com.strhodler.utxopocket.presentation.theme.secondaryLight
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
@@ -71,6 +68,8 @@ fun InterfaceSettingsRoute(
     var showThemeSheet by remember { mutableStateOf(false) }
     var showThemeProfileSheet by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val themeSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val themeProfileSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     Scaffold(
         contentWindowInsets = ScreenScaffoldInsets
@@ -89,21 +88,25 @@ fun InterfaceSettingsRoute(
         if (showThemeSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showThemeSheet = false },
-                dragHandle = { BottomSheetDefaults.DragHandle() }
+                dragHandle = { BottomSheetDefaults.DragHandle() },
+                sheetState = themeSheetState
             ) {
                 ThemePreferenceSheet(
                     selected = state.themePreference,
                     onSelect = { preference ->
                         coroutineScope.launch { viewModel.onThemeSelected(preference) }
                         showThemeSheet = false
-                    }
+                    },
+                    dynamicSupported = state.themeProfile == ThemeProfile.STANDARD &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                 )
             }
         }
         if (showThemeProfileSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showThemeProfileSheet = false },
-                dragHandle = { BottomSheetDefaults.DragHandle() }
+                dragHandle = { BottomSheetDefaults.DragHandle() },
+                sheetState = themeProfileSheetState
             ) {
                 ThemeProfileSheet(
                     selected = state.themeProfile,
@@ -161,6 +164,8 @@ private fun InterfaceSettingsScreen(
         ThemeRow(
             selected = state.themePreference,
             selectedLabel = themeLabel(state.themePreference),
+            dynamicSupported = state.themeProfile == ThemeProfile.STANDARD &&
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
             onClick = onOpenThemeSheet
         )
 
@@ -195,6 +200,7 @@ private fun InterfaceSettingsScreen(
 private fun ThemeRow(
     selected: ThemePreference,
     selectedLabel: String,
+    dynamicSupported: Boolean,
     onClick: () -> Unit
 ) {
     val preview = rememberThemePreview(selected)
@@ -213,6 +219,18 @@ private fun ThemeRow(
                     color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 ThemePreviewDots(preview)
+                if (selected == ThemePreference.SYSTEM) {
+                    val message = if (dynamicSupported) {
+                        stringResource(id = R.string.settings_theme_dynamic_available)
+                    } else {
+                        stringResource(id = R.string.settings_theme_dynamic_unavailable)
+                    }
+                    Text(
+                        text = message,
+                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         },
         trailingContent = {
@@ -273,6 +291,8 @@ private fun ThemePreviewDots(preview: ThemePreviewColors) {
         PreviewDot(color = preview.primary)
         PreviewDot(color = preview.primaryContainer)
         PreviewDot(color = preview.secondary)
+        PreviewDot(color = preview.secondaryContainer)
+        PreviewDot(color = preview.surface)
     }
 }
 
@@ -288,7 +308,8 @@ private fun PreviewDot(color: Color) {
 @Composable
 private fun ThemePreferenceSheet(
     selected: ThemePreference,
-    onSelect: (ThemePreference) -> Unit
+    onSelect: (ThemePreference) -> Unit,
+    dynamicSupported: Boolean
 ) {
     val themeLabel = rememberThemePreferenceLabeler()
     val systemIsDark = isSystemInDarkTheme()
@@ -302,14 +323,34 @@ private fun ThemePreferenceSheet(
             text = stringResource(id = R.string.settings_theme_label),
             style = androidx.compose.material3.MaterialTheme.typography.titleMedium
         )
-        ThemePreference.entries.forEach { option ->
+        ThemePreference.entries.forEachIndexed { index, option ->
+            if (index > 0) {
+                HorizontalDivider(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant
+                )
+            }
             val preview = rememberThemePreview(option, systemIsDark)
             ListItem(
                 headlineContent = {
                     Text(text = themeLabel(option))
                 },
                 supportingContent = {
-                    ThemePreviewDots(preview)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ThemePreviewDots(preview)
+                        if (option == ThemePreference.SYSTEM) {
+                            val message = if (dynamicSupported) {
+                                stringResource(id = R.string.settings_theme_dynamic_available)
+                            } else {
+                                stringResource(id = R.string.settings_theme_dynamic_unavailable)
+                            }
+                            Text(
+                                text = message,
+                                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 },
                 trailingContent = {
                     if (option == selected) {
@@ -348,6 +389,12 @@ private fun ThemeProfileSheet(
             style = androidx.compose.material3.MaterialTheme.typography.titleMedium
         )
         ThemeProfile.entries.forEach { option ->
+            if (option != ThemeProfile.entries.first()) {
+                HorizontalDivider(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant
+                )
+            }
             val preview = rememberThemeProfilePreview(option, systemIsDark)
             ListItem(
                 headlineContent = {
@@ -381,31 +428,18 @@ private fun rememberThemePreview(
     systemIsDark: Boolean = isSystemInDarkTheme()
 ): ThemePreviewColors {
     return remember(preference, systemIsDark) {
-        when (preference) {
-            ThemePreference.LIGHT -> ThemePreviewColors(
-                primary = primaryLight,
-                primaryContainer = primaryContainerLight,
-                secondary = secondaryLight
-            )
-            ThemePreference.DARK -> ThemePreviewColors(
-                primary = primaryDark,
-                primaryContainer = primaryContainerDark,
-                secondary = secondaryDark
-            )
-            ThemePreference.SYSTEM -> if (systemIsDark) {
-                ThemePreviewColors(
-                    primary = primaryDark,
-                    primaryContainer = primaryContainerDark,
-                    secondary = secondaryDark
-                )
-            } else {
-                ThemePreviewColors(
-                    primary = primaryLight,
-                    primaryContainer = primaryContainerLight,
-                    secondary = secondaryLight
-                )
-            }
+        val scheme = when (preference) {
+            ThemePreference.LIGHT -> colorSchemeFor(ThemeProfile.STANDARD, isDark = false)
+            ThemePreference.DARK -> colorSchemeFor(ThemeProfile.STANDARD, isDark = true)
+            ThemePreference.SYSTEM -> colorSchemeFor(ThemeProfile.STANDARD, isDark = systemIsDark)
         }
+        ThemePreviewColors(
+            primary = scheme.primary,
+            primaryContainer = scheme.primaryContainer,
+            secondary = scheme.secondary,
+            secondaryContainer = scheme.secondaryContainer,
+            surface = scheme.surface
+        )
     }
 }
 
@@ -419,7 +453,9 @@ private fun rememberThemeProfilePreview(
         ThemePreviewColors(
             primary = scheme.primary,
             primaryContainer = scheme.primaryContainer,
-            secondary = scheme.secondary
+            secondary = scheme.secondary,
+            secondaryContainer = scheme.secondaryContainer,
+            surface = scheme.surface
         )
     }
 }
@@ -427,5 +463,7 @@ private fun rememberThemeProfilePreview(
 private data class ThemePreviewColors(
     val primary: Color,
     val primaryContainer: Color,
-    val secondary: Color
+    val secondary: Color,
+    val secondaryContainer: Color,
+    val surface: Color
 )

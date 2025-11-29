@@ -786,6 +786,8 @@
     <string name="settings_theme_system">System (%1$s)</string>
     <string name="settings_theme_value_light">Light</string>
     <string name="settings_theme_value_dark">Dark</string>
+    <string name="settings_theme_dynamic_available">Uses system colors on Android 12+ when the Standard palette is selected.</string>
+    <string name="settings_theme_dynamic_unavailable">System colors need Android 12+ and the Standard palette. The app palette will be used.</string>
     <string name="settings_theme_profile_label">Color vision mode</string>
     <string name="settings_theme_profile_standard">Standard</string>
     <string name="settings_theme_profile_deuteranopia">Deuteranopia-safe</string>

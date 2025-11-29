@@ -1,7 +1,6 @@
 package com.strhodler.utxopocket.presentation.wallets
 
 import android.view.HapticFeedbackConstants
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -28,11 +27,11 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Router
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -432,8 +431,6 @@ private fun WalletsList(
     }
 }
 
-// Testnet faucet banner and dialog removed from Home; faucet access moved to "More".
-
 private object BalanceHeaderMetrics {
     val CONTENT_HORIZONTAL_PADDING = 16.dp
     val CONTENT_TOP_PADDING = 8.dp
@@ -500,16 +497,14 @@ private fun WalletCard(
         isQueued -> accentColor.copy(alpha = 0.9f)
         else -> secondaryTextColor
     }
-    val borderColor = theme.outline
-    OutlinedCard(
+    Card(
         onClick = onClick,
         modifier = modifier,
         shape = RoundedCornerShape(WalletCardCornerRadius),
-        colors = CardDefaults.outlinedCardColors(
+        colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = contentColor
-        ),
-        border = BorderStroke(width = 1.25.dp, color = borderColor)
+        )
     ) {
         Column(
             modifier = Modifier
@@ -739,8 +734,6 @@ private fun EmptyState(
         }
     }
 }
-
-// Removed LoadingState to avoid duplicate loaders; rely on pull-to-refresh indicator.
 
 @Composable
 private fun walletDescriptorTypeLabel(type: DescriptorType): String = when (type) {

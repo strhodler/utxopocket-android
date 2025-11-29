@@ -96,6 +96,8 @@
     <string name="settings_theme_system">Sistema (%1$s)</string>
     <string name="settings_theme_value_light">Claro</string>
     <string name="settings_theme_value_dark">Oscuro</string>
+    <string name="settings_theme_dynamic_available">Usa los colores del sistema en Android 12+ cuando está seleccionada la paleta Estándar.</string>
+    <string name="settings_theme_dynamic_unavailable">Los colores del sistema requieren Android 12+ y la paleta Estándar. Se usará la paleta de la app.</string>
     <string name="settings_connection_timeout_title">Desconexión por inactividad</string>
     <string name="settings_connection_timeout_minutes_label">%1$d min</string>
     <string name="settings_connection_timeout_tip_short">Menor batería; más reconexiones.</string>
