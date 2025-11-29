@@ -20,6 +20,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.domain.model.NodeStatus
+import com.strhodler.utxopocket.presentation.theme.statusError
+import com.strhodler.utxopocket.presentation.theme.statusSuccess
 
 @Composable
 fun TopBarStatusActionIcon(
@@ -55,7 +57,7 @@ fun TopBarNodeStatusIcon(status: NodeStatus) {
         NodeStatus.Synced -> Icon(
             imageVector = Icons.Outlined.Wifi,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.secondary,
+            tint = statusSuccess,
             modifier = Modifier.size(20.dp)
         )
 
@@ -65,7 +67,7 @@ fun TopBarNodeStatusIcon(status: NodeStatus) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
                     strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Icon(
                     imageVector = Icons.Outlined.Wifi,
@@ -80,14 +82,14 @@ fun TopBarNodeStatusIcon(status: NodeStatus) {
         NodeStatus.Offline -> Icon(
             imageVector = Icons.Outlined.NetworkCheck,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(20.dp)
         )
 
         is NodeStatus.Error -> Icon(
             imageVector = Icons.Outlined.Info,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.error,
+            tint = statusError,
             modifier = Modifier.size(20.dp)
         )
     }

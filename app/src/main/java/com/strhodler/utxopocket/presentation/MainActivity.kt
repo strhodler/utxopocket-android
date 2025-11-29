@@ -133,7 +133,10 @@ class MainActivity : AppCompatActivity() {
                     AppCompatDelegate.setApplicationLocales(desiredLocales)
                 }
             }
-            UtxoPocketTheme(themePreference = uiState.themePreference) {
+            UtxoPocketTheme(
+                themePreference = uiState.themePreference,
+                themeProfile = uiState.themeProfile
+            ) {
                 when {
                     !uiState.isReady -> {
                         Surface(

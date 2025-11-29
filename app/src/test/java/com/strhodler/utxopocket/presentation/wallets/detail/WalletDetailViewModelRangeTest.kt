@@ -9,6 +9,7 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
@@ -338,6 +339,7 @@ class WalletDetailViewModelRangeTest {
         private val preferredNetworkState = MutableStateFlow(BitcoinNetwork.TESTNET)
         private val pinLockEnabledState = MutableStateFlow(false)
         private val themePreferenceState = MutableStateFlow(ThemePreference.SYSTEM)
+        private val themeProfileState = MutableStateFlow(ThemeProfile.DEFAULT)
         private val appLanguageState = MutableStateFlow(AppLanguage.EN)
         private val balanceUnitState = MutableStateFlow(BalanceUnit.DEFAULT)
         private val balancesHiddenState = MutableStateFlow(false)
@@ -361,6 +363,7 @@ class WalletDetailViewModelRangeTest {
         override val preferredNetwork: Flow<BitcoinNetwork> = preferredNetworkState
         override val pinLockEnabled: Flow<Boolean> = pinLockEnabledState
         override val themePreference: Flow<ThemePreference> = themePreferenceState
+        override val themeProfile: Flow<ThemeProfile> = themeProfileState
         override val appLanguage: Flow<AppLanguage> = appLanguageState
         override val balanceUnit: Flow<BalanceUnit> = balanceUnitState
         override val balancesHidden: Flow<Boolean> = balancesHiddenState
@@ -401,6 +404,10 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun setThemePreference(themePreference: ThemePreference) {
             this.themePreferenceState.value = themePreference
+        }
+
+        override suspend fun setThemeProfile(themeProfile: ThemeProfile) {
+            themeProfileState.value = themeProfile
         }
 
         override suspend fun setAppLanguage(language: AppLanguage) {

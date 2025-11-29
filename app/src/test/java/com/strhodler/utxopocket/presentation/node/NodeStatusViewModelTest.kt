@@ -16,6 +16,7 @@ import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
@@ -137,6 +138,7 @@ class NodeStatusViewModelTest {
         override val pinLockEnabled: StateFlow<Boolean> = MutableStateFlow(false)
         override val themePreference: StateFlow<ThemePreference> =
             MutableStateFlow(ThemePreference.SYSTEM)
+        override val themeProfile: StateFlow<ThemeProfile> = MutableStateFlow(ThemeProfile.DEFAULT)
         override val appLanguage: StateFlow<AppLanguage> =
             MutableStateFlow(AppLanguage.EN)
         override val balanceUnit: StateFlow<BalanceUnit> = _balanceUnit
@@ -170,6 +172,7 @@ class NodeStatusViewModelTest {
         override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) = Unit
         override suspend fun markPinUnlocked(timestampMillis: Long) = Unit
         override suspend fun setThemePreference(themePreference: ThemePreference) = Unit
+        override suspend fun setThemeProfile(themeProfile: ThemeProfile) = Unit
         override suspend fun setAppLanguage(language: AppLanguage) = Unit
         override suspend fun setBalanceUnit(unit: BalanceUnit) {
             _balanceUnit.value = unit

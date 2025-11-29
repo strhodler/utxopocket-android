@@ -257,6 +257,10 @@
     <string name="wallet_color_option_yellow">Yellow</string>
     <string name="wallet_color_option_red">Red</string>
     <string name="wallet_color_option_cyan">Cyan</string>
+    <string name="wallet_color_option_indigo">Indigo</string>
+    <string name="wallet_color_option_teal">Teal</string>
+    <string name="wallet_color_option_brown">Brown</string>
+    <string name="wallet_color_option_slate">Slate</string>
     <string name="wallet_detail_descriptor_label">Descriptor</string>
     <string name="wallet_detail_change_descriptor_label">Change descriptor</string>
     <string name="wallet_detail_combined_descriptor_label">Combined descriptor (external + change)</string>
@@ -782,6 +786,11 @@
     <string name="settings_theme_system">System (%1$s)</string>
     <string name="settings_theme_value_light">Light</string>
     <string name="settings_theme_value_dark">Dark</string>
+    <string name="settings_theme_profile_label">Color vision mode</string>
+    <string name="settings_theme_profile_standard">Standard</string>
+    <string name="settings_theme_profile_deuteranopia">Deuteranopia-safe</string>
+    <string name="settings_theme_profile_protanopia">Protanopia-safe</string>
+    <string name="settings_theme_profile_tritanopia">Tritanopia-safe</string>
     <string name="onboarding_title">Welcome to UtxoPocket</string>
     <string name="onboarding_subtitle">Mirror your hardware wallets, monitor health scores, and stay behind Tor without exposing a single private key.</string>
     <string name="onboarding_get_started">Get started</string>

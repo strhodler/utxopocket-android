@@ -146,4 +146,8 @@ private fun walletColorLabel(color: WalletColor): Int = when (color) {
     WalletColor.YELLOW -> R.string.wallet_color_option_yellow
     WalletColor.RED -> R.string.wallet_color_option_red
     WalletColor.CYAN -> R.string.wallet_color_option_cyan
+    WalletColor.INDIGO -> R.string.wallet_color_option_indigo
+    WalletColor.TEAL -> R.string.wallet_color_option_teal
+    WalletColor.BROWN -> R.string.wallet_color_option_brown
+    WalletColor.SLATE -> R.string.wallet_color_option_slate
 }

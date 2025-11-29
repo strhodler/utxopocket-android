@@ -14,6 +14,7 @@ import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
@@ -442,6 +443,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val _preferredNetwork = MutableStateFlow(BitcoinNetwork.TESTNET)
     private val _pinLockEnabled = MutableStateFlow(false)
     private val _themePreference = MutableStateFlow(ThemePreference.SYSTEM)
+    private val _themeProfile = MutableStateFlow(ThemeProfile.DEFAULT)
     private val _appLanguage = MutableStateFlow(AppLanguage.EN)
     private val _balanceUnit = MutableStateFlow(BalanceUnit.SATS)
     private val _balancesHidden = MutableStateFlow(false)
@@ -463,6 +465,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val preferredNetwork: Flow<BitcoinNetwork> = _preferredNetwork
     override val pinLockEnabled: Flow<Boolean> = _pinLockEnabled
     override val themePreference: Flow<ThemePreference> = _themePreference
+    override val themeProfile: Flow<ThemeProfile> = _themeProfile
     override val appLanguage: Flow<AppLanguage> = _appLanguage
     override val balanceUnit: Flow<BalanceUnit> = _balanceUnit
     override val balancesHidden: Flow<Boolean> = _balancesHidden
@@ -507,6 +510,9 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun setThemePreference(themePreference: ThemePreference) {
         _themePreference.value = themePreference
+    }
+    override suspend fun setThemeProfile(themeProfile: ThemeProfile) {
+        _themeProfile.value = themeProfile
     }
 
     override suspend fun setAppLanguage(language: AppLanguage) {

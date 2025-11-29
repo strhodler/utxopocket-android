@@ -5,6 +5,7 @@ import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
@@ -69,6 +70,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val preferredNetwork: Flow<BitcoinNetwork> = MutableStateFlow(BitcoinNetwork.DEFAULT)
     override val pinLockEnabled: Flow<Boolean> = MutableStateFlow(false)
     override val themePreference: Flow<ThemePreference> = MutableStateFlow(ThemePreference.SYSTEM)
+    override val themeProfile: Flow<ThemeProfile> = MutableStateFlow(ThemeProfile.DEFAULT)
     override val appLanguage: Flow<AppLanguage> = MutableStateFlow(AppLanguage.EN)
     override val balanceUnit: Flow<BalanceUnit> = balanceUnitValue
     override val balancesHidden: Flow<Boolean> = balancesHiddenValue
@@ -105,6 +107,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override suspend fun markPinUnlocked(timestampMillis: Long) = Unit
 
     override suspend fun setThemePreference(themePreference: ThemePreference) = Unit
+    override suspend fun setThemeProfile(themeProfile: ThemeProfile) = Unit
 
     override suspend fun setAppLanguage(language: AppLanguage) = Unit
 

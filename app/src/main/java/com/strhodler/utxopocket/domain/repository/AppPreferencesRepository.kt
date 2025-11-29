@@ -5,6 +5,7 @@ import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
@@ -15,6 +16,7 @@ interface AppPreferencesRepository {
     val preferredNetwork: Flow<BitcoinNetwork>
     val pinLockEnabled: Flow<Boolean>
     val themePreference: Flow<ThemePreference>
+    val themeProfile: Flow<ThemeProfile>
     val appLanguage: Flow<AppLanguage>
     val balanceUnit: Flow<BalanceUnit>
     val balancesHidden: Flow<Boolean>
@@ -43,6 +45,7 @@ interface AppPreferencesRepository {
     suspend fun setPinAutoLockTimeoutMinutes(minutes: Int)
     suspend fun markPinUnlocked(timestampMillis: Long = System.currentTimeMillis())
     suspend fun setThemePreference(themePreference: ThemePreference)
+    suspend fun setThemeProfile(themeProfile: ThemeProfile)
     suspend fun setAppLanguage(language: AppLanguage)
     suspend fun setBalanceUnit(unit: BalanceUnit)
     suspend fun setBalancesHidden(hidden: Boolean)

@@ -22,6 +22,7 @@ import com.strhodler.utxopocket.domain.node.EndpointScheme
 import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.ThemePreference
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import android.util.Base64
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
@@ -89,6 +90,13 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs[Keys.THEME_PREFERENCE]?.let { value ->
                 runCatching { ThemePreference.valueOf(value) }.getOrNull()
             } ?: ThemePreference.SYSTEM
+        }
+
+    override val themeProfile: Flow<ThemeProfile> =
+        dataStore.data.map { prefs ->
+            prefs[Keys.THEME_PROFILE]?.let { value ->
+                runCatching { ThemeProfile.valueOf(value) }.getOrNull()
+            } ?: ThemeProfile.DEFAULT
         }
 
     override val appLanguage: Flow<AppLanguage> =
@@ -315,6 +323,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     override suspend fun setThemePreference(themePreference: ThemePreference) {
         dataStore.edit { prefs -> prefs[Keys.THEME_PREFERENCE] = themePreference.name }
+    }
+
+    override suspend fun setThemeProfile(themeProfile: ThemeProfile) {
+        dataStore.edit { prefs -> prefs[Keys.THEME_PROFILE] = themeProfile.name }
     }
 
     override suspend fun setAppLanguage(language: AppLanguage) {
@@ -675,6 +687,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val NODE_CUSTOM_LIST = stringPreferencesKey("node_custom_list")
         val NODE_CUSTOM_SELECTED_ID = stringPreferencesKey("node_custom_selected_id")
         val THEME_PREFERENCE = stringPreferencesKey("theme_preference")
+        val THEME_PROFILE = stringPreferencesKey("theme_profile")
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val BALANCE_UNIT = stringPreferencesKey("balance_unit")
         val BALANCES_HIDDEN = booleanPreferencesKey("balances_hidden")

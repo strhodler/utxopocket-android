@@ -208,6 +208,82 @@ private val walletTokens: Map<WalletColor, Pair<WalletThemeTokens, WalletThemeTo
             warning = Color(0xFFFBBF24), onWarning = Color(0xFF000000)
         )
         ),
+    WalletColor.INDIGO to (
+        WalletThemeTokens(
+            primary = Color(0xFF4F46E5), onPrimary = Color(0xFFFFFFFF),
+            surface = Color(0xFFFFFFFF), onSurface = Color(0xFF1F2937),
+            background = Color(0xFFF9FAFB), onBackground = Color(0xFF111827),
+            secondary = Color(0xFFE5E7EB), onSecondary = Color(0xFF1F2937),
+            error = Color(0xFFDC2626), onError = Color(0xFFFFFFFF),
+            success = Color(0xFF059669), onSuccess = Color(0xFFFFFFFF),
+            warning = Color(0xFFD97706), onWarning = Color(0xFF000000)
+        ) to WalletThemeTokens(
+            primary = Color(0xFF4F46E5), onPrimary = Color(0xFFFFFFFF),
+            surface = Color(0xFF1F2937), onSurface = Color(0xFFF3F4F6),
+            background = Color(0xFF111827), onBackground = Color(0xFFF9FAFB),
+            secondary = Color(0xFF374151), onSecondary = Color(0xFFE5E7EB),
+            error = Color(0xFFF87171), onError = Color(0xFF000000),
+            success = Color(0xFF34D399), onSuccess = Color(0xFF000000),
+            warning = Color(0xFFFBBF24), onWarning = Color(0xFF000000)
+        )
+        ),
+    WalletColor.TEAL to (
+        WalletThemeTokens(
+            primary = Color(0xFF0D9488), onPrimary = Color(0xFFFFFFFF),
+            surface = Color(0xFFFFFFFF), onSurface = Color(0xFF1F2937),
+            background = Color(0xFFF9FAFB), onBackground = Color(0xFF111827),
+            secondary = Color(0xFFE5E7EB), onSecondary = Color(0xFF1F2937),
+            error = Color(0xFFDC2626), onError = Color(0xFFFFFFFF),
+            success = Color(0xFF059669), onSuccess = Color(0xFFFFFFFF),
+            warning = Color(0xFFD97706), onWarning = Color(0xFF000000)
+        ) to WalletThemeTokens(
+            primary = Color(0xFF0D9488), onPrimary = Color(0xFFFFFFFF),
+            surface = Color(0xFF1F2937), onSurface = Color(0xFFF3F4F6),
+            background = Color(0xFF111827), onBackground = Color(0xFFF9FAFB),
+            secondary = Color(0xFF374151), onSecondary = Color(0xFFE5E7EB),
+            error = Color(0xFFF87171), onError = Color(0xFF000000),
+            success = Color(0xFF34D399), onSuccess = Color(0xFF000000),
+            warning = Color(0xFFFBBF24), onWarning = Color(0xFF000000)
+        )
+        ),
+    WalletColor.BROWN to (
+        WalletThemeTokens(
+            primary = Color(0xFF92400E), onPrimary = Color(0xFFFFFFFF),
+            surface = Color(0xFFFFFFFF), onSurface = Color(0xFF1F2937),
+            background = Color(0xFFF9FAFB), onBackground = Color(0xFF111827),
+            secondary = Color(0xFFE5E7EB), onSecondary = Color(0xFF1F2937),
+            error = Color(0xFFDC2626), onError = Color(0xFFFFFFFF),
+            success = Color(0xFF059669), onSuccess = Color(0xFFFFFFFF),
+            warning = Color(0xFFD97706), onWarning = Color(0xFF000000)
+        ) to WalletThemeTokens(
+            primary = Color(0xFF92400E), onPrimary = Color(0xFFFFFFFF),
+            surface = Color(0xFF1F2937), onSurface = Color(0xFFF3F4F6),
+            background = Color(0xFF111827), onBackground = Color(0xFFF9FAFB),
+            secondary = Color(0xFF374151), onSecondary = Color(0xFFE5E7EB),
+            error = Color(0xFFF87171), onError = Color(0xFF000000),
+            success = Color(0xFF34D399), onSuccess = Color(0xFF000000),
+            warning = Color(0xFFFBBF24), onWarning = Color(0xFF000000)
+        )
+        ),
+    WalletColor.SLATE to (
+        WalletThemeTokens(
+            primary = Color(0xFF64748B), onPrimary = Color(0xFFFFFFFF),
+            surface = Color(0xFFFFFFFF), onSurface = Color(0xFF1F2937),
+            background = Color(0xFFF9FAFB), onBackground = Color(0xFF111827),
+            secondary = Color(0xFFE5E7EB), onSecondary = Color(0xFF1F2937),
+            error = Color(0xFFDC2626), onError = Color(0xFFFFFFFF),
+            success = Color(0xFF059669), onSuccess = Color(0xFFFFFFFF),
+            warning = Color(0xFFD97706), onWarning = Color(0xFF000000)
+        ) to WalletThemeTokens(
+            primary = Color(0xFF64748B), onPrimary = Color(0xFFFFFFFF),
+            surface = Color(0xFF1F2937), onSurface = Color(0xFFF3F4F6),
+            background = Color(0xFF111827), onBackground = Color(0xFFF9FAFB),
+            secondary = Color(0xFF374151), onSecondary = Color(0xFFE5E7EB),
+            error = Color(0xFFF87171), onError = Color(0xFF000000),
+            success = Color(0xFF34D399), onSuccess = Color(0xFF000000),
+            warning = Color(0xFFFBBF24), onWarning = Color(0xFF000000)
+        )
+        ),
     WalletColor.DEFAULT to (
         WalletThemeTokens(
             primary = Color(0xFF4B5563), onPrimary = Color(0xFFFFFFFF),

@@ -3,6 +3,7 @@ package com.strhodler.utxopocket.presentation.settings.model
 import androidx.annotation.StringRes
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
@@ -13,6 +14,7 @@ data class SettingsUiState(
     val appLanguage: AppLanguage = AppLanguage.EN,
     val preferredUnit: BalanceUnit = BalanceUnit.DEFAULT,
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
+    val themeProfile: ThemeProfile = ThemeProfile.DEFAULT,
     val hapticsEnabled: Boolean = true,
     val advancedMode: Boolean = false,
     val transactionAnalysisEnabled: Boolean = true,

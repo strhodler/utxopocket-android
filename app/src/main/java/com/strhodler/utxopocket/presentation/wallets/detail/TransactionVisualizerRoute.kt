@@ -298,6 +298,13 @@ private fun TransactionVisualizerContent(
                     graph = renderGraph,
                     selectedNodeId = selectedNodeId,
                     onNodeSelected = { selectedNodeId = it?.id },
+                    onGroupExpand = { groupId ->
+                        renderGraph = expandGroup(renderGraph, groupId)
+                    },
+                    onGroupMemberSelect = { groupId, member ->
+                        renderGraph = extractNodeFromGroup(renderGraph, groupId, member.id)
+                        selectedNodeId = member.id
+                    },
                     modifier = Modifier
                         .fillMaxHeight()
                         .width(320.dp)
@@ -503,6 +510,7 @@ private fun VisualizerError(
 }
 
 private const val TRANSACTION_HUB_ID = "tx-hub"
+private const val GROUP_CHUNK_SIZE = 50
 
 internal fun radiusFor(node: GraphNode, density: Density): Float {
     val base = when (node.role) {
@@ -526,10 +534,105 @@ private fun nodeColor(node: GraphNode, colors: ColorScheme): Color =
 
 private fun expandGroup(graph: TransactionGraph, groupId: String): TransactionGraph {
     val group = graph.groups[groupId] ?: return graph
+    if (group.members.size > GROUP_CHUNK_SIZE) {
+        return chunkGroup(graph, groupId, GROUP_CHUNK_SIZE)
+    }
     val updatedNodes = graph.nodes.filterNot { it.id == groupId } + group.members
     val updatedEdges = graph.edges.filterNot { it.from == groupId || it.to == groupId } + group.edges
     val updatedGroups = graph.groups - groupId
     return graph.copy(nodes = updatedNodes, edges = updatedEdges, groups = updatedGroups)
+}
+
+private fun chunkGroup(
+    graph: TransactionGraph,
+    groupId: String,
+    chunkSize: Int
+): TransactionGraph {
+    val group = graph.groups[groupId] ?: return graph
+    val baseNode = graph.nodes.firstOrNull { it.id == groupId } ?: return graph
+    val existingEdges = graph.edges.filterNot { it.from == groupId || it.to == groupId }.toMutableList()
+    val updatedGroups = graph.groups.toMutableMap()
+    updatedGroups.remove(groupId)
+    val hubEdgeSample = group.edges.firstOrNull()
+    val connectsFromHub = hubEdgeSample?.from == TRANSACTION_HUB_ID
+    val connectsToHub = hubEdgeSample?.to == TRANSACTION_HUB_ID
+    val newGroups = mutableListOf<GraphGroup>()
+    val newNodes = mutableListOf<GraphNode>()
+
+    group.members.chunked(chunkSize).forEachIndexed { index, members ->
+        val newId = "${groupId}-chunk-${index + 1}"
+        val memberIds = members.map { it.id }.toSet()
+        val memberEdges = group.edges.filter { edge ->
+            memberIds.contains(edge.from) || memberIds.contains(edge.to)
+        }
+        val connector = when {
+            connectsFromHub -> GraphEdge(from = TRANSACTION_HUB_ID, to = newId)
+            connectsToHub -> GraphEdge(from = newId, to = TRANSACTION_HUB_ID)
+            else -> {
+                val fromOriginal = graph.edges.firstOrNull { it.from == groupId }
+                val toOriginal = graph.edges.firstOrNull { it.to == groupId }
+                when {
+                    fromOriginal != null -> GraphEdge(from = newId, to = fromOriginal.to)
+                    toOriginal != null -> GraphEdge(from = toOriginal.from, to = newId)
+                    else -> null
+                }
+            }
+        }
+        connector?.let { existingEdges += it }
+        val newNode = baseNode.copy(id = newId, children = members.size)
+        newNodes += newNode
+        newGroups += GraphGroup(
+            id = newId,
+            members = members,
+            edges = memberEdges
+        )
+    }
+
+    newGroups.forEach { updatedGroups[it.id] = it }
+    val updatedNodes = graph.nodes.filterNot { it.id == groupId } + newNodes
+    return graph.copy(nodes = updatedNodes, edges = existingEdges.distinct(), groups = updatedGroups)
+}
+
+private fun extractNodeFromGroup(
+    graph: TransactionGraph,
+    groupId: String,
+    memberId: String
+): TransactionGraph {
+    val group = graph.groups[groupId] ?: return graph
+    val member = group.members.firstOrNull { it.id == memberId } ?: return graph
+    val remainingMembers = group.members.filterNot { it.id == memberId }
+    val remainingGroupEdges = group.edges.filterNot { it.from == memberId || it.to == memberId }
+    val memberEdges = group.edges.filter { it.from == memberId || it.to == memberId }
+
+    val updatedNodes = graph.nodes.toMutableList()
+    if (updatedNodes.none { it.id == member.id }) {
+        updatedNodes += member
+    }
+    val updatedEdges = graph.edges.toMutableList().apply { addAll(memberEdges) }
+    val updatedGroups = graph.groups.toMutableMap()
+
+    if (remainingMembers.isEmpty()) {
+        updatedNodes.removeAll { it.id == groupId }
+        updatedEdges.removeAll { it.from == groupId || it.to == groupId }
+        updatedGroups.remove(groupId)
+    } else {
+        val groupIndex = updatedNodes.indexOfFirst { it.id == groupId }
+        if (groupIndex >= 0) {
+            val groupNode = updatedNodes[groupIndex]
+            updatedNodes[groupIndex] = groupNode.copy(children = remainingMembers.size)
+        }
+        updatedGroups[groupId] = GraphGroup(
+            id = groupId,
+            members = remainingMembers,
+            edges = remainingGroupEdges
+        )
+    }
+
+    return graph.copy(
+        nodes = updatedNodes,
+        edges = updatedEdges.distinct(),
+        groups = updatedGroups
+    )
 }
 
 private fun nodeLabel(node: GraphNode): String = when (node.role) {
@@ -555,6 +658,8 @@ private fun roleLabel(node: GraphNode): Int = when (node.role) {
 private sealed interface PanelItem {
     data class Header(val title: String) : PanelItem
     data class NodeEntry(val node: GraphNode) : PanelItem
+    data class GroupEntry(val node: GraphNode) : PanelItem
+    data class GroupMember(val groupId: String, val member: GraphNode) : PanelItem
 }
 
 @Composable
@@ -563,33 +668,45 @@ private fun TransactionDetailsPanel(
     graph: TransactionGraph,
     selectedNodeId: String?,
     onNodeSelected: (GraphNode?) -> Unit,
+    onGroupExpand: (String) -> Unit,
+    onGroupMemberSelect: (String, GraphNode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val feeNode = remember(graph) { graph.nodes.firstOrNull { it.role == GraphRole.Fee } }
-    val inputNodes = remember(graph) {
-        graph.nodes.filter { node ->
-            node.role == GraphRole.Input ||
-                (node.role == GraphRole.Group &&
-                    node.id != TRANSACTION_HUB_ID &&
-                    graph.groups[node.id]?.members?.firstOrNull()?.role == GraphRole.Input)
+    val inputNodes = remember(graph) { graph.nodes.filter { it.role == GraphRole.Input } }
+    val outputNodes = remember(graph) { graph.nodes.filter { it.role == GraphRole.Output || it.role == GraphRole.Change } }
+    val inputGroups = remember(graph) {
+        graph.groups.filterValues { group ->
+            group.members.firstOrNull()?.role == GraphRole.Input
         }
     }
-    val outputRoles = remember { setOf(GraphRole.Output, GraphRole.Change) }
-    val outputNodes = remember(graph) {
-        graph.nodes.filter { node ->
-            outputRoles.contains(node.role) ||
-                (node.role == GraphRole.Group &&
-                    node.id != TRANSACTION_HUB_ID &&
-                    graph.groups[node.id]?.members?.firstOrNull()?.role in outputRoles)
+    val outputGroups = remember(graph) {
+        graph.groups.filterValues { group ->
+            val role = group.members.firstOrNull()?.role
+            role == GraphRole.Output || role == GraphRole.Change
         }
     }
     val listState = rememberLazyListState()
     val items = buildList {
-        add(PanelItem.Header(stringResource(id = R.string.transaction_visualizer_summary_inputs, inputNodes.size)))
+        add(PanelItem.Header(stringResource(id = R.string.transaction_visualizer_summary_inputs, graph.summary.inputCount)))
         inputNodes.sortedBy { it.id }.forEach { add(PanelItem.NodeEntry(it)) }
-        add(PanelItem.Header(stringResource(id = R.string.transaction_visualizer_summary_outputs, outputNodes.size)))
+        inputGroups.toSortedMap().forEach { (groupId, group) ->
+            val groupNode = graph.nodes.firstOrNull { it.id == groupId } ?: return@forEach
+            add(PanelItem.GroupEntry(groupNode))
+            group.members.sortedBy { it.id }.forEach { member ->
+                add(PanelItem.GroupMember(groupId, member))
+            }
+        }
+        add(PanelItem.Header(stringResource(id = R.string.transaction_visualizer_summary_outputs, graph.summary.outputCount)))
         outputNodes.sortedBy { it.id }.forEach { add(PanelItem.NodeEntry(it)) }
+        outputGroups.toSortedMap().forEach { (groupId, group) ->
+            val groupNode = graph.nodes.firstOrNull { it.id == groupId } ?: return@forEach
+            add(PanelItem.GroupEntry(groupNode))
+            group.members.sortedBy { it.id }.forEach { member ->
+                add(PanelItem.GroupMember(groupId, member))
+            }
+        }
         feeNode?.let { fee ->
             add(PanelItem.Header(stringResource(id = R.string.transaction_visualizer_role_fee)))
             add(PanelItem.NodeEntry(fee))
@@ -597,7 +714,14 @@ private fun TransactionDetailsPanel(
     }
 
     LaunchedEffect(selectedNodeId, items) {
-        val targetIndex = items.indexOfFirst { it is PanelItem.NodeEntry && it.node.id == selectedNodeId }
+        val targetIndex = items.indexOfFirst {
+            when (it) {
+                is PanelItem.NodeEntry -> it.node.id == selectedNodeId
+                is PanelItem.GroupEntry -> it.node.id == selectedNodeId
+                is PanelItem.GroupMember -> it.member.id == selectedNodeId
+                else -> false
+            }
+        }
         if (targetIndex >= 0) {
             listState.animateScrollToItem(index = targetIndex, scrollOffset = 0)
         }
@@ -635,6 +759,8 @@ private fun TransactionDetailsPanel(
                 when (item) {
                     is PanelItem.Header -> "header-$index-${item.title}"
                     is PanelItem.NodeEntry -> "node-${item.node.id}"
+                    is PanelItem.GroupEntry -> "group-${item.node.id}"
+                    is PanelItem.GroupMember -> "group-${item.groupId}-member-${item.member.id}"
                 }
             }) { _, item ->
                 when (item) {
@@ -650,7 +776,26 @@ private fun TransactionDetailsPanel(
                             colorScheme = colorScheme,
                             graph = graph,
                             isSelected = selectedNodeId == item.node.id,
-                            onSelect = onNodeSelected
+                            onSelect = { onNodeSelected(item.node) }
+                        )
+                    }
+                    is PanelItem.GroupEntry -> {
+                        TransactionDetailEntry(
+                            node = item.node,
+                            colorScheme = colorScheme,
+                            graph = graph,
+                            isSelected = selectedNodeId == item.node.id,
+                            onSelect = { onGroupExpand(item.node.id) }
+                        )
+                    }
+                    is PanelItem.GroupMember -> {
+                        TransactionDetailEntry(
+                            node = item.member,
+                            colorScheme = colorScheme,
+                            graph = graph,
+                            isSelected = selectedNodeId == item.member.id,
+                            isGroupMember = true,
+                            onSelect = { onGroupMemberSelect(item.groupId, item.member) }
                         )
                     }
                 }
@@ -678,7 +823,8 @@ private fun TransactionDetailEntry(
     colorScheme: ColorScheme,
     graph: TransactionGraph,
     isSelected: Boolean,
-    onSelect: (GraphNode?) -> Unit
+    isGroupMember: Boolean = false,
+    onSelect: () -> Unit
 ) {
     val indicatorColor = nodeColor(node, colorScheme)
     val groupChildren = graph.groups[node.id]?.members?.size ?: node.children
@@ -699,15 +845,17 @@ private fun TransactionDetailEntry(
     val addressLabel = node.address?.let { address ->
         formatTxidMiddle(address, keepStart = 10, keepEnd = 6)
     }
+    val indentModifier = if (isGroupMember) Modifier.padding(start = 12.dp) else Modifier
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
+            .then(indentModifier)
             .background(
                 color = if (isSelected) colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
                 shape = RoundedCornerShape(12.dp)
             )
-            .clickable { onSelect(node) }
+            .clickable { onSelect() }
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
         Row(

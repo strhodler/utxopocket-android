@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
@@ -52,6 +53,7 @@ import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
+import com.strhodler.utxopocket.presentation.theme.colorSchemeFor
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,6 +69,7 @@ fun InterfaceSettingsRoute(
         onBackClick = onBack
     )
     var showThemeSheet by remember { mutableStateOf(false) }
+    var showThemeProfileSheet by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
@@ -78,6 +81,7 @@ fun InterfaceSettingsRoute(
             onUnitSelected = viewModel::onUnitSelected,
             onHapticsToggled = viewModel::onHapticsToggled,
             onOpenThemeSheet = { showThemeSheet = true },
+            onOpenThemeProfileSheet = { showThemeProfileSheet = true },
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
@@ -96,6 +100,20 @@ fun InterfaceSettingsRoute(
                 )
             }
         }
+        if (showThemeProfileSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showThemeProfileSheet = false },
+                dragHandle = { BottomSheetDefaults.DragHandle() }
+            ) {
+                ThemeProfileSheet(
+                    selected = state.themeProfile,
+                    onSelect = { profile ->
+                        coroutineScope.launch { viewModel.onThemeProfileSelected(profile) }
+                        showThemeProfileSheet = false
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -107,11 +125,13 @@ private fun InterfaceSettingsScreen(
     onUnitSelected: (BalanceUnit) -> Unit,
     onHapticsToggled: (Boolean) -> Unit,
     onOpenThemeSheet: () -> Unit,
+    onOpenThemeProfileSheet: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val languageLabel = rememberLanguageLabeler()
     val unitLabel = rememberUnitLabeler()
     val themeLabel = rememberThemePreferenceLabeler()
+    val themeProfileLabel = rememberThemeProfileLabeler()
     val languageOptions = remember { AppLanguage.entries.toList() }
     val unitOptions = remember { BalanceUnit.entries.toList() }
 
@@ -142,6 +162,12 @@ private fun InterfaceSettingsScreen(
             selected = state.themePreference,
             selectedLabel = themeLabel(state.themePreference),
             onClick = onOpenThemeSheet
+        )
+
+        ThemeProfileRow(
+            selected = state.themeProfile,
+            selectedLabel = themeProfileLabel(state.themeProfile),
+            onClick = onOpenThemeProfileSheet
         )
 
         ListItem(
@@ -176,6 +202,44 @@ private fun ThemeRow(
         headlineContent = {
             Text(
                 text = stringResource(id = R.string.settings_theme_label),
+                style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
+            )
+        },
+        supportingContent = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = selectedLabel,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                ThemePreviewDots(preview)
+            }
+        },
+        trailingContent = {
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                contentDescription = null,
+                tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    )
+}
+
+@Composable
+private fun ThemeProfileRow(
+    selected: ThemeProfile,
+    selectedLabel: String,
+    onClick: () -> Unit
+) {
+    val preview = rememberThemeProfilePreview(selected)
+    ListItem(
+        headlineContent = {
+            Text(
+                text = stringResource(id = R.string.settings_theme_profile_label),
                 style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
             )
         },
@@ -267,6 +331,51 @@ private fun ThemePreferenceSheet(
 }
 
 @Composable
+private fun ThemeProfileSheet(
+    selected: ThemeProfile,
+    onSelect: (ThemeProfile) -> Unit
+) {
+    val profileLabel = rememberThemeProfileLabeler()
+    val systemIsDark = isSystemInDarkTheme()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = stringResource(id = R.string.settings_theme_profile_label),
+            style = androidx.compose.material3.MaterialTheme.typography.titleMedium
+        )
+        ThemeProfile.entries.forEach { option ->
+            val preview = rememberThemeProfilePreview(option, systemIsDark)
+            ListItem(
+                headlineContent = {
+                    Text(text = profileLabel(option))
+                },
+                supportingContent = {
+                    ThemePreviewDots(preview)
+                },
+                trailingContent = {
+                    if (option == selected) {
+                        Icon(
+                            imageVector = Icons.Outlined.Check,
+                            contentDescription = null,
+                            tint = androidx.compose.material3.MaterialTheme.colorScheme.primary
+                        )
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelect(option) },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+        }
+        Spacer(modifier = Modifier.size(4.dp))
+    }
+}
+
+@Composable
 private fun rememberThemePreview(
     preference: ThemePreference,
     systemIsDark: Boolean = isSystemInDarkTheme()
@@ -297,6 +406,21 @@ private fun rememberThemePreview(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun rememberThemeProfilePreview(
+    profile: ThemeProfile,
+    systemIsDark: Boolean = isSystemInDarkTheme()
+): ThemePreviewColors {
+    return remember(profile, systemIsDark) {
+        val scheme = colorSchemeFor(profile, systemIsDark)
+        ThemePreviewColors(
+            primary = scheme.primary,
+            primaryContainer = scheme.primaryContainer,
+            secondary = scheme.secondary
+        )
     }
 }
 

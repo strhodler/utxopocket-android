@@ -10,6 +10,7 @@ import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
@@ -57,6 +58,7 @@ data class AppEntryUiState(
     val onboardingCompleted: Boolean = false,
     val status: StatusBarUiState = StatusBarUiState(),
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
+    val themeProfile: ThemeProfile = ThemeProfile.DEFAULT,
     val appLanguage: AppLanguage = AppLanguage.EN,
     val pinLockEnabled: Boolean = false,
     val hapticsEnabled: Boolean = true,
@@ -140,6 +142,7 @@ class MainActivityViewModel @Inject constructor(
         appPreferencesRepository.preferredNetwork,
         torManager.latestLog,
         appPreferencesRepository.themePreference,
+        appPreferencesRepository.themeProfile,
         appPreferencesRepository.appLanguage,
         pinEnabledState,
         lockState,
@@ -155,13 +158,14 @@ class MainActivityViewModel @Inject constructor(
         val network = values[4] as BitcoinNetwork
         val torLog = values[5] as String
         val themePreference = values[6] as ThemePreference
-        val appLanguage = values[7] as AppLanguage
-        val pinEnabled = values[8] as Boolean
-        val locked = values[9] as Boolean
-        val nodeConfig = values[10] as NodeConfig
-        val isNetworkOnline = values[11] as Boolean
-        val hapticsEnabled = values[12] as Boolean
-        val pinShuffleEnabled = values[13] as Boolean
+        val themeProfile = values[7] as ThemeProfile
+        val appLanguage = values[8] as AppLanguage
+        val pinEnabled = values[9] as Boolean
+        val locked = values[10] as Boolean
+        val nodeConfig = values[11] as NodeConfig
+        val isNetworkOnline = values[12] as Boolean
+        val hapticsEnabled = values[13] as Boolean
+        val pinShuffleEnabled = values[14] as Boolean
 
         val snapshotMatchesNetwork = nodeSnapshot.network == network
         val effectiveNodeStatus = if (snapshotMatchesNetwork) {
@@ -192,6 +196,7 @@ class MainActivityViewModel @Inject constructor(
                 isNetworkOnline = isNetworkOnline
             ),
             themePreference = themePreference,
+            themeProfile = themeProfile,
             appLanguage = appLanguage,
             pinLockEnabled = pinEnabled,
             hapticsEnabled = hapticsEnabled,

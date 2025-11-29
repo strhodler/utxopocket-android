@@ -6,6 +6,7 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
@@ -45,6 +46,7 @@ class SettingsViewModel @Inject constructor(
             combine(
                 appPreferencesRepository.pinLockEnabled,
                 appPreferencesRepository.themePreference,
+                appPreferencesRepository.themeProfile,
                 appPreferencesRepository.appLanguage,
                 appPreferencesRepository.balanceUnit,
                 appPreferencesRepository.hapticsEnabled,
@@ -62,20 +64,21 @@ class SettingsViewModel @Inject constructor(
             ) { values: Array<Any?> ->
                 val pinEnabled = values[0] as Boolean
                 val themePreference = values[1] as ThemePreference
-                val appLanguage = values[2] as AppLanguage
-                val balanceUnit = values[3] as BalanceUnit
-                val hapticsEnabled = values[4] as Boolean
-                val pinShuffleEnabled = values[5] as Boolean
-                val advancedMode = values[6] as Boolean
-                val pinAutoLockTimeoutMinutes = values[7] as Int
-                val connectionIdleTimeoutMinutes = values[8] as Int
-                val transactionAnalysisEnabled = values[9] as Boolean
-                val utxoHealthEnabled = values[10] as Boolean
-                val walletHealthEnabled = values[11] as Boolean
-                val networkLogsEnabled = values[12] as Boolean
-                val dustThreshold = values[13] as Long
-                val transactionParameters = values[14] as TransactionHealthParameters
-                val utxoParameters = values[15] as UtxoHealthParameters
+                val themeProfile = values[2] as ThemeProfile
+                val appLanguage = values[3] as AppLanguage
+                val balanceUnit = values[4] as BalanceUnit
+                val hapticsEnabled = values[5] as Boolean
+                val pinShuffleEnabled = values[6] as Boolean
+                val advancedMode = values[7] as Boolean
+                val pinAutoLockTimeoutMinutes = values[8] as Int
+                val connectionIdleTimeoutMinutes = values[9] as Int
+                val transactionAnalysisEnabled = values[10] as Boolean
+                val utxoHealthEnabled = values[11] as Boolean
+                val walletHealthEnabled = values[12] as Boolean
+                val networkLogsEnabled = values[13] as Boolean
+                val dustThreshold = values[14] as Long
+                val transactionParameters = values[15] as TransactionHealthParameters
+                val utxoParameters = values[16] as UtxoHealthParameters
                 val previous = _uiState.value
 
                 val walletHealthToggleEnabled = transactionAnalysisEnabled && utxoHealthEnabled
@@ -84,6 +87,7 @@ class SettingsViewModel @Inject constructor(
 
                 previous.copy(
                     themePreference = themePreference,
+                    themeProfile = themeProfile,
                     appLanguage = appLanguage,
                     pinEnabled = pinEnabled,
                     preferredUnit = balanceUnit,
@@ -136,6 +140,13 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(themePreference = themePreference) }
         viewModelScope.launch {
             appPreferencesRepository.setThemePreference(themePreference)
+        }
+    }
+
+    fun onThemeProfileSelected(themeProfile: ThemeProfile) {
+        _uiState.update { it.copy(themeProfile = themeProfile) }
+        viewModelScope.launch {
+            appPreferencesRepository.setThemeProfile(themeProfile)
         }
     }
 

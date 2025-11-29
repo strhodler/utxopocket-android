@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 
 @Composable
@@ -291,5 +292,28 @@ internal fun rememberAnimationsLabeler(): (Boolean) -> String {
     val disabledLabel = stringResource(id = R.string.settings_option_disabled)
     return remember(enabledLabel, disabledLabel) {
         { enabled -> if (enabled) enabledLabel else disabledLabel }
+    }
+}
+
+@Composable
+internal fun rememberThemeProfileLabeler(): (ThemeProfile) -> String {
+    val standardLabel = stringResource(id = R.string.settings_theme_profile_standard)
+    val deuteranopiaLabel = stringResource(id = R.string.settings_theme_profile_deuteranopia)
+    val protanopiaLabel = stringResource(id = R.string.settings_theme_profile_protanopia)
+    val tritanopiaLabel = stringResource(id = R.string.settings_theme_profile_tritanopia)
+    return remember(
+        standardLabel,
+        deuteranopiaLabel,
+        protanopiaLabel,
+        tritanopiaLabel
+    ) {
+        { profile ->
+            when (profile) {
+                ThemeProfile.STANDARD -> standardLabel
+                ThemeProfile.DEUTERANOPIA -> deuteranopiaLabel
+                ThemeProfile.PROTANOPIA -> protanopiaLabel
+                ThemeProfile.TRITANOPIA -> tritanopiaLabel
+            }
+        }
     }
 }
