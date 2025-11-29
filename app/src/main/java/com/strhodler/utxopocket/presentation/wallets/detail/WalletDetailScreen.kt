@@ -7,7 +7,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -73,11 +72,12 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -130,7 +130,6 @@ import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.common.transactionAmount
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
-import com.strhodler.utxopocket.presentation.components.subtleBalanceShadow
 import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import com.strhodler.utxopocket.presentation.wallets.sanitizeWalletErrorMessage
@@ -416,8 +415,8 @@ private fun WalletDetailContent(
         }
         stickyHeader {
             Surface(
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 1.dp,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                tonalElevation = 0.dp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .zIndex(1f)
@@ -764,12 +763,15 @@ private fun WalletSummaryHeader(
         stringResource(id = R.string.wallets_last_sync, lastSync)
     }
     val theme = rememberWalletColorTheme(summary.color)
-    val primaryContentColor = theme.onPrimaryContainer
-    val secondaryTextColor = primaryContentColor.copy(alpha = 0.85f)
+    val accentColor = theme.primary
+    val primaryContentColor = MaterialTheme.colorScheme.onSurface
+    val secondaryTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = theme.primaryContainer,
-        contentColor = primaryContentColor
+        color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+        contentColor = primaryContentColor,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
         WalletDetailHeader(
             summary = summary,
@@ -780,6 +782,7 @@ private fun WalletSummaryHeader(
             infoText = infoText,
             primaryContentColor = primaryContentColor,
             secondaryTextColor = secondaryTextColor,
+            accentColor = accentColor,
             onSelectionChanged = onSelectionChanged,
             availableRanges = availableRanges,
             selectedRange = selectedRange,
@@ -806,6 +809,7 @@ private fun WalletDetailHeader(
     infoText: String?,
     primaryContentColor: Color,
     secondaryTextColor: Color,
+    accentColor: Color,
     onSelectionChanged: (BalancePoint?) -> Unit,
     availableRanges: List<BalanceRange>,
     selectedRange: BalanceRange,
@@ -836,8 +840,7 @@ private fun WalletDetailHeader(
             hidden = balancesHidden,
             style = MaterialTheme.typography.headlineLarge.copy(
                 fontWeight = FontWeight.SemiBold,
-                color = primaryContentColor,
-                shadow = remember(primaryContentColor) { subtleBalanceShadow(primaryContentColor) }
+                color = primaryContentColor
             ),
             monospaced = true,
             autoScale = true,
@@ -858,9 +861,9 @@ private fun WalletDetailHeader(
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(
+            FilledTonalButton(
                 onClick = onRefreshRequested,
-                colors = ButtonDefaults.textButtonColors(contentColor = secondaryTextColor)
+                contentPadding = ButtonDefaults.ButtonWithIconContentPadding
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Refresh,
@@ -881,9 +884,9 @@ private fun WalletDetailHeader(
                         R.string.wallet_detail_show_chart
                     }
                 )
-                TextButton(
+                FilledTonalButton(
                     onClick = { onShowBalanceChartChanged(!showBalanceChart) },
-                    colors = ButtonDefaults.textButtonColors(contentColor = secondaryTextColor)
+                    contentPadding = ButtonDefaults.ButtonWithIconContentPadding
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.ShowChart,
@@ -914,7 +917,7 @@ private fun WalletDetailHeader(
                 StepLineChart(
                     data = balancePoints,
                     modifier = Modifier.fillMaxWidth(),
-                    color = primaryContentColor,
+                    color = accentColor,
                     interactive = balancePoints.size > 1,
                     axisLabelColor = secondaryTextColor,
                     chartTrailingPadding = 16.dp,
@@ -938,10 +941,10 @@ private fun WalletDetailHeader(
                                 },
                                 border = null,
                                 colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = if (isSelected) primaryContentColor.copy(alpha = 0.22f) else Color.Transparent,
-                                    labelColor = primaryContentColor,
-                                    leadingIconContentColor = primaryContentColor,
-                                    trailingIconContentColor = primaryContentColor
+                                    containerColor = if (isSelected) accentColor.copy(alpha = 0.16f) else Color.Transparent,
+                                    labelColor = accentColor,
+                                    leadingIconContentColor = accentColor,
+                                    trailingIconContentColor = accentColor
                                 )
                             )
                         }
@@ -1303,7 +1306,7 @@ private fun WalletSummaryChip(
     contentColor: Color
 ) {
     Surface(
-        color = contentColor.copy(alpha = 0.2f),
+        color = MaterialTheme.colorScheme.surfaceVariant,
         contentColor = contentColor,
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -1621,7 +1624,7 @@ private fun WalletTabs(
     ScrollableTabRow(
         modifier = modifier.fillMaxWidth(),
         selectedTabIndex = selected.ordinal,
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         edgePadding = 0.dp,
         indicator = { tabPositions ->
             if (tabPositions.isNotEmpty()) {
@@ -1683,7 +1686,7 @@ private fun WalletAddressListItem(
         Modifier
     }
 
-    val addressCardColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+    val addressCardColor = MaterialTheme.colorScheme.surfaceContainerLow
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -1692,7 +1695,7 @@ private fun WalletAddressListItem(
             containerColor = addressCardColor,
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         ListItem(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -2168,7 +2171,7 @@ private fun TransactionDetailedCard(
     val displayTransactionId = remember(transaction.id) { ellipsizeMiddle(transaction.id) }
     val healthScore = healthResult?.takeIf { analysisEnabled }?.finalScore
 
-    val utxoCardColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+    val utxoCardColor = MaterialTheme.colorScheme.surfaceContainer
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
@@ -2177,7 +2180,7 @@ private fun TransactionDetailedCard(
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -2297,7 +2300,7 @@ private fun UtxoDetailedCard(
     val dustThresholdLabel = remember(dustThresholdSats) {
         NumberFormat.getInstance().format(dustThresholdSats)
     }
-    val utxoCardColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+    val utxoCardColor = MaterialTheme.colorScheme.surfaceContainer
     val spendableIcon = if (utxo.spendable) Icons.Outlined.LockOpen else Icons.Outlined.Lock
     val spendableTint = if (utxo.spendable) {
         MaterialTheme.colorScheme.primary
@@ -2312,7 +2315,7 @@ private fun UtxoDetailedCard(
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier

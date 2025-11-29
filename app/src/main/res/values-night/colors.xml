@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="splash_background">#1A120D</color>
-    <color name="splash_icon_background">#52443C</color>
-    <color name="splash_icon_primary">#FFB68C</color>
+    <!-- Dark-mode overrides for splash screen -->
+    <color name="splash_background">#0F1115</color>
+    <color name="splash_icon_background">#2A1C14</color>
+    <color name="splash_icon_primary">#E3B58D</color>
 </resources>

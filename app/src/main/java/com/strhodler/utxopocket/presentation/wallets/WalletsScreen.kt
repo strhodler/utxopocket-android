@@ -71,7 +71,6 @@ import com.strhodler.utxopocket.presentation.components.ConnectionStatusBanner
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBannerStyle
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
-import com.strhodler.utxopocket.presentation.components.subtleBalanceShadow
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
 import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
@@ -512,7 +511,6 @@ private fun WalletCard(
         ),
         border = BorderStroke(width = 1.25.dp, color = borderColor)
     ) {
-        val balanceShadow = remember(contentColor) { subtleBalanceShadow(contentColor) }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -561,8 +559,7 @@ private fun WalletCard(
                     hidden = balancesHidden,
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = contentColor,
-                        shadow = balanceShadow
+                        color = contentColor
                     ),
                     monospaced = true,
                     autoScale = false
@@ -611,8 +608,6 @@ private fun WalletsBalanceHeader(
                 .padding(vertical = 36.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val headerContentColor = MaterialTheme.colorScheme.onSurface
-            val headerShadow = remember(headerContentColor) { subtleBalanceShadow(headerContentColor) }
             Text(
                 text = stringResource(id = R.string.wallets_total_balance_label),
                 style = MaterialTheme.typography.titleMedium,
@@ -623,8 +618,7 @@ private fun WalletsBalanceHeader(
                 unit = balanceUnit,
                 hidden = balancesHidden,
                 style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.Medium,
-                    shadow = headerShadow
+                    fontWeight = FontWeight.Medium
                 ),
                 monospaced = true,
                 autoScale = true,

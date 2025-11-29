@@ -1,7 +1,9 @@
 package com.strhodler.utxopocket.presentation.wallets.detail
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,9 +34,12 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -105,15 +110,10 @@ import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
-import com.strhodler.utxopocket.presentation.components.subtleBalanceShadow
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
-import com.strhodler.utxopocket.domain.model.WalletColor
-import com.strhodler.utxopocket.presentation.theme.WalletColorTheme
-import com.strhodler.utxopocket.presentation.theme.walletTheme
-import androidx.compose.foundation.isSystemInDarkTheme
-import com.strhodler.utxopocket.presentation.theme.toTheme
+import androidx.compose.material3.surfaceColorAtElevation
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -807,8 +807,6 @@ private fun TransactionDetailContent(
     val visualizerAction = state.walletSummary?.let { summary ->
         { onOpenVisualizer(summary.id, transaction.id) }
     }
-    val headerTheme = rememberHeaderTheme(state.walletSummary?.color)
-
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
     ) {
@@ -822,7 +820,6 @@ private fun TransactionDetailContent(
             onEditLabel = { onEditTransactionLabel(transaction.label) },
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             onOpenVisualizer = visualizerAction,
-            headerTheme = headerTheme,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -1073,15 +1070,16 @@ private fun TransactionDetailHeader(
     onEditLabel: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenVisualizer: (() -> Unit)?,
-    headerTheme: WalletColorTheme,
     modifier: Modifier = Modifier
 ) {
-    val contentColor = headerTheme.onPrimaryContainer
-    val secondaryContentColor = contentColor.copy(alpha = 0.85f)
+    val contentColor = MaterialTheme.colorScheme.onSurface
+    val secondaryContentColor = MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
-        modifier = modifier,
-        color = headerTheme.primaryContainer,
-        contentColor = contentColor
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+        contentColor = contentColor,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
         Column(
             modifier = Modifier
@@ -1090,67 +1088,67 @@ private fun TransactionDetailHeader(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-        Text(
-            text = transactionId,
-            style = MaterialTheme.typography.titleMedium,
-            color = contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Text(
-            text = broadcastInfo,
-            style = MaterialTheme.typography.bodySmall,
-            color = contentColor.copy(alpha = 0.85f),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Text(
-            text = amountText,
-            style = MaterialTheme.typography.displaySmall.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = contentColor
-            ),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onCycleBalanceDisplay
+            Text(
+                text = transactionId,
+                style = MaterialTheme.typography.titleMedium,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
-        )
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            TransactionChip(text = feeRateLabel, contentColor = contentColor)
-            TransactionChip(text = confirmationsLabel, contentColor = contentColor)
-        }
-        LabelChip(
-            label = label,
-            addLabelRes = R.string.transaction_detail_label_add_action,
-            editLabelRes = R.string.transaction_detail_label_edit_action,
-            contentColor = secondaryContentColor,
-            onClick = onEditLabel
-        )
-        onOpenVisualizer?.let { open ->
-            TextButton(
-                onClick = open,
-                colors = ButtonDefaults.textButtonColors(contentColor = contentColor)
+            Text(
+                text = broadcastInfo,
+                style = MaterialTheme.typography.bodySmall,
+                color = secondaryContentColor,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = amountText,
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = contentColor
+                ),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onCycleBalanceDisplay
+                )
+            )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.AutoGraph,
-                    contentDescription = stringResource(id = R.string.transaction_detail_visualizer_content_description),
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
-                Text(
-                    text = stringResource(id = R.string.transaction_detail_open_visualizer),
-                    style = MaterialTheme.typography.bodySmall
-                )
+                TransactionChip(text = feeRateLabel)
+                TransactionChip(text = confirmationsLabel)
             }
-        }
+            LabelChip(
+                label = label,
+                addLabelRes = R.string.transaction_detail_label_add_action,
+                editLabelRes = R.string.transaction_detail_label_edit_action,
+                contentColor = contentColor,
+                onClick = onEditLabel
+            )
+            onOpenVisualizer?.let { open ->
+                FilledTonalButton(
+                    onClick = open,
+                    contentPadding = ButtonDefaults.ButtonWithIconContentPadding
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.AutoGraph,
+                        contentDescription = stringResource(id = R.string.transaction_detail_visualizer_content_description),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                    Text(
+                        text = stringResource(id = R.string.transaction_detail_open_visualizer),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
         }
     }
 }
@@ -1158,14 +1156,13 @@ private fun TransactionDetailHeader(
 @Composable
 private fun TransactionChip(
     text: String,
-    contentColor: Color,
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        color = contentColor.copy(alpha = 0.18f),
-        contentColor = contentColor
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         Text(
             text = text,
@@ -1218,8 +1215,6 @@ private fun UtxoDetailContent(
         }
     }
 
-    val headerTheme = rememberHeaderTheme(state.walletSummary?.color)
-
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
     ) {
@@ -1234,7 +1229,6 @@ private fun UtxoDetailContent(
             isInherited = isInheritedLabel,
             onEditLabel = { onEditLabel(displayLabel) },
             onCycleBalanceDisplay = onCycleBalanceDisplay,
-            headerTheme = headerTheme,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -1363,15 +1357,16 @@ private fun UtxoDetailHeader(
     isInherited: Boolean,
     onEditLabel: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
-    headerTheme: WalletColorTheme,
     modifier: Modifier = Modifier
 ) {
-    val contentColor = headerTheme.onPrimaryContainer
-    val secondaryContentColor = contentColor.copy(alpha = 0.85f)
+    val contentColor = MaterialTheme.colorScheme.onSurface
+    val secondaryContentColor = MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
-        modifier = modifier,
-        color = headerTheme.primaryContainer,
-        contentColor = contentColor
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+        contentColor = contentColor,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
         Column(
             modifier = Modifier
@@ -1392,42 +1387,41 @@ private fun UtxoDetailHeader(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
-        Text(
-            text = depositInfo,
-            style = MaterialTheme.typography.bodySmall,
-            color = contentColor.copy(alpha = 0.85f),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-        RollingBalanceText(
-            balanceSats = valueSats,
-            unit = unit,
-            hidden = balancesHidden,
-            style = MaterialTheme.typography.headlineLarge.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = contentColor,
-                shadow = remember(contentColor) { subtleBalanceShadow(contentColor) }
-            ),
-            monospaced = true,
-            autoScale = true,
-            modifier = Modifier.clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onCycleBalanceDisplay
+            Text(
+                text = depositInfo,
+                style = MaterialTheme.typography.bodySmall,
+                color = secondaryContentColor,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
-        )
-        LabelChip(
-            label = label,
-            addLabelRes = R.string.utxo_detail_label_add_action,
-            editLabelRes = R.string.utxo_detail_label_edit_action,
-                contentColor = secondaryContentColor,
+            RollingBalanceText(
+                balanceSats = valueSats,
+                unit = unit,
+                hidden = balancesHidden,
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = contentColor
+                ),
+                monospaced = true,
+                autoScale = true,
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onCycleBalanceDisplay
+                )
+            )
+            LabelChip(
+                label = label,
+                addLabelRes = R.string.utxo_detail_label_add_action,
+                editLabelRes = R.string.utxo_detail_label_edit_action,
+                contentColor = contentColor,
                 onClick = onEditLabel
             )
             if (isInherited) {
                 Text(
                     text = stringResource(id = R.string.utxo_detail_label_inherited),
                     style = MaterialTheme.typography.bodySmall,
-                    color = contentColor.copy(alpha = 0.9f),
+                    color = secondaryContentColor,
                     textAlign = TextAlign.Center
                 )
             }
@@ -1505,26 +1499,31 @@ private fun LabelChip(
 ) {
     val hasLabel = !label.isNullOrBlank()
     val actionLabel = label?.takeIf { hasLabel } ?: stringResource(id = addLabelRes)
-    val actionColor = contentColor.copy(alpha = if (hasLabel) 0.95f else 0.85f)
     val icon = if (hasLabel) Icons.Outlined.Edit else Icons.Outlined.Add
-    TextButton(
+    AssistChip(
         onClick = onClick,
-        colors = ButtonDefaults.textButtonColors(contentColor = actionColor),
+        label = {
+            Text(
+                text = actionLabel,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = icon,
+                contentDescription = stringResource(id = if (hasLabel) editLabelRes else addLabelRes),
+                modifier = Modifier.size(18.dp)
+            )
+        },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            labelColor = contentColor,
+            leadingIconContentColor = contentColor
+        ),
         modifier = modifier
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = stringResource(id = if (hasLabel) editLabelRes else addLabelRes),
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
-        Text(
-            text = actionLabel,
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
+    )
 }
 
 @Composable
@@ -2046,23 +2045,6 @@ private fun ErrorPlaceholder(
             text = text,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-private fun rememberHeaderTheme(walletColor: WalletColor?): WalletColorTheme {
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
-    val colorScheme = MaterialTheme.colorScheme
-    val primary = colorScheme.primary
-    val primaryContainer = colorScheme.primaryContainer
-    val secondary = colorScheme.secondary
-    val secondaryContainer = colorScheme.secondaryContainer
-    return remember(walletColor, isDark, primary, primaryContainer, secondary, secondaryContainer) {
-        walletColor?.toTheme(isDark) ?: walletTheme(
-            accent = secondary,
-            gradient = listOf(primary, primaryContainer, secondaryContainer),
-            isDark = isDark
         )
     }
 }

@@ -277,7 +277,7 @@ private fun TransactionVisualizerContent(
                             .align(Alignment.TopStart)
                             .padding(4.dp)
                             .background(
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest,
                                 shape = CircleShape
                             )
                     ) {
@@ -317,7 +317,7 @@ private fun TransactionVisualizerContent(
                     .align(Alignment.TopEnd)
                     .padding(12.dp)
                     .background(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
                         shape = CircleShape
                     )
             ) {
@@ -434,39 +434,47 @@ private fun TransactionGraphCanvas(
         graph.edges.forEach { edge ->
             val from = layoutById[edge.from] ?: return@forEach
             val to = layoutById[edge.to] ?: return@forEach
+            val edgeColor = if (selectedNodeId == null ||
+                selectedNodeId == from.node.id ||
+                selectedNodeId == to.node.id
+            ) {
+                colorScheme.outline
+            } else {
+                colorScheme.outlineVariant
+            }
             drawLine(
-                color = colorScheme.outlineVariant.copy(
-                    alpha = if (selectedNodeId == null ||
-                        selectedNodeId == from.node.id ||
-                        selectedNodeId == to.node.id
-                    ) 1f else 0.15f
-                ),
+                color = edgeColor,
                 start = from.center,
                 end = to.center,
                 strokeWidth = 2.dp.toPx()
             )
         }
         nodeLayouts.forEach { state ->
-            val fillColor = nodeColor(state.node, colorScheme)
-            val stroke = Stroke(width = 1.dp.toPx())
             val isSelected = selectedNodeId == null || selectedNodeId == state.node.id
-            val nodeAlpha = if (isSelected) 1f else 0.2f
+            val fillColor = if (isSelected) nodeColor(state.node, colorScheme) else colorScheme.surfaceVariant
+            val strokeColor = if (isSelected) colorScheme.outline else colorScheme.outlineVariant
+            val textColor = if (isSelected) colorScheme.onSurface else colorScheme.onSurfaceVariant
+            val stroke = Stroke(width = 1.dp.toPx())
             drawCircle(
-                color = fillColor.copy(alpha = 0.2f * nodeAlpha),
+                color = colorScheme.surfaceContainerHighest,
                 radius = state.radiusPx + 6.dp.toPx(),
                 center = state.center
             )
             drawCircle(
-                color = fillColor.copy(alpha = nodeAlpha),
+                color = fillColor,
+                radius = state.radiusPx,
+                center = state.center
+            )
+            drawCircle(
+                color = strokeColor,
                 radius = state.radiusPx,
                 center = state.center,
                 style = stroke
             )
             drawIntoCanvas { canvas ->
                 val label = nodeLabel(state.node)
-                val textColor = colorScheme.onSurface.copy(alpha = nodeAlpha).toArgb()
                 val previousColor = textPaint.color
-                textPaint.color = textColor
+                textPaint.color = textColor.toArgb()
                 canvas.nativeCanvas.drawText(
                     label,
                     state.center.x,
@@ -845,6 +853,9 @@ private fun TransactionDetailEntry(
     val addressLabel = node.address?.let { address ->
         formatTxidMiddle(address, keepStart = 10, keepEnd = 6)
     }
+    val containerColor = if (isSelected) colorScheme.primaryContainer else Color.Transparent
+    val contentColor = if (isSelected) colorScheme.onPrimaryContainer else colorScheme.onSurface
+    val supportingColor = if (isSelected) colorScheme.onPrimaryContainer else colorScheme.onSurfaceVariant
     val indentModifier = if (isGroupMember) Modifier.padding(start = 12.dp) else Modifier
     Column(
         modifier = Modifier
@@ -852,7 +863,7 @@ private fun TransactionDetailEntry(
             .padding(vertical = 8.dp)
             .then(indentModifier)
             .background(
-                color = if (isSelected) colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
+                color = containerColor,
                 shape = RoundedCornerShape(12.dp)
             )
             .clickable { onSelect() }
@@ -871,13 +882,14 @@ private fun TransactionDetailEntry(
                 text = indicatorLabel,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
+                color = contentColor,
                 modifier = Modifier.weight(1f)
             )
             node.valueSats?.let { value ->
                 Text(
                     text = formatBtc(value),
                     style = MaterialTheme.typography.labelMedium,
-                    color = colorScheme.onSurfaceVariant,
+                    color = supportingColor,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -886,7 +898,7 @@ private fun TransactionDetailEntry(
             Text(
                 text = it,
                 style = MaterialTheme.typography.bodySmall,
-                color = colorScheme.onSurfaceVariant,
+                color = supportingColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
