@@ -130,6 +130,7 @@ import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.common.transactionAmount
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
+import com.strhodler.utxopocket.presentation.components.subtleBalanceShadow
 import com.strhodler.utxopocket.presentation.wallets.components.onGradient
 import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
 import com.strhodler.utxopocket.presentation.wallets.components.toTheme
@@ -841,7 +842,8 @@ private fun WalletDetailHeader(
             hidden = balancesHidden,
             style = MaterialTheme.typography.headlineLarge.copy(
                 fontWeight = FontWeight.SemiBold,
-                color = primaryContentColor
+                color = primaryContentColor,
+                shadow = remember(primaryContentColor) { subtleBalanceShadow(primaryContentColor) }
             ),
             monospaced = true,
             autoScale = true,

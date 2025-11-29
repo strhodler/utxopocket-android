@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -45,8 +47,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -70,6 +70,7 @@ import com.strhodler.utxopocket.presentation.components.ConnectionStatusBanner
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBannerStyle
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
+import com.strhodler.utxopocket.presentation.components.subtleBalanceShadow
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.components.onGradient
 import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
@@ -516,6 +517,7 @@ private fun WalletCard(
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
+        val balanceShadow = remember(contentColor) { subtleBalanceShadow(contentColor) }
         Column(
             modifier = Modifier
                 .walletCardBackground(theme, WalletCardCornerRadius)
@@ -548,7 +550,7 @@ private fun WalletCard(
                     ) {
                         Text(
                             text = wallet.name,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleSmall,
                             color = contentColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -572,9 +574,10 @@ private fun WalletCard(
                     balanceSats = wallet.balanceSats,
                     unit = balanceUnit,
                     hidden = balancesHidden,
-                    style = MaterialTheme.typography.headlineMedium.copy(
+                    style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = contentColor
+                        color = contentColor,
+                        shadow = balanceShadow
                     ),
                     monospaced = true,
                     animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0,
@@ -591,12 +594,12 @@ private fun WalletCard(
                         id = R.string.wallets_transactions,
                         wallet.transactionCount
                     ),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = secondaryTextColor
                 )
                 Text(
                     text = statusLabel,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = statusColor
                 )
             }
@@ -626,6 +629,8 @@ private fun WalletsBalanceHeader(
                 .padding(vertical = 36.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            val headerContentColor = MaterialTheme.colorScheme.onSurface
+            val headerShadow = remember(headerContentColor) { subtleBalanceShadow(headerContentColor) }
             Text(
                 text = stringResource(id = R.string.wallets_total_balance_label),
                 style = MaterialTheme.typography.titleMedium,
@@ -636,7 +641,8 @@ private fun WalletsBalanceHeader(
                 unit = balanceUnit,
                 hidden = balancesHidden,
                 style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    shadow = headerShadow
                 ),
                 monospaced = true,
                 animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0,

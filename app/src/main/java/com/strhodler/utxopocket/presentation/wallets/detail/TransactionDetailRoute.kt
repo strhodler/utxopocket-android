@@ -105,6 +105,7 @@ import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
+import com.strhodler.utxopocket.presentation.components.subtleBalanceShadow
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
@@ -1409,7 +1410,8 @@ private fun UtxoDetailHeader(
             hidden = balancesHidden,
             style = MaterialTheme.typography.headlineLarge.copy(
                 fontWeight = FontWeight.SemiBold,
-                color = contentColor
+                color = contentColor,
+                shadow = remember(contentColor) { subtleBalanceShadow(contentColor) }
             ),
             monospaced = true,
             autoScale = true,
