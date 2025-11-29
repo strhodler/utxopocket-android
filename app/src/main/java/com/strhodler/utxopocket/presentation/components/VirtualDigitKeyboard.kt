@@ -1,6 +1,9 @@
 package com.strhodler.utxopocket.presentation.components
 
 import android.view.HapticFeedbackConstants
+import android.view.ViewConfiguration
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -20,11 +23,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import kotlin.random.Random
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 sealed interface DigitKey {
     data class Number(val value: Char) : DigitKey
@@ -65,7 +76,8 @@ fun VirtualDigitKeyboard(
     onKeyPress: (DigitKey) -> Unit,
     layout: List<List<DigitKey>> = DefaultKeyboardLayout,
     hapticsEnabled: Boolean = true,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    onBackspaceLongPress: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier,
@@ -76,7 +88,8 @@ fun VirtualDigitKeyboard(
                 row = row,
                 enabled = enabled,
                 hapticsEnabled = hapticsEnabled,
-                onKeyPress = onKeyPress
+                onKeyPress = onKeyPress,
+                onBackspaceLongPress = onBackspaceLongPress
             )
         }
     }
@@ -87,7 +100,8 @@ private fun VirtualDigitKeyboardRow(
     row: List<DigitKey>,
     enabled: Boolean,
     hapticsEnabled: Boolean,
-    onKeyPress: (DigitKey) -> Unit
+    onKeyPress: (DigitKey) -> Unit,
+    onBackspaceLongPress: (() -> Unit)?
 ) {
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth()
@@ -123,6 +137,7 @@ private fun VirtualDigitKeyboardRow(
                             enabled = enabled,
                             hapticsEnabled = hapticsEnabled,
                             onClick = { onKeyPress(key) },
+                            onLongPress = if (key == DigitKey.Backspace) onBackspaceLongPress else null,
                             modifier = Modifier.size(buttonSize)
                         )
                     }
@@ -138,6 +153,7 @@ private fun DigitKeyboardButton(
     enabled: Boolean,
     hapticsEnabled: Boolean,
     onClick: () -> Unit,
+    onLongPress: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     if (key == DigitKey.Placeholder) {
@@ -160,15 +176,54 @@ private fun DigitKeyboardButton(
         DigitKey.Placeholder -> ButtonDefaults.buttonColors()
     }
     val view = LocalView.current
+    val longPressTimeoutMs = ViewConfiguration.getLongPressTimeout().toLong()
+    val interactionSource = remember { MutableInteractionSource() }
+    var longPressJob: Job? by remember { mutableStateOf(null) }
+    var longPressTriggered by remember { mutableStateOf(false) }
+
+    LaunchedEffect(interactionSource, enabled, onLongPress, hapticsEnabled) {
+        interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is PressInteraction.Press -> {
+                    longPressTriggered = false
+                    longPressJob?.cancel()
+                    if (enabled && onLongPress != null) {
+                        longPressJob = launch {
+                            delay(longPressTimeoutMs)
+                            if (hapticsEnabled) {
+                                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                            }
+                            onLongPress()
+                            longPressTriggered = true
+                            longPressJob = null
+                        }
+                    }
+                }
+
+                is PressInteraction.Release,
+                is PressInteraction.Cancel -> {
+                    longPressJob?.cancel()
+                    longPressJob = null
+                }
+            }
+        }
+    }
 
     Button(
         onClick = {
-            if (hapticsEnabled) {
+            val shouldSkipClick = longPressTriggered
+            longPressJob?.cancel()
+            longPressJob = null
+            if (hapticsEnabled && !shouldSkipClick) {
                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
             }
-            onClick()
+            if (!shouldSkipClick) {
+                onClick()
+            }
+            longPressTriggered = false
         },
         enabled = enabled,
+        interactionSource = interactionSource,
         shape = shape,
         colors = backgroundColors,
         contentPadding = PaddingValues(0.dp),
