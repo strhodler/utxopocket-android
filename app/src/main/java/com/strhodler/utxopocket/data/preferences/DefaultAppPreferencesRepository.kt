@@ -108,9 +108,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
     override val balancesHidden: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.BALANCES_HIDDEN] ?: false }
 
-    override val walletAnimationsEnabled: Flow<Boolean> =
-        dataStore.data.map { prefs -> prefs[Keys.WALLET_ANIMATIONS_ENABLED] ?: true }
-
     override val hapticsEnabled: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.HAPTICS_ENABLED] ?: true }
 
@@ -346,10 +343,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs[Keys.BALANCE_UNIT] = nextUnit.name
             prefs[Keys.BALANCES_HIDDEN] = nextHidden
         }
-    }
-
-    override suspend fun setWalletAnimationsEnabled(enabled: Boolean) {
-        dataStore.edit { prefs -> prefs[Keys.WALLET_ANIMATIONS_ENABLED] = enabled }
     }
 
     override suspend fun setHapticsEnabled(enabled: Boolean) {
@@ -685,7 +678,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val BALANCE_UNIT = stringPreferencesKey("balance_unit")
         val BALANCES_HIDDEN = booleanPreferencesKey("balances_hidden")
-        val WALLET_ANIMATIONS_ENABLED = booleanPreferencesKey("wallet_animations_enabled")
         val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
         val WALLET_BALANCE_RANGE = stringPreferencesKey("wallet_balance_range")
         val SHOW_BALANCE_CHART = booleanPreferencesKey("show_balance_chart")

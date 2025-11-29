@@ -341,7 +341,6 @@ class WalletDetailViewModelRangeTest {
         private val appLanguageState = MutableStateFlow(AppLanguage.EN)
         private val balanceUnitState = MutableStateFlow(BalanceUnit.DEFAULT)
         private val balancesHiddenState = MutableStateFlow(false)
-        private val walletAnimationsEnabledState = MutableStateFlow(true)
         private val balanceRangeState = MutableStateFlow(BalanceRange.LastYear)
         private val showBalanceChartState = MutableStateFlow(false)
         private val pinShuffleEnabledState = MutableStateFlow(false)
@@ -365,7 +364,6 @@ class WalletDetailViewModelRangeTest {
         override val appLanguage: Flow<AppLanguage> = appLanguageState
         override val balanceUnit: Flow<BalanceUnit> = balanceUnitState
         override val balancesHidden: Flow<Boolean> = balancesHiddenState
-        override val walletAnimationsEnabled: Flow<Boolean> = walletAnimationsEnabledState
         override val walletBalanceRange: Flow<BalanceRange> = balanceRangeState
         override val showBalanceChart: Flow<Boolean> = showBalanceChartState
         override val pinShuffleEnabled: Flow<Boolean> = pinShuffleEnabledState
@@ -428,10 +426,6 @@ class WalletDetailViewModelRangeTest {
                 currentUnit == BalanceUnit.SATS -> balanceUnitState.value = BalanceUnit.BTC
                 else -> balancesHiddenState.value = true
             }
-        }
-
-        override suspend fun setWalletAnimationsEnabled(enabled: Boolean) {
-            walletAnimationsEnabledState.value = enabled
         }
 
         override suspend fun setWalletBalanceRange(range: BalanceRange) {

@@ -141,7 +141,6 @@ class NodeStatusViewModelTest {
             MutableStateFlow(AppLanguage.EN)
         override val balanceUnit: StateFlow<BalanceUnit> = _balanceUnit
         override val balancesHidden: StateFlow<Boolean> = _balancesHidden
-        override val walletAnimationsEnabled: StateFlow<Boolean> = MutableStateFlow(true)
         override val walletBalanceRange: StateFlow<BalanceRange> = MutableStateFlow(BalanceRange.LastYear)
         override val showBalanceChart: StateFlow<Boolean> = MutableStateFlow(false)
         override val pinShuffleEnabled: StateFlow<Boolean> = MutableStateFlow(false)
@@ -194,7 +193,6 @@ class NodeStatusViewModelTest {
                 else -> _balancesHidden.value = true
             }
         }
-        override suspend fun setWalletAnimationsEnabled(enabled: Boolean) = Unit
         override suspend fun setWalletBalanceRange(range: BalanceRange) = Unit
         override suspend fun setShowBalanceChart(show: Boolean) = Unit
         override suspend fun setAdvancedMode(enabled: Boolean) = Unit

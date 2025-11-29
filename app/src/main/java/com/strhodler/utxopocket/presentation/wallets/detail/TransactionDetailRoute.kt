@@ -110,12 +110,10 @@ import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import com.strhodler.utxopocket.domain.model.WalletColor
-import com.strhodler.utxopocket.presentation.wallets.components.WalletColorTheme
-import com.strhodler.utxopocket.presentation.wallets.components.toTheme
-import com.strhodler.utxopocket.presentation.wallets.components.onGradient
-import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
-import com.strhodler.utxopocket.presentation.wallets.components.walletCardBackground
-import com.strhodler.utxopocket.presentation.wallets.components.walletShimmer
+import com.strhodler.utxopocket.presentation.theme.WalletColorTheme
+import com.strhodler.utxopocket.presentation.theme.walletTheme
+import androidx.compose.foundation.isSystemInDarkTheme
+import com.strhodler.utxopocket.presentation.theme.toTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -1078,22 +1076,20 @@ private fun TransactionDetailHeader(
     headerTheme: WalletColorTheme,
     modifier: Modifier = Modifier
 ) {
-    val shimmerPhase = rememberWalletShimmerPhase(durationMillis = 3600, delayMillis = 300)
-    val contentColor = headerTheme.onGradient
+    val contentColor = headerTheme.onPrimaryContainer
     val secondaryContentColor = contentColor.copy(alpha = 0.85f)
-    Column(
-        modifier = modifier
-            .walletCardBackground(headerTheme, cornerRadius = 0.dp)
-            .walletShimmer(
-                phase = shimmerPhase,
-                cornerRadius = 0.dp,
-                shimmerAlpha = 0.14f,
-                highlightColor = contentColor
-            )
-            .padding(horizontal = 24.dp, vertical = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    Surface(
+        modifier = modifier,
+        color = headerTheme.primaryContainer,
+        contentColor = contentColor
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
         Text(
             text = transactionId,
             style = MaterialTheme.typography.titleMedium,
@@ -1154,6 +1150,7 @@ private fun TransactionDetailHeader(
                     style = MaterialTheme.typography.bodySmall
                 )
             }
+        }
         }
     }
 }
@@ -1369,34 +1366,32 @@ private fun UtxoDetailHeader(
     headerTheme: WalletColorTheme,
     modifier: Modifier = Modifier
 ) {
-    val shimmerPhase = rememberWalletShimmerPhase(durationMillis = 3600, delayMillis = 300)
-    val contentColor = headerTheme.onGradient
+    val contentColor = headerTheme.onPrimaryContainer
     val secondaryContentColor = contentColor.copy(alpha = 0.85f)
-    Column(
-        modifier = modifier
-            .walletCardBackground(headerTheme, cornerRadius = 0.dp)
-            .walletShimmer(
-                phase = shimmerPhase,
-                cornerRadius = 0.dp,
-                shimmerAlpha = 0.14f,
-                highlightColor = contentColor
-            )
-            .padding(horizontal = 24.dp, vertical = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    Surface(
+        modifier = modifier,
+        color = headerTheme.primaryContainer,
+        contentColor = contentColor
     ) {
-        UtxoIdenticon(
-            seed = identiconSeed
-        )
-        Text(
-            text = outpoint,
-            style = MaterialTheme.typography.titleMedium,
-            color = contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            UtxoIdenticon(
+                seed = identiconSeed
+            )
+            Text(
+                text = outpoint,
+                style = MaterialTheme.typography.titleMedium,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         Text(
             text = depositInfo,
             style = MaterialTheme.typography.bodySmall,
@@ -1425,16 +1420,17 @@ private fun UtxoDetailHeader(
             label = label,
             addLabelRes = R.string.utxo_detail_label_add_action,
             editLabelRes = R.string.utxo_detail_label_edit_action,
-            contentColor = secondaryContentColor,
-            onClick = onEditLabel
-        )
-        if (isInherited) {
-            Text(
-                text = stringResource(id = R.string.utxo_detail_label_inherited),
-                style = MaterialTheme.typography.bodySmall,
-                color = contentColor.copy(alpha = 0.9f),
-                textAlign = TextAlign.Center
+                contentColor = secondaryContentColor,
+                onClick = onEditLabel
             )
+            if (isInherited) {
+                Text(
+                    text = stringResource(id = R.string.utxo_detail_label_inherited),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentColor.copy(alpha = 0.9f),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
@@ -2056,23 +2052,18 @@ private fun ErrorPlaceholder(
 
 @Composable
 private fun rememberHeaderTheme(walletColor: WalletColor?): WalletColorTheme {
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
     val colorScheme = MaterialTheme.colorScheme
-    return remember(
-        walletColor,
-        colorScheme.primary,
-        colorScheme.primaryContainer,
-        colorScheme.secondary,
-        colorScheme.secondaryContainer
-    ) {
-        walletColor?.toTheme()
-            ?: WalletColorTheme(
-                gradient = listOf(
-                    colorScheme.primary,
-                    colorScheme.primaryContainer,
-                    colorScheme.secondaryContainer
-                ),
-                accent = colorScheme.secondary
-            )
+    val primary = colorScheme.primary
+    val primaryContainer = colorScheme.primaryContainer
+    val secondary = colorScheme.secondary
+    val secondaryContainer = colorScheme.secondaryContainer
+    return remember(walletColor, isDark, primary, primaryContainer, secondary, secondaryContainer) {
+        walletColor?.toTheme(isDark) ?: walletTheme(
+            accent = secondary,
+            gradient = listOf(primary, primaryContainer, secondaryContainer),
+            isDark = isDark
+        )
     }
 }
 

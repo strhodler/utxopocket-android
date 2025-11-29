@@ -112,10 +112,7 @@ class WalletsViewModel @Inject constructor(
         )
     }
 
-    val uiState: StateFlow<WalletsUiState> = combine(
-        walletSnapshot,
-        appPreferencesRepository.walletAnimationsEnabled
-    ) { snapshot, animationsEnabled ->
+    val uiState: StateFlow<WalletsUiState> = walletSnapshot.map { snapshot ->
         val data = snapshot.data
         val nodeSnapshot = snapshot.nodeSnapshot
         val syncStatus = snapshot.syncStatus
@@ -151,7 +148,6 @@ class WalletsViewModel @Inject constructor(
             blockHeight = if (snapshotMatchesNetwork) nodeSnapshot.blockHeight else null,
             feeRateSatPerVb = if (snapshotMatchesNetwork) nodeSnapshot.feeRateSatPerVb else null,
             errorMessage = errorMessage,
-            walletAnimationsEnabled = animationsEnabled,
             hasActiveNodeSelection = snapshot.nodeConfig.hasActiveSelection(data.network),
             refreshingWalletIds = syncStatus.refreshingWalletIds,
             activeWalletId = syncStatus.activeWalletId.takeIf { syncStatus.network == data.network },
@@ -221,7 +217,6 @@ data class WalletsUiState(
     val blockHeight: Long? = null,
     val feeRateSatPerVb: Double? = null,
     val errorMessage: String? = null,
-    val walletAnimationsEnabled: Boolean = true,
     val hasActiveNodeSelection: Boolean = false,
     val refreshingWalletIds: Set<Long> = emptySet(),
     val activeWalletId: Long? = null,

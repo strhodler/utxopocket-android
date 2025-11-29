@@ -1,6 +1,7 @@
 package com.strhodler.utxopocket.presentation.wallets
 
 import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -27,11 +28,11 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Router
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -72,16 +73,11 @@ import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.components.subtleBalanceShadow
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
-import com.strhodler.utxopocket.presentation.wallets.components.onGradient
-import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
-import com.strhodler.utxopocket.presentation.wallets.components.toTheme
-import com.strhodler.utxopocket.presentation.wallets.components.walletCardBackground
-import com.strhodler.utxopocket.presentation.wallets.components.walletShimmer
+import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import java.text.DateFormat
 import java.util.Date
 
-private const val DefaultBalanceAnimationDuration = 220
 private val AddWalletBottomSpacer: Dp = 64.dp
 
 @Composable
@@ -306,7 +302,6 @@ private fun WalletsContent(
             canAddWallet = canAddWallet,
             showPendingSyncHint = showPendingSyncHint,
             showNodePrompt = showNodePrompt,
-            walletAnimationsEnabled = state.walletAnimationsEnabled,
             refreshingWalletIds = state.refreshingWalletIds,
             activeWalletId = state.activeWalletId,
             queuedWalletIds = state.queuedWalletIds,
@@ -343,7 +338,6 @@ private fun WalletsList(
     canAddWallet: Boolean,
     showPendingSyncHint: Boolean,
     showNodePrompt: Boolean,
-    walletAnimationsEnabled: Boolean,
     refreshingWalletIds: Set<Long> = emptySet(),
     activeWalletId: Long? = null,
     queuedWalletIds: List<Long> = emptyList(),
@@ -393,7 +387,6 @@ private fun WalletsList(
                     totalBalanceSats = totalBalanceSats,
                     balanceUnit = balanceUnit,
                     balancesHidden = balancesHidden,
-                    animationsEnabled = walletAnimationsEnabled,
                     onCycleBalanceDisplay = onCycleBalanceDisplay
                 )
             }
@@ -406,7 +399,6 @@ private fun WalletsList(
                     balancesHidden = balancesHidden,
                     onClick = { onWalletSelected(wallet.id, wallet.name) },
                     modifier = Modifier.fillMaxWidth(),
-                    animationsEnabled = walletAnimationsEnabled,
                     isSyncing = walletRefreshing,
                     isQueued = walletQueued,
                     nodeStatus = nodeStatus
@@ -482,7 +474,6 @@ private fun WalletCard(
     balancesHidden: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    animationsEnabled: Boolean,
     isSyncing: Boolean,
     isQueued: Boolean,
     nodeStatus: NodeStatus
@@ -501,37 +492,30 @@ private fun WalletCard(
         lastSyncText != null -> stringResource(id = R.string.wallets_last_sync, lastSyncText)
         else -> nodeStatusLabel(syncStatus, false)
     }
-    val theme = remember(wallet.color) { wallet.color.toTheme() }
-    val shimmerPhase = if (animationsEnabled) rememberWalletShimmerPhase() else 0f
-    val contentColor = theme.onGradient
-    val secondaryTextColor = contentColor.copy(alpha = 0.85f)
+    val theme = rememberWalletColorTheme(wallet.color)
+    val accentColor = theme.primary
+    val contentColor = MaterialTheme.colorScheme.onSurface
+    val secondaryTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     val statusColor = when {
-        isSyncing && nodeStatus is NodeStatus.Synced -> contentColor
-        isQueued -> contentColor.copy(alpha = 0.9f)
+        isSyncing && nodeStatus is NodeStatus.Synced -> accentColor
+        isQueued -> accentColor.copy(alpha = 0.9f)
         else -> secondaryTextColor
     }
-    Card(
+    val borderColor = theme.outline
+    OutlinedCard(
         onClick = onClick,
         modifier = modifier,
         shape = RoundedCornerShape(WalletCardCornerRadius),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = contentColor
+        ),
+        border = BorderStroke(width = 1.25.dp, color = borderColor)
     ) {
         val balanceShadow = remember(contentColor) { subtleBalanceShadow(contentColor) }
         Column(
             modifier = Modifier
-                .walletCardBackground(theme, WalletCardCornerRadius)
-                .let { base ->
-                    if (animationsEnabled) {
-                        base.walletShimmer(
-                            phase = shimmerPhase,
-                            cornerRadius = WalletCardCornerRadius,
-                            highlightColor = contentColor
-                        )
-                    } else {
-                        base
-                    }
-                }
+                .fillMaxWidth()
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -557,7 +541,8 @@ private fun WalletCard(
                         )
                         WalletInfoChip(
                             text = walletDescriptorTypeLabel(wallet.descriptorType),
-                            contentColor = contentColor
+                            containerColor = theme.primaryContainer,
+                            contentColor = theme.onPrimaryContainer
                         )
                     }
                 }
@@ -565,7 +550,7 @@ private fun WalletCard(
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
                         strokeWidth = 2.dp,
-                        color = contentColor.copy(alpha = 0.9f)
+                        color = accentColor
                     )
                 }
             }
@@ -580,7 +565,6 @@ private fun WalletCard(
                         shadow = balanceShadow
                     ),
                     monospaced = true,
-                    animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0,
                     autoScale = false
                 )
             }
@@ -592,7 +576,7 @@ private fun WalletCard(
                 Text(
                     text = stringResource(
                         id = R.string.wallets_transactions,
-                        wallet.transactionCount
+                            wallet.transactionCount
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = secondaryTextColor
@@ -613,12 +597,10 @@ private fun WalletsBalanceHeader(
     balanceUnit: BalanceUnit,
     balancesHidden: Boolean,
     modifier: Modifier = Modifier,
-    animationsEnabled: Boolean,
     onCycleBalanceDisplay: () -> Unit
 ) {
     Surface(
-        modifier = modifier
-            .fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         color = Color.Transparent,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
@@ -645,7 +627,6 @@ private fun WalletsBalanceHeader(
                     shadow = headerShadow
                 ),
                 monospaced = true,
-                animationMillis = if (animationsEnabled) DefaultBalanceAnimationDuration else 0,
                 autoScale = true,
                 modifier = Modifier.clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -784,10 +765,11 @@ private fun walletDescriptorTypeLabel(type: DescriptorType): String = when (type
 @Composable
 private fun WalletInfoChip(
     text: String,
+    containerColor: Color,
     contentColor: Color
 ) {
     Surface(
-        color = contentColor.copy(alpha = 0.2f),
+        color = containerColor,
         contentColor = contentColor,
         shape = RoundedCornerShape(12.dp)
     ) {

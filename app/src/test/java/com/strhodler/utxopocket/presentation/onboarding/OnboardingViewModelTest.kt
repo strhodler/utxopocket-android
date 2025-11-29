@@ -72,7 +72,6 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val appLanguage: Flow<AppLanguage> = MutableStateFlow(AppLanguage.EN)
     override val balanceUnit: Flow<BalanceUnit> = balanceUnitValue
     override val balancesHidden: Flow<Boolean> = balancesHiddenValue
-    override val walletAnimationsEnabled: Flow<Boolean> = MutableStateFlow(true)
     override val walletBalanceRange: Flow<BalanceRange> = MutableStateFlow(BalanceRange.LastYear)
     override val showBalanceChart: Flow<Boolean> = MutableStateFlow(false)
     override val pinShuffleEnabled: Flow<Boolean> = MutableStateFlow(false)
@@ -130,7 +129,6 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
         }
     }
 
-    override suspend fun setWalletAnimationsEnabled(enabled: Boolean) = Unit
     override suspend fun setHapticsEnabled(enabled: Boolean) = Unit
     override suspend fun setWalletBalanceRange(range: BalanceRange) = Unit
     override suspend fun setShowBalanceChart(show: Boolean) = Unit

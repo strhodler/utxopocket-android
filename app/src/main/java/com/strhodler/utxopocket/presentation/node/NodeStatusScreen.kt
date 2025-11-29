@@ -61,9 +61,10 @@ import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.tor.TorStatusActionUiState
-import com.strhodler.utxopocket.presentation.wallets.components.WalletColorTheme
-import com.strhodler.utxopocket.presentation.wallets.components.onGradient
+import com.strhodler.utxopocket.presentation.theme.WalletColorTheme
+import com.strhodler.utxopocket.presentation.theme.onGradient
 import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
+import com.strhodler.utxopocket.presentation.theme.walletTheme
 import com.strhodler.utxopocket.presentation.wallets.components.walletCardBackground
 import com.strhodler.utxopocket.presentation.wallets.components.walletShimmer
 import java.text.DateFormat
@@ -522,9 +523,9 @@ private fun statusThemeFor(
         NodeStatus.Offline -> greyGradient to colorScheme.onSurface
         is NodeStatus.Error -> errorGradient to colorScheme.onError
     }
-    return WalletColorTheme(
-        gradient = gradient,
-        accent = accent
+    return walletTheme(
+        accent = accent,
+        gradient = gradient
     )
 }
 

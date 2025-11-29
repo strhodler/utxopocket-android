@@ -131,12 +131,8 @@ import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.common.transactionAmount
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.components.subtleBalanceShadow
-import com.strhodler.utxopocket.presentation.wallets.components.onGradient
-import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
-import com.strhodler.utxopocket.presentation.wallets.components.toTheme
+import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
-import com.strhodler.utxopocket.presentation.wallets.components.walletCardBackground
-import com.strhodler.utxopocket.presentation.wallets.components.walletShimmer
 import com.strhodler.utxopocket.presentation.wallets.sanitizeWalletErrorMessage
 import java.text.DateFormat
 import java.text.NumberFormat
@@ -283,7 +279,7 @@ private fun WalletDetailContent(
             else -> null
         }
     }
-    val walletTheme = remember(summary.color) { summary.color.toTheme() }
+    val walletTheme = rememberWalletColorTheme(summary.color)
     var descriptorForQr by remember { mutableStateOf<String?>(null) }
     var addressForQr by remember { mutableStateOf<WalletAddress?>(null) }
     val descriptorCopiedMessage =
@@ -433,7 +429,7 @@ private fun WalletDetailContent(
                         transactionsCount = state.transactionsCount,
                         utxosCount = state.utxosCount,
                         pagerState = pagerState,
-                        accentColor = walletTheme.accent,
+                        accentColor = walletTheme.primary,
                         modifier = Modifier
                             .padding(horizontal = 16.dp)
                             .padding(top = tabsTopPadding)
@@ -767,38 +763,36 @@ private fun WalletSummaryHeader(
     } ?: lastSyncFormatted?.let { lastSync ->
         stringResource(id = R.string.wallets_last_sync, lastSync)
     }
-    val theme = remember(summary.color) { summary.color.toTheme() }
-    val shimmerPhase = rememberWalletShimmerPhase(durationMillis = 3800, delayMillis = 200)
-    val primaryContentColor = theme.onGradient
+    val theme = rememberWalletColorTheme(summary.color)
+    val primaryContentColor = theme.onPrimaryContainer
     val secondaryTextColor = primaryContentColor.copy(alpha = 0.85f)
-    WalletDetailHeader(
-        summary = summary,
-        balanceSats = activeBalanceSats,
-        balanceUnit = state.balanceUnit,
-        balancesHidden = state.balancesHidden,
-        balancePoints = balancePoints,
-        infoText = infoText,
-        primaryContentColor = primaryContentColor,
-        secondaryTextColor = secondaryTextColor,
-        onSelectionChanged = onSelectionChanged,
-        availableRanges = availableRanges,
-        selectedRange = selectedRange,
-        showBalanceChart = showBalanceChart,
-        onShowBalanceChartChanged = onShowBalanceChartChanged,
-        onRefreshRequested = onRefreshRequested,
-        onRangeSelected = onRangeSelected,
-        onCycleBalanceDisplay = onCycleBalanceDisplay,
-        modifier = modifier
-            .fillMaxWidth()
-            .walletCardBackground(theme, cornerRadius = 0.dp)
-            .walletShimmer(
-                phase = shimmerPhase,
-                cornerRadius = 0.dp,
-                shimmerAlpha = 0.18f,
-                highlightColor = primaryContentColor
-            )
-            .padding(horizontal = 24.dp, vertical = 32.dp)
-    )
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = theme.primaryContainer,
+        contentColor = primaryContentColor
+    ) {
+        WalletDetailHeader(
+            summary = summary,
+            balanceSats = activeBalanceSats,
+            balanceUnit = state.balanceUnit,
+            balancesHidden = state.balancesHidden,
+            balancePoints = balancePoints,
+            infoText = infoText,
+            primaryContentColor = primaryContentColor,
+            secondaryTextColor = secondaryTextColor,
+            onSelectionChanged = onSelectionChanged,
+            availableRanges = availableRanges,
+            selectedRange = selectedRange,
+            showBalanceChart = showBalanceChart,
+            onShowBalanceChartChanged = onShowBalanceChartChanged,
+            onRefreshRequested = onRefreshRequested,
+            onRangeSelected = onRangeSelected,
+            onCycleBalanceDisplay = onCycleBalanceDisplay,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 32.dp)
+        )
+    }
 }
 
 
