@@ -55,6 +55,7 @@ import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,6 +65,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.graphics.graphicsLayer
@@ -104,6 +107,7 @@ import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiNavigation
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
+import androidx.core.view.WindowCompat
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -137,6 +141,14 @@ class MainActivity : AppCompatActivity() {
                 themePreference = uiState.themePreference,
                 themeProfile = uiState.themeProfile
             ) {
+                val window = this.window
+                val statusBarColor = MaterialTheme.colorScheme.surface
+                val useDarkIcons = statusBarColor.luminance() > 0.5f
+                SideEffect {
+                    window.statusBarColor = statusBarColor.toArgb()
+                    val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+                    insetsController.isAppearanceLightStatusBars = useDarkIcons
+                }
                 when {
                     !uiState.isReady -> {
                         Surface(
