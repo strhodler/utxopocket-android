@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.presentation.more
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -23,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -74,6 +77,8 @@ private fun MoreScreen(
     val network = networkState.value
     val faucetLinks = remember(network) { faucetLinksFor(network) }
     var showFaucetDialog by remember { mutableStateOf(false) }
+    val listItemColors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    val supportingTextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Scaffold(
         snackbarHost = {
@@ -90,7 +95,8 @@ private fun MoreScreen(
                 .fillMaxSize()
                 .applyScreenPadding(paddingValues)
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(bottom = 16.dp + paddingValues.calculateBottomPadding())
         ) {
             item {
                 Text(
@@ -107,8 +113,13 @@ private fun MoreScreen(
                         Text(text = stringResource(id = R.string.more_item_bitcoin_pdf))
                     },
                     supportingContent = {
-                        Text(text = stringResource(id = R.string.pdf_viewer_title))
+                        Text(
+                            text = stringResource(id = R.string.pdf_viewer_title),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = supportingTextColor
+                        )
                     },
+                    colors = listItemColors,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(onClick = onOpenBitcoinPdf)
@@ -120,8 +131,13 @@ private fun MoreScreen(
                         Text(text = stringResource(id = R.string.more_item_wiki))
                     },
                     supportingContent = {
-                        Text(text = stringResource(id = R.string.more_item_wiki_supporting))
+                        Text(
+                            text = stringResource(id = R.string.more_item_wiki_supporting),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = supportingTextColor
+                        )
                     },
+                    colors = listItemColors,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(onClick = onOpenWiki)
@@ -133,8 +149,13 @@ private fun MoreScreen(
                         Text(text = stringResource(id = R.string.more_item_glossary))
                     },
                     supportingContent = {
-                        Text(text = stringResource(id = R.string.more_item_glossary_supporting))
+                        Text(
+                            text = stringResource(id = R.string.more_item_glossary_supporting),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = supportingTextColor
+                        )
                     },
+                    colors = listItemColors,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(onClick = onOpenGlossary)
@@ -161,9 +182,12 @@ private fun MoreScreen(
                                 BuildConfig.VERSION_NAME,
                                 BuildConfig.VERSION_CODE
                             ),
-                            fontFamily = FontFamily.Monospace
+                            fontFamily = FontFamily.Monospace,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = supportingTextColor
                         )
                     },
+                    colors = listItemColors,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -173,8 +197,13 @@ private fun MoreScreen(
                         Text(text = stringResource(id = R.string.more_item_features))
                     },
                     supportingContent = {
-                        Text(text = stringResource(id = R.string.more_item_features_supporting))
+                        Text(
+                            text = stringResource(id = R.string.more_item_features_supporting),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = supportingTextColor
+                        )
                     },
+                    colors = listItemColors,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(onClick = onOpenFeatures)
@@ -186,8 +215,13 @@ private fun MoreScreen(
                         Text(text = stringResource(id = R.string.more_item_about))
                     },
                     supportingContent = {
-                        Text(text = stringResource(id = R.string.more_item_about_supporting))
+                        Text(
+                            text = stringResource(id = R.string.more_item_about_supporting),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = supportingTextColor
+                        )
                     },
+                    colors = listItemColors,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(onClick = onOpenAbout)
@@ -199,8 +233,13 @@ private fun MoreScreen(
                         Text(text = stringResource(id = R.string.more_item_disclaimer))
                     },
                     supportingContent = {
-                        Text(text = stringResource(id = R.string.more_item_disclaimer_supporting))
+                        Text(
+                            text = stringResource(id = R.string.more_item_disclaimer_supporting),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = supportingTextColor
+                        )
                     },
+                    colors = listItemColors,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(onClick = onOpenDisclaimer)
@@ -228,8 +267,13 @@ private fun MoreScreen(
                             Text(text = stringResource(id = R.string.wallets_testnet_faucet_banner_title))
                         },
                         supportingContent = {
-                            Text(text = stringResource(id = R.string.wallets_testnet_faucet_banner_body, networkLabel))
+                            Text(
+                                text = stringResource(id = R.string.wallets_testnet_faucet_banner_body, networkLabel),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = supportingTextColor
+                            )
                         },
+                        colors = listItemColors,
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { showFaucetDialog = true }

@@ -116,7 +116,7 @@ fun MainNavHost(
                     onConnectTor = {
                         navController.navigate(
                             WalletsNavigation.nodeStatusRoute(
-                                WalletsNavigation.NodeStatusTabDestination.Overview
+                                WalletsNavigation.NodeStatusTabDestination.Tor
                             )
                         ) {
                             launchSingleTop = true
@@ -438,6 +438,7 @@ fun MainNavHost(
             val initialTabIndex = when (tabArg) {
                 WalletsNavigation.NodeStatusTabDestination.Management.argValue -> 0
                 WalletsNavigation.NodeStatusTabDestination.Overview.argValue -> 1
+                WalletsNavigation.NodeStatusTabDestination.Tor.argValue -> 2
                 else -> 0
             }
             NodeStatusRoute(

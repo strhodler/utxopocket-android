@@ -96,18 +96,11 @@ fun NodeOverviewContent(
                 details = nodeDetails
             )
         }
-
-        NodeTorStatusSection(
-            status = status,
-            actionsState = torActionsState,
-            onRenewIdentity = onRenewTorIdentity,
-            onStartTor = onStartTor
-        )
     }
 }
 
 @Composable
-private fun NodeTorStatusSection(
+fun NodeTorStatusSection(
     status: StatusBarUiState,
     actionsState: TorStatusActionUiState,
     onRenewIdentity: () -> Unit,

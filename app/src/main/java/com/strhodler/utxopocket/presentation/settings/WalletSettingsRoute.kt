@@ -276,10 +276,6 @@ private fun WalletSettingsScreen(
                 text = stringResource(id = R.string.settings_section_utxo_management),
                 style = MaterialTheme.typography.titleSmall
             )
-            Text(
-                text = stringResource(id = R.string.settings_dust_threshold_description),
-                style = MaterialTheme.typography.bodyMedium
-            )
             OutlinedTextField(
                 value = state.dustThresholdInput,
                 onValueChange = onDustThresholdChanged,
@@ -295,7 +291,7 @@ private fun WalletSettingsScreen(
                 },
                 supportingText = {
                     Text(
-                        text = stringResource(id = R.string.settings_dust_threshold_hint),
+                        text = stringResource(id = R.string.settings_dust_threshold_support),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

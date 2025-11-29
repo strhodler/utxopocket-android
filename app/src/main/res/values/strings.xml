@@ -728,6 +728,7 @@
     <string name="wallet_health_pillar_inventory">Inventory hygiene</string>
     <string name="wallet_health_pillar_efficiency">Operational efficiency</string>
     <string name="wallet_health_pillar_risk">Risk &amp; resilience</string>
+    <string name="node_not_connected_label">Not connected</string>
     <string name="settings_tor_renew_identity">Renew identity</string>
     <string name="tor_notification_title_connected">Tor: Connected</string>
     <string name="tor_notification_title_connecting">Tor: Connecting</string>
@@ -752,10 +753,9 @@
     <string name="settings_unit_btc">BTC</string>
     <string name="settings_unit_sats">sats</string>
     <string name="settings_section_utxo_management">UTXO management</string>
-    <string name="settings_dust_threshold_description">Flag small outputs automatically to review them before spending.</string>
     <string name="settings_dust_threshold_label">Dust threshold</string>
     <string name="settings_dust_threshold_placeholder">Enter sats</string>
-    <string name="settings_dust_threshold_hint">Set to 0 to disable dust warnings.</string>
+    <string name="settings_dust_threshold_support">Flags small outputs before you spend; set 0 to disable dust alerts.</string>
     <string name="settings_section_wallet">Wallet</string>
     <string name="settings_wallet_nav_description">%1$s, dust threshold</string>
     <string name="settings_wallet_health_on">Wallet health on</string>
@@ -880,6 +880,7 @@
     <string name="node_item_type_no_tor">No Tor</string>
     <string name="node_overview_tab_status">Details</string>
     <string name="node_overview_tab_management">Manage</string>
+    <string name="node_overview_tab_tor">Tor</string>
     <string name="node_overview_network_title">Active network</string>
     <string name="node_overview_network_action">Switch network</string>
     <string name="wiki_back">Back</string>

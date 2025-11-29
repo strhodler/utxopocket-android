@@ -477,6 +477,7 @@
     <string name="node_overview_tor_optional">Esta conexión puede funcionar sin Tor.</string>
     <string name="node_overview_tab_status">Detalles</string>
     <string name="node_overview_tab_management">Gestión</string>
+    <string name="node_overview_tab_tor">Tor</string>
     <string name="node_overview_network_title">Red activa</string>
     <string name="node_overview_network_action">Cambiar red</string>
     <string name="node_custom_save_button">Guardar cambios</string>
@@ -592,10 +593,9 @@
     <!-- Settings: advanced + dust -->
     <string name="settings_advanced_mode">Modo avanzado</string>
     <string name="settings_advanced_description">Muestra datos técnicos crudos en toda la app.</string>
-    <string name="settings_dust_threshold_description">Marca automáticamente salidas pequeñas para revisarlas antes de gastar.</string>
     <string name="settings_dust_threshold_label">Umbral de dust</string>
     <string name="settings_dust_threshold_placeholder">Introduce sats</string>
-    <string name="settings_dust_threshold_hint">Pon 0 para desactivar las alertas de dust.</string>
+    <string name="settings_dust_threshold_support">Marca salidas pequeñas para revisarlas antes de gastar; pon 0 para desactivar avisos de dust.</string>
 
     <!-- Settings: health parameters -->
     <string name="settings_health_parameters_cta">Ajustes avanzados de salud</string>
@@ -844,6 +844,7 @@
     <string name="wallet_health_pillar_inventory">Higiene del inventario</string>
     <string name="wallet_health_pillar_efficiency">Eficiencia operativa</string>
     <string name="wallet_health_pillar_risk">Riesgo y resiliencia</string>
+    <string name="node_not_connected_label">Sin conexión</string>
 
     <!-- Testnet faucet helper -->
     <string name="wallets_testnet_faucet_banner_title">Obtén bitcoin de prueba en un faucet</string>

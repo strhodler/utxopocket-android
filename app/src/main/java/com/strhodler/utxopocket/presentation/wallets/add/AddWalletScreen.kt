@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -18,6 +19,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -47,6 +50,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,6 +85,7 @@ import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import kotlinx.coroutines.launch
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AddWalletScreen(
     state: AddWalletUiState,
@@ -112,9 +117,27 @@ fun AddWalletScreen(
         title = stringResource(id = R.string.add_wallet_title),
         onBackClick = onBack
     )
-    val scrollState = rememberScrollState()
+    val modes = remember { listOf(WalletImportMode.DESCRIPTOR, WalletImportMode.EXTENDED_KEY) }
+    val pagerState = rememberPagerState(
+        initialPage = modes.indexOf(state.importMode).coerceAtLeast(0),
+        pageCount = { modes.size }
+    )
+    val pagerScope = rememberCoroutineScope()
     val canSubmit =
         state.walletName.isNotBlank() && state.validation is DescriptorValidationResult.Valid && !state.isSaving
+
+    LaunchedEffect(state.importMode) {
+        val targetPage = modes.indexOf(state.importMode).coerceAtLeast(0)
+        if (targetPage != pagerState.currentPage) {
+            pagerState.animateScrollToPage(targetPage)
+        }
+    }
+    LaunchedEffect(pagerState.currentPage) {
+        val mode = modes[pagerState.currentPage]
+        if (mode != state.importMode) {
+            onImportModeSelected(mode)
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -132,41 +155,53 @@ fun AddWalletScreen(
                 .applyScreenPadding(paddingValues)
         ) {
             ImportModeTabs(
-                selectedMode = state.importMode,
-                onSelect = onImportModeSelected,
+                modes = modes,
+                selectedIndex = pagerState.currentPage,
+                onSelectIndex = { index ->
+                    pagerScope.launch { pagerState.animateScrollToPage(index) }
+                },
                 modifier = Modifier.fillMaxWidth()
             )
-            Column(
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier
                     .weight(1f)
-                    .verticalScroll(scrollState)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                FormCard(
-                    state = state,
-                    snackbarHostState = snackbarHostState,
-                    onDescriptorChange = onDescriptorChange,
-                    onChangeDescriptorChange = onChangeDescriptorChange,
-                    onWalletNameChange = onWalletNameChange,
-                onToggleAdvanced = onToggleAdvanced,
-                onToggleExtendedAdvanced = onToggleExtendedAdvanced,
-                onExtendedKeyChange = onExtendedKeyChange,
-                onExtendedDerivationPathChange = onExtendedDerivationPathChange,
-                onExtendedFingerprintChange = onExtendedFingerprintChange,
-                    onExtendedScriptTypeChange = onExtendedScriptTypeChange,
-                    onExtendedIncludeChangeBranch = onExtendedIncludeChangeBranch
-                )
-                ValidationSummary(
-                    state = state,
-                    onDescriptorHelp = onDescriptorHelp
-                )
-                state.formError?.let { error ->
-                    Text(
-                        text = error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
+            ) { page ->
+                val pageMode = modes[page]
+                val pageScroll = rememberScrollState()
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(pageScroll)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    FormCard(
+                        state = state,
+                        importMode = pageMode,
+                        snackbarHostState = snackbarHostState,
+                        onDescriptorChange = onDescriptorChange,
+                        onChangeDescriptorChange = onChangeDescriptorChange,
+                        onWalletNameChange = onWalletNameChange,
+                    onToggleAdvanced = onToggleAdvanced,
+                    onToggleExtendedAdvanced = onToggleExtendedAdvanced,
+                    onExtendedKeyChange = onExtendedKeyChange,
+                    onExtendedDerivationPathChange = onExtendedDerivationPathChange,
+                    onExtendedFingerprintChange = onExtendedFingerprintChange,
+                        onExtendedScriptTypeChange = onExtendedScriptTypeChange,
+                        onExtendedIncludeChangeBranch = onExtendedIncludeChangeBranch
                     )
+                    ValidationSummary(
+                        state = state,
+                        onDescriptorHelp = onDescriptorHelp
+                    )
+                    state.formError?.let { error ->
+                        Text(
+                            text = error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
             ActionButtons(
@@ -275,6 +310,7 @@ fun AddWalletScreen(
 @Composable
 private fun FormCard(
     state: AddWalletUiState,
+    importMode: WalletImportMode,
     snackbarHostState: SnackbarHostState,
     onDescriptorChange: (String) -> Unit,
     onChangeDescriptorChange: (String) -> Unit,
@@ -334,7 +370,7 @@ private fun FormCard(
                 value = state.walletName,
                 onChange = onWalletNameChange
             )
-            when (state.importMode) {
+            when (importMode) {
                 WalletImportMode.DESCRIPTOR -> {
                     DescriptorInputs(
                         descriptor = state.descriptor,
@@ -353,7 +389,7 @@ private fun FormCard(
                     )
                 }
             }
-            when (state.importMode) {
+            when (importMode) {
                 WalletImportMode.DESCRIPTOR -> DescriptorAdvancedOptions(
                     showAdvanced = state.showAdvanced,
                     onToggleAdvanced = onToggleAdvanced,
@@ -377,12 +413,11 @@ private fun FormCard(
 
 @Composable
 private fun ImportModeTabs(
-    selectedMode: WalletImportMode,
-    onSelect: (WalletImportMode) -> Unit,
+    modes: List<WalletImportMode>,
+    selectedIndex: Int,
+    onSelectIndex: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val modes = listOf(WalletImportMode.DESCRIPTOR, WalletImportMode.EXTENDED_KEY)
-    val selectedIndex = modes.indexOf(selectedMode).coerceAtLeast(0)
     TabRow(
         selectedTabIndex = selectedIndex,
         modifier = modifier.fillMaxWidth(),
@@ -395,8 +430,8 @@ private fun ImportModeTabs(
                 WalletImportMode.EXTENDED_KEY -> R.string.add_wallet_tab_extended_key
             }
             Tab(
-                selected = selectedMode == mode,
-                onClick = { onSelect(mode) },
+                selected = selectedIndex == modes.indexOf(mode),
+                onClick = { onSelectIndex(modes.indexOf(mode)) },
                 text = { Text(text = stringResource(id = label)) }
             )
         }
