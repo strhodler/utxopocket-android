@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.clickable
@@ -22,12 +23,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +37,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -63,6 +64,8 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Compa
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_CONNECTION_IDLE_MINUTES
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_PIN_AUTO_LOCK_MINUTES
 import com.strhodler.utxopocket.presentation.MainActivity
+import com.strhodler.utxopocket.presentation.common.ContentSection
+import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
@@ -448,6 +451,16 @@ private fun SecuritySettingsScreen(
         in 6..10 -> stringResource(id = R.string.settings_connection_timeout_tip_balanced)
         else -> stringResource(id = R.string.settings_connection_timeout_tip_long)
     }
+    val pinTimeoutMinutes = pinTimeoutSliderValue.roundToInt()
+        .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
+    val pinTimeoutLabel = if (pinTimeoutMinutes == 0) {
+        stringResource(id = R.string.settings_pin_timeout_immediately_label)
+    } else {
+        stringResource(
+            id = R.string.settings_pin_timeout_minutes_label,
+            pinTimeoutMinutes
+        )
+    }
 
     Column(
         modifier = modifier
@@ -456,17 +469,18 @@ private fun SecuritySettingsScreen(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.elevatedCardColors()
+        SectionCard(
+            contentPadding = PaddingValues(vertical = 12.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
+            item {
+                Text(
+                    text = stringResource(id = R.string.settings_pin_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+            }
+            item {
                 ListItem(
                     headlineContent = {
                         Text(
@@ -489,8 +503,9 @@ private fun SecuritySettingsScreen(
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
-                if (state.pinEnabled) {
-                    androidx.compose.material3.HorizontalDivider()
+            }
+            if (state.pinEnabled) {
+                item {
                     ListItem(
                         headlineContent = {
                             Text(text = stringResource(id = R.string.settings_pin_shuffle_title))
@@ -512,41 +527,18 @@ private fun SecuritySettingsScreen(
                     )
                 }
             }
-                }
+        }
 
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.elevatedCardColors()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+        if (state.pinEnabled) {
+            ContentSection(
+                title = stringResource(id = R.string.settings_pin_timeout_title)
             ) {
-                if (state.pinEnabled) {
-                    val pinTimeoutMinutes = pinTimeoutSliderValue.roundToInt()
-                        .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
-                    val pinTimeoutLabel = if (pinTimeoutMinutes == 0) {
-                        stringResource(id = R.string.settings_pin_timeout_immediately_label)
-                    } else {
-                        stringResource(
-                            id = R.string.settings_pin_timeout_minutes_label,
-                            pinTimeoutMinutes
-                        )
-                    }
+                item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = stringResource(id = R.string.settings_pin_timeout_title),
-                            style = MaterialTheme.typography.titleSmall,
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
                         Text(
                             text = pinTimeoutLabel,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Slider(
                             value = pinTimeoutSliderValue,
@@ -565,25 +557,22 @@ private fun SecuritySettingsScreen(
                                 onPinAutoLockTimeoutSelected(pinTimeoutMinutes)
                             },
                             valueRange = MIN_PIN_AUTO_LOCK_MINUTES.toFloat()..MAX_PIN_AUTO_LOCK_MINUTES.toFloat(),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    androidx.compose.material3.HorizontalDivider()
                 }
+            }
+        }
 
+        ContentSection(
+            title = stringResource(id = R.string.settings_connection_timeout_title)
+        ) {
+            item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = stringResource(id = R.string.settings_connection_timeout_title),
-                        style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
                     Text(
                         text = connectionTimeoutLabel,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Slider(
                         value = connectionTimeoutValue,
@@ -602,33 +591,31 @@ private fun SecuritySettingsScreen(
                             onConnectionIdleTimeoutSelected(connectionTimeoutMinutes)
                         },
                         valueRange = MIN_CONNECTION_IDLE_MINUTES.toFloat()..MAX_CONNECTION_IDLE_MINUTES.toFloat(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Text(
                         text = connectionTip,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
         }
 
-        ElevatedCard(
+        SectionCard(
+            contentPadding = PaddingValues(vertical = 12.dp)
+        ) {
+            item {
+                Text(
+                    text = stringResource(id = R.string.settings_network_logs_header_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+            }
+            item {
+                ListItem(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    colors = CardDefaults.elevatedCardColors()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(0.dp)
-                    ) {
-                        ListItem(
-                            modifier = Modifier.fillMaxWidth(),
                     headlineContent = {
                         Text(
                             text = stringResource(id = R.string.settings_network_logs_title),
@@ -641,85 +628,70 @@ private fun SecuritySettingsScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    },
+                    trailingContent = {
+                        WalletSwitch(
+                            checked = state.networkLogsEnabled,
+                            onCheckedChange = onNetworkLogsToggle
+                        )
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
+            if (state.networkLogsEnabled) {
+                item {
+                    ListItem(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onOpenNetworkLogs),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.settings_network_logs_open_viewer),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = stringResource(id = R.string.settings_network_logs_description),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         },
                         trailingContent = {
-                            WalletSwitch(
-                                checked = state.networkLogsEnabled,
-                                onCheckedChange = onNetworkLogsToggle
+                            Icon(
+                                imageVector = Icons.Outlined.DeleteForever,
+                                contentDescription = null,
+                                tint = Color.Transparent
                             )
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
-                    if (state.networkLogsEnabled) {
-                        androidx.compose.material3.HorizontalDivider()
-                        ListItem(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable(onClick = onOpenNetworkLogs),
-                            headlineContent = {
-                                Text(
-                                    text = stringResource(id = R.string.settings_network_logs_open_viewer),
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            supportingContent = {
-                                Text(
-                                    text = stringResource(id = R.string.settings_network_logs_description),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            },
-                            trailingContent = {
-                                Icon(
-                                    imageVector = Icons.Outlined.DeleteForever,
-                                    contentDescription = null,
-                                    tint = Color.Transparent
-                                )
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                        )
-                    }
                 }
             }
+        }
 
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.elevatedCardColors(),
-            shape = MaterialTheme.shapes.large
+        Button(
+            onClick = onTriggerPanicWipe,
+            enabled = panicEnabled,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = PanicCtaMinHeight)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Icon(
+                    imageVector = Icons.Outlined.DeleteForever,
+                    contentDescription = null
+                )
                 Text(
-                    text = stringResource(id = R.string.settings_panic_list_title),
+                    text = stringResource(id = R.string.settings_panic_action),
                     style = MaterialTheme.typography.titleMedium
                 )
-                Text(
-                    text = stringResource(id = R.string.settings_panic_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                TextButton(
-                    onClick = onTriggerPanicWipe,
-                    enabled = panicEnabled,
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.DeleteForever,
-                            contentDescription = null
-                        )
-                        Text(
-                            text = stringResource(id = R.string.settings_panic_action),
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
-                }
             }
         }
     }
@@ -740,3 +712,4 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 }
 
 private const val SliderHapticFeedback = HapticFeedbackConstants.KEYBOARD_TAP
+private val PanicCtaMinHeight = 64.dp

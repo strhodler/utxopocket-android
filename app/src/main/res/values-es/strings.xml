@@ -220,13 +220,13 @@
 
     <!-- Transaction detail -->
     <string name="transaction_detail_title">Detalles de la transacción</string>
-    <string name="transaction_detail_label_add_title">Agregar etiqueta de transacción</string>
-    <string name="transaction_detail_label_edit_title">Editar etiqueta de transacción</string>
+    <string name="transaction_detail_label_add_title">Añadir etiqueta</string>
+    <string name="transaction_detail_label_edit_title">Editar etiqueta</string>
     <string name="transaction_detail_label_field_label">Etiqueta de transacción</string>
     <string name="transaction_detail_label_placeholder">Describe el flujo (salario, intercambio P2P, pago…)</string>
     <string name="transaction_detail_label_support">Caracteres restantes: %1$d</string>
     <string name="transaction_detail_label_hint">Las etiquetas mantienen el contexto y se sincronizan mediante BIP-329.</string>
-    <string name="transaction_detail_label_add_action">Agregar etiqueta de transacción</string>
+    <string name="transaction_detail_label_add_action">Añadir etiqueta</string>
     <string name="transaction_detail_label_edit_action">Editar etiqueta de transacción</string>
     <string name="transaction_detail_label_success">Etiqueta de transacción guardada</string>
     <string name="transaction_detail_label_error">No se pudo guardar la etiqueta de la transacción</string>
@@ -636,7 +636,8 @@
     <string name="settings_pin_timeout_title">Bloquear tras</string>
     <string name="settings_pin_timeout_immediately_label">Inmediatamente (al salir)</string>
     <string name="settings_pin_timeout_minutes_label">%d min</string>
-    <string name="settings_network_logs_title">Registro de errores de red</string>
+    <string name="settings_network_logs_title">Errores de red</string>
+    <string name="settings_network_logs_header_title">Registros</string>
     <string name="settings_network_logs_description">Registro cifrado en el dispositivo para errores de red/Tor.</string>
     <string name="settings_network_logs_sanitized_hint">Las entradas ya están saneadas: hosts enmascarados/hasheados y sin datos de la wallet.</string>
     <string name="settings_network_logs_open_viewer">Abrir visor de registros</string>

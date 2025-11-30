@@ -20,8 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -52,6 +50,7 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.common.generateQrBitmap
+import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
@@ -138,22 +137,16 @@ private fun AboutDeveloperContent(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.elevatedCardColors()
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
+        SectionCard {
+            item {
                 DeveloperLinkItem(
                     title = stringResource(id = R.string.about_sheet_link_lightning),
                     value = lightningAddress,
                     icon = Icons.Outlined.Link,
                     onCopy = { copyDeveloperLink(lightningAddress) }
                 )
-                androidx.compose.material3.HorizontalDivider()
+            }
+            item {
                 DeveloperLinkItem(
                     title = stringResource(id = R.string.about_sheet_link_repository),
                     value = DEVELOPER_REPOSITORY_URL,
@@ -161,7 +154,8 @@ private fun AboutDeveloperContent(
                     onOpen = onOpenRepository,
                     onCopy = { copyDeveloperLink(DEVELOPER_REPOSITORY_URL) }
                 )
-                androidx.compose.material3.HorizontalDivider()
+            }
+            item {
                 DeveloperLinkItem(
                     title = stringResource(id = R.string.about_sheet_link_telegram),
                     value = TELEGRAM_CHANNEL_URL,
@@ -169,7 +163,8 @@ private fun AboutDeveloperContent(
                     onOpen = onOpenTelegram,
                     onCopy = { copyDeveloperLink(TELEGRAM_CHANNEL_URL) }
                 )
-                androidx.compose.material3.HorizontalDivider()
+            }
+            item {
                 DeveloperLinkItem(
                     title = stringResource(id = R.string.about_sheet_link_nostr),
                     value = DEVELOPER_NOSTR,

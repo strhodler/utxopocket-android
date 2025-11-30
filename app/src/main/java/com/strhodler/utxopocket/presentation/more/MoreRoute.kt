@@ -3,16 +3,12 @@ package com.strhodler.utxopocket.presentation.more
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.BuildConfig
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
@@ -106,149 +103,15 @@ private fun MoreScreen(
             )
         ) {
             item {
-                MoreSectionSurface {
-                    ListItem(
-                        headlineContent = {
-                            Text(text = stringResource(id = R.string.more_item_bitcoin_pdf))
-                        },
-                        supportingContent = {
-                            Text(
-                                text = stringResource(id = R.string.pdf_viewer_title),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = supportingTextColor
-                            )
-                        },
-                        colors = listItemColors,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onOpenBitcoinPdf)
-                    )
-                    MoreSectionDivider()
-                    ListItem(
-                        headlineContent = {
-                            Text(text = stringResource(id = R.string.more_item_wiki))
-                        },
-                        supportingContent = {
-                            Text(
-                                text = stringResource(id = R.string.more_item_wiki_supporting),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = supportingTextColor
-                            )
-                        },
-                        colors = listItemColors,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onOpenWiki)
-                    )
-                    MoreSectionDivider()
-                    ListItem(
-                        headlineContent = {
-                            Text(text = stringResource(id = R.string.more_item_glossary))
-                        },
-                        supportingContent = {
-                            Text(
-                                text = stringResource(id = R.string.more_item_glossary_supporting),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = supportingTextColor
-                            )
-                        },
-                        colors = listItemColors,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onOpenGlossary)
-                    )
-                }
-            }
-            item {
-                MoreSectionSurface {
-                    ListItem(
-                        headlineContent = {
-                            Text(text = stringResource(id = R.string.more_item_app_version))
-                        },
-                        supportingContent = {
-                            Text(
-                                text = stringResource(
-                                    id = R.string.more_item_app_version_value,
-                                    BuildConfig.VERSION_NAME,
-                                    BuildConfig.VERSION_CODE
-                                ),
-                                fontFamily = FontFamily.Monospace,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = supportingTextColor
-                            )
-                        },
-                        colors = listItemColors,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    MoreSectionDivider()
-                    ListItem(
-                        headlineContent = {
-                            Text(text = stringResource(id = R.string.more_item_features))
-                        },
-                        supportingContent = {
-                            Text(
-                                text = stringResource(id = R.string.more_item_features_supporting),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = supportingTextColor
-                            )
-                        },
-                        colors = listItemColors,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onOpenFeatures)
-                    )
-                    MoreSectionDivider()
-                    ListItem(
-                        headlineContent = {
-                            Text(text = stringResource(id = R.string.more_item_about))
-                        },
-                        supportingContent = {
-                            Text(
-                                text = stringResource(id = R.string.more_item_about_supporting),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = supportingTextColor
-                            )
-                        },
-                        colors = listItemColors,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onOpenAbout)
-                    )
-                    MoreSectionDivider()
-                    ListItem(
-                        headlineContent = {
-                            Text(text = stringResource(id = R.string.more_item_disclaimer))
-                        },
-                        supportingContent = {
-                            Text(
-                                text = stringResource(id = R.string.more_item_disclaimer_supporting),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = supportingTextColor
-                            )
-                        },
-                        colors = listItemColors,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onOpenDisclaimer)
-                    )
-                }
-            }
-            if (faucetLinks.isNotEmpty()) {
-                item {
-                    MoreSectionSurface {
-                        val networkLabel = when (network) {
-                            BitcoinNetwork.MAINNET -> stringResource(id = R.string.network_mainnet)
-                            BitcoinNetwork.TESTNET -> stringResource(id = R.string.network_testnet)
-                            BitcoinNetwork.TESTNET4 -> stringResource(id = R.string.network_testnet4)
-                            BitcoinNetwork.SIGNET -> stringResource(id = R.string.network_signet)
-                        }
+                SectionCard {
+                    item {
                         ListItem(
                             headlineContent = {
-                                Text(text = stringResource(id = R.string.wallets_testnet_faucet_banner_title))
+                                Text(text = stringResource(id = R.string.more_item_bitcoin_pdf))
                             },
                             supportingContent = {
                                 Text(
-                                    text = stringResource(id = R.string.wallets_testnet_faucet_banner_body, networkLabel),
+                                    text = stringResource(id = R.string.pdf_viewer_title),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = supportingTextColor
                                 )
@@ -256,8 +119,156 @@ private fun MoreScreen(
                             colors = listItemColors,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { showFaucetDialog = true }
+                                .clickable(onClick = onOpenBitcoinPdf)
                         )
+                    }
+                    item {
+                        ListItem(
+                            headlineContent = {
+                                Text(text = stringResource(id = R.string.more_item_wiki))
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = stringResource(id = R.string.more_item_wiki_supporting),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = supportingTextColor
+                                )
+                            },
+                            colors = listItemColors,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onOpenWiki)
+                        )
+                    }
+                    item {
+                        ListItem(
+                            headlineContent = {
+                                Text(text = stringResource(id = R.string.more_item_glossary))
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = stringResource(id = R.string.more_item_glossary_supporting),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = supportingTextColor
+                                )
+                            },
+                            colors = listItemColors,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onOpenGlossary)
+                        )
+                    }
+                }
+            }
+            item {
+                SectionCard {
+                    item {
+                        ListItem(
+                            headlineContent = {
+                                Text(text = stringResource(id = R.string.more_item_app_version))
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = stringResource(
+                                        id = R.string.more_item_app_version_value,
+                                        BuildConfig.VERSION_NAME,
+                                        BuildConfig.VERSION_CODE
+                                    ),
+                                    fontFamily = FontFamily.Monospace,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = supportingTextColor
+                                )
+                            },
+                            colors = listItemColors,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    item {
+                        ListItem(
+                            headlineContent = {
+                                Text(text = stringResource(id = R.string.more_item_features))
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = stringResource(id = R.string.more_item_features_supporting),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = supportingTextColor
+                                )
+                            },
+                            colors = listItemColors,
+                            modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onOpenFeatures)
+                        )
+                    }
+                    item {
+                        ListItem(
+                            headlineContent = {
+                                Text(text = stringResource(id = R.string.more_item_about))
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = stringResource(id = R.string.more_item_about_supporting),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = supportingTextColor
+                                )
+                            },
+                            colors = listItemColors,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onOpenAbout)
+                        )
+                    }
+                    item {
+                        ListItem(
+                            headlineContent = {
+                                Text(text = stringResource(id = R.string.more_item_disclaimer))
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = stringResource(id = R.string.more_item_disclaimer_supporting),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = supportingTextColor
+                                )
+                            },
+                            colors = listItemColors,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onOpenDisclaimer)
+                        )
+                    }
+                }
+            }
+            if (faucetLinks.isNotEmpty()) {
+                item {
+                    SectionCard {
+                        item {
+                            val networkLabel = when (network) {
+                                BitcoinNetwork.MAINNET -> stringResource(id = R.string.network_mainnet)
+                                BitcoinNetwork.TESTNET -> stringResource(id = R.string.network_testnet)
+                                BitcoinNetwork.TESTNET4 -> stringResource(id = R.string.network_testnet4)
+                                BitcoinNetwork.SIGNET -> stringResource(id = R.string.network_signet)
+                            }
+                            ListItem(
+                                headlineContent = {
+                                    Text(text = stringResource(id = R.string.wallets_testnet_faucet_banner_title))
+                                },
+                                supportingContent = {
+                                    Text(
+                                        text = stringResource(
+                                            id = R.string.wallets_testnet_faucet_banner_body,
+                                            networkLabel
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = supportingTextColor
+                                    )
+                                },
+                                colors = listItemColors,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showFaucetDialog = true }
+                            )
+                        }
                     }
                 }
             }
@@ -337,30 +348,5 @@ private fun FaucetListDialog(
                 Text(text = stringResource(id = R.string.wallets_testnet_faucet_dialog_close))
             }
         }
-    )
-}
-
-@Composable
-private fun MoreSectionSurface(
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.elevatedCardColors()
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            content = content
-        )
-    }
-}
-
-@Composable
-private fun MoreSectionDivider() {
-    Divider(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.outlineVariant
     )
 }

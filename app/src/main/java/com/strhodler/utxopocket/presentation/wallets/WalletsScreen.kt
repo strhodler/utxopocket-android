@@ -31,7 +31,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -267,7 +267,9 @@ private fun WalletsContent(
                         message = message,
                         primaryLabel = stringResource(id = R.string.wallets_manage_connection_action),
                         onPrimaryClick = onSelectNode,
-                        style = ConnectionStatusBannerStyle.Error
+                        style = ConnectionStatusBannerStyle.Error,
+                        containerColorOverride = MaterialTheme.colorScheme.surfaceContainer,
+                        contentColorOverride = MaterialTheme.colorScheme.onSurface
                     )
                 }
             } ?: run {
@@ -450,14 +452,14 @@ private fun AddDescriptorCtaButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier.fillMaxWidth()
 ) {
-    FilledTonalButton(
+    Button(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.heightIn(min = AddDescriptorCtaMinHeight),
         contentPadding = AddDescriptorCtaContentPadding,
-        colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
         )
     ) {
         Icon(
@@ -514,7 +516,7 @@ private fun WalletCard(
         modifier = modifier,
         shape = RoundedCornerShape(WalletCardCornerRadius),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
             contentColor = contentColor
         )
     ) {

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -36,7 +37,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -77,6 +77,7 @@ import com.strhodler.utxopocket.domain.model.DescriptorWarning
 import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.common.UrMultiPartScanActivity
+import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBanner
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBannerStyle
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
@@ -356,30 +357,39 @@ private fun FormCard(
         }
     )
 
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors()
+    SectionCard(
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        spacedContent = true,
+        divider = false
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+        item {
             WalletNameInput(
                 value = state.walletName,
                 onChange = onWalletNameChange
             )
-            when (importMode) {
-                WalletImportMode.DESCRIPTOR -> {
+        }
+        when (importMode) {
+            WalletImportMode.DESCRIPTOR -> {
+                item {
                     DescriptorInputs(
                         descriptor = state.descriptor,
                         onDescriptorChange = onDescriptorChange,
                         onScanDescriptor = startDescriptorScan
                     )
                 }
+                item {
+                    DescriptorAdvancedOptions(
+                        showAdvanced = state.showAdvanced,
+                        onToggleAdvanced = onToggleAdvanced,
+                        changeDescriptor = state.changeDescriptor,
+                        onChangeDescriptorChange = onChangeDescriptorChange,
+                        selectedNetwork = state.selectedNetwork
+                    )
+                }
+            }
 
-                WalletImportMode.EXTENDED_KEY -> {
+            WalletImportMode.EXTENDED_KEY -> {
+                item {
                     ExtendedKeyInputs(
                         form = state.extendedForm,
                         onExtendedKeyChange = onExtendedKeyChange,
@@ -388,24 +398,16 @@ private fun FormCard(
                         onScanExtendedKey = startExtendedScan
                     )
                 }
-            }
-            when (importMode) {
-                WalletImportMode.DESCRIPTOR -> DescriptorAdvancedOptions(
-                    showAdvanced = state.showAdvanced,
-                    onToggleAdvanced = onToggleAdvanced,
-                    changeDescriptor = state.changeDescriptor,
-                    onChangeDescriptorChange = onChangeDescriptorChange,
-                    selectedNetwork = state.selectedNetwork
-                )
-
-                WalletImportMode.EXTENDED_KEY -> ExtendedKeyAdvancedOptions(
-                    showAdvanced = state.showExtendedAdvanced,
-                    onToggleAdvanced = onToggleExtendedAdvanced,
-                    derivationPath = state.extendedForm.derivationPath,
-                    onDerivationPathChange = onExtendedDerivationPathChange,
-                    masterFingerprint = state.extendedForm.masterFingerprint,
-                    onFingerprintChange = onExtendedFingerprintChange
-                )
+                item {
+                    ExtendedKeyAdvancedOptions(
+                        showAdvanced = state.showExtendedAdvanced,
+                        onToggleAdvanced = onToggleExtendedAdvanced,
+                        derivationPath = state.extendedForm.derivationPath,
+                        onDerivationPathChange = onExtendedDerivationPathChange,
+                        masterFingerprint = state.extendedForm.masterFingerprint,
+                        onFingerprintChange = onExtendedFingerprintChange
+                    )
+                }
             }
         }
     }
@@ -876,17 +878,15 @@ private fun ValidationSummary(
 
         state.validation is DescriptorValidationResult.Valid -> {
             val valid = state.validation
-            ElevatedCard(
+            SectionCard(
                 colors = CardDefaults.elevatedCardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+                ),
+                contentPadding = PaddingValues(16.dp),
+                spacedContent = true,
+                divider = false
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                item {
                     Text(
                         text = stringResource(
                             id = R.string.add_wallet_descriptor_detected,
@@ -894,6 +894,8 @@ private fun ValidationSummary(
                         ),
                         style = MaterialTheme.typography.bodyMedium
                     )
+                }
+                item {
                     Text(
                         text = if (valid.hasWildcard) {
                             stringResource(id = R.string.add_wallet_descriptor_wildcard_yes)
@@ -903,7 +905,9 @@ private fun ValidationSummary(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (valid.warnings.isNotEmpty()) {
+                }
+                if (valid.warnings.isNotEmpty()) {
+                    item {
                         WarningList(warnings = valid.warnings)
                     }
                 }

@@ -38,13 +38,15 @@ fun ConnectionStatusBanner(
     primaryEnabled: Boolean = true,
     secondaryLabel: String? = null,
     onSecondaryClick: (() -> Unit)? = null,
-    style: ConnectionStatusBannerStyle = ConnectionStatusBannerStyle.Neutral
+    style: ConnectionStatusBannerStyle = ConnectionStatusBannerStyle.Neutral,
+    containerColorOverride: Color? = null,
+    contentColorOverride: Color? = null
 ) {
-    val containerColor = when (style) {
+    val containerColor = containerColorOverride ?: when (style) {
         ConnectionStatusBannerStyle.Neutral -> MaterialTheme.colorScheme.surfaceContainerHigh
         ConnectionStatusBannerStyle.Error -> MaterialTheme.colorScheme.errorContainer
     }
-    val textColor = when (style) {
+    val textColor = contentColorOverride ?: when (style) {
         ConnectionStatusBannerStyle.Neutral -> MaterialTheme.colorScheme.onSurface
         ConnectionStatusBannerStyle.Error -> MaterialTheme.colorScheme.onErrorContainer
     }

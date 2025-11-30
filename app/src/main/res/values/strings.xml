@@ -309,14 +309,14 @@
     <string name="wallet_detail_descriptor_qr_error">Could not generate QR code for this descriptor.</string>
 
     <string name="transaction_detail_title">Transaction details</string>
-    <string name="transaction_detail_label_add_title">Add transaction label</string>
-    <string name="transaction_detail_label_edit_title">Edit transaction label</string>
+    <string name="transaction_detail_label_add_title">Add label</string>
+    <string name="transaction_detail_label_edit_title">Edit label</string>
     <string name="transaction_detail_label_field_label">Transaction label</string>
     <string name="transaction_detail_label_placeholder">Describe the flow (salary, stack swap, payout…)</string>
     <string name="transaction_detail_label_support">Characters remaining: %1$d</string>
     <string name="transaction_detail_label_hint">Labels keep provenance synced across wallets via BIP-329.</string>
-    <string name="transaction_detail_label_add_action">Add transaction label</string>
-    <string name="transaction_detail_label_edit_action">Edit transaction label</string>
+    <string name="transaction_detail_label_add_action">Add label</string>
+    <string name="transaction_detail_label_edit_action">Edit label</string>
     <string name="transaction_detail_label_success">Transaction label saved</string>
     <string name="transaction_detail_label_error">Unable to save transaction label</string>
     <string name="transaction_detail_not_found">Transaction not found.</string>
@@ -645,7 +645,8 @@
     <string name="settings_pin_timeout_title">Auto-lock after</string>
     <string name="settings_pin_timeout_immediately_label">Immediately (leave app)</string>
     <string name="settings_pin_timeout_minutes_label">%d min</string>
-    <string name="settings_network_logs_title">Network error log</string>
+    <string name="settings_network_logs_title">Network errors</string>
+    <string name="settings_network_logs_header_title">Logs</string>
     <string name="settings_network_logs_description">Encrypted on-device log for network/Tor errors.</string>
     <string name="settings_network_logs_sanitized_hint">Entries are already sanitized: hosts are masked/hashed and no wallet data is stored.</string>
     <string name="settings_network_logs_open_viewer">Open log viewer</string>

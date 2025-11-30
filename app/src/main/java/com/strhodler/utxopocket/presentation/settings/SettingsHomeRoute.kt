@@ -7,9 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -19,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 
@@ -81,42 +79,34 @@ private fun SettingsHomeScreen(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        ElevatedCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.elevatedCardColors()
+        SectionCard(
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 12.dp)
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
+            item {
                 SettingsNavigationRow(
                     title = stringResource(id = R.string.settings_section_interface),
                     supportingText = interfaceSummary,
-                    onClick = onOpenInterfaceSettings,
-                    showDivider = true,
-                    dividerPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)
+                    onClick = onOpenInterfaceSettings
                 )
+            }
+            item {
                 SettingsNavigationRow(
                     title = stringResource(id = R.string.settings_section_security),
                     supportingText = stringResource(
                         id = R.string.settings_security_nav_description,
                         pinStatus
                     ),
-                    onClick = onOpenSecuritySettings,
-                    showDivider = true,
-                    dividerPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)
+                    onClick = onOpenSecuritySettings
                 )
+            }
+            item {
                 SettingsNavigationRow(
                     title = stringResource(id = R.string.settings_section_wallet),
                     supportingText = stringResource(
                         id = R.string.settings_wallet_nav_description,
                         walletHealthStatus
                     ),
-                    onClick = onOpenWalletSettings,
-                    dividerPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)
+                    onClick = onOpenWalletSettings
                 )
             }
         }

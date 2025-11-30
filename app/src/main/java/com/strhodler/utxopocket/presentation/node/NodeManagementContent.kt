@@ -18,12 +18,9 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.ArrowDropUp
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -58,6 +55,7 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.PublicNode
+import com.strhodler.utxopocket.presentation.common.ListSection
 import com.strhodler.utxopocket.presentation.components.WalletSwitch
 
 @Composable
@@ -308,54 +306,43 @@ private fun AvailableNodesSection(
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = stringResource(id = R.string.node_section_available_title),
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                text = stringResource(id = R.string.node_section_available_description),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.elevatedCardColors()
+        ListSection(
+            title = stringResource(id = R.string.node_section_available_title),
+            subtitle = stringResource(id = R.string.node_section_available_description)
         ) {
             if (nodes.isEmpty()) {
-                Text(
-                    text = stringResource(id = R.string.node_section_available_empty),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 20.dp)
-                )
+                item {
+                    Text(
+                        text = stringResource(id = R.string.node_section_available_empty),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 20.dp)
+                    )
+                }
             } else {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    nodes.forEachIndexed { index, item ->
+                nodes.forEach { nodeItem ->
+                    item {
                         NodeListItem(
-                            title = item.title,
-                            subtitle = item.subtitle,
-                            typeBadge = item.typeBadge,
-                            selected = item.selected,
-                            connected = item.connected,
-                            onActivate = item.onActivate,
-                            onDetailsClick = item.onDetailsClick,
-                            onDeactivate = item.onDeactivate,
+                            title = nodeItem.title,
+                            subtitle = nodeItem.subtitle,
+                            typeBadge = nodeItem.typeBadge,
+                            selected = nodeItem.selected,
+                            connected = nodeItem.connected,
+                            onActivate = nodeItem.onActivate,
+                            onDetailsClick = nodeItem.onDetailsClick,
+                            onDeactivate = nodeItem.onDeactivate,
                             isNetworkOnline = isNetworkOnline,
                             interactionsLocked = interactionsLocked,
-                            onInteractionBlocked = onInteractionBlocked,
-                            showDivider = index < nodes.lastIndex
+                            onInteractionBlocked = onInteractionBlocked
                         )
                     }
                 }
             }
         }
 
-        FilledTonalButton(
+        Button(
             onClick = {
                 if (interactionsLocked) {
                     onInteractionBlocked()
@@ -367,9 +354,9 @@ private fun AvailableNodesSection(
                 .fillMaxWidth()
                 .heightIn(min = AddCustomNodeButtonMinHeight),
             contentPadding = AddCustomNodeButtonContentPadding,
-            colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
             )
         ) {
             Icon(
@@ -408,7 +395,6 @@ private fun NodeListItem(
     onDetailsClick: () -> Unit,
     onDeactivate: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    showDivider: Boolean = false,
     isNetworkOnline: Boolean = true,
     interactionsLocked: Boolean = false,
     onInteractionBlocked: () -> Unit = {}
@@ -474,12 +460,6 @@ private fun NodeListItem(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             tonalElevation = 0.dp
         )
-        if (showDivider) {
-            Divider(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
-        }
     }
 }
 

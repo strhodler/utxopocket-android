@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,8 +22,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
@@ -47,8 +44,8 @@ import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Check
+import com.strhodler.utxopocket.presentation.common.ListSection
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.WalletSwitch
@@ -150,38 +147,26 @@ private fun InterfaceSettingsScreen(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Dropdown selectors first, outside of surfaces
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            SettingsSelectRow(
-                title = stringResource(id = R.string.settings_language_label),
-                selectedLabel = languageLabel(state.appLanguage),
-                options = languageOptions,
-                optionLabel = languageLabel,
-                onOptionSelected = onLanguageSelected
-            )
+        SettingsSelectRow(
+            title = stringResource(id = R.string.settings_language_label),
+            selectedLabel = languageLabel(state.appLanguage),
+            options = languageOptions,
+            optionLabel = languageLabel,
+            onOptionSelected = onLanguageSelected
+        )
 
-            SettingsSelectRow(
-                title = stringResource(id = R.string.settings_display_unit_label),
-                selectedLabel = unitLabel(state.preferredUnit),
-                options = unitOptions,
-                optionLabel = unitLabel,
-                onOptionSelected = onUnitSelected
-            )
-        }
+        SettingsSelectRow(
+            title = stringResource(id = R.string.settings_display_unit_label),
+            selectedLabel = unitLabel(state.preferredUnit),
+            options = unitOptions,
+            optionLabel = unitLabel,
+            onOptionSelected = onUnitSelected
+        )
 
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.elevatedCardColors()
+        ListSection(
+            title = stringResource(id = R.string.settings_section_interface)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
+            item {
                 ThemeRow(
                     selected = state.themePreference,
                     selectedLabel = themeLabel(state.themePreference),
@@ -189,13 +174,15 @@ private fun InterfaceSettingsScreen(
                         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
                     onClick = onOpenThemeSheet
                 )
-                HorizontalDivider()
+            }
+            item {
                 ThemeProfileRow(
                     selected = state.themeProfile,
                     selectedLabel = themeProfileLabel(state.themeProfile),
                     onClick = onOpenThemeProfileSheet
                 )
-                HorizontalDivider()
+            }
+            item {
                 ListItem(
                     headlineContent = {
                         Text(text = stringResource(id = R.string.settings_haptics_title))
