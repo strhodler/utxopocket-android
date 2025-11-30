@@ -457,6 +457,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val _balancesHidden = MutableStateFlow(false)
     private val _walletBalanceRange = MutableStateFlow(BalanceRange.LastYear)
     private val _showBalanceChart = MutableStateFlow(false)
+    private val _hapticsEnabled = MutableStateFlow(false)
     private val _advancedMode = MutableStateFlow(false)
     private val _pinAutoLockTimeoutMinutes =
         MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
@@ -468,6 +469,11 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val _transactionHealthParameters =
         MutableStateFlow(TransactionHealthParameters())
     private val _utxoHealthParameters = MutableStateFlow(UtxoHealthParameters())
+    private val _connectionIdleTimeoutMinutes = MutableStateFlow(
+        AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES
+    )
+    private val _networkLogsEnabled = MutableStateFlow(false)
+    private val _networkLogsInfoSeen = MutableStateFlow(false)
 
     override val onboardingCompleted: Flow<Boolean> = _onboardingCompleted
     override val preferredNetwork: Flow<BitcoinNetwork> = _preferredNetwork
@@ -480,8 +486,10 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val walletBalanceRange: Flow<BalanceRange> = _walletBalanceRange
     override val showBalanceChart: Flow<Boolean> = _showBalanceChart
     override val pinShuffleEnabled: Flow<Boolean> = MutableStateFlow(false)
+    override val hapticsEnabled: Flow<Boolean> = _hapticsEnabled
     override val advancedMode: Flow<Boolean> = _advancedMode
     override val pinAutoLockTimeoutMinutes: Flow<Int> = _pinAutoLockTimeoutMinutes
+    override val connectionIdleTimeoutMinutes: Flow<Int> = _connectionIdleTimeoutMinutes
     override val pinLastUnlockedAt: Flow<Long?> = _pinLastUnlockedAt
     override val dustThresholdSats: Flow<Long> = _dustThresholdSats
     override val transactionAnalysisEnabled: Flow<Boolean> = _transactionAnalysisEnabled
@@ -490,6 +498,8 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val transactionHealthParameters: Flow<TransactionHealthParameters> =
         _transactionHealthParameters
     override val utxoHealthParameters: Flow<UtxoHealthParameters> = _utxoHealthParameters
+    override val networkLogsEnabled: Flow<Boolean> = _networkLogsEnabled
+    override val networkLogsInfoSeen: Flow<Boolean> = _networkLogsInfoSeen
 
     val currentNetwork: BitcoinNetwork
         get() = _preferredNetwork.value
@@ -558,10 +568,24 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun setPinShuffleEnabled(enabled: Boolean) = Unit
 
-    override suspend fun setHapticsEnabled(enabled: Boolean) = Unit
+    override suspend fun setHapticsEnabled(enabled: Boolean) {
+        _hapticsEnabled.value = enabled
+    }
 
     override suspend fun setAdvancedMode(enabled: Boolean) {
         _advancedMode.value = enabled
+    }
+
+    override suspend fun setConnectionIdleTimeoutMinutes(minutes: Int) {
+        _connectionIdleTimeoutMinutes.value = minutes
+    }
+
+    override suspend fun setNetworkLogsEnabled(enabled: Boolean) {
+        _networkLogsEnabled.value = enabled
+    }
+
+    override suspend fun setNetworkLogsInfoSeen(seen: Boolean) {
+        _networkLogsInfoSeen.value = seen
     }
 
     override suspend fun setDustThresholdSats(thresholdSats: Long) {

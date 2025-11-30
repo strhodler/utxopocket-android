@@ -46,14 +46,11 @@ import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.UnfoldMore
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -75,7 +72,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -85,6 +81,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -100,9 +97,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.compose.material3.RadioButton
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.itemKey
+import kotlinx.coroutines.launch
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BalanceRange
@@ -1805,6 +1804,7 @@ private fun WalletUtxoSort.labelRes(): Int = when (this) {
     WalletUtxoSort.WORST_HEALTH -> R.string.wallet_detail_transactions_sort_worst_health
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransactionFilterRow(
     filter: TransactionLabelFilter,
@@ -1813,7 +1813,6 @@ private fun TransactionFilterRow(
     onFilterChange: (TransactionLabelFilter) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
     val withCount: (String, Int) -> String = remember {
         { label, count -> "$label ($count)" }
     }
@@ -1828,64 +1827,82 @@ private fun TransactionFilterRow(
         append(visibleCount)
         append(")")
     }
-    Card(
-        onClick = { menuExpanded = true },
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = CardDefaults.shape
-    ) {
-        Box {
-            Row(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showSheet by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    AssistChip(
+        onClick = { showSheet = true },
+        label = { Text(text = summaryText) },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.UnfoldMore,
+                contentDescription = stringResource(
+                    id = R.string.wallet_detail_transactions_filter_expand_content_description
+                )
+            )
+        },
+        colors = AssistChipDefaults.assistChipColors(
+            labelColor = LocalContentColor.current,
+            leadingIconContentColor = LocalContentColor.current
+        ),
+        modifier = modifier.heightIn(min = 48.dp)
+    )
+
+    if (showSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = summaryText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = stringResource(id = R.string.wallet_detail_transactions_filter_expand_content_description),
+                    style = MaterialTheme.typography.titleMedium
                 )
-                Icon(
-                    imageVector = Icons.Outlined.ExpandMore,
-                    contentDescription = stringResource(
-                        id = R.string.wallet_detail_transactions_filter_expand_content_description
-                    ),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false }
-            ) {
                 presets.forEach { preset ->
-                    DropdownMenuItem(
-                        text = {
+                    val selected = preset.filter == filter
+                    val label = withCount(
+                        stringResource(id = preset.labelRes),
+                        preset.count(counts)
+                    )
+                    ListItem(
+                        headlineContent = {
                             Text(
-                                text = withCount(
-                                    stringResource(id = preset.labelRes),
-                                    preset.count(counts)
-                                )
+                                text = label,
+                                style = MaterialTheme.typography.bodyLarge
                             )
                         },
-                        leadingIcon = {
+                        leadingContent = {
                             RadioButton(
-                                selected = preset.filter == filter,
+                                selected = selected,
                                 onClick = null
                             )
                         },
-                        onClick = {
-                            menuExpanded = false
-                            onFilterChange(preset.filter)
-                        }
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onFilterChange(preset.filter)
+                                scope.launch {
+                                    sheetState.hide()
+                                    showSheet = false
+                                }
+                            },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                 }
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FilterRow(
     filter: UtxoLabelFilter,
@@ -1894,7 +1911,6 @@ private fun FilterRow(
     onFilterChange: (UtxoLabelFilter) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
     val withCount: (String, Int) -> String = remember {
         { label, count -> "$label ($count)" }
     }
@@ -1909,64 +1925,82 @@ private fun FilterRow(
         append(visibleCount)
         append(")")
     }
-    Card(
-        onClick = { menuExpanded = true },
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = CardDefaults.shape
-    ) {
-        Box {
-            Row(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showSheet by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    AssistChip(
+        onClick = { showSheet = true },
+        label = { Text(text = summaryText) },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.UnfoldMore,
+                contentDescription = stringResource(
+                    id = R.string.wallet_detail_utxos_filter_expand_content_description
+                )
+            )
+        },
+        colors = AssistChipDefaults.assistChipColors(
+            labelColor = LocalContentColor.current,
+            leadingIconContentColor = LocalContentColor.current
+        ),
+        modifier = modifier.heightIn(min = 48.dp)
+    )
+
+    if (showSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = summaryText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = stringResource(id = R.string.wallet_detail_utxos_filter_expand_content_description),
+                    style = MaterialTheme.typography.titleMedium
                 )
-                Icon(
-                    imageVector = Icons.Outlined.ExpandMore,
-                    contentDescription = stringResource(
-                        id = R.string.wallet_detail_utxos_filter_expand_content_description
-                    ),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false }
-            ) {
                 presets.forEach { preset ->
-                    DropdownMenuItem(
-                        text = {
+                    val selected = preset.filter == filter
+                    val label = withCount(
+                        stringResource(id = preset.labelRes),
+                        preset.count(counts)
+                    )
+                    ListItem(
+                        headlineContent = {
                             Text(
-                                text = withCount(
-                                    stringResource(id = preset.labelRes),
-                                    preset.count(counts)
-                                )
+                                text = label,
+                                style = MaterialTheme.typography.bodyLarge
                             )
                         },
-                        leadingIcon = {
+                        leadingContent = {
                             RadioButton(
-                                selected = preset.filter == filter,
+                                selected = selected,
                                 onClick = null
                             )
                         },
-                        onClick = {
-                            menuExpanded = false
-                            onFilterChange(preset.filter)
-                        }
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onFilterChange(preset.filter)
+                                scope.launch {
+                                    sheetState.hide()
+                                    showSheet = false
+                                }
+                            },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                 }
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun <T> SortRow(
     current: T,
@@ -1975,57 +2009,73 @@ private fun <T> SortRow(
     onOptionSelected: (T) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
-    Card(
-        onClick = { menuExpanded = true },
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = CardDefaults.shape
-    ) {
-        Box {
-            Row(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showSheet by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val summaryText = stringResource(id = optionLabelRes(current))
+
+    AssistChip(
+        onClick = { showSheet = true },
+        label = { Text(text = summaryText) },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.UnfoldMore,
+                contentDescription = stringResource(
+                    id = R.string.wallet_detail_transactions_sort_expand_content_description
+                )
+            )
+        },
+        colors = AssistChipDefaults.assistChipColors(
+            labelColor = LocalContentColor.current,
+            leadingIconContentColor = LocalContentColor.current
+        ),
+        modifier = modifier.heightIn(min = 48.dp)
+    )
+
+    if (showSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = stringResource(id = optionLabelRes(current)),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = stringResource(id = R.string.wallet_detail_transactions_sort_label),
+                    style = MaterialTheme.typography.titleMedium
                 )
-                Icon(
-                    imageVector = Icons.Outlined.ExpandMore,
-                    contentDescription = stringResource(
-                        id = R.string.wallet_detail_transactions_sort_expand_content_description
-                    ),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false }
-            ) {
                 options.forEach { option ->
-                    DropdownMenuItem(
-                        onClick = {
-                            onOptionSelected(option)
-                            menuExpanded = false
+                    val selected = option == current
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = optionLabelRes(option)),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
                         },
-                        text = { Text(text = stringResource(id = optionLabelRes(option))) },
-                        trailingIcon = if (option == current) {
-                            {
-                                Icon(
-                                    imageVector = Icons.Outlined.Check,
-                                    contentDescription = null
-                                )
-                            }
-                        } else {
-                            null
-                        }
+                        leadingContent = {
+                            RadioButton(
+                                selected = selected,
+                                onClick = null
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onOptionSelected(option)
+                                scope.launch {
+                                    sheetState.hide()
+                                    showSheet = false
+                                }
+                            },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                 }
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }
@@ -2254,7 +2304,6 @@ private fun TransactionDetailedCard(
                         Text(
                             text = displayTransactionId,
                             style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -2394,7 +2443,6 @@ private fun UtxoDetailedCard(
                         Text(
                             text = displayAddress ?: stringResource(id = R.string.wallet_detail_address_unknown),
                             style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -2415,7 +2463,6 @@ private fun UtxoDetailedCard(
                         Text(
                             text = outPointDisplay,
                             style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.End

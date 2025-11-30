@@ -22,7 +22,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -41,7 +40,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -153,7 +151,7 @@ fun NodeStatusScreen(
             }
             stickyHeader {
                 Surface(
-                    color = MaterialTheme.colorScheme.surface,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
                     tonalElevation = 1.dp,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -171,10 +169,11 @@ fun NodeStatusScreen(
                     )
                 }
             }
-            item("tabs_spacing") {
-                Spacer(modifier = Modifier.height(NodeTabsContentSpacing))
-            }
             item("pager") {
+                val tabContentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp
+                )
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier
@@ -185,8 +184,9 @@ fun NodeStatusScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
+                            .padding(tabContentPadding)
                     ) {
+                        Spacer(modifier = Modifier.height(NodeContentSpacing))
                         when (tab) {
                             NodeStatusTab.Overview -> NodeOverviewContent(
                                 status = status,
@@ -502,5 +502,5 @@ private fun NodeStatusUiState.activeNodeEndpoint(): String? {
     return customEndpoint ?: publicEndpoint
 }
 
-private val NodeTabsContentSpacing = 12.dp
+internal val NodeContentSpacing = 12.dp
 private val NodePagerMinHeight = 200.dp

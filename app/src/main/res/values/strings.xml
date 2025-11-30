@@ -73,6 +73,14 @@
     <string name="wallets_node_prompt_wiki_cta">Learn how to connect via Tor</string>
     <string name="wallets_node_disconnected_banner">No node connection</string>
     <string name="wallets_node_connecting_banner">Connecting to node</string>
+    <string name="wallets_node_connected_banner">Connected to node</string>
+    <string name="wallets_node_connected_banner_with_name">Connected to %1$s using Tor</string>
+    <string name="wallets_node_connected_banner_generic_supporting">Connected via Tor</string>
+    <string name="wallets_block_height_label">%1$s block height</string>
+    <string name="wallets_block_height_unknown">Awaiting sync</string>
+    <string name="wallets_fee_rate_label">Fee rate</string>
+    <string name="wallets_fee_rate_value">%1$s sats/vB</string>
+    <string name="wallets_fee_rate_unknown">Awaiting quote</string>
     <string name="wallets_manage_connection_action">Manage connection</string>
     <string name="wallets_add_wallet_secondary">Add wallet</string>
     <string name="wallets_empty_add_action">Add wallet</string>
@@ -113,7 +121,7 @@
     <string name="wallet_detail_transactions_filter_unlabeled">Unlabeled</string>
     <string name="wallet_detail_transactions_filter_received">Incoming</string>
     <string name="wallet_detail_transactions_filter_sent">Outgoing</string>
-    <string name="wallet_detail_transactions_filter_summary_all">All transactions</string>
+    <string name="wallet_detail_transactions_filter_summary_all">All</string>
     <string name="wallet_detail_transactions_filter_summary_labeled">Labeled only</string>
     <string name="wallet_detail_transactions_filter_summary_unlabeled">Unlabeled only</string>
     <string name="wallet_detail_transactions_filter_summary_none">No transactions selected</string>
@@ -484,7 +492,7 @@
     <string name="status_tor">Tor</string>
     <string name="status_node">Node</string>
     <string name="status_node_action_description">Show node status</string>
-    <string name="tor_overview_title">Tor connectivity</string>
+    <string name="tor_overview_title">Tor status</string>
     <string name="tor_overview_details_title">Connection details</string>
     <string name="tor_overview_status_label">Status</string>
     <string name="tor_overview_proxy_label">Proxy endpoint</string>
@@ -546,7 +554,7 @@
     <string name="wallets_state_waiting_for_node">Waiting for node</string>
     <string name="wallets_state_syncing">Syncing…</string>
     <string name="wallets_state_queued">Queued</string>
-    <string name="wallets_state_synced">Synced</string>
+    <string name="wallets_state_synced">Connected</string>
     <string name="wallets_state_error">Error</string>
     <string name="wallets_last_sync">Last sync: %1$s</string>
     <string name="wallets_sync_error_icon_description">Wallet synchronization warning</string>
@@ -796,12 +804,15 @@
     <string name="network_testnet">Testnet3</string>
     <string name="network_testnet4">Testnet4</string>
     <string name="network_signet">Signet</string>
+    <string name="network_section_title">Network</string>
     <string name="network_select_title">Select Bitcoin network</string>
     <string name="settings_theme_system">System (%1$s)</string>
     <string name="settings_theme_value_light">Light</string>
     <string name="settings_theme_value_dark">Dark</string>
     <string name="settings_theme_dynamic_available">Uses system colors on Android 12+ when the Standard palette is selected.</string>
     <string name="settings_theme_dynamic_unavailable">System colors need Android 12+ and the Standard palette. The app palette will be used.</string>
+    <string name="settings_theme_dynamic_active">Dynamic colors are active (system %1$s theme).</string>
+    <string name="settings_theme_dynamic_version_notice">Dynamic colors are available on Android 12+. Using the app %1$s palette right now.</string>
     <string name="settings_theme_profile_label">Color vision mode</string>
     <string name="settings_theme_profile_standard">Standard</string>
     <string name="settings_theme_profile_deuteranopia">Deuteranopia-safe</string>

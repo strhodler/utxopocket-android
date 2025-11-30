@@ -74,7 +74,7 @@ fun NodeOverviewContent(
     }
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(NodeContentSpacing)
     ) {
         SectionCard(
             contentPadding = PaddingValues(vertical = 12.dp),
@@ -87,7 +87,7 @@ fun NodeOverviewContent(
                             text = stringResource(id = R.string.node_overview_disconnected_message),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                            modifier = Modifier.padding(horizontal = 16.dp)
                         )
                     }
 
@@ -96,7 +96,7 @@ fun NodeOverviewContent(
                             text = stringResource(id = R.string.node_overview_details_empty),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                            modifier = Modifier.padding(horizontal = 16.dp)
                         )
                     }
 

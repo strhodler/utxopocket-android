@@ -253,6 +253,12 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
     private val _preferredNetwork = MutableStateFlow(BitcoinNetwork.TESTNET)
     private val _balanceUnit = MutableStateFlow(BalanceUnit.SATS)
     private val _balancesHidden = MutableStateFlow(false)
+    private val _hapticsEnabled = MutableStateFlow(false)
+    private val _connectionIdleTimeoutMinutes = MutableStateFlow(
+        AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES
+    )
+    private val _networkLogsEnabled = MutableStateFlow(false)
+    private val _networkLogsInfoSeen = MutableStateFlow(false)
     override val onboardingCompleted: Flow<Boolean> = MutableStateFlow(true)
     override val preferredNetwork: Flow<BitcoinNetwork> = _preferredNetwork
     override val pinLockEnabled: Flow<Boolean> = MutableStateFlow(false)
@@ -261,12 +267,14 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
     override val appLanguage: Flow<AppLanguage> = MutableStateFlow(AppLanguage.EN)
     override val balanceUnit: Flow<BalanceUnit> = _balanceUnit
     override val balancesHidden: Flow<Boolean> = _balancesHidden
+    override val hapticsEnabled: Flow<Boolean> = _hapticsEnabled
     override val walletBalanceRange: Flow<BalanceRange> = MutableStateFlow(BalanceRange.LastYear)
     override val showBalanceChart: Flow<Boolean> = MutableStateFlow(false)
     override val pinShuffleEnabled: Flow<Boolean> = MutableStateFlow(false)
     override val advancedMode: Flow<Boolean> = MutableStateFlow(false)
     override val pinAutoLockTimeoutMinutes: Flow<Int> =
         MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
+    override val connectionIdleTimeoutMinutes: Flow<Int> = _connectionIdleTimeoutMinutes
     override val pinLastUnlockedAt: Flow<Long?> = MutableStateFlow(null)
     override val dustThresholdSats: Flow<Long> = MutableStateFlow(0L)
     override val transactionAnalysisEnabled: Flow<Boolean> = MutableStateFlow(true)
@@ -276,6 +284,8 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
         MutableStateFlow(TransactionHealthParameters())
     override val utxoHealthParameters: Flow<UtxoHealthParameters> =
         MutableStateFlow(UtxoHealthParameters())
+    override val networkLogsEnabled: Flow<Boolean> = _networkLogsEnabled
+    override val networkLogsInfoSeen: Flow<Boolean> = _networkLogsInfoSeen
 
     override suspend fun setOnboardingCompleted(completed: Boolean) = Unit
 
@@ -306,7 +316,9 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
         _balancesHidden.value = hidden
     }
 
-    override suspend fun setHapticsEnabled(enabled: Boolean) = Unit
+    override suspend fun setHapticsEnabled(enabled: Boolean) {
+        _hapticsEnabled.value = enabled
+    }
 
         override suspend fun cycleBalanceDisplayMode() {
         val currentUnit = _balanceUnit.value
@@ -329,6 +341,10 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun setDustThresholdSats(thresholdSats: Long) = Unit
 
+    override suspend fun setConnectionIdleTimeoutMinutes(minutes: Int) {
+        _connectionIdleTimeoutMinutes.value = minutes
+    }
+
     override suspend fun setTransactionAnalysisEnabled(enabled: Boolean) = Unit
 
     override suspend fun setUtxoHealthEnabled(enabled: Boolean) = Unit
@@ -342,6 +358,14 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
     override suspend fun resetTransactionHealthParameters() = Unit
 
     override suspend fun resetUtxoHealthParameters() = Unit
+
+    override suspend fun setNetworkLogsEnabled(enabled: Boolean) {
+        _networkLogsEnabled.value = enabled
+    }
+
+    override suspend fun setNetworkLogsInfoSeen(seen: Boolean) {
+        _networkLogsInfoSeen.value = seen
+    }
 
     override suspend fun wipeAll() = Unit
 }

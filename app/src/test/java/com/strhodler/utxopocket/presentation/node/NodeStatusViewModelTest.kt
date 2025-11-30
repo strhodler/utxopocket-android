@@ -18,6 +18,8 @@ import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
+import com.strhodler.utxopocket.domain.model.NetworkErrorLog
+import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.model.WalletAddress
@@ -37,6 +39,7 @@ import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.presentation.node.NodeStatusUiState
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
+import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import kotlin.test.AfterTest
@@ -65,6 +68,7 @@ class NodeStatusViewModelTest {
     private lateinit var nodeConfigurationRepository: TestNodeConfigurationRepository
     private lateinit var walletRepository: TestWalletRepository
     private lateinit var nodeConnectionTester: RecordingNodeConnectionTester
+    private lateinit var networkErrorLogRepository: TestNetworkErrorLogRepository
     private lateinit var viewModel: NodeStatusViewModel
 
     @BeforeTest
@@ -75,11 +79,13 @@ class NodeStatusViewModelTest {
         nodeConfigurationRepository = TestNodeConfigurationRepository()
         walletRepository = TestWalletRepository()
         nodeConnectionTester = RecordingNodeConnectionTester()
+        networkErrorLogRepository = TestNetworkErrorLogRepository()
         viewModel = NodeStatusViewModel(
             appPreferencesRepository = preferencesRepository,
             nodeConfigurationRepository = nodeConfigurationRepository,
             nodeConnectionTester = nodeConnectionTester,
-            walletRepository = walletRepository
+            walletRepository = walletRepository,
+            networkErrorLogRepository = networkErrorLogRepository
         )
     }
 
@@ -133,6 +139,12 @@ class NodeStatusViewModelTest {
         private val _preferredNetwork = MutableStateFlow(BitcoinNetwork.TESTNET)
         private val _balanceUnit = MutableStateFlow(BalanceUnit.SATS)
         private val _balancesHidden = MutableStateFlow(false)
+        private val _hapticsEnabled = MutableStateFlow(false)
+        private val _connectionIdleTimeoutMinutes = MutableStateFlow(
+            AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES
+        )
+        private val _networkLogsEnabled = MutableStateFlow(false)
+        private val _networkLogsInfoSeen = MutableStateFlow(false)
         override val onboardingCompleted: StateFlow<Boolean> = MutableStateFlow(true)
         override val preferredNetwork: StateFlow<BitcoinNetwork> = _preferredNetwork
         override val pinLockEnabled: StateFlow<Boolean> = MutableStateFlow(false)
@@ -143,22 +155,25 @@ class NodeStatusViewModelTest {
             MutableStateFlow(AppLanguage.EN)
         override val balanceUnit: StateFlow<BalanceUnit> = _balanceUnit
         override val balancesHidden: StateFlow<Boolean> = _balancesHidden
+        override val hapticsEnabled: StateFlow<Boolean> = _hapticsEnabled
         override val walletBalanceRange: StateFlow<BalanceRange> = MutableStateFlow(BalanceRange.LastYear)
         override val showBalanceChart: StateFlow<Boolean> = MutableStateFlow(false)
         override val pinShuffleEnabled: StateFlow<Boolean> = MutableStateFlow(false)
         override val advancedMode: StateFlow<Boolean> = MutableStateFlow(false)
         override val pinAutoLockTimeoutMinutes: StateFlow<Int> =
             MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
+        override val connectionIdleTimeoutMinutes: StateFlow<Int> = _connectionIdleTimeoutMinutes
         override val pinLastUnlockedAt: StateFlow<Long?> = MutableStateFlow(null)
         override val dustThresholdSats: StateFlow<Long> = MutableStateFlow(0L)
         override val transactionAnalysisEnabled: StateFlow<Boolean> = MutableStateFlow(true)
         override val utxoHealthEnabled: StateFlow<Boolean> = MutableStateFlow(true)
         override val walletHealthEnabled: StateFlow<Boolean> = MutableStateFlow(false)
-        override val pinShuffleEnabled: StateFlow<Boolean> = MutableStateFlow(false)
         override val transactionHealthParameters: StateFlow<TransactionHealthParameters> =
             MutableStateFlow(TransactionHealthParameters())
         override val utxoHealthParameters: StateFlow<UtxoHealthParameters> =
             MutableStateFlow(UtxoHealthParameters())
+        override val networkLogsEnabled: StateFlow<Boolean> = _networkLogsEnabled
+        override val networkLogsInfoSeen: StateFlow<Boolean> = _networkLogsInfoSeen
 
         override suspend fun setOnboardingCompleted(completed: Boolean) = Unit
 
@@ -182,7 +197,9 @@ class NodeStatusViewModelTest {
             _balancesHidden.value = hidden
         }
 
-        override suspend fun setHapticsEnabled(enabled: Boolean) = Unit
+        override suspend fun setHapticsEnabled(enabled: Boolean) {
+            _hapticsEnabled.value = enabled
+        }
 
         override suspend fun cycleBalanceDisplayMode() {
             val currentUnit = _balanceUnit.value
@@ -200,15 +217,24 @@ class NodeStatusViewModelTest {
         override suspend fun setShowBalanceChart(show: Boolean) = Unit
         override suspend fun setAdvancedMode(enabled: Boolean) = Unit
         override suspend fun setDustThresholdSats(thresholdSats: Long) = Unit
+        override suspend fun setConnectionIdleTimeoutMinutes(minutes: Int) {
+            _connectionIdleTimeoutMinutes.value = minutes
+        }
         override suspend fun setTransactionAnalysisEnabled(enabled: Boolean) = Unit
         override suspend fun setUtxoHealthEnabled(enabled: Boolean) = Unit
         override suspend fun setWalletHealthEnabled(enabled: Boolean) = Unit
-        override suspend fun setPinShuffleEnabled(enabled: Boolean) = Unit
         override suspend fun setPinShuffleEnabled(enabled: Boolean) = Unit
         override suspend fun setTransactionHealthParameters(parameters: TransactionHealthParameters) = Unit
         override suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters) = Unit
         override suspend fun resetTransactionHealthParameters() = Unit
         override suspend fun resetUtxoHealthParameters() = Unit
+        override suspend fun setNetworkLogsEnabled(enabled: Boolean) {
+            _networkLogsEnabled.value = enabled
+        }
+
+        override suspend fun setNetworkLogsInfoSeen(seen: Boolean) {
+            _networkLogsInfoSeen.value = seen
+        }
         override suspend fun wipeAll() = Unit
     }
 
@@ -342,6 +368,36 @@ class NodeStatusViewModelTest {
         override suspend fun test(node: CustomNode): NodeConnectionTestResult {
             lastNode = node
             return NodeConnectionTestResult.Success()
+        }
+    }
+
+    private class TestNetworkErrorLogRepository : NetworkErrorLogRepository {
+        private val logsState = MutableStateFlow<List<NetworkErrorLog>>(emptyList())
+        private val enabledState = MutableStateFlow(false)
+        private val infoSheetState = MutableStateFlow(false)
+
+        override val logs: Flow<List<NetworkErrorLog>> = logsState
+        override val loggingEnabled: Flow<Boolean> = enabledState
+        override val infoSheetSeen: Flow<Boolean> = infoSheetState
+
+        override suspend fun setLoggingEnabled(enabled: Boolean) {
+            enabledState.value = enabled
+        }
+
+        override suspend fun record(event: NetworkErrorLogEvent) {
+            logsState.value = logsState.value + NetworkErrorLog(
+                timestampMillis = event.timestampMillis,
+                message = event.message,
+                details = event.details
+            )
+        }
+
+        override suspend fun clear() {
+            logsState.value = emptyList()
+        }
+
+        override suspend fun setInfoSheetSeen(seen: Boolean) {
+            infoSheetState.value = seen
         }
     }
 }

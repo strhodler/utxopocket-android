@@ -1,62 +1,60 @@
 package com.strhodler.utxopocket.presentation.node
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDropDown
-import androidx.compose.material.icons.outlined.ArrowDropUp
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.foundation.shape.RoundedCornerShape
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.PublicNode
+import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.common.ListSection
 import com.strhodler.utxopocket.presentation.components.WalletSwitch
+import kotlinx.coroutines.launch
 
 @Composable
 fun NodeManagementContent(
@@ -74,7 +72,7 @@ fun NodeManagementContent(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        verticalArrangement = Arrangement.spacedBy(NodeContentSpacing)
     ) {
         NodeConfigurationContent(
             network = state.preferredNetwork,
@@ -122,7 +120,7 @@ fun NodeConfigurationContent(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(NodeContentSpacing)
     ) {
         NodeNetworkSelector(
             selectedNetwork = network,
@@ -160,6 +158,7 @@ fun NodeConfigurationContent(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NodeNetworkSelector(
     selectedNetwork: BitcoinNetwork,
@@ -169,73 +168,98 @@ private fun NodeNetworkSelector(
     onInteractionBlocked: () -> Unit
 ) {
     val options = remember { BitcoinNetwork.entries }
-    var expanded by remember { mutableStateOf(false) }
-    var fieldWidth by remember { mutableStateOf(Dp.Unspecified) }
-    val density = LocalDensity.current
-    val focusManager = LocalFocusManager.current
-    val trailingIcon = if (expanded) Icons.Outlined.ArrowDropUp else Icons.Outlined.ArrowDropDown
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showSheet by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val itemAlpha = if (enabled) 1f else 0.5f
 
-    val boxModifier = Modifier
-        .alpha(if (!enabled || interactionsLocked) 0.5f else 1f)
-        .clickable {
-            if (!enabled || interactionsLocked) {
-                onInteractionBlocked()
-            }
-        }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = stringResource(id = R.string.network_select_title),
-            style = MaterialTheme.typography.titleMedium
-        )
-        Box(modifier = boxModifier) {
-            OutlinedTextField(
-                value = networkLabel(selectedNetwork),
-                onValueChange = {},
-                readOnly = true,
-                enabled = enabled,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onGloballyPositioned { coordinates ->
-                        fieldWidth = with(density) { coordinates.size.width.toDp() }
-                    }
-                    .onFocusChanged { state ->
-                        expanded = state.isFocused && enabled && !interactionsLocked
-                        if (state.isFocused && (!enabled || interactionsLocked)) {
-                            onInteractionBlocked()
-                            focusManager.clearFocus(force = true)
-                        }
-                    },
-                trailingIcon = {
+    SectionCard(
+        title = stringResource(id = R.string.network_section_title),
+        contentPadding = PaddingValues(vertical = 8.dp),
+        divider = false
+    ) {
+        item {
+            ListItem(
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.network_select_title),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        text = networkLabel(selectedNetwork),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                trailingContent = {
                     Icon(
-                        imageVector = trailingIcon,
+                        imageVector = Icons.Outlined.ArrowDropDown,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    disabledContainerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = {
-                    expanded = false
-                    focusManager.clearFocus(force = true)
-                },
-                modifier = if (fieldWidth != Dp.Unspecified) Modifier.width(fieldWidth) else Modifier
-            ) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(text = networkLabel(option)) },
-                        onClick = {
-                            onNetworkSelected(option)
-                            expanded = false
-                            focusManager.clearFocus(force = true)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .alpha(itemAlpha)
+                    .clickable {
+                        if (!enabled || interactionsLocked) {
+                            onInteractionBlocked()
+                        } else {
+                            showSheet = true
                         }
+                    },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+        }
+    }
+
+    if (showSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = stringResource(id = R.string.network_select_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+                options.forEach { option ->
+                    val selected = option == selectedNetwork
+                    ListItem(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                scope.launch {
+                                    onNetworkSelected(option)
+                                    sheetState.hide()
+                                    showSheet = false
+                                }
+                            },
+                        leadingContent = {
+                            RadioButton(
+                                selected = selected,
+                                onClick = null
+                            )
+                        },
+                        headlineContent = {
+                            Text(
+                                text = networkLabel(option),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                 }
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }

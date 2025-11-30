@@ -10,7 +10,9 @@ import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.NodeConfig
+import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
+import com.strhodler.utxopocket.domain.model.activeCustomNode
 import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
@@ -134,6 +136,10 @@ class WalletsViewModel @Inject constructor(
             torError != null -> torError
             else -> null
         }
+        val connectedNodeLabel = resolveConnectedNodeLabel(
+            nodeConfig = snapshot.nodeConfig,
+            network = data.network
+        ) ?: snapshot.nodeSnapshot.endpoint?.substringAfter("://")?.trimEnd('/')
         WalletsUiState(
             isRefreshing = isRefreshing,
             wallets = data.wallets,
@@ -151,7 +157,8 @@ class WalletsViewModel @Inject constructor(
             hasActiveNodeSelection = snapshot.nodeConfig.hasActiveSelection(data.network),
             refreshingWalletIds = syncStatus.refreshingWalletIds,
             activeWalletId = syncStatus.activeWalletId.takeIf { syncStatus.network == data.network },
-            queuedWalletIds = if (syncStatus.network == data.network) syncStatus.queuedWalletIds else emptyList()
+            queuedWalletIds = if (syncStatus.network == data.network) syncStatus.queuedWalletIds else emptyList(),
+            connectedNodeLabel = connectedNodeLabel
         )
     }.stateIn(
         scope = viewModelScope,
@@ -201,6 +208,18 @@ class WalletsViewModel @Inject constructor(
         val hapticsEnabled: Boolean
     )
 
+    private fun resolveConnectedNodeLabel(
+        nodeConfig: NodeConfig,
+        network: BitcoinNetwork
+    ): String? {
+        return when (nodeConfig.connectionOption) {
+            NodeConnectionOption.PUBLIC -> nodeConfig.selectedPublicNodeId?.let { id ->
+                nodeConfigurationRepository.publicNodesFor(network).firstOrNull { it.id == id }?.displayName
+            }
+
+            NodeConnectionOption.CUSTOM -> nodeConfig.activeCustomNode(network)?.displayLabel()
+        }
+    }
 }
 
 data class WalletsUiState(
@@ -220,5 +239,6 @@ data class WalletsUiState(
     val hasActiveNodeSelection: Boolean = false,
     val refreshingWalletIds: Set<Long> = emptySet(),
     val activeWalletId: Long? = null,
-    val queuedWalletIds: List<Long> = emptyList()
+    val queuedWalletIds: List<Long> = emptyList(),
+    val connectedNodeLabel: String? = null
 )

@@ -1,6 +1,8 @@
 package com.strhodler.utxopocket.presentation.wallets
 
 import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -21,11 +23,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Router
 import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -61,6 +67,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.DescriptorType
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.WalletSummary
@@ -76,9 +83,8 @@ import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
 import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import java.text.DateFormat
+import java.text.NumberFormat
 import java.util.Date
-
-private val AddWalletBottomSpacer: Dp = 64.dp
 
 @Composable
 fun WalletsRoute(
@@ -167,6 +173,9 @@ fun WalletsScreen(
             onAddWallet = onAddWallet,
             isNetworkOnline = isNetworkOnline,
             onCycleBalanceDisplay = onCycleBalanceDisplay,
+            blockHeight = state.blockHeight,
+            feeRateSatPerVb = state.feeRateSatPerVb,
+            selectedNetwork = state.selectedNetwork,
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
@@ -185,6 +194,9 @@ private fun WalletsContent(
     onAddWallet: () -> Unit,
     isNetworkOnline: Boolean,
     onCycleBalanceDisplay: () -> Unit,
+    blockHeight: Long?,
+    feeRateSatPerVb: Double?,
+    selectedNetwork: BitcoinNetwork,
     modifier: Modifier = Modifier
 ) {
     val canAddWallet = state.hasActiveNodeSelection || !isNetworkOnline
@@ -223,7 +235,7 @@ private fun WalletsContent(
                         title = stringResource(id = R.string.tor_status_banner_connecting_title),
                         supporting = torStatus.message ?: stringResource(id = R.string.tor_status_banner_action),
                         icon = Icons.Outlined.Info,
-                        containerColor = scheme.surfaceContainerHigh,
+                        containerColor = scheme.surfaceContainer,
                         contentColor = scheme.onSurface,
                         onClick = onConnectTor
                     )
@@ -241,7 +253,7 @@ private fun WalletsContent(
                         title = stringResource(id = R.string.tor_status_banner_stopped_title),
                         supporting = stringResource(id = R.string.tor_status_banner_action),
                         icon = Icons.Outlined.Warning,
-                        containerColor = scheme.surfaceContainerHigh,
+                        containerColor = scheme.surfaceContainer,
                         contentColor = scheme.onSurface,
                         onClick = onConnectTor
                     )
@@ -256,7 +268,9 @@ private fun WalletsContent(
                     title = stringResource(id = R.string.wallets_node_connecting_banner),
                     supporting = stringResource(id = R.string.wallets_manage_connection_action),
                     icon = Icons.Outlined.Router,
-                    onClick = onSelectNode
+                    onClick = onSelectNode,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -281,14 +295,38 @@ private fun WalletsContent(
                         title = title,
                         supporting = supporting,
                         icon = Icons.Outlined.Router,
-                        onClick = onSelectNode
+                        onClick = onSelectNode,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        contentColor = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
         }
+        isNodeConnected -> {
+            {
+                val nodeName = state.connectedNodeLabel
+                val title = stringResource(id = R.string.wallets_node_connected_banner)
+                val supporting = if (!nodeName.isNullOrBlank()) {
+                    stringResource(id = R.string.wallets_node_connected_banner_with_name, nodeName)
+                } else {
+                    stringResource(id = R.string.wallets_node_connected_banner_generic_supporting)
+                }
+                ActionableStatusBanner(
+                    title = title,
+                    supporting = supporting,
+                    icon = Icons.Outlined.Router,
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    trailingIcon = Icons.AutoMirrored.Outlined.ArrowForward,
+                    trailingIconTint = MaterialTheme.colorScheme.onSurface,
+                    onClick = onSelectNode,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
         else -> null
     }
-    val bannerContent = banner.takeIf { !isNodeConnected }
+    val bannerContent = banner
 
     Box(modifier = modifier.fillMaxSize()) {
         WalletsList(
@@ -308,21 +346,13 @@ private fun WalletsContent(
             activeWalletId = state.activeWalletId,
             queuedWalletIds = state.queuedWalletIds,
             nodeStatus = state.nodeStatus,
+            banner = bannerContent,
             modifier = Modifier.fillMaxSize(),
-            additionalBottomPadding = if (bannerContent != null) AddWalletBottomSpacer else 0.dp,
-            onCycleBalanceDisplay = onCycleBalanceDisplay
+            onCycleBalanceDisplay = onCycleBalanceDisplay,
+            blockHeight = blockHeight,
+            feeRateSatPerVb = feeRateSatPerVb,
+            selectedNetwork = selectedNetwork
         )
-
-        bannerContent?.let { content ->
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .fillMaxWidth()
-            ) {
-                content()
-            }
-        }
     }
 }
 
@@ -344,31 +374,40 @@ private fun WalletsList(
     activeWalletId: Long? = null,
     queuedWalletIds: List<Long> = emptyList(),
     nodeStatus: NodeStatus,
-    additionalBottomPadding: Dp = 0.dp,
+    banner: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
-    onCycleBalanceDisplay: () -> Unit
+    onCycleBalanceDisplay: () -> Unit,
+    blockHeight: Long?,
+    feeRateSatPerVb: Double?,
+    selectedNetwork: BitcoinNetwork
 ) {
     if (wallets.isEmpty()) {
-        Box(
+        Column(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(horizontal = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING)
+                .padding(horizontal = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            val centerModifier = Modifier.align(Alignment.Center)
-            if (showNodePrompt) {
-                NodeSelectionPrompt(
-                    onSelectNode = onSelectNode,
-                    onOpenWiki = { onOpenWikiTopic(WikiContent.NodeConnectivityTopicId) },
-                    modifier = centerModifier
-                )
-            } else {
-                EmptyState(
-                    onOpenWiki = onOpenWiki,
-                    onAddWallet = onAddWallet,
-                    canAddWallet = canAddWallet,
-                    showPendingSyncHint = showPendingSyncHint,
-                    modifier = centerModifier
-                )
+            banner?.let {
+                it()
+            }
+            Box(modifier = Modifier.fillMaxWidth()) {
+                val centerModifier = Modifier.align(Alignment.Center)
+                if (showNodePrompt) {
+                    NodeSelectionPrompt(
+                        onSelectNode = onSelectNode,
+                        onOpenWiki = { onOpenWikiTopic(WikiContent.NodeConnectivityTopicId) },
+                        modifier = centerModifier
+                    )
+                } else {
+                    EmptyState(
+                        onOpenWiki = onOpenWiki,
+                        onAddWallet = onAddWallet,
+                        canAddWallet = canAddWallet,
+                        showPendingSyncHint = showPendingSyncHint,
+                        modifier = centerModifier
+                    )
+                }
             }
         }
     } else {
@@ -379,18 +418,31 @@ private fun WalletsList(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(
                 top = BalanceHeaderMetrics.CONTENT_TOP_PADDING,
-                bottom = BalanceHeaderMetrics.CONTENT_BOTTOM_PADDING + additionalBottomPadding,
+                bottom = BalanceHeaderMetrics.CONTENT_BOTTOM_PADDING,
                 start = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING,
                 end = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING
             )
         ) {
             item(key = "wallets-balance-header") {
-                WalletsBalanceHeader(
+                WalletsBalanceCarousel(
                     totalBalanceSats = totalBalanceSats,
                     balanceUnit = balanceUnit,
                     balancesHidden = balancesHidden,
-                    onCycleBalanceDisplay = onCycleBalanceDisplay
+                    onCycleBalanceDisplay = onCycleBalanceDisplay,
+                    blockHeight = blockHeight,
+                    feeRateSatPerVb = feeRateSatPerVb,
+                    network = selectedNetwork
                 )
+            }
+            banner?.let {
+                item(key = "wallets-banner") {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        it()
+                    }
+                }
             }
             itemsIndexed(wallets, key = { _, wallet -> wallet.id }) { _, wallet ->
                 val walletRefreshing = wallet.id == activeWalletId || refreshingWalletIds.contains(wallet.id)
@@ -592,6 +644,11 @@ private fun WalletCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
+                    text = statusLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = statusColor
+                )
+                Text(
                     text = stringResource(
                         id = R.string.wallets_transactions,
                             wallet.transactionCount
@@ -599,24 +656,36 @@ private fun WalletCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = secondaryTextColor
                 )
-                Text(
-                    text = statusLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = statusColor
-                )
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun WalletsBalanceHeader(
+private fun WalletsBalanceCarousel(
     totalBalanceSats: Long,
     balanceUnit: BalanceUnit,
     balancesHidden: Boolean,
-    modifier: Modifier = Modifier,
-    onCycleBalanceDisplay: () -> Unit
+    onCycleBalanceDisplay: () -> Unit,
+    blockHeight: Long?,
+    feeRateSatPerVb: Double?,
+    network: BitcoinNetwork,
+    modifier: Modifier = Modifier
 ) {
+    val pages = remember { WalletHeaderPage.entries }
+    val realPageCount = pages.size
+    val startPage = remember {
+        val midpoint = Int.MAX_VALUE / 2
+        midpoint - (midpoint % realPageCount)
+    }
+    val pagerState = rememberPagerState(
+        initialPage = startPage,
+        pageCount = { Int.MAX_VALUE }
+    )
+    val numberFormat = remember { NumberFormat.getIntegerInstance() }
+    val currentPageIndex = pagerState.currentPage % realPageCount
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = Color.Transparent,
@@ -627,30 +696,133 @@ private fun WalletsBalanceHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 36.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = stringResource(id = R.string.wallets_total_balance_label),
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center
-            )
-            RollingBalanceText(
-                balanceSats = totalBalanceSats,
-                unit = balanceUnit,
-                hidden = balancesHidden,
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.Medium
-                ),
-                monospaced = true,
-                autoScale = true,
-                modifier = Modifier.clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onCycleBalanceDisplay
-                )
-            )
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxWidth()
+            ) { index ->
+                when (pages[index % realPageCount]) {
+                    WalletHeaderPage.TotalBalance -> {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.wallets_total_balance_label),
+                                style = MaterialTheme.typography.titleMedium,
+                                textAlign = TextAlign.Center
+                            )
+                            RollingBalanceText(
+                                balanceSats = totalBalanceSats,
+                                unit = balanceUnit,
+                                hidden = balancesHidden,
+                                style = MaterialTheme.typography.headlineLarge.copy(
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                monospaced = true,
+                                autoScale = true,
+                                modifier = Modifier.clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = onCycleBalanceDisplay
+                                )
+                            )
+                        }
+                    }
+
+                    WalletHeaderPage.BlockHeight -> {
+                        val networkLabel = stringResource(id = networkLabelRes(network))
+                        val heightText = blockHeight?.let { numberFormat.format(it) }
+                            ?: stringResource(id = R.string.wallets_block_height_unknown)
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.wallets_block_height_label, networkLabel),
+                                style = MaterialTheme.typography.titleMedium,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = heightText,
+                                style = MaterialTheme.typography.headlineLarge.copy(
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+
+                    WalletHeaderPage.FeeRate -> {
+                        val feeText = feeRateSatPerVb?.let {
+                            stringResource(
+                                id = R.string.wallets_fee_rate_value,
+                                numberFormat.format(it)
+                            )
+                        } ?: stringResource(id = R.string.wallets_fee_rate_unknown)
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.wallets_fee_rate_label),
+                                style = MaterialTheme.typography.titleMedium,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = feeText,
+                                style = MaterialTheme.typography.headlineLarge.copy(
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                pages.forEachIndexed { index, _ ->
+                    val selected = currentPageIndex == index
+                    val dotSize = if (selected) 10.dp else 6.dp
+                    Box(
+                        modifier = Modifier
+                            .size(dotSize)
+                            .background(
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                },
+                                shape = CircleShape
+                            )
+                    )
+                }
+            }
         }
     }
+}
+
+private enum class WalletHeaderPage {
+    TotalBalance,
+    BlockHeight,
+    FeeRate
+}
+
+private fun networkLabelRes(network: BitcoinNetwork): Int = when (network) {
+    BitcoinNetwork.MAINNET -> R.string.network_mainnet
+    BitcoinNetwork.TESTNET -> R.string.network_testnet
+    BitcoinNetwork.TESTNET4 -> R.string.network_testnet4
+    BitcoinNetwork.SIGNET -> R.string.network_signet
 }
 
 @Composable

@@ -26,6 +26,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -213,7 +216,19 @@ private fun ThemeRow(
     dynamicSupported: Boolean,
     onClick: () -> Unit
 ) {
-    val preview = rememberThemePreview(selected)
+    val systemIsDark = isSystemInDarkTheme()
+    val preview = rememberThemePreview(
+        preference = selected,
+        dynamicSupported = dynamicSupported,
+        systemIsDark = systemIsDark
+    )
+    val paletteLabel = stringResource(
+        id = if (systemIsDark) {
+            R.string.settings_theme_value_dark
+        } else {
+            R.string.settings_theme_value_light
+        }
+    )
     ListItem(
         headlineContent = {
             Text(
@@ -237,11 +252,14 @@ private fun ThemeRow(
                     )
                 }
                 if (selected == ThemePreference.SYSTEM) {
-                    val message = if (dynamicSupported) {
-                        stringResource(id = R.string.settings_theme_dynamic_available)
-                    } else {
-                        stringResource(id = R.string.settings_theme_dynamic_unavailable)
-                    }
+                    val message = stringResource(
+                        id = if (dynamicSupported) {
+                            R.string.settings_theme_dynamic_active
+                        } else {
+                            R.string.settings_theme_dynamic_version_notice
+                        },
+                        paletteLabel
+                    )
                     Text(
                         text = message,
                         style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
@@ -323,6 +341,13 @@ private fun ThemePreferenceSheet(
 ) {
     val themeLabel = rememberThemePreferenceLabeler()
     val systemIsDark = isSystemInDarkTheme()
+    val paletteLabel = stringResource(
+        id = if (systemIsDark) {
+            R.string.settings_theme_value_dark
+        } else {
+            R.string.settings_theme_value_light
+        }
+    )
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -340,7 +365,11 @@ private fun ThemePreferenceSheet(
                     color = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant
                 )
             }
-            val preview = rememberThemePreview(option, systemIsDark)
+            val preview = rememberThemePreview(
+                preference = option,
+                dynamicSupported = dynamicSupported,
+                systemIsDark = systemIsDark
+            )
             ListItem(
                 headlineContent = {
                     Text(text = themeLabel(option))
@@ -349,11 +378,14 @@ private fun ThemePreferenceSheet(
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         ThemePreviewDots(preview)
                         if (option == ThemePreference.SYSTEM) {
-                            val message = if (dynamicSupported) {
-                                stringResource(id = R.string.settings_theme_dynamic_available)
-                            } else {
-                                stringResource(id = R.string.settings_theme_dynamic_unavailable)
-                            }
+                            val message = stringResource(
+                                id = if (dynamicSupported) {
+                                    R.string.settings_theme_dynamic_active
+                                } else {
+                                    R.string.settings_theme_dynamic_version_notice
+                                },
+                                paletteLabel
+                            )
                             Text(
                                 text = message,
                                 style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
@@ -435,13 +467,19 @@ private fun ThemeProfileSheet(
 @Composable
 private fun rememberThemePreview(
     preference: ThemePreference,
+    dynamicSupported: Boolean,
     systemIsDark: Boolean = isSystemInDarkTheme()
 ): ThemePreviewColors {
-    return remember(preference, systemIsDark) {
+    val context = LocalContext.current
+    return remember(preference, dynamicSupported, systemIsDark, context) {
         val scheme = when (preference) {
             ThemePreference.LIGHT -> colorSchemeFor(ThemeProfile.STANDARD, isDark = false)
             ThemePreference.DARK -> colorSchemeFor(ThemeProfile.STANDARD, isDark = true)
-            ThemePreference.SYSTEM -> colorSchemeFor(ThemeProfile.STANDARD, isDark = systemIsDark)
+            ThemePreference.SYSTEM -> when {
+                dynamicSupported && systemIsDark -> dynamicDarkColorScheme(context)
+                dynamicSupported && !systemIsDark -> dynamicLightColorScheme(context)
+                else -> colorSchemeFor(ThemeProfile.STANDARD, isDark = systemIsDark)
+            }
         }
         ThemePreviewColors(
             primary = scheme.primary,

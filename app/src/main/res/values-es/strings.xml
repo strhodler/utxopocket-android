@@ -50,7 +50,7 @@
     <string name="wallets_state_waiting_for_node">Esperando nodo</string>
     <string name="wallets_state_syncing">Sincronizando…</string>
     <string name="wallets_state_queued">En cola</string>
-    <string name="wallets_state_synced">Sincronizado</string>
+    <string name="wallets_state_synced">Conectado</string>
     <string name="wallets_state_error">Error</string>
     <string name="wallets_last_sync">Última sincronización: %1$s</string>
     <string name="wallets_sync_error_icon_description">Advertencia de sincronización</string>
@@ -69,6 +69,7 @@
     <string name="network_testnet">Testnet3</string>
     <string name="network_testnet4">Testnet4</string>
     <string name="network_signet">Signet</string>
+    <string name="network_section_title">Red</string>
     <string name="network_select_title">Seleccionar red de Bitcoin</string>
 
     <!-- Settings -->
@@ -98,6 +99,8 @@
     <string name="settings_theme_value_dark">Oscuro</string>
     <string name="settings_theme_dynamic_available">Usa los colores del sistema en Android 12+ cuando está seleccionada la paleta Estándar.</string>
     <string name="settings_theme_dynamic_unavailable">Los colores del sistema requieren Android 12+ y la paleta Estándar. Se usará la paleta de la app.</string>
+    <string name="settings_theme_dynamic_active">Colores dinámicos activos (tema del sistema %1$s).</string>
+    <string name="settings_theme_dynamic_version_notice">Los colores dinámicos están disponibles en Android 12+. Ahora se usa la paleta %1$s de la app.</string>
     <string name="splash_subtitle">Solo lectura. Privada. Lista.</string>
     <string name="splash_tagline">Inteligencia watch-only</string>
     <string name="settings_connection_timeout_title">Desconexión por inactividad</string>
@@ -174,7 +177,7 @@
     <string name="wallet_detail_transactions_filter_unlabeled">Sin etiqueta</string>
     <string name="wallet_detail_transactions_filter_received">Entradas</string>
     <string name="wallet_detail_transactions_filter_sent">Salidas</string>
-    <string name="wallet_detail_transactions_filter_summary_all">Todas las transacciones</string>
+    <string name="wallet_detail_transactions_filter_summary_all">Todas</string>
     <string name="wallet_detail_transactions_filter_summary_labeled">Sólo etiquetadas</string>
     <string name="wallet_detail_transactions_filter_summary_unlabeled">Sólo sin etiqueta</string>
     <string name="wallet_detail_transactions_filter_summary_none">Sin transacciones seleccionadas</string>
@@ -447,7 +450,7 @@
     <string name="settings_haptics_title">Vibración</string>
     <string name="settings_haptics_description">Activa o desactiva la vibración en la app.</string>
     <string name="status_node_action_description">Mostrar el estado del nodo</string>
-    <string name="tor_overview_title">Conectividad de Tor</string>
+    <string name="tor_overview_title">Estado de Tor</string>
     <string name="tor_overview_details_title">Detalles de conexión</string>
     <string name="tor_overview_status_label">Estado</string>
     <string name="tor_overview_proxy_label">Endpoint del proxy</string>
@@ -966,6 +969,14 @@
     <string name="wallets_node_prompt_wiki_cta">Aprende a conectarte vía Tor</string>
     <string name="wallets_node_disconnected_banner">Sin conexión de nodo</string>
     <string name="wallets_node_connecting_banner">Conectando al nodo</string>
+    <string name="wallets_node_connected_banner">Conectado al nodo</string>
+    <string name="wallets_node_connected_banner_with_name">Conectado a %1$s vía Tor</string>
+    <string name="wallets_node_connected_banner_generic_supporting">Conectado vía Tor</string>
+    <string name="wallets_block_height_label">Altura de bloque en %1$s</string>
+    <string name="wallets_block_height_unknown">Esperando sincronización</string>
+    <string name="wallets_fee_rate_label">Tarifa</string>
+    <string name="wallets_fee_rate_value">%1$s sats/vB</string>
+    <string name="wallets_fee_rate_unknown">Esperando tarifa</string>
     <string name="wallets_manage_connection_action">Gestionar conexión</string>
 
     <!-- Wallet descriptor types (duplicated mapping for detail lists) -->

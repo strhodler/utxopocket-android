@@ -354,9 +354,13 @@ class WalletDetailViewModelRangeTest {
         private val balanceRangeState = MutableStateFlow(BalanceRange.LastYear)
         private val showBalanceChartState = MutableStateFlow(false)
         private val pinShuffleEnabledState = MutableStateFlow(false)
+        private val hapticsEnabledState = MutableStateFlow(false)
         private val advancedModeState = MutableStateFlow(false)
         private val pinAutoLockTimeoutMinutesState =
             MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
+        private val connectionIdleTimeoutMinutesState = MutableStateFlow(
+            AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES
+        )
         private val pinLastUnlockedState = MutableStateFlow<Long?>(null)
         private val dustThresholdState = MutableStateFlow(WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS)
         private val transactionAnalysisEnabledState = MutableStateFlow(false)
@@ -364,6 +368,8 @@ class WalletDetailViewModelRangeTest {
         private val walletHealthEnabledState = MutableStateFlow(false)
         private val transactionHealthParametersState = MutableStateFlow(TransactionHealthParameters())
         private val utxoHealthParametersState = MutableStateFlow(UtxoHealthParameters())
+        private val networkLogsEnabledState = MutableStateFlow(false)
+        private val networkLogsInfoSeenState = MutableStateFlow(false)
 
         var lastSetBalanceRange: BalanceRange? = null
 
@@ -378,8 +384,10 @@ class WalletDetailViewModelRangeTest {
         override val walletBalanceRange: Flow<BalanceRange> = balanceRangeState
         override val showBalanceChart: Flow<Boolean> = showBalanceChartState
         override val pinShuffleEnabled: Flow<Boolean> = pinShuffleEnabledState
+        override val hapticsEnabled: Flow<Boolean> = hapticsEnabledState
         override val advancedMode: Flow<Boolean> = advancedModeState
         override val pinAutoLockTimeoutMinutes: Flow<Int> = pinAutoLockTimeoutMinutesState
+        override val connectionIdleTimeoutMinutes: Flow<Int> = connectionIdleTimeoutMinutesState
         override val pinLastUnlockedAt: Flow<Long?> = pinLastUnlockedState
         override val dustThresholdSats: Flow<Long> = dustThresholdState
         override val transactionAnalysisEnabled: Flow<Boolean> = transactionAnalysisEnabledState
@@ -387,6 +395,8 @@ class WalletDetailViewModelRangeTest {
         override val walletHealthEnabled: Flow<Boolean> = walletHealthEnabledState
         override val transactionHealthParameters: Flow<TransactionHealthParameters> = transactionHealthParametersState
         override val utxoHealthParameters: Flow<UtxoHealthParameters> = utxoHealthParametersState
+        override val networkLogsEnabled: Flow<Boolean> = networkLogsEnabledState
+        override val networkLogsInfoSeen: Flow<Boolean> = networkLogsInfoSeenState
 
         override suspend fun setOnboardingCompleted(completed: Boolean) {
             onboardingCompletedState.value = completed
@@ -430,6 +440,10 @@ class WalletDetailViewModelRangeTest {
             balancesHiddenState.value = hidden
         }
 
+        override suspend fun setHapticsEnabled(enabled: Boolean) {
+            hapticsEnabledState.value = enabled
+        }
+
         override suspend fun cycleBalanceDisplayMode() {
             val currentUnit = balanceUnitState.value
             val currentlyHidden = balancesHiddenState.value
@@ -454,6 +468,10 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun setPinShuffleEnabled(enabled: Boolean) {
             pinShuffleEnabledState.value = enabled
+        }
+
+        override suspend fun setConnectionIdleTimeoutMinutes(minutes: Int) {
+            connectionIdleTimeoutMinutesState.value = minutes
         }
 
         override suspend fun setAdvancedMode(enabled: Boolean) {
@@ -490,6 +508,14 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun resetUtxoHealthParameters() {
             utxoHealthParametersState.value = UtxoHealthParameters()
+        }
+
+        override suspend fun setNetworkLogsEnabled(enabled: Boolean) {
+            networkLogsEnabledState.value = enabled
+        }
+
+        override suspend fun setNetworkLogsInfoSeen(seen: Boolean) {
+            networkLogsInfoSeenState.value = seen
         }
 
         override suspend fun wipeAll() = Unit
