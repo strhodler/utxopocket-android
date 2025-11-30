@@ -806,6 +806,10 @@ private fun TransactionDetailContent(
     val visualizerAction = state.walletSummary?.let { summary ->
         { onOpenVisualizer(summary.id, transaction.id) }
     }
+    val maxFlowItems = 5
+    var showAllInputs by remember { mutableStateOf(false) }
+    var showAllOutputs by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
     ) {
@@ -867,105 +871,6 @@ private fun TransactionDetailContent(
                 TransactionStructure.TAPROOT -> stringResource(id = R.string.transaction_structure_taproot)
             }
 
-            if (transaction.inputs.isNotEmpty()) {
-                val inputDisplays = transaction.inputs.map { input ->
-                    val hasAddress = !input.address.isNullOrBlank()
-                    val primary = input.address?.takeIf { it.isNotBlank() } ?: formatOutPoint(
-                        input.prevTxid,
-                        input.prevVout
-                    )
-                    val secondary = input.valueSats?.let { balanceText(it, state.balanceUnit) }
-                    val tertiary = if (hasAddress) {
-                        formatOutPoint(input.prevTxid, input.prevVout)
-                    } else {
-                        null
-                    }
-                    val badges = buildList {
-                        if (input.isMine) {
-                            add(stringResource(id = R.string.transaction_detail_flow_wallet_badge))
-                        }
-                        input.addressType?.let { type ->
-                            add(
-                                when (type) {
-                                    WalletAddressType.EXTERNAL -> stringResource(id = R.string.transaction_detail_flow_external_badge)
-                                    WalletAddressType.CHANGE -> stringResource(id = R.string.transaction_detail_flow_change_badge)
-                                }
-                            )
-                        }
-                    }
-                    FlowDisplay(
-                        primary = primary,
-                        secondary = secondary,
-                        tertiary = tertiary,
-                        badges = badges
-                    )
-                }
-                ContentSection(
-                    title = stringResource(id = R.string.transaction_detail_flow_inputs)
-                ) {
-                    item {
-                        TransactionFlowColumn(
-                            items = inputDisplays,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
-                        )
-                    }
-                }
-            }
-            if (transaction.outputs.isNotEmpty()) {
-                val outputDisplays = transaction.outputs.map { output ->
-                    val primary = output.address?.takeIf { it.isNotBlank() }
-                        ?: stringResource(
-                            id = R.string.transaction_detail_flow_unknown_output,
-                            output.index
-                        )
-                    val badges = buildList {
-                        if (output.isMine) {
-                            add(stringResource(id = R.string.transaction_detail_flow_wallet_badge))
-                        }
-                        output.addressType?.let { type ->
-                            add(
-                                when (type) {
-                                    WalletAddressType.EXTERNAL -> stringResource(id = R.string.transaction_detail_flow_external_badge)
-                                    WalletAddressType.CHANGE -> stringResource(id = R.string.transaction_detail_flow_change_badge)
-                                }
-                            )
-                        }
-                    }
-                    val tertiaryParts = mutableListOf<String>()
-                    output.derivationPath?.let { path ->
-                        tertiaryParts += stringResource(
-                            id = R.string.transaction_detail_flow_derivation,
-                            path
-                        )
-                    }
-                    tertiaryParts += formatOutPoint(transaction.id, output.index)
-                    FlowDisplay(
-                        primary = primary,
-                        secondary = balanceText(output.valueSats, state.balanceUnit),
-                        tertiary = tertiaryParts
-                            .filter { it.isNotBlank() }
-                            .joinToString(" • ")
-                            .ifBlank { null },
-                        badges = badges,
-                        highlighted = output.isMine
-                    )
-                }
-                ContentSection(
-                    title = stringResource(id = R.string.transaction_detail_flow_outputs)
-                ) {
-                    item {
-                        TransactionFlowColumn(
-                            items = outputDisplays,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
-                        )
-                    }
-                }
-            }
-
             ListSection(
                 title = stringResource(id = R.string.transaction_detail_section_overview)
             ) {
@@ -987,6 +892,18 @@ private fun TransactionDetailContent(
                                     )
                                 }
                             }
+                        )
+                    }
+                }
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        DetailRow(
+                            label = stringResource(id = R.string.transaction_detail_time),
+                            value = dateLabel
                         )
                     }
                 }
@@ -1064,18 +981,6 @@ private fun TransactionDetailContent(
                         )
                     }
                 }
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.transaction_detail_date),
-                            value = dateLabel
-                        )
-                    }
-                }
             }
             ListSection(
                 title = stringResource(id = R.string.transaction_detail_section_size)
@@ -1130,6 +1035,145 @@ private fun TransactionDetailContent(
                 }
             }
 
+            if (transaction.inputs.isNotEmpty()) {
+                val inputDisplays = transaction.inputs.map { input ->
+                    val hasAddress = !input.address.isNullOrBlank()
+                    val primary = input.address?.takeIf { it.isNotBlank() } ?: formatOutPoint(
+                        input.prevTxid,
+                        input.prevVout
+                    )
+                    val secondary = input.valueSats?.let { balanceText(it, state.balanceUnit) }
+                    val tertiary = if (hasAddress) {
+                        formatOutPoint(input.prevTxid, input.prevVout)
+                    } else {
+                        null
+                    }
+                    val badges = buildList {
+                        if (input.isMine) {
+                            add(stringResource(id = R.string.transaction_detail_flow_wallet_badge))
+                        }
+                        input.addressType?.let { type ->
+                            add(
+                                when (type) {
+                                    WalletAddressType.EXTERNAL -> stringResource(id = R.string.transaction_detail_flow_external_badge)
+                                    WalletAddressType.CHANGE -> stringResource(id = R.string.transaction_detail_flow_change_badge)
+                                }
+                            )
+                        }
+                    }
+                    FlowDisplay(
+                        primary = primary,
+                        secondary = secondary,
+                        tertiary = tertiary,
+                        badges = badges
+                    )
+                }
+                val displayedInputs = if (showAllInputs || inputDisplays.size <= maxFlowItems) {
+                    inputDisplays
+                } else {
+                    inputDisplays.take(maxFlowItems)
+                }
+                ContentSection(
+                    title = stringResource(id = R.string.transaction_detail_flow_inputs)
+                ) {
+                    item {
+                        TransactionFlowColumn(
+                            items = displayedInputs,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
+                    }
+                    if (!showAllInputs && inputDisplays.size > maxFlowItems) {
+                        item {
+                            TextButton(
+                                onClick = { showAllInputs = true },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(id = R.string.transaction_detail_show_more_inputs),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            if (transaction.outputs.isNotEmpty()) {
+                val outputDisplays = transaction.outputs.map { output ->
+                    val primary = output.address?.takeIf { it.isNotBlank() }
+                        ?: stringResource(
+                            id = R.string.transaction_detail_flow_unknown_output,
+                            output.index
+                        )
+                    val badges = buildList {
+                        if (output.isMine) {
+                            add(stringResource(id = R.string.transaction_detail_flow_wallet_badge))
+                        }
+                        output.addressType?.let { type ->
+                            add(
+                                when (type) {
+                                    WalletAddressType.EXTERNAL -> stringResource(id = R.string.transaction_detail_flow_external_badge)
+                                    WalletAddressType.CHANGE -> stringResource(id = R.string.transaction_detail_flow_change_badge)
+                                }
+                            )
+                        }
+                    }
+                    val tertiaryParts = mutableListOf<String>()
+                    output.derivationPath?.let { path ->
+                        tertiaryParts += stringResource(
+                            id = R.string.transaction_detail_flow_derivation,
+                            path
+                        )
+                    }
+                    tertiaryParts += formatOutPoint(transaction.id, output.index)
+                    FlowDisplay(
+                        primary = primary,
+                        secondary = balanceText(output.valueSats, state.balanceUnit),
+                        tertiary = tertiaryParts
+                            .filter { it.isNotBlank() }
+                            .joinToString(" • ")
+                            .ifBlank { null },
+                        badges = badges,
+                        highlighted = output.isMine
+                    )
+                }
+                val displayedOutputs = if (showAllOutputs || outputDisplays.size <= maxFlowItems) {
+                    outputDisplays
+                } else {
+                    outputDisplays.take(maxFlowItems)
+                }
+                ContentSection(
+                    title = stringResource(id = R.string.transaction_detail_flow_outputs)
+                ) {
+                    item {
+                        TransactionFlowColumn(
+                            items = displayedOutputs,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
+                    }
+                    if (!showAllOutputs && outputDisplays.size > maxFlowItems) {
+                        item {
+                            TextButton(
+                                onClick = { showAllOutputs = true },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(id = R.string.transaction_detail_show_more_outputs),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             transaction.rawHex?.let { rawHex ->
                 ContentSection(
                     title = stringResource(id = R.string.transaction_detail_raw_hex)
@@ -1141,7 +1185,7 @@ private fun TransactionDetailContent(
                                 copyToClipboard(rawHex)
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            contentPadding = PaddingValues(0.dp)
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
                         )
                     }
                 }

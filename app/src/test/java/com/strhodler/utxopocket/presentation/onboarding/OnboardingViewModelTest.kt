@@ -81,7 +81,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val balanceUnit: Flow<BalanceUnit> = balanceUnitValue
     override val balancesHidden: Flow<Boolean> = balancesHiddenValue
     override val hapticsEnabled: Flow<Boolean> = hapticsEnabledValue
-    override val walletBalanceRange: Flow<BalanceRange> = MutableStateFlow(BalanceRange.LastYear)
+    override val walletBalanceRange: Flow<BalanceRange> = MutableStateFlow(BalanceRange.All)
     override val showBalanceChart: Flow<Boolean> = MutableStateFlow(false)
     override val pinShuffleEnabled: Flow<Boolean> = MutableStateFlow(false)
     override val advancedMode: Flow<Boolean> = MutableStateFlow(false)

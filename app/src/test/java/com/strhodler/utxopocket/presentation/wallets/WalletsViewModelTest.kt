@@ -268,7 +268,7 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
     override val balanceUnit: Flow<BalanceUnit> = _balanceUnit
     override val balancesHidden: Flow<Boolean> = _balancesHidden
     override val hapticsEnabled: Flow<Boolean> = _hapticsEnabled
-    override val walletBalanceRange: Flow<BalanceRange> = MutableStateFlow(BalanceRange.LastYear)
+    override val walletBalanceRange: Flow<BalanceRange> = MutableStateFlow(BalanceRange.All)
     override val showBalanceChart: Flow<Boolean> = MutableStateFlow(false)
     override val pinShuffleEnabled: Flow<Boolean> = MutableStateFlow(false)
     override val advancedMode: Flow<Boolean> = MutableStateFlow(false)

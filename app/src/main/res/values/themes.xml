@@ -4,7 +4,7 @@
     <style name="Theme.UtxoPocket" parent="Theme.Material3.DayNight.NoActionBar" />
 
     <style name="Theme.UtxoPocket.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenAnimatedIcon">@drawable/logo_text_ssquare</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/logo_splash_square</item>
         <item name="windowSplashScreenBackground">@color/splash_background</item>
         <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
         <item name="colorPrimary">@color/splash_icon_primary</item>

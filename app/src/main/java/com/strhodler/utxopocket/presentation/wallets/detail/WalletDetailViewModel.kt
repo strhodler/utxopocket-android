@@ -89,7 +89,7 @@ class WalletDetailViewModel @Inject constructor(
     private val utxoSortState = MutableStateFlow(WalletUtxoSort.LARGEST_AMOUNT)
     private val transactionLabelFilterState = MutableStateFlow(TransactionLabelFilter())
     private val utxoLabelFilterState = MutableStateFlow(UtxoLabelFilter())
-    private val selectedBalanceRangeState = MutableStateFlow(BalanceRange.LastYear)
+    private val selectedBalanceRangeState = MutableStateFlow(BalanceRange.All)
     private val showBalanceChartState = MutableStateFlow(false)
     private val balanceHistoryReducer = BalanceHistoryReducer()
     private val _events = MutableSharedFlow<WalletDetailEvent>()
@@ -759,7 +759,7 @@ data class WalletDetailUiState(
     val balanceHistory: List<BalancePoint> = emptyList(),
     val displayBalancePoints: List<BalancePoint> = emptyList(),
     val showBalanceChart: Boolean = false,
-    val selectedRange: BalanceRange = BalanceRange.LastYear,
+    val selectedRange: BalanceRange = BalanceRange.All,
     val availableBalanceRanges: List<BalanceRange> = BALANCE_RANGE_OPTIONS,
     val reusedAddressCount: Int = 0,
     val reusedBalanceSats: Long = 0L,

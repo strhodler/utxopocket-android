@@ -474,7 +474,7 @@ private fun SecuritySettingsScreen(
             header = {
                 SectionHeader(title = stringResource(id = R.string.settings_pin_title))
             },
-            contentPadding = PaddingValues(vertical = 12.dp)
+            contentPadding = PaddingValues(0.dp)
         ) {
             item {
                 ListItem(
@@ -497,7 +497,8 @@ private fun SecuritySettingsScreen(
                             onCheckedChange = onPinToggleRequested
                         )
                     },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
             if (state.pinEnabled) {
@@ -519,7 +520,8 @@ private fun SecuritySettingsScreen(
                                 onCheckedChange = onPinShuffleChanged
                             )
                         },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
             }

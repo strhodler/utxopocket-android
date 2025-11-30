@@ -455,7 +455,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val _appLanguage = MutableStateFlow(AppLanguage.EN)
     private val _balanceUnit = MutableStateFlow(BalanceUnit.SATS)
     private val _balancesHidden = MutableStateFlow(false)
-    private val _walletBalanceRange = MutableStateFlow(BalanceRange.LastYear)
+    private val _walletBalanceRange = MutableStateFlow(BalanceRange.All)
     private val _showBalanceChart = MutableStateFlow(false)
     private val _hapticsEnabled = MutableStateFlow(false)
     private val _advancedMode = MutableStateFlow(false)

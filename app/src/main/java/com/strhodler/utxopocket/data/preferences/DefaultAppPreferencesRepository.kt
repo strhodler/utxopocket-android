@@ -122,7 +122,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         dataStore.data.map { prefs ->
             prefs[Keys.WALLET_BALANCE_RANGE]?.let { value ->
                 runCatching { BalanceRange.valueOf(value) }.getOrNull()
-            } ?: BalanceRange.LastYear
+            } ?: BalanceRange.All
         }
 
     override val showBalanceChart: Flow<Boolean> =

@@ -156,7 +156,7 @@ class NodeStatusViewModelTest {
         override val balanceUnit: StateFlow<BalanceUnit> = _balanceUnit
         override val balancesHidden: StateFlow<Boolean> = _balancesHidden
         override val hapticsEnabled: StateFlow<Boolean> = _hapticsEnabled
-        override val walletBalanceRange: StateFlow<BalanceRange> = MutableStateFlow(BalanceRange.LastYear)
+        override val walletBalanceRange: StateFlow<BalanceRange> = MutableStateFlow(BalanceRange.All)
         override val showBalanceChart: StateFlow<Boolean> = MutableStateFlow(false)
         override val pinShuffleEnabled: StateFlow<Boolean> = MutableStateFlow(false)
         override val advancedMode: StateFlow<Boolean> = MutableStateFlow(false)

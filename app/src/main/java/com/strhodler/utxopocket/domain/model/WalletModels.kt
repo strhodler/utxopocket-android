@@ -11,7 +11,7 @@ enum class BitcoinNetwork {
     SIGNET;
 
     companion object {
-        val DEFAULT: BitcoinNetwork = TESTNET
+        val DEFAULT: BitcoinNetwork = TESTNET4
     }
 }
 

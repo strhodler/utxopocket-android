@@ -5,11 +5,8 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.graphics.Paint
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,9 +22,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -38,14 +38,22 @@ import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -53,6 +61,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,9 +71,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -87,20 +98,27 @@ import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.presentation.format.formatBtc
-import com.strhodler.utxopocket.presentation.navigation.SetHiddenTopBar
+import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
+import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import org.jbox2d.common.Vec2
 import org.jbox2d.dynamics.joints.MouseJoint
+import java.text.DateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun TransactionVisualizerRoute(
     onBack: () -> Unit,
     viewModel: TransactionVisualizerViewModel = hiltViewModel()
@@ -199,7 +217,10 @@ private fun TransactionVisualizerScreen(
     state: TransactionVisualizerUiState,
     onBack: () -> Unit
 ) {
-    SetHiddenTopBar()
+    SetSecondaryTopBar(
+        title = stringResource(id = R.string.transaction_visualizer_title),
+        onBackClick = onBack
+    )
     val context = LocalContext.current
     DisposableEffect(Unit) {
         val activity = context.findActivity()
@@ -224,6 +245,7 @@ private fun TransactionVisualizerScreen(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun TransactionVisualizerContent(
     state: TransactionVisualizerUiState,
     onBack: () -> Unit
@@ -232,7 +254,18 @@ private fun TransactionVisualizerContent(
     var renderGraph by remember(graph) { mutableStateOf(graph) }
     var showDetails by remember { mutableStateOf(false) }
     var selectedNodeId by remember { mutableStateOf<String?>(null) }
-    val sheetVisible = showDetails && selectedNodeId != null
+    val configuration = LocalConfiguration.current
+    val maxSheetHeight = remember(configuration.screenHeightDp) {
+        configuration.screenHeightDp.dp * 0.45f
+    }
+    val bottomSheetState = rememberStandardBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        skipHiddenState = false,
+        confirmValueChange = { value -> value != SheetValue.PartiallyExpanded }
+    )
+    val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = bottomSheetState)
+    val coroutineScope = rememberCoroutineScope()
+    val sheetVisible = scaffoldState.bottomSheetState.currentValue != SheetValue.Hidden
     LaunchedEffect(renderGraph) {
         val currentSelection = selectedNodeId
         if (currentSelection != null && renderGraph.nodes.none { it.id == currentSelection }) {
@@ -245,83 +278,60 @@ private fun TransactionVisualizerContent(
         }
     }
 
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
-    ) {
-        val sheetMaxHeight = maxHeight * 0.33f
-        val canvasBottomPadding by animateDpAsState(
-            targetValue = if (sheetVisible) sheetMaxHeight else 0.dp,
-            animationSpec = tween(durationMillis = 180),
-            label = "canvasBottomPadding"
-        )
-        Box(modifier = Modifier.fillMaxSize()) {
-            TransactionGraphCanvas(
-                graph = renderGraph,
-                selectedNodeId = selectedNodeId,
-                onNodeSelected = { node ->
-                    selectedNodeId = node?.id
-                    showDetails = node != null
-                },
-                onGroupExpand = { groupId ->
-                    renderGraph = expandGroup(renderGraph, groupId)
-                },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = canvasBottomPadding)
-                    .clipToBounds()
-            )
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(4.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        shape = CircleShape
-                    )
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.ArrowBack,
-                    contentDescription = stringResource(id = R.string.transaction_visualizer_back)
-                )
+    LaunchedEffect(showDetails, selectedNodeId) {
+        if (showDetails && selectedNodeId != null) {
+            coroutineScope.launch { scaffoldState.bottomSheetState.expand() }
+        } else {
+            coroutineScope.launch { scaffoldState.bottomSheetState.hide() }
+        }
+    }
+    LaunchedEffect(sheetVisible) {
+        if (!sheetVisible) {
+            showDetails = false
+        }
+    }
+
+    BottomSheetScaffold(
+        scaffoldState = scaffoldState,
+        sheetPeekHeight = 0.dp,
+        sheetSwipeEnabled = selectedNodeId != null,
+        sheetDragHandle = { BottomSheetDefaults.DragHandle() },
+        sheetContainerColor = MaterialTheme.colorScheme.surface,
+        sheetContent = {
+            val transaction = requireNotNull(state.transaction)
+            val selectedNode = selectedNodeId?.let { id ->
+                renderGraph.nodes.firstOrNull { it.id == id }
             }
-            IconButton(
-                onClick = { showDetails = !sheetVisible },
-                enabled = selectedNodeId != null,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(12.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        shape = CircleShape
+            when {
+                selectedNode == null -> {
+                    Spacer(modifier = Modifier.height(1.dp))
+                }
+                selectedNode.id == TRANSACTION_HUB_ID -> {
+                    TransactionInfoSheet(
+                        transaction = transaction,
+                        inputCount = renderGraph.summary.inputCount,
+                        outputCount = renderGraph.summary.outputCount,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = maxSheetHeight)
+                            .navigationBarsPadding()
                     )
-            ) {
-                Icon(
-                    imageVector = if (sheetVisible) Icons.Outlined.Close else Icons.Outlined.Menu,
-                    contentDescription = stringResource(id = R.string.transaction_visualizer_toggle_details)
-                )
-            }
-            AnimatedVisibility(
-                visible = sheetVisible,
-                enter = slideInVertically(animationSpec = tween(durationMillis = 160)) { fullHeight -> fullHeight },
-                exit = slideOutVertically(animationSpec = tween(durationMillis = 160)) { fullHeight -> fullHeight },
-                modifier = Modifier.align(Alignment.BottomCenter)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-                    tonalElevation = 3.dp,
-                    shadowElevation = 8.dp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = sheetMaxHeight)
-                ) {
+                }
+                selectedNode.role == GraphRole.Fee -> {
+                    FeeInfoSheet(
+                        transaction = transaction,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = maxSheetHeight)
+                            .navigationBarsPadding()
+                    )
+                }
+                else -> {
                     TransactionDetailsPanel(
-                        transaction = requireNotNull(state.transaction),
+                        transaction = transaction,
                         graph = renderGraph,
                         selectedNodeId = selectedNodeId,
-                        onNodeSelected = { node ->
+                        onNodeSelected = { node, _ ->
                             selectedNodeId = node?.id
                             showDetails = node != null
                         },
@@ -335,9 +345,44 @@ private fun TransactionVisualizerContent(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = sheetMaxHeight)
+                            .heightIn(max = maxSheetHeight)
+                            .navigationBarsPadding()
                     )
                 }
+            }
+        }
+    ) { innerPadding ->
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(innerPadding)
+        ) {
+            val canvasBottomPadding by animateDpAsState(
+                targetValue = if (sheetVisible) maxSheetHeight else 0.dp,
+                animationSpec = tween(durationMillis = 180),
+                label = "canvasBottomPadding"
+            )
+            Box(modifier = Modifier.fillMaxSize()) {
+            TransactionGraphCanvas(
+                graph = renderGraph,
+                selectedNodeId = selectedNodeId,
+                onNodeSelected = { node, fromTap ->
+                    selectedNodeId = node?.id
+                    if (fromTap && node != null) {
+                        showDetails = true
+                    } else if (node == null) {
+                        showDetails = false
+                    }
+                },
+                onGroupExpand = { groupId ->
+                    renderGraph = expandGroup(renderGraph, groupId)
+                },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = canvasBottomPadding)
+                        .clipToBounds()
+                )
             }
         }
     }
@@ -347,7 +392,7 @@ private fun TransactionVisualizerContent(
 private fun TransactionGraphCanvas(
     graph: TransactionGraph,
     selectedNodeId: String?,
-    onNodeSelected: (GraphNode?) -> Unit,
+    onNodeSelected: (GraphNode?, Boolean) -> Unit,
     onGroupExpand: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -363,6 +408,12 @@ private fun TransactionGraphCanvas(
 
     LaunchedEffect(graph, canvasSize, composeDensity) {
         if (canvasSize.width == 0 || canvasSize.height == 0) return@LaunchedEffect
+        physicsEngine?.let { engine ->
+            mouseJoint?.let { joint ->
+                runCatching { engine.world.destroyJoint(joint) }
+            }
+        }
+        mouseJoint = null
         physicsEngine = buildPhysicsEngine(graph, canvasSize, composeDensity)
         nodeLayouts = physicsEngine?.layouts().orEmpty()
     }
@@ -389,7 +440,7 @@ private fun TransactionGraphCanvas(
                             onGroupExpand(tapped.node.id)
                             return@detectDragGestures
                         }
-                        onNodeSelected(tapped.node)
+                        onNodeSelected(tapped.node, false)
                         mouseJoint?.let { engine.world.destroyJoint(it) }
                         mouseJoint = engine.createMouseJoint(tapped.node.id, offset)
                         mouseJoint?.bodyB?.isAwake = true
@@ -412,7 +463,7 @@ private fun TransactionGraphCanvas(
                                 if (currentGraph.groups.containsKey(tapped.node.id)) {
                                     onGroupExpand(tapped.node.id)
                                 } else {
-                                    onNodeSelected(tapped.node)
+                                    onNodeSelected(tapped.node, false)
                                 }
                             }
                         }
@@ -436,9 +487,9 @@ private fun TransactionGraphCanvas(
                     if (tapped != null && currentGraph.groups.containsKey(tapped.node.id)) {
                         onGroupExpand(tapped.node.id)
                     } else if (tapped != null) {
-                        onNodeSelected(tapped.node)
+                        onNodeSelected(tapped.node, true)
                     } else {
-                        onNodeSelected(null)
+                        onNodeSelected(null, true)
                     }
                 }
             }
@@ -468,11 +519,6 @@ private fun TransactionGraphCanvas(
             val strokeColor = if (isSelected) colorScheme.outline else colorScheme.outlineVariant
             val textColor = if (isSelected) colorScheme.onSurface else colorScheme.onSurfaceVariant
             val stroke = Stroke(width = 1.dp.toPx())
-            drawCircle(
-                color = colorScheme.surfaceContainerHighest,
-                radius = state.radiusPx + 6.dp.toPx(),
-                center = state.center
-            )
             drawCircle(
                 color = fillColor,
                 radius = state.radiusPx,
@@ -537,7 +583,7 @@ internal fun radiusFor(node: GraphNode, density: Density): Float {
     val base = when (node.role) {
         GraphRole.Change -> 26.dp
         GraphRole.Fee -> 18.dp
-        GraphRole.Group -> 30.dp
+        GraphRole.Group -> 26.dp
         GraphRole.Input, GraphRole.Output -> 22.dp
     }
     val scaled = if (node.children > 0) base * 1.1f else base
@@ -546,11 +592,11 @@ internal fun radiusFor(node: GraphNode, density: Density): Float {
 
 private fun nodeColor(node: GraphNode, colors: ColorScheme): Color =
     when (node.role) {
-        GraphRole.Change -> colors.secondary
-        GraphRole.Fee -> colors.surfaceVariant
-        GraphRole.Group -> colors.surfaceVariant
-        GraphRole.Input,
-        GraphRole.Output -> if (node.isMine) colors.primary else colors.tertiary
+        GraphRole.Change -> colors.secondaryContainer
+        GraphRole.Fee -> colors.errorContainer
+        GraphRole.Group -> colors.surfaceContainerHigh
+        GraphRole.Input -> if (node.isMine) colors.primaryContainer else colors.surfaceVariant
+        GraphRole.Output -> if (node.isMine) colors.tertiaryContainer else colors.surfaceVariant
     }
 
 private fun expandGroup(graph: TransactionGraph, groupId: String): TransactionGraph {
@@ -678,6 +724,7 @@ private fun roleLabel(node: GraphNode): Int = when (node.role) {
 
 private sealed interface PanelItem {
     data class Header(val title: String) : PanelItem
+    data class Count(val label: String, val value: String) : PanelItem
     data class NodeEntry(val node: GraphNode) : PanelItem
     data class GroupEntry(val node: GraphNode) : PanelItem
     data class GroupMember(val groupId: String, val member: GraphNode) : PanelItem
@@ -688,7 +735,7 @@ private fun TransactionDetailsPanel(
     transaction: WalletTransaction,
     graph: TransactionGraph,
     selectedNodeId: String?,
-    onNodeSelected: (GraphNode?) -> Unit,
+    onNodeSelected: (GraphNode?, Boolean) -> Unit,
     onGroupExpand: (String) -> Unit,
     onGroupMemberSelect: (String, GraphNode) -> Unit,
     modifier: Modifier = Modifier
@@ -751,78 +798,102 @@ private fun TransactionDetailsPanel(
     Column(
         modifier = modifier
             .background(colorScheme.surface)
-            .padding(16.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp)
-        ) {
-            Text(
-                text = stringResource(id = R.string.transaction_visualizer_details_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = formatTxidMiddle(transaction.id),
-                style = MaterialTheme.typography.bodySmall,
-                color = colorScheme.onSurfaceVariant,
-                fontFamily = FontFamily.Monospace,
-                maxLines = 1,
-                overflow = TextOverflow.Visible
-            )
-        }
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxHeight()
+            modifier = Modifier.fillMaxHeight(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            item(key = "header-main") {
+                ListItem(
+                    colors = ListItemDefaults.colors(
+                        containerColor = Color.Transparent,
+                        headlineColor = colorScheme.onSurface,
+                        supportingColor = colorScheme.onSurfaceVariant
+                    ),
+                    headlineContent = {
+                        Text(
+                            text = stringResource(id = R.string.transaction_visualizer_details_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    },
+                    leadingContent = null,
+                    trailingContent = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp
+                )
+            }
             itemsIndexed(items, key = { index, item ->
                 when (item) {
                     is PanelItem.Header -> "header-$index-${item.title}"
+                    is PanelItem.Count -> "count-$index-${item.label}"
                     is PanelItem.NodeEntry -> "node-${item.node.id}"
                     is PanelItem.GroupEntry -> "group-${item.node.id}"
                     is PanelItem.GroupMember -> "group-${item.groupId}-member-${item.member.id}"
                 }
             }) { _, item ->
-                when (item) {
-                    is PanelItem.Header -> {
-                        SectionHeader(
-                            text = item.title,
-                            color = colorScheme.onSurface
-                        )
-                    }
-                    is PanelItem.NodeEntry -> {
-                        TransactionDetailEntry(
-                            node = item.node,
-                            colorScheme = colorScheme,
-                            graph = graph,
-                            isSelected = selectedNodeId == item.node.id,
-                            onSelect = { onNodeSelected(item.node) }
-                        )
-                    }
-                    is PanelItem.GroupEntry -> {
-                        TransactionDetailEntry(
-                            node = item.node,
-                            colorScheme = colorScheme,
-                            graph = graph,
-                            isSelected = selectedNodeId == item.node.id,
-                            onSelect = { onGroupExpand(item.node.id) }
-                        )
-                    }
-                    is PanelItem.GroupMember -> {
-                        TransactionDetailEntry(
-                            node = item.member,
-                            colorScheme = colorScheme,
-                            graph = graph,
-                            isSelected = selectedNodeId == item.member.id,
-                            isGroupMember = true,
-                            onSelect = { onGroupMemberSelect(item.groupId, item.member) }
-                        )
-                    }
+            when (item) {
+                is PanelItem.Header -> {
+                    SectionHeader(
+                        text = item.title,
+                        color = colorScheme.onSurface
+                    )
+                }
+                is PanelItem.Count -> {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = item.label,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        },
+                        trailingContent = {
+                            Text(
+                                text = item.value,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                        }
+                    )
+                }
+                is PanelItem.NodeEntry -> {
+                    TransactionDetailEntry(
+                        node = item.node,
+                        colorScheme = colorScheme,
+                        graph = graph,
+                        isSelected = selectedNodeId == item.node.id,
+                        onSelect = { onNodeSelected(item.node, true) }
+                    )
+                }
+                is PanelItem.GroupEntry -> {
+                    TransactionDetailEntry(
+                        node = item.node,
+                        colorScheme = colorScheme,
+                        graph = graph,
+                        isSelected = selectedNodeId == item.node.id,
+                        onSelect = { onGroupExpand(item.node.id) }
+                    )
+                }
+                is PanelItem.GroupMember -> {
+                    TransactionDetailEntry(
+                        node = item.member,
+                        colorScheme = colorScheme,
+                        graph = graph,
+                        isSelected = selectedNodeId == item.member.id,
+                        isGroupMember = true,
+                        onSelect = { onGroupMemberSelect(item.groupId, item.member) }
+                    )
                 }
             }
         }
     }
+}
 }
 
 @Composable
@@ -866,9 +937,9 @@ private fun TransactionDetailEntry(
     val addressLabel = node.address?.let { address ->
         formatTxidMiddle(address, keepStart = 10, keepEnd = 6)
     }
-    val containerColor = if (isSelected) colorScheme.primaryContainer else Color.Transparent
-    val contentColor = if (isSelected) colorScheme.onPrimaryContainer else colorScheme.onSurface
-    val supportingColor = if (isSelected) colorScheme.onPrimaryContainer else colorScheme.onSurfaceVariant
+    val containerColor = if (isSelected) colorScheme.surfaceContainerHigh else Color.Transparent
+    val contentColor = if (isSelected) colorScheme.onSurface else colorScheme.onSurface
+    val supportingColor = if (isSelected) colorScheme.onSurfaceVariant else colorScheme.onSurfaceVariant
     val indentModifier = if (isGroupMember) Modifier.padding(start = 12.dp) else Modifier
     Column(
         modifier = Modifier
@@ -916,6 +987,175 @@ private fun TransactionDetailEntry(
                 overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+@Composable
+private fun TransactionInfoSheet(
+    transaction: WalletTransaction,
+    inputCount: Int,
+    outputCount: Int,
+    modifier: Modifier = Modifier
+) {
+    val copyToClipboard = rememberCopyToClipboard(
+        successMessage = stringResource(id = R.string.transaction_detail_copy_id)
+    )
+    val dateLabel = transaction.timestamp?.let { timestamp ->
+        remember(timestamp) {
+            DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(timestamp))
+        }
+    } ?: stringResource(id = R.string.transaction_detail_unknown_date)
+    val confirmationsLabel = if (transaction.confirmations >= 0) {
+        transaction.confirmations.toString()
+    } else {
+        stringResource(id = R.string.transaction_detail_unknown)
+    }
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = {
+                Text(
+                    text = stringResource(id = R.string.transaction_detail_id_label),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            supportingContent = {
+                Text(
+                    text = transaction.id,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
+            trailingContent = {
+                IconButton(onClick = { copyToClipboard(transaction.id) }) {
+                    Icon(
+                        imageVector = Icons.Outlined.ContentCopy,
+                        contentDescription = stringResource(id = R.string.transaction_detail_copy_id)
+                    )
+                }
+            }
+        )
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = {
+                Text(
+                    text = stringResource(id = R.string.transaction_detail_time),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            supportingContent = {
+                Text(
+                    text = dateLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        )
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = {
+                Text(
+                    text = stringResource(id = R.string.transaction_detail_confirmations_label),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            supportingContent = {
+                Text(
+                    text = confirmationsLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        )
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = {
+                Text(
+                    text = stringResource(id = R.string.transaction_visualizer_summary_inputs, inputCount),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            supportingContent = {
+                Text(
+                    text = inputCount.toString(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        )
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = {
+                Text(
+                    text = stringResource(id = R.string.transaction_visualizer_summary_outputs, outputCount),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            supportingContent = {
+                Text(
+                    text = outputCount.toString(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        )
+    }
+}
+
+@Composable
+private fun FeeInfoSheet(
+    transaction: WalletTransaction,
+    modifier: Modifier = Modifier
+) {
+    val feeLabel = transaction.feeSats?.let { sats ->
+        "$sats sats"
+    } ?: stringResource(id = R.string.transaction_detail_unknown)
+    val feeRateLabel = transaction.feeRateSatPerVb?.let { rate ->
+        String.format(Locale.getDefault(), "%.2f sats/vB", rate)
+    } ?: stringResource(id = R.string.transaction_detail_unknown)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = {
+                Text(
+                    text = stringResource(id = R.string.transaction_detail_fee),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            trailingContent = {
+                Text(
+                    text = feeLabel,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        )
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = {
+                Text(
+                    text = stringResource(id = R.string.transaction_detail_fee_rate),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            trailingContent = {
+                Text(
+                    text = feeRateLabel,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        )
     }
 }
 

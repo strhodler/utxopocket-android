@@ -20,6 +20,7 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.ModalBottomSheet
@@ -48,7 +49,8 @@ import com.strhodler.utxopocket.domain.model.ThemePreference
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
-import com.strhodler.utxopocket.presentation.common.ListSection
+import androidx.compose.material.icons.outlined.ArrowDropDown
+import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.WalletSwitch
@@ -56,6 +58,7 @@ import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import com.strhodler.utxopocket.presentation.theme.colorSchemeFor
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.PaddingValues
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -142,6 +145,11 @@ private fun InterfaceSettingsScreen(
     val themeProfileLabel = rememberThemeProfileLabeler()
     val languageOptions = remember { AppLanguage.entries.toList() }
     val unitOptions = remember { BalanceUnit.entries.toList() }
+    var showLanguageSheet by remember { mutableStateOf(false) }
+    var showUnitSheet by remember { mutableStateOf(false) }
+    val languageSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val unitSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = modifier
@@ -150,25 +158,55 @@ private fun InterfaceSettingsScreen(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        SettingsSelectRow(
-            title = stringResource(id = R.string.settings_language_label),
-            selectedLabel = languageLabel(state.appLanguage),
-            options = languageOptions,
-            optionLabel = languageLabel,
-            onOptionSelected = onLanguageSelected
-        )
-
-        SettingsSelectRow(
-            title = stringResource(id = R.string.settings_display_unit_label),
-            selectedLabel = unitLabel(state.preferredUnit),
-            options = unitOptions,
-            optionLabel = unitLabel,
-            onOptionSelected = onUnitSelected
-        )
-
-        ListSection(
-            title = stringResource(id = R.string.settings_section_interface)
+        SectionCard(
+            title = null,
+            contentPadding = PaddingValues(0.dp),
+            divider = true
         ) {
+            item {
+                ListItem(
+                    headlineContent = {
+                        Text(text = stringResource(id = R.string.settings_language_label))
+                    },
+                    supportingContent = {
+                        Text(
+                            text = languageLabel(state.appLanguage),
+                            color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingContent = {
+                        Icon(
+                            imageVector = Icons.Outlined.ArrowDropDown,
+                            contentDescription = null,
+                            tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    modifier = Modifier.clickable { showLanguageSheet = true },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = {
+                        Text(text = stringResource(id = R.string.settings_display_unit_label))
+                    },
+                    supportingContent = {
+                        Text(
+                            text = unitLabel(state.preferredUnit),
+                            color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingContent = {
+                        Icon(
+                            imageVector = Icons.Outlined.ArrowDropDown,
+                            contentDescription = null,
+                            tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    modifier = Modifier.clickable { showUnitSheet = true },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
             item {
                 ThemeRow(
                     selected = state.themePreference,
@@ -204,6 +242,86 @@ private fun InterfaceSettingsScreen(
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
+            }
+        }
+    }
+
+    if (showLanguageSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showLanguageSheet = false },
+            sheetState = languageSheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = stringResource(id = R.string.settings_language_label),
+                    style = androidx.compose.material3.MaterialTheme.typography.titleMedium
+                )
+                languageOptions.forEach { option ->
+                    val selected = option == state.appLanguage
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        leadingContent = {
+                            RadioButton(selected = selected, onClick = null)
+                        },
+                        headlineContent = {
+                            Text(text = languageLabel(option))
+                        },
+                        modifier = Modifier.clickable {
+                            scope.launch {
+                                onLanguageSelected(option)
+                                languageSheetState.hide()
+                                showLanguageSheet = false
+                            }
+                        }
+                    )
+                }
+                Spacer(modifier = Modifier.size(8.dp))
+            }
+        }
+    }
+
+    if (showUnitSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showUnitSheet = false },
+            sheetState = unitSheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = stringResource(id = R.string.settings_display_unit_label),
+                    style = androidx.compose.material3.MaterialTheme.typography.titleMedium
+                )
+                unitOptions.forEach { option ->
+                    val selected = option == state.preferredUnit
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        leadingContent = {
+                            RadioButton(selected = selected, onClick = null)
+                        },
+                        headlineContent = {
+                            Text(text = unitLabel(option))
+                        },
+                        modifier = Modifier.clickable {
+                            scope.launch {
+                                onUnitSelected(option)
+                                unitSheetState.hide()
+                                showUnitSheet = false
+                            }
+                        }
+                    )
+                }
+                Spacer(modifier = Modifier.size(8.dp))
             }
         }
     }

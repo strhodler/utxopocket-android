@@ -18,10 +18,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -324,7 +328,8 @@ private fun AvailableNodesSection(
                             activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
                     onActivate = { onCustomNodeSelected(node.id) },
                     onDetailsClick = { onCustomNodeDetails(node.id) },
-                    onDeactivate = onDisconnect
+                    onDeactivate = onDisconnect,
+                    showSettings = true
                 )
             )
         }
@@ -347,23 +352,24 @@ private fun AvailableNodesSection(
                 }
             } else {
                 nodes.forEach { nodeItem ->
-                    item {
-                        NodeListItem(
-                            title = nodeItem.title,
-                            subtitle = nodeItem.subtitle,
-                            typeBadge = nodeItem.typeBadge,
-                            selected = nodeItem.selected,
-                            connected = nodeItem.connected,
-                            onActivate = nodeItem.onActivate,
-                            onDetailsClick = nodeItem.onDetailsClick,
-                            onDeactivate = nodeItem.onDeactivate,
-                            isNetworkOnline = isNetworkOnline,
-                            interactionsLocked = interactionsLocked,
-                            onInteractionBlocked = onInteractionBlocked
-                        )
-                    }
-                }
+            item {
+                NodeListItem(
+                    title = nodeItem.title,
+                    subtitle = nodeItem.subtitle,
+                    typeBadge = nodeItem.typeBadge,
+                    selected = nodeItem.selected,
+                    connected = nodeItem.connected,
+                    onActivate = nodeItem.onActivate,
+                    onDetailsClick = nodeItem.onDetailsClick,
+                    onDeactivate = nodeItem.onDeactivate,
+                    isNetworkOnline = isNetworkOnline,
+                    interactionsLocked = interactionsLocked,
+                    onInteractionBlocked = onInteractionBlocked,
+                    showSettings = nodeItem.showSettings
+                )
             }
+        }
+    }
         }
 
         Button(
@@ -421,7 +427,9 @@ private fun NodeListItem(
     modifier: Modifier = Modifier,
     isNetworkOnline: Boolean = true,
     interactionsLocked: Boolean = false,
-    onInteractionBlocked: () -> Unit = {}
+    onInteractionBlocked: () -> Unit = {},
+    showSettings: Boolean = false,
+    onSettingsClick: (() -> Unit)? = null
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         val supportingContent: (@Composable (() -> Unit))? = {
@@ -450,21 +458,64 @@ private fun NodeListItem(
             },
             supportingContent = supportingContent,
             trailingContent = {
-                WalletSwitch(
-                    checked = connected,
-                    enabled = isNetworkOnline,
-                    interactionSource = remember { MutableInteractionSource() },
-                    onCheckedChange = { checked ->
-                        if (interactionsLocked) {
-                            onInteractionBlocked()
-                            return@WalletSwitch
-                        }
-                        when {
-                            checked && !connected -> onActivate()
-                            !checked && connected -> onDeactivate?.invoke()
-                        }
+                if (showSettings && onSettingsClick != null) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                            contentDescription = stringResource(id = R.string.node_custom_edit_title),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable {
+                                    if (interactionsLocked) {
+                                        onInteractionBlocked()
+                                    } else {
+                                        onSettingsClick()
+                                    }
+                                }
+                        )
+                        Divider(
+                            modifier = Modifier
+                                .height(28.dp)
+                                .width(1.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                        )
+                        WalletSwitch(
+                            checked = connected,
+                            enabled = isNetworkOnline,
+                            interactionSource = remember { MutableInteractionSource() },
+                            onCheckedChange = { checked ->
+                                if (interactionsLocked) {
+                                    onInteractionBlocked()
+                                    return@WalletSwitch
+                                }
+                                when {
+                                    checked && !connected -> onActivate()
+                                    !checked && connected -> onDeactivate?.invoke()
+                                }
+                            }
+                        )
                     }
-                )
+                } else {
+                    WalletSwitch(
+                        checked = connected,
+                        enabled = isNetworkOnline,
+                        interactionSource = remember { MutableInteractionSource() },
+                        onCheckedChange = { checked ->
+                            if (interactionsLocked) {
+                                onInteractionBlocked()
+                                return@WalletSwitch
+                            }
+                            when {
+                                checked && !connected -> onActivate()
+                                !checked && connected -> onDeactivate?.invoke()
+                            }
+                        }
+                    )
+                }
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -515,7 +566,8 @@ data class AvailableNodeItem(
     val connected: Boolean,
     val onActivate: () -> Unit,
     val onDetailsClick: () -> Unit,
-    val onDeactivate: (() -> Unit)? = null
+    val onDeactivate: (() -> Unit)? = null,
+    val showSettings: Boolean = false
 )
 
 data class NodeTypeBadge(

@@ -65,13 +65,13 @@ class WalletDetailViewModelRangeTest {
     }
 
     @Test
-    fun defaultSelectedRangeIsLastYear() = runTest(dispatcher) {
+    fun defaultSelectedRangeIsAll() = runTest(dispatcher) {
         val harness = TestHarness()
         val viewModel = harness.createViewModel()
 
         advanceUntilIdle()
 
-        assertSame(BalanceRange.LastYear, viewModel.uiState.value.selectedRange)
+        assertSame(BalanceRange.All, viewModel.uiState.value.selectedRange)
     }
 
     @Test
@@ -351,7 +351,7 @@ class WalletDetailViewModelRangeTest {
         private val appLanguageState = MutableStateFlow(AppLanguage.EN)
         private val balanceUnitState = MutableStateFlow(BalanceUnit.DEFAULT)
         private val balancesHiddenState = MutableStateFlow(false)
-        private val balanceRangeState = MutableStateFlow(BalanceRange.LastYear)
+        private val balanceRangeState = MutableStateFlow(BalanceRange.All)
         private val showBalanceChartState = MutableStateFlow(false)
         private val pinShuffleEnabledState = MutableStateFlow(false)
         private val hapticsEnabledState = MutableStateFlow(false)

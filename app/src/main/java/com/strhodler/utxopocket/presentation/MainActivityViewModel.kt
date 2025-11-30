@@ -178,12 +178,18 @@ class MainActivityViewModel @Inject constructor(
             (syncStatus.isRefreshing || syncStatus.activeWalletId != null || syncStatus.refreshingWalletIds.isNotEmpty())
         val torRequired = nodeConfig.requiresTor(network)
 
+        val effectiveTorLog = when (torStatus) {
+            is TorStatus.Connecting,
+            is TorStatus.Running -> torLog
+            else -> ""
+        }
+
         AppEntryUiState(
             isReady = true,
             onboardingCompleted = onboarding,
             status = StatusBarUiState(
                 torStatus = torStatus,
-                torLog = if (torStatus is TorStatus.Connecting) torLog else "",
+                torLog = effectiveTorLog,
                 nodeStatus = effectiveNodeStatus,
                 isSyncing = isSyncing,
                 nodeBlockHeight = nodeSnapshot.blockHeight.takeIf { snapshotMatchesNetwork },

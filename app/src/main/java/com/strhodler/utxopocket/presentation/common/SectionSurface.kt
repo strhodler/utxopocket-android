@@ -66,7 +66,8 @@ fun SectionCard(
     headerActionContentDescription: String? = null,
     onHeaderActionClick: (() -> Unit)? = null,
     header: (@Composable () -> Unit)? = null,
-    contentPadding: PaddingValues = PaddingValues(vertical = 12.dp),
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    headerPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
     spacedContent: Boolean = false,
     divider: Boolean = true,
     colors: CardColors = CardDefaults.elevatedCardColors(),
@@ -104,7 +105,7 @@ fun SectionCard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(headerPadding)
                 ) { it() }
                 if (items.isNotEmpty()) HorizontalDivider()
             }
@@ -143,7 +144,7 @@ fun ListSection(
     SectionCard(
         title = title,
         subtitle = subtitle,
-        contentPadding = PaddingValues(vertical = 12.dp),
+        contentPadding = PaddingValues(0.dp),
         spacedContent = false,
         divider = true,
         modifier = modifier.fillMaxWidth()
@@ -187,7 +188,7 @@ fun ContentSection(
     title: String,
     subtitle: String? = null,
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(vertical = 12.dp),
+    contentPadding: PaddingValues = PaddingValues(0.dp),
     content: SectionCardScope.() -> Unit
 ) {
     SectionCard(

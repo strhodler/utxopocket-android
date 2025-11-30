@@ -270,10 +270,11 @@
     <string name="transaction_detail_unknown">Desconocido</string>
     <string name="transaction_detail_pending_block">Pendiente (sin confirmar)</string>
     <string name="transaction_detail_date">Hora de emisión</string>
+    <string name="transaction_detail_time">Hora</string>
     <string name="transaction_detail_broadcast_info">Emitida el %1$s</string>
     <string name="transaction_detail_unknown_date">No disponible</string>
     <string name="transaction_detail_network">Red</string>
-    <string name="transaction_detail_id_label">ID de transacción</string>
+    <string name="transaction_detail_id_label">Hash (txid)</string>
     <string name="transaction_detail_copy_id">Copiar ID de transacción</string>
     <string name="transaction_detail_copy_block_hash">Copiar hash del bloque</string>
     <string name="transaction_detail_copy_raw_hex">Copiar hex bruto</string>
@@ -305,6 +306,9 @@
     <string name="transaction_visualizer_warning_message">Faltan datos de hex o de entradas/salidas para esta transacción (%1$s). Puede que falten detalles en el diagrama.</string>
     <string name="transaction_visualizer_warning_dismiss">Entendido</string>
     <string name="transaction_visualizer_not_found">No se pudo cargar esta transacción.</string>
+    <string name="transaction_visualizer_title">Visualizador de transacción</string>
+    <string name="transaction_visualizer_txid_label">Transacción</string>
+    <string name="transaction_visualizer_fee_title">Detalles de la comisión</string>
     <string name="transaction_visualizer_toggle_details">Mostrar u ocultar detalles de la transacción</string>
     <string name="transaction_visualizer_details_title">Detalles de la transacción</string>
     <string name="transaction_visualizer_close_panel">Cerrar detalles</string>
@@ -951,6 +955,8 @@
     <string name="transaction_structure_legacy">Legacy</string>
     <string name="transaction_structure_segwit">SegWit</string>
     <string name="transaction_structure_taproot">Taproot</string>
+    <string name="transaction_detail_show_more_inputs">Ver más entradas</string>
+    <string name="transaction_detail_show_more_outputs">Ver más salidas</string>
 
     <!-- Wallet address QR actions -->
     <string name="wallet_detail_address_qr_title">QR de la dirección</string>

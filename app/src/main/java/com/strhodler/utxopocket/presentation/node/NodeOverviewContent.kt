@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
@@ -47,10 +48,12 @@ import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
+import com.strhodler.utxopocket.presentation.node.NodeContentSpacing
 import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.tor.TorStatusActionUiState
 import java.text.NumberFormat
 import java.util.Locale
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun NodeOverviewContent(
@@ -147,9 +150,9 @@ fun NodeTorStatusSection(
 
     SectionCard(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(vertical = 12.dp),
+        contentPadding = PaddingValues(0.dp),
         spacedContent = false,
-        divider = true
+        divider = false
     ) {
         item {
             ListItem(
@@ -173,6 +176,9 @@ fun NodeTorStatusSection(
             )
         }
         item {
+            HorizontalDivider()
+        }
+        item {
             ListItem(
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 headlineContent = {
@@ -189,6 +195,9 @@ fun NodeTorStatusSection(
                     )
                 }
             )
+        }
+        item {
+            HorizontalDivider()
         }
         item {
             ListItem(
@@ -227,6 +236,9 @@ fun NodeTorStatusSection(
             )
         }
         item {
+            HorizontalDivider()
+        }
+        item {
             ListItem(
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 headlineContent = {
@@ -247,7 +259,7 @@ fun NodeTorStatusSection(
         item {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(NodeContentSpacing)
             ) {
                 connectingStatus?.let { connecting ->
                     connecting.message?.takeIf { it.isNotBlank() }?.let { message ->
@@ -280,7 +292,7 @@ fun NodeTorStatusSection(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(NodeContentSpacing))
             }
         }
     }
@@ -292,7 +304,8 @@ fun NodeTorStatusSection(
         onStartTor = onStartTor,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 0.dp)
+            .padding(top = TorActionSpacing)
     )
 }
 
@@ -320,6 +333,8 @@ private fun TorRequirementBadge(
         )
     }
 }
+
+private val TorActionSpacing = 24.dp
 
 @Composable
 private fun TorActionButtons(

@@ -57,6 +57,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -234,7 +236,7 @@ private fun WalletsContent(
                     is TorStatus.Connecting -> ActionableStatusBanner(
                         title = stringResource(id = R.string.tor_status_banner_connecting_title),
                         supporting = torStatus.message ?: stringResource(id = R.string.tor_status_banner_action),
-                        icon = Icons.Outlined.Info,
+                        icon = ImageVector.vectorResource(id = R.drawable.ic_tor_monochrome),
                         containerColor = scheme.surfaceContainer,
                         contentColor = scheme.onSurface,
                         onClick = onConnectTor
@@ -315,7 +317,6 @@ private fun WalletsContent(
                     title = title,
                     supporting = supporting,
                     icon = Icons.Outlined.Router,
-                    iconTint = MaterialTheme.colorScheme.primary,
                     trailingIcon = Icons.AutoMirrored.Outlined.ArrowForward,
                     trailingIconTint = MaterialTheme.colorScheme.onSurface,
                     onClick = onSelectNode,
@@ -499,10 +500,12 @@ private val AddDescriptorTopSpacing = 24.dp
 private val AddDescriptorBottomSpacing = 24.dp
 
 @Composable
-private fun AddDescriptorCtaButton(
-    enabled: Boolean,
+private fun PrimaryCtaButton(
+    text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier.fillMaxWidth()
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier.fillMaxWidth(),
+    leadingIcon: ImageVector? = null
 ) {
     Button(
         onClick = onClick,
@@ -514,17 +517,34 @@ private fun AddDescriptorCtaButton(
             contentColor = MaterialTheme.colorScheme.onPrimary
         )
     ) {
-        Icon(
-            imageVector = Icons.Outlined.Add,
-            contentDescription = null,
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+        if (leadingIcon != null) {
+            Icon(
+                imageVector = leadingIcon,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+        }
         Text(
-            text = stringResource(id = R.string.wallets_add_wallet_action),
+            text = text,
             style = MaterialTheme.typography.titleMedium
         )
     }
+}
+
+@Composable
+private fun AddDescriptorCtaButton(
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier.fillMaxWidth()
+) {
+    PrimaryCtaButton(
+        text = stringResource(id = R.string.wallets_add_wallet_action),
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier,
+        leadingIcon = Icons.Outlined.Add
+    )
 }
 
 private val WalletCardCornerRadius = 12.dp
@@ -559,7 +579,6 @@ private fun WalletCard(
     val contentColor = MaterialTheme.colorScheme.onSurface
     val secondaryTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     val statusColor = when {
-        isSyncing && nodeStatus is NodeStatus.Synced -> accentColor
         isQueued -> accentColor.copy(alpha = 0.9f)
         else -> secondaryTextColor
     }
@@ -643,11 +662,23 @@ private fun WalletCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = statusLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = statusColor
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isSyncing && nodeStatus is NodeStatus.Synced) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 2.dp,
+                            color = secondaryTextColor
+                        )
+                    }
+                    Text(
+                        text = statusLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = statusColor
+                    )
+                }
                 Text(
                     text = stringResource(
                         id = R.string.wallets_transactions,
@@ -847,14 +878,14 @@ private fun NodeSelectionPrompt(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(16.dp))
-            Button(
+            PrimaryCtaButton(
+                text = stringResource(id = R.string.wallets_node_prompt_action),
                 onClick = onSelectNode,
+                leadingIcon = Icons.Outlined.Router,
                 modifier = Modifier
                     .widthIn(max = 360.dp)
                     .fillMaxWidth()
-            ) {
-                Text(text = stringResource(id = R.string.wallets_node_prompt_action))
-            }
+            )
             Spacer(modifier = Modifier.height(8.dp))
             TextButton(onClick = onOpenWiki) {
                 Text(
