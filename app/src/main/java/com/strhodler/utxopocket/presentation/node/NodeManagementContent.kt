@@ -18,9 +18,11 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.ArrowDropUp
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -282,7 +284,7 @@ private fun AvailableNodesSection(
                     typeBadge = publicBadge,
                     selected = activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
                     connected = (isNodeConnected || isNodeActivating) &&
-                        activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
+                            activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
                     onActivate = { onPublicNodeSelected(node.id) },
                     onDetailsClick = { onPublicNodeSelected(node.id) },
                     onDeactivate = onDisconnect
@@ -297,7 +299,7 @@ private fun AvailableNodesSection(
                     typeBadge = customBadge,
                     selected = activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
                     connected = (isNodeConnected || isNodeActivating) &&
-                        activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
+                            activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
                     onActivate = { onCustomNodeSelected(node.id) },
                     onDetailsClick = { onCustomNodeDetails(node.id) },
                     onDeactivate = onDisconnect
@@ -305,41 +307,50 @@ private fun AvailableNodesSection(
             )
         }
     }
-
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            text = stringResource(id = R.string.node_section_available_title),
-            style = MaterialTheme.typography.titleMedium
-        )
-        Text(
-            text = stringResource(id = R.string.node_section_available_description),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        if (nodes.isEmpty()) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                text = stringResource(id = R.string.node_section_available_empty),
+                text = stringResource(id = R.string.node_section_available_title),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = stringResource(id = R.string.node_section_available_description),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        } else {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                nodes.forEachIndexed { index, item ->
-                    NodeListItem(
-                        title = item.title,
-                        subtitle = item.subtitle,
-                        typeBadge = item.typeBadge,
-                        selected = item.selected,
-                        connected = item.connected,
-                        onActivate = item.onActivate,
-                        onDetailsClick = item.onDetailsClick,
-                        onDeactivate = item.onDeactivate,
-                        isNetworkOnline = isNetworkOnline,
-                        interactionsLocked = interactionsLocked,
-                        onInteractionBlocked = onInteractionBlocked,
-                        showDivider = index < nodes.lastIndex
-                    )
+        }
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.elevatedCardColors()
+        ) {
+            if (nodes.isEmpty()) {
+                Text(
+                    text = stringResource(id = R.string.node_section_available_empty),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 20.dp)
+                )
+            } else {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    nodes.forEachIndexed { index, item ->
+                        NodeListItem(
+                            title = item.title,
+                            subtitle = item.subtitle,
+                            typeBadge = item.typeBadge,
+                            selected = item.selected,
+                            connected = item.connected,
+                            onActivate = item.onActivate,
+                            onDetailsClick = item.onDetailsClick,
+                            onDeactivate = item.onDeactivate,
+                            isNetworkOnline = isNetworkOnline,
+                            interactionsLocked = interactionsLocked,
+                            onInteractionBlocked = onInteractionBlocked,
+                            showDivider = index < nodes.lastIndex
+                        )
+                    }
                 }
             }
         }
@@ -361,7 +372,11 @@ private fun AvailableNodesSection(
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
             )
         ) {
-            Icon(imageVector = Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(
+                imageVector = Icons.Outlined.Add,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = stringResource(
@@ -456,8 +471,8 @@ private fun NodeListItem(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ),
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-        , tonalElevation = 0.dp
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            tonalElevation = 0.dp
         )
         if (showDivider) {
             Divider(

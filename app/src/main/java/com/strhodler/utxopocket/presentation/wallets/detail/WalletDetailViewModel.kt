@@ -100,14 +100,14 @@ class WalletDetailViewModel @Inject constructor(
         transactionLabelFilterState
     ) { sort, filter -> sort to filter }
         .flatMapLatest { (sort, filter) ->
-            walletRepository.pageWalletTransactions(walletId, sort)
-                .map { pagingData ->
-                    if (filter.showsAll) {
-                        pagingData
-                    } else {
-                        pagingData.filter(filter::matches)
-                    }
-                }
+            walletRepository.pageWalletTransactions(
+                id = walletId,
+                sort = sort,
+                showLabeled = filter.showLabeled,
+                showUnlabeled = filter.showUnlabeled,
+                showReceived = filter.showReceived,
+                showSent = filter.showSent
+            )
         }
         .cachedIn(viewModelScope)
 
@@ -116,14 +116,14 @@ class WalletDetailViewModel @Inject constructor(
         utxoLabelFilterState
     ) { sort, filter -> sort to filter }
         .flatMapLatest { (sort, filter) ->
-            walletRepository.pageWalletUtxos(walletId, sort)
-                .map { pagingData ->
-                    if (filter.showsAll) {
-                        pagingData
-                    } else {
-                        pagingData.filter(filter::matches)
-                    }
-                }
+            walletRepository.pageWalletUtxos(
+                id = walletId,
+                sort = sort,
+                showLabeled = filter.showLabeled,
+                showUnlabeled = filter.showUnlabeled,
+                showSpendable = filter.showSpendable,
+                showNotSpendable = filter.showNotSpendable
+            )
         }
         .cachedIn(viewModelScope)
 
@@ -420,6 +420,8 @@ class WalletDetailViewModel @Inject constructor(
             val dustBalanceSats = dustUtxos.sumOf { it.valueSats }
             val utxoFilterCounts = computeUtxoFilterCounts(detail.utxos)
             val transactionFilterCounts = computeTransactionFilterCounts(detail.transactions)
+            val visibleTransactionsCount = detail.transactions.count { transactionLabelFilter.matches(it) }
+            val visibleUtxosCount = detail.utxos.count { utxoLabelFilter.matches(it) }
             WalletDetailUiState(
                 isLoading = false,
                 isRefreshing = isSyncing,
@@ -458,7 +460,9 @@ class WalletDetailViewModel @Inject constructor(
                 dustUtxoCount = dustUtxos.size,
                 dustBalanceSats = dustBalanceSats,
                 transactionsCount = detail.transactions.size,
+                visibleTransactionsCount = visibleTransactionsCount,
                 utxosCount = detail.utxos.size,
+                visibleUtxosCount = visibleUtxosCount,
                 transactionSort = resolvedTransactionSort,
                 availableTransactionSorts = availableTransactionSorts,
                 utxoSort = resolvedUtxoSort,
@@ -764,7 +768,9 @@ data class WalletDetailUiState(
     val dustUtxoCount: Int = 0,
     val dustBalanceSats: Long = 0L,
     val transactionsCount: Int = 0,
+    val visibleTransactionsCount: Int = 0,
     val utxosCount: Int = 0,
+    val visibleUtxosCount: Int = 0,
     val transactionSort: WalletTransactionSort = WalletTransactionSort.NEWEST_FIRST,
     val availableTransactionSorts: List<WalletTransactionSort> = WalletTransactionSort.entries.toList(),
     val utxoSort: WalletUtxoSort = WalletUtxoSort.LARGEST_AMOUNT,

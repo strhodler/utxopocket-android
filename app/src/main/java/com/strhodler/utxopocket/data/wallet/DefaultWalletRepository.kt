@@ -743,7 +743,11 @@ class DefaultWalletRepository @Inject constructor(
 
     override fun pageWalletTransactions(
         id: Long,
-        sort: WalletTransactionSort
+        sort: WalletTransactionSort,
+        showLabeled: Boolean,
+        showUnlabeled: Boolean,
+        showReceived: Boolean,
+        showSent: Boolean
     ): Flow<PagingData<WalletTransaction>> =
         Pager(
             config = PagingConfig(
@@ -751,14 +755,27 @@ class DefaultWalletRepository @Inject constructor(
                 initialLoadSize = DEFAULT_PAGING_PAGE_SIZE,
                 enablePlaceholders = false
             ),
-            pagingSourceFactory = { walletDao.pagingTransactions(id, sort.name) }
+            pagingSourceFactory = {
+                walletDao.pagingTransactions(
+                    walletId = id,
+                    sort = sort.name,
+                    showLabeled = showLabeled,
+                    showUnlabeled = showUnlabeled,
+                    showReceived = showReceived,
+                    showSent = showSent
+                )
+            }
         ).flow
             .map { pagingData -> pagingData.map(WalletTransactionWithRelations::toDomain) }
             .flowOn(ioDispatcher)
 
     override fun pageWalletUtxos(
         id: Long,
-        sort: WalletUtxoSort
+        sort: WalletUtxoSort,
+        showLabeled: Boolean,
+        showUnlabeled: Boolean,
+        showSpendable: Boolean,
+        showNotSpendable: Boolean
     ): Flow<PagingData<WalletUtxo>> =
         walletDao.observeUtxoReuseCounts(id)
             .map { projections ->
@@ -773,7 +790,16 @@ class DefaultWalletRepository @Inject constructor(
                         initialLoadSize = DEFAULT_PAGING_PAGE_SIZE,
                         enablePlaceholders = false
                     ),
-                    pagingSourceFactory = { walletDao.pagingUtxos(id, sort.name) }
+                    pagingSourceFactory = {
+                        walletDao.pagingUtxos(
+                            walletId = id,
+                            sort = sort.name,
+                            showLabeled = showLabeled,
+                            showUnlabeled = showUnlabeled,
+                            showSpendable = showSpendable,
+                            showNotSpendable = showNotSpendable
+                        )
+                    }
                 ).flow.map { pagingData ->
                     pagingData.map { entity ->
                         val reuseCount = entity.address

@@ -26,6 +26,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -452,193 +454,274 @@ private fun SecuritySettingsScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        ListItem(
-            headlineContent = {
-                Text(
-                    text = stringResource(id = R.string.settings_pin_title),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            },
-            supportingContent = {
-                Text(
-                    text = stringResource(id = R.string.settings_pin_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            trailingContent = {
-                WalletSwitch(
-                    checked = state.pinEnabled,
-                    onCheckedChange = onPinToggleRequested
-                )
-            },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-        )
-        if (state.pinEnabled) {
-            ListItem(
-                headlineContent = {
-                    Text(text = stringResource(id = R.string.settings_pin_shuffle_title))
-                },
-                supportingContent = {
-                    Text(
-                        text = stringResource(id = R.string.settings_pin_shuffle_subtitle),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                trailingContent = {
-                    WalletSwitch(
-                        checked = state.pinShuffleEnabled,
-                        onCheckedChange = onPinShuffleChanged
-                    )
-                },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-            )
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ListItem(
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.elevatedCardColors()
+        ) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = onNetworkLogsInfoClick),
-                headlineContent = {
-                    Text(
-                        text = stringResource(id = R.string.settings_network_logs_title),
-                        style = MaterialTheme.typography.bodyLarge
+                    .padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            text = stringResource(id = R.string.settings_pin_title),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            text = stringResource(id = R.string.settings_pin_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingContent = {
+                        WalletSwitch(
+                            checked = state.pinEnabled,
+                            onCheckedChange = onPinToggleRequested
+                        )
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+                if (state.pinEnabled) {
+                    androidx.compose.material3.HorizontalDivider()
+                    ListItem(
+                        headlineContent = {
+                            Text(text = stringResource(id = R.string.settings_pin_shuffle_title))
+                        },
+                        supportingContent = {
+                            Text(
+                                text = stringResource(id = R.string.settings_pin_shuffle_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingContent = {
+                            WalletSwitch(
+                                checked = state.pinShuffleEnabled,
+                                onCheckedChange = onPinShuffleChanged
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
-                },
-                supportingContent = {
+                }
+            }
+                }
+
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.elevatedCardColors()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (state.pinEnabled) {
+                    val pinTimeoutMinutes = pinTimeoutSliderValue.roundToInt()
+                        .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
+                    val pinTimeoutLabel = if (pinTimeoutMinutes == 0) {
+                        stringResource(id = R.string.settings_pin_timeout_immediately_label)
+                    } else {
+                        stringResource(
+                            id = R.string.settings_pin_timeout_minutes_label,
+                            pinTimeoutMinutes
+                        )
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = stringResource(id = R.string.settings_pin_timeout_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        Text(
+                            text = pinTimeoutLabel,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                        Slider(
+                            value = pinTimeoutSliderValue,
+                            onValueChange = { newValue ->
+                                val quantized = newValue.roundToInt()
+                                    .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
+                                    .toFloat()
+                                pinTimeoutSliderValue = quantized
+                                val steppedValue = quantized.toInt()
+                                if (steppedValue != pinHapticStep) {
+                                    pinHapticStep = steppedValue
+                                    performSliderHaptic()
+                                }
+                            },
+                            onValueChangeFinished = {
+                                onPinAutoLockTimeoutSelected(pinTimeoutMinutes)
+                            },
+                            valueRange = MIN_PIN_AUTO_LOCK_MINUTES.toFloat()..MAX_PIN_AUTO_LOCK_MINUTES.toFloat(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                        )
+                    }
+                    androidx.compose.material3.HorizontalDivider()
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = stringResource(id = R.string.settings_network_logs_description),
+                        text = stringResource(id = R.string.settings_connection_timeout_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Text(
+                        text = connectionTimeoutLabel,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Slider(
+                        value = connectionTimeoutValue,
+                        onValueChange = { newValue ->
+                            val quantized = newValue.roundToInt()
+                                .coerceIn(MIN_CONNECTION_IDLE_MINUTES, MAX_CONNECTION_IDLE_MINUTES)
+                                .toFloat()
+                            connectionTimeoutValue = quantized
+                            val steppedValue = quantized.toInt()
+                            if (steppedValue != connectionHapticStep) {
+                                connectionHapticStep = steppedValue
+                                performSliderHaptic()
+                            }
+                        },
+                        onValueChangeFinished = {
+                            onConnectionIdleTimeoutSelected(connectionTimeoutMinutes)
+                        },
+                        valueRange = MIN_CONNECTION_IDLE_MINUTES.toFloat()..MAX_CONNECTION_IDLE_MINUTES.toFloat(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    )
+                    Text(
+                        text = connectionTip,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp)
                     )
-                },
-                trailingContent = {
-                    WalletSwitch(
-                        checked = state.networkLogsEnabled,
-                        onCheckedChange = onNetworkLogsToggle
-                    )
-                },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-            )
-            if (state.networkLogsEnabled) {
-                TextButton(
-                    onClick = onOpenNetworkLogs
-                ) {
-                    Text(text = stringResource(id = R.string.settings_network_logs_open_viewer))
                 }
             }
         }
-        if (state.pinEnabled) {
-            val pinTimeoutMinutes = pinTimeoutSliderValue.roundToInt()
-                .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
-            val pinTimeoutLabel = if (pinTimeoutMinutes == 0) {
-                stringResource(id = R.string.settings_pin_timeout_immediately_label)
-            } else {
-                stringResource(
-                    id = R.string.settings_pin_timeout_minutes_label,
-                    pinTimeoutMinutes
-                )
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = stringResource(id = R.string.settings_pin_timeout_title),
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Text(
-                    text = pinTimeoutLabel,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Slider(
-                    value = pinTimeoutSliderValue,
-                    onValueChange = { newValue ->
-                        val quantized = newValue.roundToInt()
-                            .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
-                            .toFloat()
-                        pinTimeoutSliderValue = quantized
-                        val steppedValue = quantized.toInt()
-                        if (steppedValue != pinHapticStep) {
-                            pinHapticStep = steppedValue
-                            performSliderHaptic()
-                        }
+
+        ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.elevatedCardColors()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        ListItem(
+                            modifier = Modifier.fillMaxWidth(),
+                    headlineContent = {
+                        Text(
+                            text = stringResource(id = R.string.settings_network_logs_title),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
                     },
-                    onValueChangeFinished = {
-                        onPinAutoLockTimeoutSelected(pinTimeoutMinutes)
-                    },
-                    valueRange = MIN_PIN_AUTO_LOCK_MINUTES.toFloat()..MAX_PIN_AUTO_LOCK_MINUTES.toFloat(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = stringResource(id = R.string.settings_connection_timeout_title),
-                style = MaterialTheme.typography.titleSmall
-            )
-            Text(
-                text = connectionTimeoutLabel,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Slider(
-                value = connectionTimeoutValue,
-                onValueChange = { newValue ->
-                    val quantized = newValue.roundToInt()
-                        .coerceIn(MIN_CONNECTION_IDLE_MINUTES, MAX_CONNECTION_IDLE_MINUTES)
-                        .toFloat()
-                    connectionTimeoutValue = quantized
-                    val steppedValue = quantized.toInt()
-                    if (steppedValue != connectionHapticStep) {
-                        connectionHapticStep = steppedValue
-                        performSliderHaptic()
+                    supportingContent = {
+                        Text(
+                            text = stringResource(id = R.string.settings_network_logs_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        },
+                        trailingContent = {
+                            WalletSwitch(
+                                checked = state.networkLogsEnabled,
+                                onCheckedChange = onNetworkLogsToggle
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    if (state.networkLogsEnabled) {
+                        androidx.compose.material3.HorizontalDivider()
+                        ListItem(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onOpenNetworkLogs),
+                            headlineContent = {
+                                Text(
+                                    text = stringResource(id = R.string.settings_network_logs_open_viewer),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = stringResource(id = R.string.settings_network_logs_description),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = Icons.Outlined.DeleteForever,
+                                    contentDescription = null,
+                                    tint = Color.Transparent
+                                )
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
                     }
-                },
-                onValueChangeFinished = {
-                    onConnectionIdleTimeoutSelected(connectionTimeoutMinutes)
-                },
-                valueRange = MIN_CONNECTION_IDLE_MINUTES.toFloat()..MAX_CONNECTION_IDLE_MINUTES.toFloat(),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                text = connectionTip,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        ListItem(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(enabled = panicEnabled, onClick = onTriggerPanicWipe),
-            headlineContent = {
+                }
+            }
+
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.elevatedCardColors(),
+            shape = MaterialTheme.shapes.large
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Text(
                     text = stringResource(id = R.string.settings_panic_list_title),
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.titleMedium
                 )
-            },
-            supportingContent = {
                 Text(
                     text = stringResource(id = R.string.settings_panic_description),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            },
-            trailingContent = {
-                IconButton(
+                TextButton(
                     onClick = onTriggerPanicWipe,
-                    enabled = panicEnabled
+                    enabled = panicEnabled,
+                    modifier = Modifier.align(Alignment.End)
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.DeleteForever,
-                        contentDescription = stringResource(id = R.string.settings_panic_action),
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.DeleteForever,
+                            contentDescription = null
+                        )
+                        Text(
+                            text = stringResource(id = R.string.settings_panic_action),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
                 }
-            },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-        )
+            }
+        }
     }
 }
 

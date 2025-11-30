@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +23,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
@@ -52,6 +55,7 @@ import com.strhodler.utxopocket.presentation.components.WalletSwitch
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import com.strhodler.utxopocket.presentation.theme.colorSchemeFor
+import androidx.compose.ui.Alignment
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -146,54 +150,72 @@ private fun InterfaceSettingsScreen(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        SettingsSelectRow(
-            title = stringResource(id = R.string.settings_language_label),
-            selectedLabel = languageLabel(state.appLanguage),
-            options = languageOptions,
-            optionLabel = languageLabel,
-            onOptionSelected = onLanguageSelected
-        )
+        // Dropdown selectors first, outside of surfaces
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SettingsSelectRow(
+                title = stringResource(id = R.string.settings_language_label),
+                selectedLabel = languageLabel(state.appLanguage),
+                options = languageOptions,
+                optionLabel = languageLabel,
+                onOptionSelected = onLanguageSelected
+            )
 
-        SettingsSelectRow(
-            title = stringResource(id = R.string.settings_display_unit_label),
-            selectedLabel = unitLabel(state.preferredUnit),
-            options = unitOptions,
-            optionLabel = unitLabel,
-            onOptionSelected = onUnitSelected
-        )
+            SettingsSelectRow(
+                title = stringResource(id = R.string.settings_display_unit_label),
+                selectedLabel = unitLabel(state.preferredUnit),
+                options = unitOptions,
+                optionLabel = unitLabel,
+                onOptionSelected = onUnitSelected
+            )
+        }
 
-        ThemeRow(
-            selected = state.themePreference,
-            selectedLabel = themeLabel(state.themePreference),
-            dynamicSupported = state.themeProfile == ThemeProfile.STANDARD &&
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
-            onClick = onOpenThemeSheet
-        )
-
-        ThemeProfileRow(
-            selected = state.themeProfile,
-            selectedLabel = themeProfileLabel(state.themeProfile),
-            onClick = onOpenThemeProfileSheet
-        )
-
-        ListItem(
-            headlineContent = {
-                Text(text = stringResource(id = R.string.settings_haptics_title))
-            },
-            supportingContent = {
-                Text(
-                    text = stringResource(id = R.string.settings_haptics_description),
-                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.elevatedCardColors()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                ThemeRow(
+                    selected = state.themePreference,
+                    selectedLabel = themeLabel(state.themePreference),
+                    dynamicSupported = state.themeProfile == ThemeProfile.STANDARD &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
+                    onClick = onOpenThemeSheet
                 )
-            },
-            trailingContent = {
-                WalletSwitch(
-                    checked = state.hapticsEnabled,
-                    onCheckedChange = onHapticsToggled
+                HorizontalDivider()
+                ThemeProfileRow(
+                    selected = state.themeProfile,
+                    selectedLabel = themeProfileLabel(state.themeProfile),
+                    onClick = onOpenThemeProfileSheet
                 )
-            },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-        )
+                HorizontalDivider()
+                ListItem(
+                    headlineContent = {
+                        Text(text = stringResource(id = R.string.settings_haptics_title))
+                    },
+                    supportingContent = {
+                        Text(
+                            text = stringResource(id = R.string.settings_haptics_description),
+                            color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingContent = {
+                        WalletSwitch(
+                            checked = state.hapticsEnabled,
+                            onCheckedChange = onHapticsToggled
+                        )
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
+        }
     }
 }
 
@@ -209,17 +231,24 @@ private fun ThemeRow(
         headlineContent = {
             Text(
                 text = stringResource(id = R.string.settings_theme_label),
-                style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
+                style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
             )
         },
         supportingContent = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = selectedLabel,
-                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                ThemePreviewDots(preview)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ThemePreviewDots(preview)
+                    Text(
+                        text = selectedLabel,
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 if (selected == ThemePreference.SYSTEM) {
                     val message = if (dynamicSupported) {
                         stringResource(id = R.string.settings_theme_dynamic_available)
@@ -233,13 +262,6 @@ private fun ThemeRow(
                     )
                 }
             }
-        },
-        trailingContent = {
-            Icon(
-                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
-                contentDescription = null,
-                tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
-            )
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier
@@ -259,25 +281,23 @@ private fun ThemeProfileRow(
         headlineContent = {
             Text(
                 text = stringResource(id = R.string.settings_theme_profile_label),
-                style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
+                style = androidx.compose.material3.MaterialTheme.typography.bodyLarge,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
             )
         },
         supportingContent = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ThemePreviewDots(preview)
                 Text(
                     text = selectedLabel,
-                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
                     color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                ThemePreviewDots(preview)
             }
-        },
-        trailingContent = {
-            Icon(
-                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
-                contentDescription = null,
-                tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
-            )
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier

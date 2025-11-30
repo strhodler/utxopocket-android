@@ -481,7 +481,7 @@ private fun WalletDetailContent(
                                         TransactionFilterRow(
                                             filter = state.transactionLabelFilter,
                                             counts = state.transactionFilterCounts,
-                                            visibleCount = transactions.itemCount,
+                                            visibleCount = state.visibleTransactionsCount,
                                             onFilterChange = onTransactionLabelFilterChange,
                                             modifier = Modifier.weight(1f)
                                         )
@@ -566,7 +566,7 @@ private fun WalletDetailContent(
                                         FilterRow(
                                             filter = state.utxoLabelFilter,
                                             counts = state.utxoFilterCounts,
-                                            visibleCount = utxos.itemCount,
+                                            visibleCount = state.visibleUtxosCount,
                                             onFilterChange = onUtxoLabelFilterChange,
                                             modifier = Modifier.weight(1f)
                                         )
@@ -2271,11 +2271,11 @@ private fun TransactionDetailedCard(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    LabelOrPlaceholder(transaction.label)
                     Text(
                         text = amountText,
                         style = MaterialTheme.typography.titleMedium
                     )
-                    LabelOrPlaceholder(transaction.label)
                 }
                 Column(
                     horizontalAlignment = Alignment.End,
@@ -2407,11 +2407,11 @@ private fun UtxoDetailedCard(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    LabelOrPlaceholder(utxo.displayLabel)
                     Text(
                         text = amountText,
                         style = MaterialTheme.typography.titleMedium
                     )
-                    LabelOrPlaceholder(utxo.displayLabel)
                 }
                 Column(
                     horizontalAlignment = Alignment.End,
@@ -2536,7 +2536,7 @@ private fun LabelOrPlaceholder(label: String?, modifier: Modifier = Modifier) {
         text = text ?: stringResource(id = R.string.wallet_detail_no_label_placeholder),
         style = MaterialTheme.typography.bodySmall,
         color = if (text != null) {
-            MaterialTheme.colorScheme.primary
+            MaterialTheme.colorScheme.onSurface
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         },

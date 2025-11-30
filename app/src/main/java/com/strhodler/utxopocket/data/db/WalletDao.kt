@@ -184,6 +184,14 @@ interface WalletDao {
             wallet_transactions.wallet_id = transaction_health.wallet_id AND
             wallet_transactions.txid = transaction_health.txid
         WHERE wallet_transactions.wallet_id = :walletId
+        AND (
+            (:showReceived = 1 AND wallet_transactions.type = 'RECEIVED') OR
+            (:showSent = 1 AND wallet_transactions.type = 'SENT')
+        )
+        AND (
+            (:showLabeled = 1 AND wallet_transactions.label IS NOT NULL AND TRIM(wallet_transactions.label) != '') OR
+            (:showUnlabeled = 1 AND (wallet_transactions.label IS NULL OR TRIM(wallet_transactions.label) = ''))
+        )
         ORDER BY
             CASE WHEN :sort = 'NEWEST_FIRST' THEN wallet_transactions.timestamp END DESC,
             CASE WHEN :sort = 'OLDEST_FIRST' THEN wallet_transactions.timestamp END ASC,
@@ -197,7 +205,11 @@ interface WalletDao {
     )
     fun pagingTransactions(
         walletId: Long,
-        sort: String
+        sort: String,
+        showLabeled: Boolean,
+        showUnlabeled: Boolean,
+        showReceived: Boolean,
+        showSent: Boolean
     ): PagingSource<Int, WalletTransactionWithRelations>
 
     @Query(
@@ -208,6 +220,14 @@ interface WalletDao {
             wallet_utxos.txid = utxo_health.txid AND
             wallet_utxos.vout = utxo_health.vout
         WHERE wallet_utxos.wallet_id = :walletId
+        AND (
+            (:showSpendable = 1 AND wallet_utxos.spendable = 1) OR
+            (:showNotSpendable = 1 AND wallet_utxos.spendable = 0)
+        )
+        AND (
+            (:showLabeled = 1 AND wallet_utxos.label IS NOT NULL AND TRIM(wallet_utxos.label) != '') OR
+            (:showUnlabeled = 1 AND (wallet_utxos.label IS NULL OR TRIM(wallet_utxos.label) = ''))
+        )
         ORDER BY
             CASE WHEN :sort = 'LARGEST_AMOUNT' THEN wallet_utxos.value_sats END DESC,
             CASE WHEN :sort = 'SMALLEST_AMOUNT' THEN wallet_utxos.value_sats END ASC,
@@ -221,7 +241,11 @@ interface WalletDao {
     )
     fun pagingUtxos(
         walletId: Long,
-        sort: String
+        sort: String,
+        showLabeled: Boolean,
+        showUnlabeled: Boolean,
+        showSpendable: Boolean,
+        showNotSpendable: Boolean
     ): PagingSource<Int, WalletUtxoEntity>
 
     @Query("SELECT * FROM wallet_transactions WHERE wallet_id = :walletId")

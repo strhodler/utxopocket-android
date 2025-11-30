@@ -146,12 +146,20 @@ private class TestWalletRepository : WalletRepository {
 
     override fun pageWalletTransactions(
         id: Long,
-        sort: WalletTransactionSort
+        sort: WalletTransactionSort,
+        showLabeled: Boolean,
+        showUnlabeled: Boolean,
+        showReceived: Boolean,
+        showSent: Boolean
     ): Flow<PagingData<WalletTransaction>> = throw UnsupportedOperationException()
 
     override fun pageWalletUtxos(
         id: Long,
-        sort: WalletUtxoSort
+        sort: WalletUtxoSort,
+        showLabeled: Boolean,
+        showUnlabeled: Boolean,
+        showSpendable: Boolean,
+        showNotSpendable: Boolean
     ): Flow<PagingData<WalletUtxo>> = throw UnsupportedOperationException()
 
     override fun observeTransactionCount(id: Long): Flow<Int> = flowOf(0)

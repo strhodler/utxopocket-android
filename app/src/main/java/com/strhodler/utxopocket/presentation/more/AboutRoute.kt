@@ -19,9 +19,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -132,32 +138,45 @@ private fun AboutDeveloperContent(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
-        Column(
+        ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.elevatedCardColors()
         ) {
-            DeveloperLinkItem(
-                title = stringResource(id = R.string.about_sheet_link_lightning),
-                value = lightningAddress,
-                onCopy = { copyDeveloperLink(lightningAddress) }
-            )
-            DeveloperLinkItem(
-                title = stringResource(id = R.string.about_sheet_link_repository),
-                value = DEVELOPER_REPOSITORY_URL,
-                onOpen = onOpenRepository,
-                onCopy = { copyDeveloperLink(DEVELOPER_REPOSITORY_URL) }
-            )
-            DeveloperLinkItem(
-                title = stringResource(id = R.string.about_sheet_link_telegram),
-                value = TELEGRAM_CHANNEL_URL,
-                onOpen = onOpenTelegram,
-                onCopy = { copyDeveloperLink(TELEGRAM_CHANNEL_URL) }
-            )
-            DeveloperLinkItem(
-                title = stringResource(id = R.string.about_sheet_link_nostr),
-                value = DEVELOPER_NOSTR,
-                onCopy = { copyDeveloperLink(DEVELOPER_NOSTR) }
-            )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                DeveloperLinkItem(
+                    title = stringResource(id = R.string.about_sheet_link_lightning),
+                    value = lightningAddress,
+                    icon = Icons.Outlined.Link,
+                    onCopy = { copyDeveloperLink(lightningAddress) }
+                )
+                androidx.compose.material3.HorizontalDivider()
+                DeveloperLinkItem(
+                    title = stringResource(id = R.string.about_sheet_link_repository),
+                    value = DEVELOPER_REPOSITORY_URL,
+                    icon = Icons.Outlined.OpenInNew,
+                    onOpen = onOpenRepository,
+                    onCopy = { copyDeveloperLink(DEVELOPER_REPOSITORY_URL) }
+                )
+                androidx.compose.material3.HorizontalDivider()
+                DeveloperLinkItem(
+                    title = stringResource(id = R.string.about_sheet_link_telegram),
+                    value = TELEGRAM_CHANNEL_URL,
+                    icon = Icons.Outlined.OpenInNew,
+                    onOpen = onOpenTelegram,
+                    onCopy = { copyDeveloperLink(TELEGRAM_CHANNEL_URL) }
+                )
+                androidx.compose.material3.HorizontalDivider()
+                DeveloperLinkItem(
+                    title = stringResource(id = R.string.about_sheet_link_nostr),
+                    value = DEVELOPER_NOSTR,
+                    icon = Icons.Outlined.Link,
+                    onCopy = { copyDeveloperLink(DEVELOPER_NOSTR) }
+                )
+            }
         }
     }
 }
@@ -198,18 +217,6 @@ private fun DeveloperQrPreview(
                 }
             }
         }
-        Image(
-            painter = avatarPainter,
-            contentDescription = null,
-            modifier = Modifier
-                .size(72.dp)
-                .clip(CircleShape)
-                .border(
-                    width = 4.dp,
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = CircleShape
-                )
-        )
     }
 }
 
@@ -217,26 +224,31 @@ private fun DeveloperQrPreview(
 private fun DeveloperLinkItem(
     title: String,
     value: String,
+    icon: ImageVector,
     onCopy: (() -> Unit)? = null,
     onOpen: (() -> Unit)? = null
 ) {
-    val itemModifier = Modifier
-        .fillMaxWidth()
-        .clip(MaterialTheme.shapes.medium)
-        .let { base -> if (onOpen != null) base.clickable(onClick = onOpen) else base }
-
+    val itemModifier = Modifier.fillMaxWidth()
     ListItem(
         headlineContent = {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            Text(text = title, style = MaterialTheme.typography.bodyLarge)
         },
         supportingContent = {
             SelectionContainer {
                 Text(
                     text = value,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontFamily = FontFamily.Monospace
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        },
+        leadingContent = {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         },
         trailingContent = {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -250,6 +262,7 @@ private fun DeveloperLinkItem(
                 }
             }
         },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = itemModifier
     )
 }

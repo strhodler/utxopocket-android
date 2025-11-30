@@ -6,27 +6,28 @@ import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.graphics.Paint
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -34,13 +35,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -56,7 +59,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
@@ -66,8 +68,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
@@ -82,11 +84,11 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
-import com.strhodler.utxopocket.presentation.format.formatBtc
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
-import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
+import com.strhodler.utxopocket.presentation.format.formatBtc
 import com.strhodler.utxopocket.presentation.navigation.SetHiddenTopBar
+import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.delay
@@ -202,7 +204,7 @@ private fun TransactionVisualizerScreen(
     DisposableEffect(Unit) {
         val activity = context.findActivity()
         val previousOrientation = activity?.requestedOrientation
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
         onDispose {
             activity?.requestedOrientation = previousOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
@@ -229,20 +231,17 @@ private fun TransactionVisualizerContent(
     val graph = requireNotNull(state.graph)
     var renderGraph by remember(graph) { mutableStateOf(graph) }
     var showDetails by remember { mutableStateOf(false) }
-    var panelIconIsClose by remember { mutableStateOf(false) }
     var selectedNodeId by remember { mutableStateOf<String?>(null) }
+    val sheetVisible = showDetails && selectedNodeId != null
     LaunchedEffect(renderGraph) {
         val currentSelection = selectedNodeId
         if (currentSelection != null && renderGraph.nodes.none { it.id == currentSelection }) {
             selectedNodeId = null
         }
     }
-    LaunchedEffect(showDetails) {
-        if (showDetails) {
-            panelIconIsClose = true
-        } else {
-            delay(200L)
-            panelIconIsClose = false
+    LaunchedEffect(selectedNodeId) {
+        if (selectedNodeId == null) {
+            showDetails = false
         }
     }
 
@@ -251,68 +250,46 @@ private fun TransactionVisualizerContent(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
     ) {
+        val sheetMaxHeight = maxHeight * 0.33f
+        val canvasBottomPadding by animateDpAsState(
+            targetValue = if (sheetVisible) sheetMaxHeight else 0.dp,
+            animationSpec = tween(durationMillis = 180),
+            label = "canvasBottomPadding"
+        )
         Box(modifier = Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                ) {
-                    TransactionGraphCanvas(
-                        graph = renderGraph,
-                        selectedNodeId = selectedNodeId,
-                        onNodeSelected = { selectedNodeId = it?.id },
-                        onGroupExpand = { groupId ->
-                            renderGraph = expandGroup(renderGraph, groupId)
-                        },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clipToBounds()
+            TransactionGraphCanvas(
+                graph = renderGraph,
+                selectedNodeId = selectedNodeId,
+                onNodeSelected = { node ->
+                    selectedNodeId = node?.id
+                    showDetails = node != null
+                },
+                onGroupExpand = { groupId ->
+                    renderGraph = expandGroup(renderGraph, groupId)
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = canvasBottomPadding)
+                    .clipToBounds()
+            )
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(4.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        shape = CircleShape
                     )
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(4.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                shape = CircleShape
-                            )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.ArrowBack,
-                            contentDescription = stringResource(id = R.string.transaction_visualizer_back)
-                        )
-                    }
-                }
-                AnimatedVisibility(
-                    visible = showDetails,
-                    enter = slideInHorizontally(animationSpec = tween(durationMillis = 160)) { fullWidth -> fullWidth },
-                    exit = slideOutHorizontally(animationSpec = tween(durationMillis = 160)) { fullWidth -> fullWidth },
-                    modifier = Modifier.fillMaxHeight()
-                ) {
-                TransactionDetailsPanel(
-                    transaction = requireNotNull(state.transaction),
-                    graph = renderGraph,
-                    selectedNodeId = selectedNodeId,
-                    onNodeSelected = { selectedNodeId = it?.id },
-                    onGroupExpand = { groupId ->
-                        renderGraph = expandGroup(renderGraph, groupId)
-                    },
-                    onGroupMemberSelect = { groupId, member ->
-                        renderGraph = extractNodeFromGroup(renderGraph, groupId, member.id)
-                        selectedNodeId = member.id
-                    },
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .width(320.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.ArrowBack,
+                    contentDescription = stringResource(id = R.string.transaction_visualizer_back)
                 )
             }
-            }
             IconButton(
-                onClick = { showDetails = !showDetails },
+                onClick = { showDetails = !sheetVisible },
+                enabled = selectedNodeId != null,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(12.dp)
@@ -322,9 +299,45 @@ private fun TransactionVisualizerContent(
                     )
             ) {
                 Icon(
-                    imageVector = if (panelIconIsClose) Icons.Outlined.Close else Icons.Outlined.Menu,
+                    imageVector = if (sheetVisible) Icons.Outlined.Close else Icons.Outlined.Menu,
                     contentDescription = stringResource(id = R.string.transaction_visualizer_toggle_details)
                 )
+            }
+            AnimatedVisibility(
+                visible = sheetVisible,
+                enter = slideInVertically(animationSpec = tween(durationMillis = 160)) { fullHeight -> fullHeight },
+                exit = slideOutVertically(animationSpec = tween(durationMillis = 160)) { fullHeight -> fullHeight },
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+                    tonalElevation = 3.dp,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = sheetMaxHeight)
+                ) {
+                    TransactionDetailsPanel(
+                        transaction = requireNotNull(state.transaction),
+                        graph = renderGraph,
+                        selectedNodeId = selectedNodeId,
+                        onNodeSelected = { node ->
+                            selectedNodeId = node?.id
+                            showDetails = node != null
+                        },
+                        onGroupExpand = { groupId ->
+                            renderGraph = expandGroup(renderGraph, groupId)
+                        },
+                        onGroupMemberSelect = { groupId, member ->
+                            renderGraph = extractNodeFromGroup(renderGraph, groupId, member.id)
+                            selectedNodeId = member.id
+                            showDetails = true
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = sheetMaxHeight)
+                    )
+                }
             }
         }
     }

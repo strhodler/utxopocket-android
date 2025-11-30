@@ -1,11 +1,15 @@
 package com.strhodler.utxopocket.presentation.settings
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -75,40 +79,46 @@ private fun SettingsHomeScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Column(
+        ElevatedCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp),
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(0.dp)
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.elevatedCardColors()
         ) {
-            SettingsNavigationRow(
-                title = stringResource(id = R.string.settings_section_interface),
-                supportingText = interfaceSummary,
-                onClick = onOpenInterfaceSettings,
-                showDivider = true,
-                dividerPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)
-            )
-            SettingsNavigationRow(
-                title = stringResource(id = R.string.settings_section_security),
-                supportingText = stringResource(
-                    id = R.string.settings_security_nav_description,
-                    pinStatus
-                ),
-                onClick = onOpenSecuritySettings,
-                showDivider = true,
-                dividerPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)
-            )
-            SettingsNavigationRow(
-                title = stringResource(id = R.string.settings_section_wallet),
-                supportingText = stringResource(
-                    id = R.string.settings_wallet_nav_description,
-                    walletHealthStatus
-                ),
-                onClick = onOpenWalletSettings,
-                dividerPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)
-            )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                SettingsNavigationRow(
+                    title = stringResource(id = R.string.settings_section_interface),
+                    supportingText = interfaceSummary,
+                    onClick = onOpenInterfaceSettings,
+                    showDivider = true,
+                    dividerPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)
+                )
+                SettingsNavigationRow(
+                    title = stringResource(id = R.string.settings_section_security),
+                    supportingText = stringResource(
+                        id = R.string.settings_security_nav_description,
+                        pinStatus
+                    ),
+                    onClick = onOpenSecuritySettings,
+                    showDivider = true,
+                    dividerPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)
+                )
+                SettingsNavigationRow(
+                    title = stringResource(id = R.string.settings_section_wallet),
+                    supportingText = stringResource(
+                        id = R.string.settings_wallet_nav_description,
+                        walletHealthStatus
+                    ),
+                    onClick = onOpenWalletSettings,
+                    dividerPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)
+                )
+            }
         }
     }
 }

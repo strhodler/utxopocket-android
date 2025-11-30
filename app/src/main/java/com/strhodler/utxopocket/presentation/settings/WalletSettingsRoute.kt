@@ -12,6 +12,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Help
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -178,97 +180,115 @@ private fun WalletSettingsScreen(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(id = R.string.settings_section_privacy_analysis),
-                style = MaterialTheme.typography.titleSmall
-            )
-            IconButton(
-                onClick = { onOpenWikiTopic(WikiContent.WalletHealthTopicId) }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.Help,
-                    contentDescription = stringResource(id = R.string.settings_privacy_analysis_help_content_description)
+                Text(
+                    text = stringResource(id = R.string.settings_section_privacy_analysis),
+                    style = MaterialTheme.typography.titleSmall
                 )
+                IconButton(
+                    onClick = { onOpenWikiTopic(WikiContent.WalletHealthTopicId) }
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.Help,
+                        contentDescription = stringResource(id = R.string.settings_privacy_analysis_help_content_description)
+                    )
+                }
             }
-        }
-        ListItem(
-            headlineContent = {
-                Text(
-                    text = stringResource(id = R.string.settings_transaction_health_title),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            },
-            supportingContent = {
-                Text(
-                    text = stringResource(id = R.string.settings_transaction_health_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            trailingContent = {
-                WalletSwitch(
-                    checked = state.transactionAnalysisEnabled,
-                    onCheckedChange = onTransactionAnalysisToggled
-                )
-            },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-        )
-        ListItem(
-            headlineContent = {
-                Text(
-                    text = stringResource(id = R.string.settings_utxo_health_title),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            },
-            supportingContent = {
-                Text(
-                    text = stringResource(id = R.string.settings_utxo_health_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            trailingContent = {
-                WalletSwitch(
-                    checked = state.utxoHealthEnabled,
-                    onCheckedChange = onUtxoHealthToggled
-                )
-            },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-        )
-        ListItem(
-            headlineContent = {
-                Text(
-                    text = stringResource(id = R.string.settings_wallet_health_title),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            },
-            supportingContent = {
-                Text(
-                    text = stringResource(id = R.string.settings_wallet_health_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            trailingContent = {
-                WalletSwitch(
-                    checked = state.walletHealthEnabled,
-                    onCheckedChange = onWalletHealthToggled,
-                    enabled = state.walletHealthToggleEnabled
-                )
-            },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-        )
-        if (!state.walletHealthToggleEnabled) {
-            Text(
-                text = stringResource(id = R.string.settings_wallet_health_dependencies),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.elevatedCardColors()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.settings_transaction_health_title),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = stringResource(id = R.string.settings_transaction_health_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingContent = {
+                            WalletSwitch(
+                                checked = state.transactionAnalysisEnabled,
+                                onCheckedChange = onTransactionAnalysisToggled
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    androidx.compose.material3.HorizontalDivider()
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.settings_utxo_health_title),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = stringResource(id = R.string.settings_utxo_health_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingContent = {
+                            WalletSwitch(
+                                checked = state.utxoHealthEnabled,
+                                onCheckedChange = onUtxoHealthToggled
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    androidx.compose.material3.HorizontalDivider()
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.settings_wallet_health_title),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = stringResource(id = R.string.settings_wallet_health_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingContent = {
+                            WalletSwitch(
+                                checked = state.walletHealthEnabled,
+                                onCheckedChange = onWalletHealthToggled,
+                                enabled = state.walletHealthToggleEnabled
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    if (!state.walletHealthToggleEnabled) {
+                        Text(
+                            text = stringResource(id = R.string.settings_wallet_health_dependencies),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
+                    }
+                }
+            }
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -276,28 +296,41 @@ private fun WalletSettingsScreen(
                 text = stringResource(id = R.string.settings_section_utxo_management),
                 style = MaterialTheme.typography.titleSmall
             )
-            OutlinedTextField(
-                value = state.dustThresholdInput,
-                onValueChange = onDustThresholdChanged,
-                label = { Text(text = stringResource(id = R.string.settings_dust_threshold_label)) },
-                placeholder = { Text(text = stringResource(id = R.string.settings_dust_threshold_placeholder)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                suffix = {
-                    Text(
-                        text = stringResource(id = R.string.settings_unit_sats),
-                        style = MaterialTheme.typography.labelSmall
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.elevatedCardColors()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = state.dustThresholdInput,
+                        onValueChange = onDustThresholdChanged,
+                        label = { Text(text = stringResource(id = R.string.settings_dust_threshold_label)) },
+                        placeholder = { Text(text = stringResource(id = R.string.settings_dust_threshold_placeholder)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        suffix = {
+                            Text(
+                                text = stringResource(id = R.string.settings_unit_sats),
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        },
+                        supportingText = {
+                            Text(
+                                text = stringResource(id = R.string.settings_dust_threshold_support),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
                     )
-                },
-                supportingText = {
-                    Text(
-                        text = stringResource(id = R.string.settings_dust_threshold_support),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
+                }
+            }
         }
     }
 }

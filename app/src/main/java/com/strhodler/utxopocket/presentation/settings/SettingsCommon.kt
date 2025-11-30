@@ -111,8 +111,7 @@ internal fun SettingsNavigationRow(
         androidx.compose.material3.Divider(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(dividerPadding),
-            color = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                .padding(dividerPadding)
         )
     }
 }

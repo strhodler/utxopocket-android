@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,12 +34,12 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -91,7 +91,6 @@ import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionInput
 import com.strhodler.utxopocket.domain.model.WalletTransactionOutput
-import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.displayLabel
@@ -795,7 +794,6 @@ private fun TransactionDetailContent(
             DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(it))
         }
     } ?: stringResource(id = R.string.transaction_detail_unknown_date)
-    val shortTransactionId = remember(transaction.id) { formatTransactionId(transaction.id) }
     val broadcastInfoText = if (transaction.timestamp != null) {
         stringResource(id = R.string.transaction_detail_broadcast_info, dateLabel)
     } else {
@@ -811,7 +809,6 @@ private fun TransactionDetailContent(
         modifier = modifier.verticalScroll(rememberScrollState())
     ) {
         TransactionDetailHeader(
-            transactionId = shortTransactionId,
             broadcastInfo = broadcastInfoText,
             amountText = amountText,
             feeRateLabel = feeRateLabel,
@@ -826,7 +823,7 @@ private fun TransactionDetailContent(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             when {
@@ -902,15 +899,27 @@ private fun TransactionDetailContent(
                         badges = badges
                     )
                 }
-                SectionCard(
-                    title = stringResource(id = R.string.transaction_detail_flow_inputs),
-                    contentPadding = PaddingValues(16.dp),
-                    contentSpacing = 12.dp
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    TransactionFlowColumn(
-                        items = inputDisplays,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = stringResource(id = R.string.transaction_detail_flow_inputs),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        TransactionFlowColumn(
+                            items = inputDisplays,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
+                    }
                 }
             }
             if (transaction.outputs.isNotEmpty()) {
@@ -952,107 +961,246 @@ private fun TransactionDetailContent(
                         highlighted = output.isMine
                     )
                 }
-                SectionCard(
-                    title = stringResource(id = R.string.transaction_detail_flow_outputs),
-                    contentPadding = PaddingValues(16.dp),
-                    contentSpacing = 12.dp
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    TransactionFlowColumn(
-                        items = outputDisplays,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = stringResource(id = R.string.transaction_detail_flow_outputs),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        TransactionFlowColumn(
+                            items = outputDisplays,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
+                    }
                 }
             }
 
-            SectionCard(
-                title = stringResource(id = R.string.transaction_detail_section_overview),
-                contentPadding = PaddingValues(16.dp),
-                contentSpacing = 12.dp
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_id_label),
-                    value = transaction.id,
-                    singleLine = false,
-                    trailing = {
-                        IconButton(onClick = { copyToClipboard(transaction.id) }) {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentCopy,
-                                contentDescription = stringResource(id = R.string.transaction_detail_copy_id)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = stringResource(id = R.string.transaction_detail_section_overview),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.transaction_detail_id_label),
+                                value = transaction.id,
+                                singleLine = false,
+                                trailing = {
+                                    IconButton(onClick = { copyToClipboard(transaction.id) }) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.ContentCopy,
+                                            contentDescription = stringResource(id = R.string.transaction_detail_copy_id)
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.transaction_detail_fee),
+                                value = feeLabel
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.transaction_detail_fee_rate),
+                                value = feeRateLabel
                             )
                         }
                     }
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_fee),
-                    value = feeLabel
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_fee_rate),
-                    value = feeRateLabel
-                )
+                }
             }
-            SectionCard(
-                title = stringResource(id = R.string.transaction_detail_section_status),
-                contentPadding = PaddingValues(16.dp),
-                contentSpacing = 12.dp
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_confirmations_label),
-                    value = confirmationsLabel
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_block_height),
-                    value = blockHeightLabel
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_block_hash),
-                    value = blockHashValue ?: stringResource(id = R.string.transaction_detail_unknown),
-                    trailing = blockHashValue?.let {
-                        {
-                        IconButton(onClick = { copyToClipboard(it) }) {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentCopy,
-                                    contentDescription = stringResource(id = R.string.transaction_detail_copy_block_hash)
-                                )
-                            }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = stringResource(id = R.string.transaction_detail_section_status),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.transaction_detail_confirmations_label),
+                                value = confirmationsLabel
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.transaction_detail_block_height),
+                                value = blockHeightLabel
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.transaction_detail_block_hash),
+                                value = blockHashValue ?: stringResource(id = R.string.transaction_detail_unknown),
+                                trailing = blockHashValue?.let {
+                                    {
+                                        IconButton(onClick = { copyToClipboard(it) }) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.ContentCopy,
+                                                contentDescription = stringResource(id = R.string.transaction_detail_copy_block_hash)
+                                            )
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.transaction_detail_date),
+                                value = dateLabel
+                            )
                         }
                     }
-                )
-            DetailRow(
-                label = stringResource(id = R.string.transaction_detail_date),
-                value = dateLabel
-            )
-        }
-            SectionCard(
-                title = stringResource(id = R.string.transaction_detail_section_size),
-                contentPadding = PaddingValues(16.dp),
-                contentSpacing = 12.dp
+                }
+            }
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_size_bytes),
-                    value = sizeBytesLabel
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_vbytes),
-                    value = vbytesLabel
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_version),
-                    value = versionLabel
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_structure),
-                    value = structureLabel
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = stringResource(id = R.string.transaction_detail_section_size),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.transaction_detail_size_bytes),
+                                value = sizeBytesLabel
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.transaction_detail_vbytes),
+                                value = vbytesLabel
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.transaction_detail_version),
+                                value = versionLabel
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.transaction_detail_structure),
+                                value = structureLabel
+                            )
+                        }
+                    }
+                }
             }
 
             transaction.rawHex?.let { rawHex ->
-                TransactionHexBlock(
-                    hex = rawHex,
-                    onCopy = {
-                        copyToClipboard(rawHex)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = stringResource(id = R.string.transaction_detail_raw_hex),
+                            style = MaterialTheme.typography.titleMedium
+                        )
                     }
-                )
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        TransactionHexBlock(
+                            hex = rawHex,
+                            onCopy = {
+                                copyToClipboard(rawHex)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
             }
         }
     }
@@ -1061,7 +1209,6 @@ private fun TransactionDetailContent(
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
 private fun TransactionDetailHeader(
-    transactionId: String,
     broadcastInfo: String,
     amountText: String,
     feeRateLabel: String,
@@ -1084,30 +1231,22 @@ private fun TransactionDetailHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = 16.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = transactionId,
-                style = MaterialTheme.typography.titleMedium,
-                color = contentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                text = broadcastInfo,
-                style = MaterialTheme.typography.bodySmall,
-                color = secondaryContentColor,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TransactionChip(text = confirmationsLabel)
+                TransactionChip(text = feeRateLabel)
+            }
             Text(
                 text = amountText,
                 style = MaterialTheme.typography.displaySmall.copy(
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Medium,
                     color = contentColor
                 ),
                 textAlign = TextAlign.Center,
@@ -1117,36 +1256,40 @@ private fun TransactionDetailHeader(
                     onClick = onCycleBalanceDisplay
                 )
             )
+            Text(
+                text = broadcastInfo,
+                style = MaterialTheme.typography.bodySmall,
+                color = secondaryContentColor,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                TransactionChip(text = feeRateLabel)
-                TransactionChip(text = confirmationsLabel)
-            }
-            LabelChip(
-                label = label,
-                addLabelRes = R.string.transaction_detail_label_add_action,
-                editLabelRes = R.string.transaction_detail_label_edit_action,
-                contentColor = contentColor,
-                onClick = onEditLabel
-            )
-            onOpenVisualizer?.let { open ->
-                FilledTonalButton(
-                    onClick = open,
-                    contentPadding = ButtonDefaults.ButtonWithIconContentPadding
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.AutoGraph,
-                        contentDescription = stringResource(id = R.string.transaction_detail_visualizer_content_description),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
-                    Text(
-                        text = stringResource(id = R.string.transaction_detail_open_visualizer),
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                LabelChip(
+                    label = label,
+                    addLabelRes = R.string.transaction_detail_label_add_action,
+                    editLabelRes = R.string.transaction_detail_label_edit_action,
+                    onClick = onEditLabel
+                )
+                onOpenVisualizer?.let { open ->
+                    FilledTonalButton(
+                        onClick = open,
+                        contentPadding = ButtonDefaults.ButtonWithIconContentPadding
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AutoGraph,
+                            contentDescription = stringResource(id = R.string.transaction_detail_visualizer_content_description),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                        Text(
+                            text = stringResource(id = R.string.transaction_detail_open_visualizer),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             }
         }
@@ -1265,81 +1408,159 @@ private fun UtxoDetailContent(
                 updating = spendableUpdating,
                 onToggle = onToggleSpendable
             )
-            SectionCard(
-                title = stringResource(id = R.string.utxo_detail_section_overview),
-                contentPadding = PaddingValues(16.dp),
-                contentSpacing = 12.dp
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                DetailRow(
-                    label = stringResource(id = R.string.utxo_detail_outpoint_label),
-                    value = fullOutpoint,
-                    trailing = {
-                        IconButton(onClick = { copyToClipboard(fullOutpoint) }) {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentCopy,
-                                contentDescription = stringResource(id = R.string.utxo_detail_copy_outpoint)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = stringResource(id = R.string.utxo_detail_section_overview),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.utxo_detail_outpoint_label),
+                                value = fullOutpoint,
+                                trailing = {
+                                    IconButton(onClick = { copyToClipboard(fullOutpoint) }) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.ContentCopy,
+                                            contentDescription = stringResource(id = R.string.utxo_detail_copy_outpoint)
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.utxo_detail_status),
+                                value = statusLabel
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.utxo_detail_confirmations),
+                                value = confirmationsLabel
                             )
                         }
                     }
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.utxo_detail_status),
-                    value = statusLabel
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.utxo_detail_confirmations),
-                    value = confirmationsLabel
-                )
+                }
             }
-            SectionCard(
-                title = stringResource(id = R.string.utxo_detail_section_metadata),
-                contentPadding = PaddingValues(16.dp),
-                contentSpacing = 12.dp
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                utxo.address?.let { address ->
-                    DetailRow(
-                        label = stringResource(id = R.string.utxo_detail_address),
-                        value = address,
-                        singleLine = false,
-                        trailing = {
-                            IconButton(onClick = { copyToClipboard(address) }) {
-                                Icon(
-                                    imageVector = Icons.Outlined.ContentCopy,
-                                    contentDescription = stringResource(id = R.string.utxo_detail_copy_address)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = stringResource(id = R.string.utxo_detail_section_metadata),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        utxo.address?.let { address ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                            ) {
+                                DetailRow(
+                                    label = stringResource(id = R.string.utxo_detail_address),
+                                    value = address,
+                                    singleLine = false,
+                                    trailing = {
+                                        IconButton(onClick = { copyToClipboard(address) }) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.ContentCopy,
+                                                contentDescription = stringResource(id = R.string.utxo_detail_copy_address)
+                                            )
+                                        }
+                                    }
                                 )
                             }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                         }
-                    )
-                }
-                addressTypeLabel?.let { label ->
-                    DetailRow(
-                        label = stringResource(id = R.string.utxo_detail_keychain),
-                        value = label
-                    )
-                }
-                utxo.derivationPath?.let { path ->
-                    DetailRow(
-                        label = stringResource(id = R.string.utxo_detail_derivation_path),
-                        value = path
-                    )
-                }
-                DetailRow(
-                    label = stringResource(id = R.string.utxo_detail_txid),
-                    value = utxo.txid,
-                    singleLine = false,
-                    trailing = {
-                        IconButton(onClick = { copyToClipboard(utxo.txid) }) {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentCopy,
-                                contentDescription = stringResource(id = R.string.utxo_detail_copy_txid)
+                        addressTypeLabel?.let { label ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                            ) {
+                                DetailRow(
+                                    label = stringResource(id = R.string.utxo_detail_keychain),
+                                    value = label
+                                )
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        }
+                        utxo.derivationPath?.let { path ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                            ) {
+                                DetailRow(
+                                    label = stringResource(id = R.string.utxo_detail_derivation_path),
+                                    value = path
+                                )
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.utxo_detail_txid),
+                                value = utxo.txid,
+                                singleLine = false,
+                                trailing = {
+                                    IconButton(onClick = { copyToClipboard(utxo.txid) }) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.ContentCopy,
+                                            contentDescription = stringResource(id = R.string.utxo_detail_copy_txid)
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            DetailRow(
+                                label = stringResource(id = R.string.utxo_detail_vout),
+                                value = utxo.vout.toString()
                             )
                         }
                     }
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.utxo_detail_vout),
-                    value = utxo.vout.toString()
-                )
+                }
             }
         }
     }
@@ -1414,7 +1635,6 @@ private fun UtxoDetailHeader(
                 label = label,
                 addLabelRes = R.string.utxo_detail_label_add_action,
                 editLabelRes = R.string.utxo_detail_label_edit_action,
-                contentColor = contentColor,
                 onClick = onEditLabel
             )
             if (isInherited) {
@@ -1493,37 +1713,30 @@ private fun LabelChip(
     label: String?,
     @StringRes addLabelRes: Int,
     @StringRes editLabelRes: Int,
-    contentColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val hasLabel = !label.isNullOrBlank()
     val actionLabel = label?.takeIf { hasLabel } ?: stringResource(id = addLabelRes)
     val icon = if (hasLabel) Icons.Outlined.Edit else Icons.Outlined.Add
-    AssistChip(
+    FilledTonalButton(
         onClick = onClick,
-        label = {
-            Text(
-                text = actionLabel,
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        },
-        leadingIcon = {
-            Icon(
-                imageVector = icon,
-                contentDescription = stringResource(id = if (hasLabel) editLabelRes else addLabelRes),
-                modifier = Modifier.size(18.dp)
-            )
-        },
-        colors = AssistChipDefaults.assistChipColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            labelColor = contentColor,
-            leadingIconContentColor = contentColor
-        ),
+        contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
         modifier = modifier
-    )
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = stringResource(id = if (hasLabel) editLabelRes else addLabelRes),
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+        Text(
+            text = actionLabel,
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
 }
 
 @Composable
@@ -1533,38 +1746,31 @@ private fun TransactionHexBlock(
     modifier: Modifier = Modifier
 ) {
     val copyLabel = stringResource(id = R.string.transaction_detail_copy_raw_hex)
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        SelectionContainer {
+            Text(
+                text = hex,
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                softWrap = true
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            SelectionContainer {
-                Text(
-                    text = hex,
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    softWrap = true
+            TextButton(onClick = onCopy) {
+                Icon(
+                    imageVector = Icons.Outlined.ContentCopy,
+                    contentDescription = copyLabel
                 )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(onClick = onCopy) {
-                    Icon(
-                        imageVector = Icons.Outlined.ContentCopy,
-                        contentDescription = copyLabel
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = copyLabel)
-                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = copyLabel)
             }
         }
     }
@@ -1921,14 +2127,6 @@ private fun UtxoHealthSummaryCard(
                 )
             }
         }
-    }
-}
-
-private fun formatTransactionId(txid: String): String {
-    return if (txid.length <= 12) {
-        txid
-    } else {
-        "${txid.take(8)}...${txid.takeLast(4)}"
     }
 }
 

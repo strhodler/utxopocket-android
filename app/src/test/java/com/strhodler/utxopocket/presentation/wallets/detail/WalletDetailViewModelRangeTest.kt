@@ -170,12 +170,20 @@ class WalletDetailViewModelRangeTest {
 
         override fun pageWalletTransactions(
             id: Long,
-            sort: WalletTransactionSort
+            sort: WalletTransactionSort,
+            showLabeled: Boolean,
+            showUnlabeled: Boolean,
+            showReceived: Boolean,
+            showSent: Boolean
         ): Flow<PagingData<WalletTransaction>> = flowOf(PagingData.empty())
 
         override fun pageWalletUtxos(
             id: Long,
-            sort: WalletUtxoSort
+            sort: WalletUtxoSort,
+            showLabeled: Boolean,
+            showUnlabeled: Boolean,
+            showSpendable: Boolean,
+            showNotSpendable: Boolean
         ): Flow<PagingData<WalletUtxo>> = flowOf(PagingData.empty())
 
         override fun observeTransactionCount(id: Long): Flow<Int> = MutableStateFlow(detail.transactions.size)
