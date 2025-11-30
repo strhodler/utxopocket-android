@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
@@ -319,7 +320,7 @@ private fun TorActionButtons(
     ) {
         when (torStatus) {
             is TorStatus.Running -> {
-                TextButton(
+                FilledTonalButton(
                     onClick = onRenewIdentity,
                     enabled = !actionsState.isRenewing,
                     modifier = Modifier
@@ -336,14 +337,13 @@ private fun TorActionButtons(
                         Icon(
                             imageVector = Icons.Outlined.Refresh,
                             contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.primary
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                     Text(
                         text = stringResource(id = R.string.settings_tor_renew_identity),
                         style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(start = TorCtaIconSpacing)
+                    modifier = Modifier.padding(start = TorCtaIconSpacing)
                     )
                 }
             }

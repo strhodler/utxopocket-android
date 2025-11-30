@@ -823,7 +823,7 @@ data class TransactionLabelFilter(
     private val hasDirectionSelection: Boolean get() = showReceived || showSent
 
     val showsAll: Boolean get() = showLabeled && showUnlabeled && showReceived && showSent
-    val showsNone: Boolean get() = !hasLabelSelection || !hasDirectionSelection
+    val showsNone: Boolean get() = !hasDirectionSelection
 
     fun matches(transaction: WalletTransaction): Boolean {
         if (showsNone) return false

@@ -4,10 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
@@ -15,17 +17,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.ArrowDropUp
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
@@ -258,15 +263,23 @@ private fun AvailableNodesSection(
 ) {
     val publicTypeLabel = stringResource(id = R.string.node_item_type_public)
     val customTypeLabel = stringResource(id = R.string.node_item_type_custom)
-    val noTorLabel = stringResource(id = R.string.node_item_type_no_tor)
-    val torLabel = stringResource(id = R.string.status_tor)
+    val publicBadge = NodeTypeBadge(
+        label = publicTypeLabel,
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+    )
+    val customBadge = NodeTypeBadge(
+        label = customTypeLabel,
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+    )
     val nodes = buildList {
         publicNodes.forEach { node ->
             add(
                 AvailableNodeItem(
                     title = node.displayName,
                     subtitle = sanitizeEndpoint(node.endpoint),
-                    typeLabels = listOf(publicTypeLabel, torLabel),
+                    typeBadge = publicBadge,
                     selected = activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
                     connected = (isNodeConnected || isNodeActivating) &&
                         activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
@@ -277,19 +290,11 @@ private fun AvailableNodesSection(
             )
         }
         customNodes.forEach { node ->
-            val labels = buildList {
-                add(customTypeLabel)
-                if (node.routeThroughTor) {
-                    add(torLabel)
-                } else {
-                    add(noTorLabel)
-                }
-            }
             add(
                 AvailableNodeItem(
                     title = node.displayLabel(),
                     subtitle = sanitizeEndpoint(node.endpointLabel()),
-                    typeLabels = labels,
+                    typeBadge = customBadge,
                     selected = activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
                     connected = (isNodeConnected || isNodeActivating) &&
                         activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
@@ -324,7 +329,7 @@ private fun AvailableNodesSection(
                     NodeListItem(
                         title = item.title,
                         subtitle = item.subtitle,
-                        typeLabels = item.typeLabels,
+                        typeBadge = item.typeBadge,
                         selected = item.selected,
                         connected = item.connected,
                         onActivate = item.onActivate,
@@ -339,7 +344,7 @@ private fun AvailableNodesSection(
             }
         }
 
-        TextButton(
+        FilledTonalButton(
             onClick = {
                 if (interactionsLocked) {
                     onInteractionBlocked()
@@ -350,9 +355,13 @@ private fun AvailableNodesSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = AddCustomNodeButtonMinHeight),
-            contentPadding = AddCustomNodeButtonContentPadding
+            contentPadding = AddCustomNodeButtonContentPadding,
+            colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            )
         ) {
-            Icon(imageVector = Icons.Outlined.Add, contentDescription = null)
+            Icon(imageVector = Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = stringResource(
@@ -377,7 +386,7 @@ private fun AvailableNodesSection(
 private fun NodeListItem(
     title: String,
     subtitle: String?,
-    typeLabels: List<String> = emptyList(),
+    typeBadge: NodeTypeBadge,
     selected: Boolean,
     connected: Boolean,
     onActivate: () -> Unit,
@@ -390,34 +399,20 @@ private fun NodeListItem(
     onInteractionBlocked: () -> Unit = {}
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        val supportingContent: (@Composable (() -> Unit))? =
-            if (subtitle != null || typeLabels.isNotEmpty()) {
-                {
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        subtitle?.let {
-                            Text(
-                                text = it,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        val typeLabelText = typeLabels.filter { it.isNotBlank() }.joinToString(" | ")
-                        if (typeLabelText.isNotBlank()) {
-                            Text(
-                                text = typeLabelText,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
+        val supportingContent: (@Composable (() -> Unit))? = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                subtitle?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
-            } else {
-                null
+                TypeBadge(badge = typeBadge)
             }
+        }
         ListItem(
             headlineContent = {
                 Text(
@@ -473,15 +468,41 @@ private fun NodeListItem(
     }
 }
 
+@Composable
+private fun TypeBadge(
+    badge: NodeTypeBadge,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        color = badge.containerColor,
+        contentColor = badge.contentColor,
+        shape = RoundedCornerShape(999.dp)
+    ) {
+        Text(
+            text = badge.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = badge.contentColor,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+    }
+}
+
 data class AvailableNodeItem(
     val title: String,
     val subtitle: String,
-    val typeLabels: List<String>,
+    val typeBadge: NodeTypeBadge,
     val selected: Boolean,
     val connected: Boolean,
     val onActivate: () -> Unit,
     val onDetailsClick: () -> Unit,
     val onDeactivate: (() -> Unit)? = null
+)
+
+data class NodeTypeBadge(
+    val label: String,
+    val containerColor: Color,
+    val contentColor: Color
 )
 
 @Composable

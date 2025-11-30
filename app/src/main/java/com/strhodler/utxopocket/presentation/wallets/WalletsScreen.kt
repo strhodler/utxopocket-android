@@ -405,11 +405,12 @@ private fun WalletsList(
                 )
             }
             item(key = "wallets-add-descriptor") {
+                Spacer(modifier = Modifier.height(AddDescriptorTopSpacing))
                 AddDescriptorCtaButton(
                     enabled = canAddWallet,
                     onClick = onAddWallet
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(AddDescriptorBottomSpacing))
                 if (!canAddWallet) {
                     Text(
                         text = stringResource(id = R.string.wallets_add_wallet_disabled_hint),
@@ -440,6 +441,8 @@ private object BalanceHeaderMetrics {
 
 private val AddDescriptorCtaMinHeight = 64.dp
 private val AddDescriptorCtaContentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+private val AddDescriptorTopSpacing = 24.dp
+private val AddDescriptorBottomSpacing = 24.dp
 
 @Composable
 private fun AddDescriptorCtaButton(
@@ -574,7 +577,7 @@ private fun WalletCard(
                     unit = balanceUnit,
                     hidden = balancesHidden,
                     style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Medium,
                         color = contentColor
                     ),
                     monospaced = true,

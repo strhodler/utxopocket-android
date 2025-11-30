@@ -1394,14 +1394,14 @@ private fun UtxoDetailHeader(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
-            RollingBalanceText(
-                balanceSats = valueSats,
-                unit = unit,
-                hidden = balancesHidden,
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = contentColor
-                ),
+        RollingBalanceText(
+            balanceSats = valueSats,
+            unit = unit,
+            hidden = balancesHidden,
+            style = MaterialTheme.typography.headlineLarge.copy(
+                fontWeight = FontWeight.Medium,
+                color = contentColor
+            ),
                 monospaced = true,
                 autoScale = true,
                 modifier = Modifier.clickable(

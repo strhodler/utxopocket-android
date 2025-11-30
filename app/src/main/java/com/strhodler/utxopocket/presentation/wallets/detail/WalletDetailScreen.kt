@@ -429,6 +429,7 @@ private fun WalletDetailContent(
                         transactionsCount = state.transactionsCount,
                         utxosCount = state.utxosCount,
                         pagerState = pagerState,
+                        palette = walletTheme,
                         modifier = Modifier
                             .padding(top = tabsTopPadding)
                     )
@@ -480,6 +481,7 @@ private fun WalletDetailContent(
                                         TransactionFilterRow(
                                             filter = state.transactionLabelFilter,
                                             counts = state.transactionFilterCounts,
+                                            visibleCount = transactions.itemCount,
                                             onFilterChange = onTransactionLabelFilterChange,
                                             modifier = Modifier.weight(1f)
                                         )
@@ -564,6 +566,7 @@ private fun WalletDetailContent(
                                         FilterRow(
                                             filter = state.utxoLabelFilter,
                                             counts = state.utxoFilterCounts,
+                                            visibleCount = utxos.itemCount,
                                             onFilterChange = onUtxoLabelFilterChange,
                                             modifier = Modifier.weight(1f)
                                         )
@@ -826,6 +829,10 @@ private fun WalletDetailHeader(
         verticalArrangement = Arrangement.spacedBy(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        WalletSummaryChip(
+            text = walletDescriptorTypeLabel(summary.descriptorType),
+            contentColor = primaryContentColor
+        )
         infoText?.let { info ->
             Text(
                 text = info,
@@ -840,7 +847,7 @@ private fun WalletDetailHeader(
             unit = balanceUnit,
             hidden = balancesHidden,
             style = MaterialTheme.typography.headlineLarge.copy(
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Medium,
                 color = primaryContentColor
             ),
             monospaced = true,
@@ -850,10 +857,6 @@ private fun WalletDetailHeader(
                 indication = null,
                 onClick = onCycleBalanceDisplay
             )
-        )
-        WalletSummaryChip(
-            text = walletDescriptorTypeLabel(summary.descriptorType),
-            contentColor = primaryContentColor
         )
         val hasChartData = balancePoints.isNotEmpty()
         val refreshLabel = stringResource(id = R.string.wallet_detail_pull_to_refresh_hint)
@@ -1621,10 +1624,11 @@ private fun WalletTabs(
     transactionsCount: Int,
     utxosCount: Int,
     pagerState: PagerState,
+    palette: WalletColorTheme,
     modifier: Modifier = Modifier
 ) {
     val tabs = remember { WalletDetailTab.entries.toTypedArray() }
-    val indicatorColor = MaterialTheme.colorScheme.onSurface
+    val indicatorColor = palette.primary
     val selectedTextColor = MaterialTheme.colorScheme.onSurface
     val unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     ScrollableTabRow(
@@ -1805,6 +1809,7 @@ private fun WalletUtxoSort.labelRes(): Int = when (this) {
 private fun TransactionFilterRow(
     filter: TransactionLabelFilter,
     counts: TransactionFilterCounts,
+    visibleCount: Int,
     onFilterChange: (TransactionLabelFilter) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1812,17 +1817,23 @@ private fun TransactionFilterRow(
     val withCount: (String, Int) -> String = remember {
         { label, count -> "$label ($count)" }
     }
-    val summaryText = when {
-        filter.showsNone -> stringResource(id = R.string.wallet_detail_transactions_filter_summary_none)
-        filter.showsAll -> stringResource(id = R.string.wallet_detail_transactions_filter_summary_all)
-        else -> buildList {
-            if (filter.showLabeled) add(stringResource(id = R.string.wallet_detail_transactions_filter_labeled))
-            if (filter.showUnlabeled) add(stringResource(id = R.string.wallet_detail_transactions_filter_unlabeled))
-            if (filter.showReceived) add(stringResource(id = R.string.wallet_detail_transactions_filter_received))
-            if (filter.showSent) add(stringResource(id = R.string.wallet_detail_transactions_filter_sent))
-        }.joinToString(" • ").ifBlank {
-            stringResource(id = R.string.wallet_detail_transactions_filter_summary_none)
-        }
+    val summaryText = if (filter.showsAll) {
+        stringResource(
+            id = R.string.wallet_detail_filters_all_with_items,
+            visibleCount
+        )
+    } else {
+        val selectedCount = listOf(
+            filter.showLabeled,
+            filter.showUnlabeled,
+            filter.showReceived,
+            filter.showSent
+        ).count { it }
+        stringResource(
+            id = R.string.wallet_detail_filters_count_with_items,
+            selectedCount,
+            visibleCount
+        )
     }
     Card(
         onClick = { menuExpanded = true },
@@ -1940,6 +1951,7 @@ private fun TransactionFilterRow(
 private fun FilterRow(
     filter: UtxoLabelFilter,
     counts: UtxoFilterCounts,
+    visibleCount: Int,
     onFilterChange: (UtxoLabelFilter) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1959,12 +1971,20 @@ private fun FilterRow(
         filter.showNotSpendable -> stringResource(id = R.string.wallet_detail_utxos_filter_unspendable)
         else -> null
     }
-    val summaryText = when {
-        filter.showsNone -> stringResource(id = R.string.wallet_detail_utxos_filter_summary_none)
-        filter.showsAll -> stringResource(id = R.string.wallet_detail_utxos_filter_summary_all)
-        labelSummary == null -> spendableSummary ?: stringResource(id = R.string.wallet_detail_utxos_filter_summary_none)
-        spendableSummary == null -> labelSummary
-        else -> listOf(labelSummary, spendableSummary).joinToString(" • ")
+    val summaryText = if (filter.showsAll) {
+        stringResource(id = R.string.wallet_detail_filters_all_with_items, visibleCount)
+    } else {
+        val selectedCount = listOf(
+            filter.showLabeled,
+            filter.showUnlabeled,
+            filter.showSpendable,
+            filter.showNotSpendable
+        ).count { it }
+        stringResource(
+            id = R.string.wallet_detail_filters_count_with_items,
+            selectedCount,
+            visibleCount
+        )
     }
     Card(
         onClick = { menuExpanded = true },
@@ -2206,8 +2226,8 @@ private fun TransactionDetailedCard(
         TransactionType.SENT -> Icons.Outlined.ArrowUpward
     }
     val iconTint = when (transaction.type) {
-        TransactionType.RECEIVED -> MaterialTheme.colorScheme.primary
-        TransactionType.SENT -> MaterialTheme.colorScheme.tertiary
+        TransactionType.RECEIVED -> palette.success
+        TransactionType.SENT -> MaterialTheme.colorScheme.error
     }
     val amountText = transactionAmount(
         transaction.amountSats,

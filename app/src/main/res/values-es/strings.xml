@@ -160,6 +160,9 @@
     <string name="wallet_detail_utxos_filter_expand_content_description">Mostrar opciones de filtro</string>
     <string name="wallet_detail_utxos_filter_labeled">Etiquetados</string>
     <string name="wallet_detail_utxos_filter_unlabeled">Sin etiqueta</string>
+    <string name="wallet_detail_filters_count">%1$d filtros</string>
+    <string name="wallet_detail_filters_all_with_items">Todos (%1$d elementos)</string>
+    <string name="wallet_detail_filters_count_with_items">%1$d filtros (%2$d elementos)</string>
     <string name="wallet_detail_utxos_filter_spendable">Gastables</string>
     <string name="wallet_detail_utxos_filter_unspendable">No gastables</string>
     <string name="wallet_detail_utxos_filter_summary_all">Todos los UTXOs</string>
@@ -566,8 +569,8 @@
     <string name="node_section_available_title">Nodos disponibles</string>
     <string name="node_section_available_description">Alterna entre los nodos preconfigurados y los tuyos para esta red.</string>
     <string name="node_section_available_empty">Añade tu primer nodo para empezar.</string>
-    <string name="node_item_type_public">Nodo público</string>
-    <string name="node_item_type_custom">Nodo personalizado</string>
+    <string name="node_item_type_public">Público</string>
+    <string name="node_item_type_custom">Personalizado</string>
     <string name="node_item_type_no_tor">Sin Tor</string>
     <string name="node_reconnect_waiting_for_tor">Esperando a que Tor termine de conectarse…</string>
     <string name="node_reconnect_network_required">Conecta Wi‑Fi o datos móviles antes de reconectar.</string>
@@ -769,7 +772,7 @@
     <string name="wallet_detail_rename_error_generic">No se pudo renombrar la billetera</string>
     <string name="wallet_detail_force_rescan_started">Reescaneo completo iniciado con gap %1$d.</string>
     <string name="wallet_detail_force_rescan_failed">No se pudo iniciar el reescaneo completo. Inténtalo de nuevo.</string>
-    <string name="wallet_detail_pull_to_refresh_hint">Toca o desliza para actualizar</string>
+    <string name="wallet_detail_pull_to_refresh_hint">Sincronizar</string>
     <string name="wallet_detail_show_chart">Ver gráfico</string>
     <string name="wallet_detail_hide_chart">Ocultar gráfico</string>
     <string name="settings_pin_shuffle_title">Aleatorizar teclado PIN</string>
