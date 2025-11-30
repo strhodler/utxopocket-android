@@ -796,6 +796,7 @@
     <string name="settings_theme_profile_protanopia">Protanopia-safe</string>
     <string name="settings_theme_profile_tritanopia">Tritanopia-safe</string>
     <string name="splash_subtitle">Watch-only. Private. Ready.</string>
+    <string name="splash_tagline">Watch-only wallet intelligence</string>
     <string name="onboarding_title">Welcome to UtxoPocket</string>
     <string name="onboarding_subtitle">Mirror your hardware wallets, monitor health scores, and stay behind Tor without exposing a single private key.</string>
     <string name="onboarding_get_started">Get started</string>
@@ -865,7 +866,7 @@
     <string name="tor_status_bootstrap_progress">Bootstrap progress: %1$d%%</string>
     <string name="tor_status_proxy_endpoint">Proxy: %1$s:%2$d</string>
     <string name="settings_node_selection_feedback">Switching connection to %1$s</string>
-    <string name="node_overview_title">Node control center</string>
+    <string name="node_overview_title">Connections &amp; network</string>
     <string name="node_overview_details_empty">This node does not expose connection details.</string>
     <string name="node_overview_fee_rate_title">Suggested fee rate</string>
     <string name="node_overview_fee_rate_hint">Latest sats/vB estimate reported by your node.</string>

@@ -2546,10 +2546,10 @@ private fun confirmationLabel(confirmations: Int): String = when {
 @Composable
 private fun healthTextColor(score: Int, palette: WalletColorTheme): Color {
     val scheme = MaterialTheme.colorScheme
-    return when {
-        score >= 85 -> palette.onSuccess
-        score >= 60 -> palette.onWarning
-        else -> scheme.error
+    return if (score >= 60) {
+        palette.success
+    } else {
+        scheme.error
     }
 }
 

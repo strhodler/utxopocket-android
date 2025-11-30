@@ -104,7 +104,7 @@ private fun AboutDeveloperContent(
     onLinkCopied: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val avatarPainter = painterResource(id = R.drawable.strhodler)
+    val avatarPainter = painterResource(id = R.drawable.logo_text_primary)
     val lightningUri = remember(lightningAddress) { lightningAddress }
     val qrBitmap = remember(lightningUri) { generateQrBitmap(lightningUri, size = 512) }
     val copyMessage = stringResource(id = R.string.about_sheet_copy_toast)

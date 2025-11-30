@@ -20,11 +20,14 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
@@ -42,7 +45,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,7 +59,6 @@ import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
-import com.strhodler.utxopocket.presentation.components.TopBarNodeStatusIcon
 import com.strhodler.utxopocket.presentation.tor.TorStatusActionUiState
 import java.text.DateFormat
 import java.util.Date
@@ -290,7 +291,8 @@ private fun NodeHeroHeader(
         }
     }
     val endpointLabel = when {
-        !status.nodeEndpoint.isNullOrBlank() -> formatEndpoint(status.nodeEndpoint)
+        status.nodeStatus == NodeStatus.Synced && !status.nodeEndpoint.isNullOrBlank() ->
+            formatEndpoint(status.nodeEndpoint)
         !selectedEndpoint.isNullOrBlank() -> formatEndpoint(selectedEndpoint)
         status.nodeStatus == NodeStatus.Idle -> stringResource(id = R.string.node_not_connected_label)
         else -> stringResource(id = R.string.node_reconnect_select_node)
@@ -323,6 +325,24 @@ private fun NodeHeroHeader(
         is NodeStatus.Error -> colorScheme.onErrorContainer
         else -> colorScheme.onSurfaceVariant
     }
+    val statusBadgeLeading: (@Composable () -> Unit)? = when (status.nodeStatus) {
+        NodeStatus.Connecting -> {
+            {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = statusChipContent
+                )
+            }
+        }
+        NodeStatus.Synced -> {
+            { Icon(imageVector = Icons.Filled.Check, contentDescription = null, tint = statusChipContent, modifier = Modifier.size(16.dp)) }
+        }
+        is NodeStatus.Error -> {
+            { Icon(imageVector = Icons.Filled.ErrorOutline, contentDescription = null, tint = statusChipContent, modifier = Modifier.size(16.dp)) }
+        }
+        else -> null
+    }
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -340,9 +360,6 @@ private fun NodeHeroHeader(
         ) {
             val nodeTitle = nodeTitleOverride?.takeIf { it.isNotBlank() }
                 ?: stringResource(id = R.string.status_node)
-            CompositionLocalProvider(LocalContentColor provides primaryContentColor) {
-                TopBarNodeStatusIcon(status.nodeStatus)
-            }
             Column(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -365,7 +382,8 @@ private fun NodeHeroHeader(
             StatusBadge(
                 label = headlineMessage,
                 containerColor = statusChipContainer,
-                contentColor = statusChipContent
+                contentColor = statusChipContent,
+                leadingContent = statusBadgeLeading
             )
 
             Column(
@@ -424,7 +442,7 @@ private fun StatusBadge(
     label: String,
     containerColor: Color,
     contentColor: Color,
-    leadingIcon: ImageVector? = null
+    leadingContent: (@Composable () -> Unit)? = null
 ) {
     Card(
         shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
@@ -439,13 +457,8 @@ private fun StatusBadge(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (leadingIcon != null) {
-                Icon(
-                    imageVector = leadingIcon,
-                    contentDescription = null,
-                    tint = contentColor,
-                    modifier = Modifier.size(16.dp)
-                )
+            if (leadingContent != null) {
+                leadingContent()
             }
             Text(
                 text = label,

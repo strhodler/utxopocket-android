@@ -30,6 +30,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -407,8 +409,8 @@ private fun WalletsList(
                     enabled = canAddWallet,
                     onClick = onAddWallet
                 )
+                Spacer(modifier = Modifier.height(8.dp))
                 if (!canAddWallet) {
-                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = stringResource(id = R.string.wallets_add_wallet_disabled_hint),
                         style = MaterialTheme.typography.bodySmall,
@@ -417,7 +419,6 @@ private fun WalletsList(
                         textAlign = TextAlign.Center
                     )
                 } else if (showPendingSyncHint) {
-                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = stringResource(id = R.string.wallets_add_wallet_pending_sync_hint),
                         style = MaterialTheme.typography.bodySmall,
@@ -446,14 +447,22 @@ private fun AddDescriptorCtaButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier.fillMaxWidth()
 ) {
-    TextButton(
+    FilledTonalButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.heightIn(min = AddDescriptorCtaMinHeight),
-        contentPadding = AddDescriptorCtaContentPadding
+        contentPadding = AddDescriptorCtaContentPadding,
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        )
     ) {
-        Icon(imageVector = Icons.Outlined.Add, contentDescription = null)
-        Spacer(modifier = Modifier.width(12.dp))
+        Icon(
+            imageVector = Icons.Outlined.Add,
+            contentDescription = null,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
         Text(
             text = stringResource(id = R.string.wallets_add_wallet_action),
             style = MaterialTheme.typography.titleMedium
@@ -514,24 +523,36 @@ private fun WalletCard(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.weight(1f)
                 ) {
                     Row(
-                        horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = wallet.name,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = contentColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            WalletColorBadge(
+                                color = accentColor,
+                                contentColor = theme.onPrimary
+                            )
+                            Text(
+                                text = wallet.name,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = contentColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                         WalletInfoChip(
                             text = walletDescriptorTypeLabel(wallet.descriptorType),
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -747,6 +768,22 @@ private fun walletDescriptorTypeLabel(type: DescriptorType): String = when (type
     DescriptorType.RAW -> stringResource(id = R.string.wallet_detail_descriptor_type_raw)
     DescriptorType.ADDRESS -> stringResource(id = R.string.wallet_detail_descriptor_type_address)
     DescriptorType.OTHER -> stringResource(id = R.string.wallet_detail_descriptor_type_other)
+}
+
+@Composable
+private fun WalletColorBadge(
+    color: Color,
+    contentColor: Color
+) {
+    Surface(
+        color = color,
+        contentColor = contentColor,
+        shape = RoundedCornerShape(999.dp),
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Spacer(modifier = Modifier.size(14.dp))
+    }
 }
 
 @Composable

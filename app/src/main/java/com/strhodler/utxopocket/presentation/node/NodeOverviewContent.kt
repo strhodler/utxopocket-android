@@ -3,18 +3,25 @@ package com.strhodler.utxopocket.presentation.node
 import android.content.res.Resources
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -29,12 +36,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.presentation.StatusBarUiState
+import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.tor.TorStatusActionUiState
 import java.text.NumberFormat
 import java.util.Locale
@@ -106,76 +115,166 @@ fun NodeTorStatusSection(
     onRenewIdentity: () -> Unit,
     onStartTor: () -> Unit,
     modifier: Modifier = Modifier
-) {
+    ) {
     val resources = LocalContext.current.resources
-    val torDetails = remember(status.torStatus, status.torLog) {
-        buildTorDetails(
-            resources = resources,
-            torStatus = status.torStatus,
-            torLog = status.torLog
-        )
+    val latestLog = remember(status.torLog) { latestTorLogEntry(status.torLog) }
+    val proxyValue = remember(status.torStatus) {
+        (status.torStatus as? TorStatus.Running)?.let {
+            resources.getString(R.string.tor_overview_proxy_value, it.proxy.host, it.proxy.port)
+        } ?: resources.getString(R.string.tor_overview_proxy_unavailable)
     }
-    val statusMessage = torStatusMessage(status.torStatus)
+    val bootstrapValue = remember(status.torStatus) {
+        when (status.torStatus) {
+            is TorStatus.Connecting -> resources.getString(
+                R.string.tor_overview_bootstrap_percent_value,
+                status.torStatus.progress.coerceIn(0, 100)
+            )
+            is TorStatus.Running -> resources.getString(R.string.tor_overview_bootstrap_complete)
+            else -> resources.getString(R.string.tor_overview_bootstrap_pending)
+        }
+    }
+    val bootstrapSupporting = (status.torStatus as? TorStatus.Connecting)?.message?.takeIf { it.isNotBlank() }
     val requirementMessage = if (status.torRequired) {
         stringResource(id = R.string.node_overview_tor_required)
     } else {
         stringResource(id = R.string.node_overview_tor_optional)
     }
     val showDetails = status.torRequired || status.torStatus !is TorStatus.Stopped
+    val connectingStatus = status.torStatus as? TorStatus.Connecting
 
-    Surface(
+    Column(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 1.dp
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            overlineContent = {
+                Text(
+                    text = requirementMessage,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            headlineContent = {
                 Text(
                     text = stringResource(id = R.string.tor_overview_title),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold
                 )
-                TorRequirementBadge(required = status.torRequired)
+            },
+            trailingContent = {
+                TorStatusPill(status = status.torStatus)
             }
-            Text(
-                text = statusMessage,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = requirementMessage,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            if (showDetails) {
-                torDetails.forEach { detail ->
-                    TorDetailCard(detail = detail)
-                }
-            }
-            NodeTorActionRow(
-                torStatus = status.torStatus,
-                actionsState = actionsState,
-                onRenewIdentity = onRenewIdentity,
-                onStartTor = onStartTor
-            )
-            actionsState.errorMessageRes?.let { errorRes ->
-                Spacer(modifier = Modifier.height(4.dp))
+        )
+        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            overlineContent = {
                 Text(
-                    text = stringResource(id = errorRes),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
+                    text = stringResource(id = R.string.tor_overview_proxy_label),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            headlineContent = {
+                Text(
+                    text = proxyValue,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
+        )
+        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            overlineContent = {
+                Text(
+                    text = stringResource(id = R.string.tor_overview_bootstrap_label),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            headlineContent = {
+                Text(
+                    text = bootstrapValue,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            },
+            supportingContent = bootstrapSupporting?.let {
+                {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            trailingContent = (status.torStatus as? TorStatus.Connecting)?.let { connecting ->
+                {
+                    LinearProgressIndicator(
+                        progress = (connecting.progress.coerceIn(0, 100) / 100f),
+                        modifier = Modifier.widthIn(min = 96.dp),
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                }
+            }
+        )
+        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            overlineContent = {
+                Text(
+                    text = stringResource(id = R.string.tor_overview_latest_event_label),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            headlineContent = {
+                Text(
+                    text = latestLog ?: stringResource(id = R.string.tor_overview_latest_event_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        )
+
+        connectingStatus?.let { connecting ->
+            connecting.message?.takeIf { it.isNotBlank() }?.let { message ->
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        if (status.torRequired && status.torStatus !is TorStatus.Running) {
+            ActionableStatusBanner(
+                title = stringResource(id = R.string.node_overview_tor_required),
+                supporting = stringResource(id = R.string.tor_connect_action),
+                icon = Icons.Outlined.Info,
+                onClick = if (actionsState.isStarting) null else onStartTor,
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer
+            )
+        }
+
+        TorActionButtons(
+            torStatus = status.torStatus,
+            actionsState = actionsState,
+            onRenewIdentity = onRenewIdentity,
+            onStartTor = onStartTor
+        )
+        actionsState.errorMessageRes?.let { errorRes ->
+            Text(
+                text = stringResource(id = errorRes),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
         }
     }
 }
@@ -206,23 +305,27 @@ private fun TorRequirementBadge(
 }
 
 @Composable
-private fun NodeTorActionRow(
+private fun TorActionButtons(
     torStatus: TorStatus,
     actionsState: TorStatusActionUiState,
     onRenewIdentity: () -> Unit,
     onStartTor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    Column(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         when (torStatus) {
             is TorStatus.Running -> {
                 TextButton(
                     onClick = onRenewIdentity,
-                    enabled = !actionsState.isRenewing
+                    enabled = !actionsState.isRenewing,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = TorCtaMinHeight),
+                    contentPadding = TorCtaContentPadding
                 ) {
                     if (actionsState.isRenewing) {
                         CircularProgressIndicator(
@@ -230,28 +333,47 @@ private fun NodeTorActionRow(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Text(text = stringResource(id = R.string.settings_tor_renew_identity))
+                        Icon(
+                            imageVector = Icons.Outlined.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
+                    Text(
+                        text = stringResource(id = R.string.settings_tor_renew_identity),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(start = TorCtaIconSpacing)
+                    )
                 }
             }
 
             is TorStatus.Connecting -> {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp
-                )
-                Text(
-                    text = stringResource(id = R.string.wallets_state_connecting),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Text(
+                        text = stringResource(id = R.string.wallets_state_connecting),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
 
             is TorStatus.Error,
             TorStatus.Stopped -> {
                 TextButton(
                     onClick = onStartTor,
-                    enabled = !actionsState.isStarting
+                    enabled = !actionsState.isStarting,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = TorCtaMinHeight),
+                    contentPadding = TorCtaContentPadding
                 ) {
                     if (actionsState.isStarting) {
                         CircularProgressIndicator(
@@ -259,8 +381,18 @@ private fun NodeTorActionRow(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Text(text = stringResource(id = R.string.tor_connect_action))
+                        Icon(
+                            imageVector = Icons.Outlined.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
+                    Text(
+                        text = stringResource(id = R.string.tor_connect_action),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(start = TorCtaIconSpacing)
+                    )
                 }
             }
         }
@@ -268,46 +400,85 @@ private fun NodeTorActionRow(
 }
 
 @Composable
-private fun TorDetailCard(
-    detail: TorDetail,
+private fun TorStatusPill(
+    status: TorStatus,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = detail.label,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = detail.value,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = if (detail.isError) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                }
-            )
-            detail.supportingText?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+    val colorScheme = MaterialTheme.colorScheme
+    val successContainer = Color(0xFF2ECC71)
+    val label: String
+    val containerColor: Color
+    val contentColor: Color
+    val leadingContent: (@Composable () -> Unit)?
+    when (status) {
+        is TorStatus.Running -> {
+            label = stringResource(id = R.string.tor_status_running)
+            containerColor = successContainer
+            contentColor = Color.White
+            leadingContent = {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = contentColor
                 )
             }
+        }
+
+        is TorStatus.Connecting -> {
+            label = status.message?.takeIf { it.isNotBlank() }
+                ?: stringResource(id = R.string.tor_status_connecting)
+            containerColor = colorScheme.surfaceVariant
+            contentColor = colorScheme.onSurfaceVariant
+            leadingContent = {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = contentColor
+                )
+            }
+        }
+
+        is TorStatus.Error -> {
+            label = status.message.ifBlank { stringResource(id = R.string.wallets_state_error) }
+            containerColor = colorScheme.errorContainer
+            contentColor = colorScheme.onErrorContainer
+            leadingContent = {
+                Icon(
+                    imageVector = Icons.Filled.ErrorOutline,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = contentColor
+                )
+            }
+        }
+
+        TorStatus.Stopped -> {
+            label = stringResource(id = R.string.tor_status_stopped)
+            containerColor = colorScheme.surfaceVariant
+            contentColor = colorScheme.onSurfaceVariant
+            leadingContent = null
+        }
+    }
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(999.dp),
+        color = containerColor,
+        contentColor = contentColor,
+        tonalElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            leadingContent?.invoke()
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = contentColor
+            )
         }
     }
 }
@@ -371,69 +542,6 @@ private fun NodeDetailListItem(
     )
 }
 
-private data class TorDetail(
-    val label: String,
-    val value: String,
-    val supportingText: String? = null,
-    val isError: Boolean = false
-)
-
-private fun buildTorDetails(
-    resources: Resources,
-    torStatus: TorStatus,
-    torLog: String
-): List<TorDetail> {
-    val proxyValue = (torStatus as? TorStatus.Running)?.let {
-        resources.getString(R.string.tor_overview_proxy_value, it.proxy.host, it.proxy.port)
-    } ?: resources.getString(R.string.tor_overview_proxy_unavailable)
-    val bootstrapValue = when (torStatus) {
-        is TorStatus.Connecting -> resources.getString(
-            R.string.tor_overview_bootstrap_percent_value,
-            torStatus.progress.coerceIn(0, 100)
-        )
-        is TorStatus.Running -> resources.getString(R.string.tor_overview_bootstrap_complete)
-        else -> resources.getString(R.string.tor_overview_bootstrap_pending)
-    }
-    val bootstrapSupporting = if (torStatus is TorStatus.Connecting) {
-        torStatus.message?.takeIf { it.isNotBlank() }
-    } else {
-        null
-    }
-
-    val details = mutableListOf(
-        TorDetail(
-            label = resources.getString(R.string.tor_overview_proxy_label),
-            value = proxyValue
-        ),
-        TorDetail(
-            label = resources.getString(R.string.tor_overview_bootstrap_label),
-            value = bootstrapValue,
-            supportingText = bootstrapSupporting
-        )
-    )
-
-    if (torStatus is TorStatus.Connecting) {
-        val latestLog = latestTorLogEntry(torLog)
-        details += TorDetail(
-            label = resources.getString(R.string.tor_overview_latest_event_label),
-            value = latestLog ?: resources.getString(R.string.tor_overview_latest_event_empty)
-        )
-    }
-
-    return details
-}
-
-@Composable
-private fun torStatusMessage(status: TorStatus): String = when (status) {
-    is TorStatus.Running -> stringResource(id = R.string.tor_status_running)
-    is TorStatus.Connecting -> status.message?.takeIf { it.isNotBlank() }
-        ?: stringResource(id = R.string.tor_status_connecting)
-    TorStatus.Stopped -> stringResource(id = R.string.tor_status_stopped)
-    is TorStatus.Error -> status.message.ifBlank {
-        stringResource(id = R.string.wallets_state_error)
-    }
-}
-
 private fun latestTorLogEntry(log: String): String? =
     log.lineSequence()
         .map { it.trim() }
@@ -495,3 +603,7 @@ private fun buildBlockHeightValue(blockHeight: Long, feeRate: Double?): String {
     val feeText = feeRate?.let { String.format(Locale.getDefault(), "%.2f sats/vB", it) }
     return feeText?.let { "$blockText · $it" } ?: blockText
 }
+
+private val TorCtaMinHeight = 64.dp
+private val TorCtaContentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+private val TorCtaIconSpacing = 12.dp

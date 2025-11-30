@@ -140,14 +140,7 @@ class NodeStatusViewModel @Inject constructor(
 
     fun disconnectNode() {
         viewModelScope.launch {
-            if (isSyncActive(_uiState.value.preferredNetwork)) {
-                _events.tryEmit(
-                    NodeStatusEvent.Info(
-                        message = R.string.node_interaction_blocked_sync
-                    )
-                )
-                return@launch
-            }
+            val state = _uiState.value
             nodeConfigurationRepository.updateNodeConfig { current ->
                 current.copy(
                     connectionOption = NodeConnectionOption.PUBLIC,
@@ -155,7 +148,7 @@ class NodeStatusViewModel @Inject constructor(
                     selectedCustomNodeId = null
                 )
             }
-            walletRepository.disconnect(_uiState.value.preferredNetwork)
+            walletRepository.disconnect(state.preferredNetwork)
             disconnectRequested.emit(Unit)
         }
     }
@@ -193,21 +186,15 @@ class NodeStatusViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
-            if (isSyncActive(_uiState.value.preferredNetwork)) {
-                _events.tryEmit(
-                    NodeStatusEvent.Info(
-                        message = R.string.node_interaction_blocked_sync
-                    )
-                )
-                return@launch
-            }
+            val network = _uiState.value.preferredNetwork
+            walletRepository.disconnect(network)
             nodeConfigurationRepository.updateNodeConfig { current ->
                 current.copy(
                     connectionOption = NodeConnectionOption.PUBLIC,
                     selectedPublicNodeId = nodeId
                 )
             }
-            walletRepository.refresh(_uiState.value.preferredNetwork)
+            walletRepository.refresh(network)
         }
     }
 
@@ -224,21 +211,15 @@ class NodeStatusViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
-            if (isSyncActive(_uiState.value.preferredNetwork)) {
-                _events.tryEmit(
-                    NodeStatusEvent.Info(
-                        message = R.string.node_interaction_blocked_sync
-                    )
-                )
-                return@launch
-            }
+            val network = _uiState.value.preferredNetwork
+            walletRepository.disconnect(network)
             nodeConfigurationRepository.updateNodeConfig { current ->
                 current.copy(
                     connectionOption = NodeConnectionOption.CUSTOM,
                     selectedCustomNodeId = nodeId
                 )
             }
-            walletRepository.refresh(_uiState.value.preferredNetwork)
+            walletRepository.refresh(network)
         }
     }
 

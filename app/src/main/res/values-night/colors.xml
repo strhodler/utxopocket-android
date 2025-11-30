@@ -3,5 +3,5 @@
     <!-- Dark-mode overrides for splash screen -->
     <color name="splash_background">#0D1117</color>
     <color name="splash_icon_background">#1F2937</color>
-    <color name="splash_icon_primary">#E5E7EB</color>
+    <color name="splash_icon_primary">#F7931A</color>
 </resources>

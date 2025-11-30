@@ -690,6 +690,8 @@ class DefaultWalletRepository @Inject constructor(
 
     private suspend fun handleDisconnectIntent(network: BitcoinNetwork) = withContext(ioDispatcher) {
         disconnectRequests.add(network)
+        runningSyncJobs[network]?.cancel()
+        runningSyncJobs.remove(network)
         syncQueueMutex.withLock {
             val queue = queueFor(network)
             activeWalletByNetwork[network]?.let { active ->

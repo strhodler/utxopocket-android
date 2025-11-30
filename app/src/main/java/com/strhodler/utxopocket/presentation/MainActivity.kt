@@ -150,44 +150,11 @@ class MainActivity : AppCompatActivity() {
                     val insetsController = WindowCompat.getInsetsController(window, window.decorView)
                     insetsController.isAppearanceLightStatusBars = useDarkIcons
                 }
-                when {
-                    !uiState.isReady -> {
-                        Surface(
-                            modifier = Modifier.fillMaxSize(),
-                            color = MaterialTheme.colorScheme.background
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(32.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_splash_logo),
-                                        contentDescription = null,
-                                        tint = Color.Unspecified,
-                                        modifier = Modifier.size(120.dp)
-                                    )
-                                    Text(
-                                        text = stringResource(id = R.string.app_name),
-                                        style = MaterialTheme.typography.headlineSmall,
-                                        textAlign = TextAlign.Center
-                                    )
-                                    Text(
-                                        text = stringResource(id = R.string.splash_subtitle),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                        }
-                    }
+                if (!uiState.isReady) {
+                    return@UtxoPocketTheme
+                }
 
+                when {
                     !uiState.onboardingCompleted -> {
                         OnboardingRoute(onFinished = { })
                     }
