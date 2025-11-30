@@ -102,6 +102,7 @@
     <string name="wallet_detail_filters_count">%1$d filters</string>
     <string name="wallet_detail_filters_all_with_items">All (%1$d items)</string>
     <string name="wallet_detail_filters_count_with_items">%1$d filters (%2$d items)</string>
+    <string name="wallet_detail_filters_custom">Custom</string>
     <string name="wallet_detail_utxos_filter_spendable">Spendable</string>
     <string name="wallet_detail_utxos_filter_unspendable">Not spendable</string>
     <string name="wallet_detail_utxos_filter_summary_all">All UTXOs</string>
@@ -674,6 +675,13 @@
     <string name="node_network_logs_banner_supporting">Tap to review and copy sanitized entries.</string>
     <string name="wallet_detail_error_banner_title">Error</string>
     <string name="settings_network_logs_waiting">Waiting for logs…</string>
+    <string name="settings_network_logs_filter_label">Filter logs</string>
+    <string name="settings_network_logs_filter_summary">Showing %1$s (%2$d)</string>
+    <string name="settings_network_logs_filter_all">All logs</string>
+    <string name="settings_network_logs_filter_tor">Tor only</string>
+    <string name="settings_network_logs_filter_clearnet">Clearnet only</string>
+    <string name="settings_network_logs_filter_custom_nodes">Custom nodes</string>
+    <string name="settings_network_logs_filter_public_nodes">Public nodes</string>
     <string name="settings_danger_zone_title">Danger zone</string>
     <string name="settings_panic_list_title">Wipe app</string>
     <string name="settings_panic_description">Erase every wallet, transaction, UTXO, and health record stored on this device.</string>

@@ -74,8 +74,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -1817,23 +1817,16 @@ private fun TransactionFilterRow(
     val withCount: (String, Int) -> String = remember {
         { label, count -> "$label ($count)" }
     }
-    val summaryText = if (filter.showsAll) {
-        stringResource(
-            id = R.string.wallet_detail_filters_all_with_items,
-            visibleCount
+    val presets = remember { transactionFilterPresets() }
+    val presetLabelRes = presets.firstOrNull { it.filter == filter }?.labelRes
+    val summaryText = buildString {
+        append(
+            presetLabelRes?.let { stringResource(id = it) }
+                ?: stringResource(id = R.string.wallet_detail_filters_custom)
         )
-    } else {
-        val selectedCount = listOf(
-            filter.showLabeled,
-            filter.showUnlabeled,
-            filter.showReceived,
-            filter.showSent
-        ).count { it }
-        stringResource(
-            id = R.string.wallet_detail_filters_count_with_items,
-            selectedCount,
-            visibleCount
-        )
+        append(" (")
+        append(visibleCount)
+        append(")")
     }
     Card(
         onClick = { menuExpanded = true },
@@ -1866,82 +1859,28 @@ private fun TransactionFilterRow(
                 expanded = menuExpanded,
                 onDismissRequest = { menuExpanded = false }
             ) {
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = withCount(
-                                stringResource(id = R.string.wallet_detail_transactions_filter_labeled),
-                                counts.labeled
+                presets.forEach { preset ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = withCount(
+                                    stringResource(id = preset.labelRes),
+                                    preset.count(counts)
+                                )
                             )
-                        )
-                    },
-                    leadingIcon = {
-                        Checkbox(
-                            checked = filter.showLabeled,
-                            onCheckedChange = null
-                        )
-                    },
-                    onClick = {
-                        onFilterChange(filter.copy(showLabeled = !filter.showLabeled))
-                    }
-                )
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = withCount(
-                                stringResource(id = R.string.wallet_detail_transactions_filter_unlabeled),
-                                counts.unlabeled
+                        },
+                        leadingIcon = {
+                            RadioButton(
+                                selected = preset.filter == filter,
+                                onClick = null
                             )
-                        )
-                    },
-                    leadingIcon = {
-                        Checkbox(
-                            checked = filter.showUnlabeled,
-                            onCheckedChange = null
-                        )
-                    },
-                    onClick = {
-                        onFilterChange(filter.copy(showUnlabeled = !filter.showUnlabeled))
-                    }
-                )
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = withCount(
-                                stringResource(id = R.string.wallet_detail_transactions_filter_received),
-                                counts.received
-                            )
-                        )
-                    },
-                    leadingIcon = {
-                        Checkbox(
-                            checked = filter.showReceived,
-                            onCheckedChange = null
-                        )
-                    },
-                    onClick = {
-                        onFilterChange(filter.copy(showReceived = !filter.showReceived))
-                    }
-                )
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = withCount(
-                                stringResource(id = R.string.wallet_detail_transactions_filter_sent),
-                                counts.sent
-                            )
-                        )
-                    },
-                    leadingIcon = {
-                        Checkbox(
-                            checked = filter.showSent,
-                            onCheckedChange = null
-                        )
-                    },
-                    onClick = {
-                        onFilterChange(filter.copy(showSent = !filter.showSent))
-                    }
-                )
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onFilterChange(preset.filter)
+                        }
+                    )
+                }
             }
         }
     }
@@ -1959,32 +1898,16 @@ private fun FilterRow(
     val withCount: (String, Int) -> String = remember {
         { label, count -> "$label ($count)" }
     }
-    val labelSummary = when {
-        filter.showLabeled && filter.showUnlabeled -> stringResource(id = R.string.wallet_detail_utxos_filter_summary_labels_all)
-        filter.showLabeled -> stringResource(id = R.string.wallet_detail_utxos_filter_labeled)
-        filter.showUnlabeled -> stringResource(id = R.string.wallet_detail_utxos_filter_unlabeled)
-        else -> null
-    }
-    val spendableSummary = when {
-        filter.showSpendable && filter.showNotSpendable -> stringResource(id = R.string.wallet_detail_utxos_filter_summary_spendable_all)
-        filter.showSpendable -> stringResource(id = R.string.wallet_detail_utxos_filter_spendable)
-        filter.showNotSpendable -> stringResource(id = R.string.wallet_detail_utxos_filter_unspendable)
-        else -> null
-    }
-    val summaryText = if (filter.showsAll) {
-        stringResource(id = R.string.wallet_detail_filters_all_with_items, visibleCount)
-    } else {
-        val selectedCount = listOf(
-            filter.showLabeled,
-            filter.showUnlabeled,
-            filter.showSpendable,
-            filter.showNotSpendable
-        ).count { it }
-        stringResource(
-            id = R.string.wallet_detail_filters_count_with_items,
-            selectedCount,
-            visibleCount
+    val presets = remember { utxoFilterPresets() }
+    val presetLabelRes = presets.firstOrNull { it.filter == filter }?.labelRes
+    val summaryText = buildString {
+        append(
+            presetLabelRes?.let { stringResource(id = it) }
+                ?: stringResource(id = R.string.wallet_detail_filters_custom)
         )
+        append(" (")
+        append(visibleCount)
+        append(")")
     }
     Card(
         onClick = { menuExpanded = true },
@@ -2017,82 +1940,28 @@ private fun FilterRow(
                 expanded = menuExpanded,
                 onDismissRequest = { menuExpanded = false }
             ) {
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = withCount(
-                                stringResource(id = R.string.wallet_detail_utxos_filter_labeled),
-                                counts.labeled
+                presets.forEach { preset ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = withCount(
+                                    stringResource(id = preset.labelRes),
+                                    preset.count(counts)
+                                )
                             )
-                        )
-                    },
-                    leadingIcon = {
-                        Checkbox(
-                            checked = filter.showLabeled,
-                            onCheckedChange = null
-                        )
-                    },
-                    onClick = {
-                        onFilterChange(filter.copy(showLabeled = !filter.showLabeled))
-                    }
-                )
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = withCount(
-                                stringResource(id = R.string.wallet_detail_utxos_filter_unlabeled),
-                                counts.unlabeled
+                        },
+                        leadingIcon = {
+                            RadioButton(
+                                selected = preset.filter == filter,
+                                onClick = null
                             )
-                        )
-                    },
-                    leadingIcon = {
-                        Checkbox(
-                            checked = filter.showUnlabeled,
-                            onCheckedChange = null
-                        )
-                    },
-                    onClick = {
-                        onFilterChange(filter.copy(showUnlabeled = !filter.showUnlabeled))
-                    }
-                )
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = withCount(
-                                stringResource(id = R.string.wallet_detail_utxos_filter_spendable),
-                                counts.spendable
-                            )
-                        )
-                    },
-                    leadingIcon = {
-                        Checkbox(
-                            checked = filter.showSpendable,
-                            onCheckedChange = null
-                        )
-                    },
-                    onClick = {
-                        onFilterChange(filter.copy(showSpendable = !filter.showSpendable))
-                    }
-                )
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = withCount(
-                                stringResource(id = R.string.wallet_detail_utxos_filter_unspendable),
-                                counts.notSpendable
-                            )
-                        )
-                    },
-                    leadingIcon = {
-                        Checkbox(
-                            checked = filter.showNotSpendable,
-                            onCheckedChange = null
-                        )
-                    },
-                    onClick = {
-                        onFilterChange(filter.copy(showNotSpendable = !filter.showNotSpendable))
-                    }
-                )
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            onFilterChange(preset.filter)
+                        }
+                    )
+                }
             }
         }
     }
@@ -2184,6 +2053,74 @@ private fun TransactionRow(
         modifier = modifier
     )
 }
+
+private data class TransactionFilterPreset(
+    val filter: TransactionLabelFilter,
+    val labelRes: Int,
+    val count: (TransactionFilterCounts) -> Int
+)
+
+private fun transactionFilterPresets(): List<TransactionFilterPreset> = listOf(
+    TransactionFilterPreset(
+        filter = TransactionLabelFilter(),
+        labelRes = R.string.wallet_detail_transactions_filter_summary_all,
+        count = { it.labeled + it.unlabeled }
+    ),
+    TransactionFilterPreset(
+        filter = TransactionLabelFilter(showSent = false),
+        labelRes = R.string.wallet_detail_transactions_filter_received,
+        count = { it.received }
+    ),
+    TransactionFilterPreset(
+        filter = TransactionLabelFilter(showReceived = false),
+        labelRes = R.string.wallet_detail_transactions_filter_sent,
+        count = { it.sent }
+    ),
+    TransactionFilterPreset(
+        filter = TransactionLabelFilter(showUnlabeled = false),
+        labelRes = R.string.wallet_detail_transactions_filter_summary_labeled,
+        count = { it.labeled }
+    ),
+    TransactionFilterPreset(
+        filter = TransactionLabelFilter(showLabeled = false),
+        labelRes = R.string.wallet_detail_transactions_filter_summary_unlabeled,
+        count = { it.unlabeled }
+    )
+)
+
+private data class UtxoFilterPreset(
+    val filter: UtxoLabelFilter,
+    val labelRes: Int,
+    val count: (UtxoFilterCounts) -> Int
+)
+
+private fun utxoFilterPresets(): List<UtxoFilterPreset> = listOf(
+    UtxoFilterPreset(
+        filter = UtxoLabelFilter(),
+        labelRes = R.string.wallet_detail_utxos_filter_summary_all,
+        count = { it.labeled + it.unlabeled }
+    ),
+    UtxoFilterPreset(
+        filter = UtxoLabelFilter(showUnlabeled = false),
+        labelRes = R.string.wallet_detail_utxos_filter_labeled,
+        count = { it.labeled }
+    ),
+    UtxoFilterPreset(
+        filter = UtxoLabelFilter(showLabeled = false),
+        labelRes = R.string.wallet_detail_utxos_filter_unlabeled,
+        count = { it.unlabeled }
+    ),
+    UtxoFilterPreset(
+        filter = UtxoLabelFilter(showNotSpendable = false),
+        labelRes = R.string.wallet_detail_utxos_filter_spendable,
+        count = { it.spendable }
+    ),
+    UtxoFilterPreset(
+        filter = UtxoLabelFilter(showSpendable = false),
+        labelRes = R.string.wallet_detail_utxos_filter_unspendable,
+        count = { it.notSpendable }
+    )
+)
 
 @Composable
 private fun UtxoRow(

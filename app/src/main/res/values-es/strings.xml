@@ -163,6 +163,7 @@
     <string name="wallet_detail_filters_count">%1$d filtros</string>
     <string name="wallet_detail_filters_all_with_items">Todos (%1$d elementos)</string>
     <string name="wallet_detail_filters_count_with_items">%1$d filtros (%2$d elementos)</string>
+    <string name="wallet_detail_filters_custom">Personalizado</string>
     <string name="wallet_detail_utxos_filter_spendable">Gastables</string>
     <string name="wallet_detail_utxos_filter_unspendable">No gastables</string>
     <string name="wallet_detail_utxos_filter_summary_all">Todos los UTXOs</string>
@@ -665,6 +666,13 @@
     <string name="node_network_logs_banner_supporting">Toca para revisar y copiar entradas saneadas.</string>
     <string name="wallet_detail_error_banner_title">Error</string>
     <string name="settings_network_logs_waiting">Esperando registros…</string>
+    <string name="settings_network_logs_filter_label">Filtrar registros</string>
+    <string name="settings_network_logs_filter_summary">Mostrando %1$s (%2$d)</string>
+    <string name="settings_network_logs_filter_all">Todos los registros</string>
+    <string name="settings_network_logs_filter_tor">Sólo Tor</string>
+    <string name="settings_network_logs_filter_clearnet">Sólo clearnet</string>
+    <string name="settings_network_logs_filter_custom_nodes">Nodos personalizados</string>
+    <string name="settings_network_logs_filter_public_nodes">Nodos públicos</string>
     <string name="settings_wallet_health_dependencies">Activa el análisis de transacciones y UTXO para habilitar Salud de la billetera.</string>
     <string name="settings_wallet_health_disable_title">¿Desactivar Salud de la billetera?</string>
     <string name="settings_wallet_health_disable_message_transaction">Al desactivar el análisis de transacciones también se desactivará Salud de la billetera.</string>

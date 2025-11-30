@@ -5,17 +5,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Help
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -29,16 +25,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
-import com.strhodler.utxopocket.presentation.common.ContentSection
 import com.strhodler.utxopocket.presentation.common.SectionCard
-import com.strhodler.utxopocket.presentation.common.SectionHeader
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.WalletSwitch
@@ -183,27 +176,10 @@ private fun WalletSettingsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         SectionCard(
-            header = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    SectionHeader(
-                        title = stringResource(id = R.string.settings_section_privacy_analysis),
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(
-                        onClick = { onOpenWikiTopic(WikiContent.WalletHealthTopicId) }
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.Help,
-                            contentDescription = stringResource(id = R.string.settings_privacy_analysis_help_content_description)
-                        )
-                    }
-                }
-            },
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+            title = stringResource(id = R.string.settings_section_privacy_analysis),
+            headerActionIcon = Icons.AutoMirrored.Outlined.Help,
+            headerActionContentDescription = stringResource(id = R.string.settings_privacy_analysis_help_content_description),
+            onHeaderActionClick = { onOpenWikiTopic(WikiContent.WalletHealthTopicId) }
         ) {
             item {
                 ListItem(
@@ -290,8 +266,11 @@ private fun WalletSettingsScreen(
             }
         }
 
-        ContentSection(
-            title = stringResource(id = R.string.settings_section_utxo_management)
+        SectionCard(
+            title = stringResource(id = R.string.settings_section_utxo_management),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 12.dp),
+            spacedContent = true,
+            divider = false
         ) {
             item {
                 OutlinedTextField(
@@ -314,7 +293,9 @@ private fun WalletSettingsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
                 )
             }
         }

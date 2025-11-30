@@ -68,6 +68,7 @@ import com.strhodler.utxopocket.presentation.common.ContentSection
 import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
+import com.strhodler.utxopocket.presentation.common.SectionHeader
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.WalletSwitch
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
@@ -470,16 +471,11 @@ private fun SecuritySettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         SectionCard(
+            header = {
+                SectionHeader(title = stringResource(id = R.string.settings_pin_title))
+            },
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
-            item {
-                Text(
-                    text = stringResource(id = R.string.settings_pin_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-            }
             item {
                 ListItem(
                     headlineContent = {
@@ -531,7 +527,8 @@ private fun SecuritySettingsScreen(
 
         if (state.pinEnabled) {
             ContentSection(
-                title = stringResource(id = R.string.settings_pin_timeout_title)
+                title = stringResource(id = R.string.settings_pin_timeout_title),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
             ) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -565,7 +562,8 @@ private fun SecuritySettingsScreen(
         }
 
         ContentSection(
-            title = stringResource(id = R.string.settings_connection_timeout_title)
+            title = stringResource(id = R.string.settings_connection_timeout_title),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
         ) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -603,16 +601,9 @@ private fun SecuritySettingsScreen(
         }
 
         SectionCard(
+            title = stringResource(id = R.string.settings_network_logs_header_title),
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
-            item {
-                Text(
-                    text = stringResource(id = R.string.settings_network_logs_header_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-            }
             item {
                 ListItem(
                     modifier = Modifier.fillMaxWidth(),

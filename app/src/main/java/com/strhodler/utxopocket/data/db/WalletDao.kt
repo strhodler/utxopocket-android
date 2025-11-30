@@ -221,8 +221,8 @@ interface WalletDao {
             wallet_utxos.vout = utxo_health.vout
         WHERE wallet_utxos.wallet_id = :walletId
         AND (
-            (:showSpendable = 1 AND wallet_utxos.spendable = 1) OR
-            (:showNotSpendable = 1 AND wallet_utxos.spendable = 0)
+            (:showSpendable = 1 AND COALESCE(wallet_utxos.spendable, 1) = 1) OR
+            (:showNotSpendable = 1 AND COALESCE(wallet_utxos.spendable, 1) = 0)
         )
         AND (
             (:showLabeled = 1 AND wallet_utxos.label IS NOT NULL AND TRIM(wallet_utxos.label) != '') OR

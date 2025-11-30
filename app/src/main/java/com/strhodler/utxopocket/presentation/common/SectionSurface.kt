@@ -4,18 +4,25 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -53,6 +60,11 @@ class SectionCardScope internal constructor(
 
 @Composable
 fun SectionCard(
+    title: String? = null,
+    subtitle: String? = null,
+    headerActionIcon: ImageVector? = null,
+    headerActionContentDescription: String? = null,
+    onHeaderActionClick: (() -> Unit)? = null,
     header: (@Composable () -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(vertical = 12.dp),
     spacedContent: Boolean = false,
@@ -72,17 +84,29 @@ fun SectionCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            header?.let {
+            val resolvedHeader = header ?: title?.let {
+                @Composable {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        RowWithAction(
+                            title = it,
+                            subtitle = subtitle,
+                            actionIcon = headerActionIcon,
+                            actionContentDescription = headerActionContentDescription,
+                            onActionClick = onHeaderActionClick
+                        )
+                    }
+                }
+            }
+            resolvedHeader?.let {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    it()
-                }
-                if (items.isNotEmpty()) {
-                    HorizontalDivider()
-                }
+                ) { it() }
+                if (items.isNotEmpty()) HorizontalDivider()
             }
 
             if (items.isNotEmpty()) {
@@ -116,17 +140,44 @@ fun ListSection(
     modifier: Modifier = Modifier,
     content: SectionCardScope.() -> Unit
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+    SectionCard(
+        title = title,
+        subtitle = subtitle,
+        contentPadding = PaddingValues(vertical = 12.dp),
+        spacedContent = false,
+        divider = true,
+        modifier = modifier.fillMaxWidth()
     ) {
-        SectionHeader(title = title, subtitle = subtitle)
-        SectionCard(
-            contentPadding = PaddingValues(vertical = 12.dp),
-            spacedContent = false,
-            divider = true
-        ) {
-            content()
+        content()
+    }
+}
+
+@Composable
+private fun RowWithAction(
+    title: String,
+    subtitle: String?,
+    actionIcon: ImageVector?,
+    actionContentDescription: String?,
+    onActionClick: (() -> Unit)?
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        SectionHeader(
+            title = title,
+            subtitle = subtitle,
+            modifier = Modifier.weight(1f)
+        )
+        if (actionIcon != null && onActionClick != null) {
+            IconButton(onClick = onActionClick) {
+                Icon(
+                    imageVector = actionIcon,
+                    contentDescription = actionContentDescription
+                        ?: actionIcon.name.ifBlank { Icons.Outlined.Info.name }
+                )
+            }
         }
     }
 }
@@ -136,19 +187,17 @@ fun ContentSection(
     title: String,
     subtitle: String? = null,
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(vertical = 12.dp),
     content: SectionCardScope.() -> Unit
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+    SectionCard(
+        title = title,
+        subtitle = subtitle,
+        contentPadding = contentPadding,
+        spacedContent = true,
+        divider = false,
+        modifier = modifier.fillMaxWidth()
     ) {
-        SectionHeader(title = title, subtitle = subtitle)
-        SectionCard(
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            spacedContent = true,
-            divider = false
-        ) {
-            content()
-        }
+        content()
     }
 }

@@ -1968,7 +1968,7 @@ class DefaultWalletRepository @Inject constructor(
                     confirmations = chainPositionConfirmations(chainPosition, currentHeight),
                     status = status.name,
                     label = metadata?.label,
-                    spendable = metadata?.spendable,
+                    spendable = metadata?.spendable ?: true,
                     address = resolvedAddress,
                     keychain = keychain.name,
                     derivationIndex = derivationIndex?.toInt()
