@@ -70,7 +70,8 @@ import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.common.SectionHeader
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
-import com.strhodler.utxopocket.presentation.components.WalletSwitch
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.pin.PinLockoutMessageType
 import com.strhodler.utxopocket.presentation.pin.PinSetupScreen
@@ -489,9 +490,10 @@ private fun SecuritySettingsScreen(
                         )
                     },
                     trailingContent = {
-                        WalletSwitch(
+                        Switch(
                             checked = state.pinEnabled,
-                            onCheckedChange = onPinToggleRequested
+                            onCheckedChange = onPinToggleRequested,
+                            colors = SwitchDefaults.colors()
                         )
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -511,9 +513,10 @@ private fun SecuritySettingsScreen(
                             )
                         },
                         trailingContent = {
-                            WalletSwitch(
+                            Switch(
                                 checked = state.pinShuffleEnabled,
-                                onCheckedChange = onPinShuffleChanged
+                                onCheckedChange = onPinShuffleChanged,
+                                colors = SwitchDefaults.colors()
                             )
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -618,9 +621,10 @@ private fun SecuritySettingsScreen(
                         )
                     },
                     trailingContent = {
-                        WalletSwitch(
+                        Switch(
                             checked = state.networkLogsEnabled,
-                            onCheckedChange = onNetworkLogsToggle
+                            onCheckedChange = onNetworkLogsToggle,
+                            colors = SwitchDefaults.colors()
                         )
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)

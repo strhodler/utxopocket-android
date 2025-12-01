@@ -174,7 +174,6 @@ private fun MoreScreen(
                                         BuildConfig.VERSION_NAME,
                                         BuildConfig.VERSION_CODE
                                     ),
-                                    fontFamily = FontFamily.Monospace,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = supportingTextColor
                                 )

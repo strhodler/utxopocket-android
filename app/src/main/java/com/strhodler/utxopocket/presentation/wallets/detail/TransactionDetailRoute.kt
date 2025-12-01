@@ -16,10 +16,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -28,7 +30,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AutoGraph
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -64,7 +65,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -112,9 +112,10 @@ import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
-import com.strhodler.utxopocket.presentation.components.WalletSwitch
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.surfaceColorAtElevation
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -887,12 +888,12 @@ private fun TransactionDetailContent(
                             )
                         },
                         supportingContent = {
-                            Text(
-                                text = transaction.id,
-                                style = MaterialTheme.typography.bodyLarge,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            SelectionContainer {
+                                Text(
+                                    text = transaction.id,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
                         },
                         trailingContent = {
                             IconButton(onClick = { copyToClipboard(transaction.id) }) {
@@ -1010,12 +1011,12 @@ private fun TransactionDetailContent(
                             )
                         },
                         supportingContent = {
-                            Text(
-                                text = blockHashDisplay,
-                                style = MaterialTheme.typography.bodyLarge,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            SelectionContainer {
+                                Text(
+                                    text = blockHashDisplay,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
                         },
                         trailingContent = blockHashValue?.let { hash ->
                             {
@@ -1108,35 +1109,31 @@ private fun TransactionDetailContent(
             }
 
             if (transaction.inputs.isNotEmpty()) {
-                val inputDisplays = transaction.inputs.map { input ->
-                    val hasAddress = !input.address.isNullOrBlank()
-                    val primary = input.address?.takeIf { it.isNotBlank() } ?: formatOutPoint(
-                        input.prevTxid,
-                        input.prevVout
+                val walletBadge = stringResource(id = R.string.transaction_detail_flow_wallet_badge)
+                val changeBadge = stringResource(id = R.string.transaction_detail_flow_change_badge)
+                val inputDisplays = transaction.inputs.mapIndexed { index, input ->
+                    val amountText = input.valueSats?.let {
+                        balanceText(
+                            balanceSats = it,
+                            unit = state.balanceUnit,
+                            hidden = state.balancesHidden
+                        )
+                    } ?: stringResource(id = R.string.transaction_detail_unknown)
+                    val address = input.address?.takeIf { it.isNotBlank() }
+                        ?: formatOutPoint(input.prevTxid, input.prevVout)
+                    val badges = transactionBadges(
+                        isMine = input.isMine,
+                        addressType = input.addressType,
+                        walletBadge = walletBadge,
+                        changeBadge = changeBadge
                     )
-                    val secondary = input.valueSats?.let { balanceText(it, state.balanceUnit) }
-                    val tertiary = if (hasAddress) {
-                        formatOutPoint(input.prevTxid, input.prevVout)
-                    } else {
-                        null
-                    }
-                    val badges = buildList {
-                        if (input.isMine) {
-                            add(stringResource(id = R.string.transaction_detail_flow_wallet_badge))
-                        }
-                        input.addressType?.let { type ->
-                            add(
-                                when (type) {
-                                    WalletAddressType.EXTERNAL -> stringResource(id = R.string.transaction_detail_flow_external_badge)
-                                    WalletAddressType.CHANGE -> stringResource(id = R.string.transaction_detail_flow_change_badge)
-                                }
-                            )
-                        }
-                    }
-                    FlowDisplay(
-                        primary = primary,
-                        secondary = secondary,
-                        tertiary = tertiary,
+                    TransactionIoDisplay(
+                        title = stringResource(
+                            id = R.string.transaction_detail_flow_index_heading,
+                            index,
+                            amountText
+                        ),
+                        address = address,
                         badges = badges
                     )
                 }
@@ -1145,16 +1142,13 @@ private fun TransactionDetailContent(
                 } else {
                     inputDisplays.take(maxFlowItems)
                 }
-                ContentSection(
+                ListSection(
                     title = stringResource(id = R.string.transaction_detail_flow_inputs)
                 ) {
-                    item {
-                        TransactionFlowColumn(
-                            items = displayedInputs,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
-                        )
+                    displayedInputs.forEach { display ->
+                        item {
+                            TransactionIoListItem(display = display)
+                        }
                     }
                     if (!showAllInputs && inputDisplays.size > maxFlowItems) {
                         item {
@@ -1174,42 +1168,33 @@ private fun TransactionDetailContent(
                 }
             }
             if (transaction.outputs.isNotEmpty()) {
+                val walletBadge = stringResource(id = R.string.transaction_detail_flow_wallet_badge)
+                val changeBadge = stringResource(id = R.string.transaction_detail_flow_change_badge)
                 val outputDisplays = transaction.outputs.map { output ->
-                    val primary = output.address?.takeIf { it.isNotBlank() }
+                    val amountText = balanceText(
+                        balanceSats = output.valueSats,
+                        unit = state.balanceUnit,
+                        hidden = state.balancesHidden
+                    )
+                    val address = output.address?.takeIf { it.isNotBlank() }
                         ?: stringResource(
                             id = R.string.transaction_detail_flow_unknown_output,
                             output.index
                         )
-                    val badges = buildList {
-                        if (output.isMine) {
-                            add(stringResource(id = R.string.transaction_detail_flow_wallet_badge))
-                        }
-                        output.addressType?.let { type ->
-                            add(
-                                when (type) {
-                                    WalletAddressType.EXTERNAL -> stringResource(id = R.string.transaction_detail_flow_external_badge)
-                                    WalletAddressType.CHANGE -> stringResource(id = R.string.transaction_detail_flow_change_badge)
-                                }
-                            )
-                        }
-                    }
-                    val tertiaryParts = mutableListOf<String>()
-                    output.derivationPath?.let { path ->
-                        tertiaryParts += stringResource(
-                            id = R.string.transaction_detail_flow_derivation,
-                            path
-                        )
-                    }
-                    tertiaryParts += formatOutPoint(transaction.id, output.index)
-                    FlowDisplay(
-                        primary = primary,
-                        secondary = balanceText(output.valueSats, state.balanceUnit),
-                        tertiary = tertiaryParts
-                            .filter { it.isNotBlank() }
-                            .joinToString(" • ")
-                            .ifBlank { null },
-                        badges = badges,
-                        highlighted = output.isMine
+                    val badges = transactionBadges(
+                        isMine = output.isMine,
+                        addressType = output.addressType,
+                        walletBadge = walletBadge,
+                        changeBadge = changeBadge
+                    )
+                    TransactionIoDisplay(
+                        title = stringResource(
+                            id = R.string.transaction_detail_flow_index_heading,
+                            output.index,
+                            amountText
+                        ),
+                        address = address,
+                        badges = badges
                     )
                 }
                 val displayedOutputs = if (showAllOutputs || outputDisplays.size <= maxFlowItems) {
@@ -1217,16 +1202,13 @@ private fun TransactionDetailContent(
                 } else {
                     outputDisplays.take(maxFlowItems)
                 }
-                ContentSection(
+                ListSection(
                     title = stringResource(id = R.string.transaction_detail_flow_outputs)
                 ) {
-                    item {
-                        TransactionFlowColumn(
-                            items = displayedOutputs,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
-                        )
+                    displayedOutputs.forEach { display ->
+                        item {
+                            TransactionIoListItem(display = display)
+                        }
                     }
                     if (!showAllOutputs && outputDisplays.size > maxFlowItems) {
                         item {
@@ -1396,7 +1378,11 @@ private fun UtxoDetailContent(
     )
     val fullOutpoint = remember(utxo.txid, utxo.vout) { "${utxo.txid}:${utxo.vout}" }
     val displayOutpoint = remember(utxo.txid, utxo.vout) { formatOutPoint(utxo.txid, utxo.vout) }
-    val confirmationsLabel = confirmationLabel(utxo.confirmations)
+    val confirmationsLabel = if (utxo.confirmations <= 0) {
+        stringResource(id = R.string.transaction_detail_pending_confirmation)
+    } else {
+        utxo.confirmations.toString()
+    }
     val statusLabel = when (utxo.status) {
         UtxoStatus.CONFIRMED -> stringResource(id = R.string.utxo_detail_status_confirmed)
         UtxoStatus.PENDING -> stringResource(id = R.string.utxo_detail_status_pending)
@@ -1482,12 +1468,12 @@ private fun UtxoDetailContent(
                             )
                         },
                         supportingContent = {
-                            Text(
-                                text = fullOutpoint,
-                                style = MaterialTheme.typography.bodyLarge,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            SelectionContainer {
+                                Text(
+                                    text = fullOutpoint,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
                         },
                         trailingContent = {
                             IconButton(onClick = { copyToClipboard(fullOutpoint) }) {
@@ -1620,12 +1606,12 @@ private fun UtxoDetailContent(
                             )
                         },
                         supportingContent = {
-                            Text(
-                                text = utxo.txid,
-                                style = MaterialTheme.typography.bodyLarge,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            SelectionContainer {
+                                Text(
+                                    text = utxo.txid,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
                         },
                         trailingContent = {
                             IconButton(onClick = { copyToClipboard(utxo.txid) }) {
@@ -1746,7 +1732,7 @@ private fun UtxoDetailHeader(
 @Composable
 private fun UtxoIdenticon(
     seed: String,
-    size: Dp = 88.dp,
+    size: Dp = 72.dp,
     modifier: Modifier = Modifier
 ) {
     val iconSizePx = with(LocalDensity.current) { size.roundToPx().coerceAtLeast(1) }
@@ -1781,11 +1767,11 @@ private fun SpendableToggleCard(
         shape = MaterialTheme.shapes.large,
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
-            ListItem(
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                headlineContent = {
-                    Text(
-                        text = stringResource(id = R.string.utxo_detail_spendable_toggle_label),
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.utxo_detail_spendable_toggle_label),
                         style = MaterialTheme.typography.bodyLarge
                     )
                 },
@@ -1795,17 +1781,18 @@ private fun SpendableToggleCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                },
-                trailingContent = {
-                    WalletSwitch(
-                        checked = spendable,
-                        onCheckedChange = { onToggle(it) },
-                    enabled = !updating
-                )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = spendable,
+                                onCheckedChange = { onToggle(it) },
+                                enabled = !updating,
+                                colors = SwitchDefaults.colors()
+                            )
+                        }
+                    )
+                }
             }
-        )
-    }
-}
 
 @Composable
 private fun LabelChip(
@@ -1876,86 +1863,69 @@ private fun TransactionHexBlock(
     }
 }
 
-private data class FlowDisplay(
-    val primary: String,
-    val secondary: String? = null,
-    val tertiary: String? = null,
-    val badges: List<String> = emptyList(),
-    val highlighted: Boolean = false
+private data class TransactionIoDisplay(
+    val title: String,
+    val address: String,
+    val badges: List<String> = emptyList()
 )
 
 @Composable
-private fun TransactionFlowColumn(
-    items: List<FlowDisplay>,
-    modifier: Modifier = Modifier
+private fun TransactionIoListItem(
+    display: TransactionIoDisplay
 ) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        if (items.isEmpty()) {
+    ListItem(
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        headlineContent = {
             Text(
-                text = stringResource(id = R.string.transaction_detail_flow_empty),
+                text = display.title,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items.forEach { item ->
-                    TransactionFlowItem(item)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TransactionFlowItem(display: FlowDisplay) {
-    val highlightColor = colorResource(id = R.color.tor_status_connected)
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
+        },
+        supportingContent = {
             Text(
-                text = display.primary,
-                style = MaterialTheme.typography.bodyMedium
+                text = display.address,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
-            if (display.badges.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        },
+        trailingContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(min = IoBadgeMinWidth),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     display.badges.forEach { badge ->
                         FlowBadge(text = badge)
                     }
                 }
             }
-            display.secondary?.takeUnless { it.isBlank() }?.let { secondary ->
-                Text(
-                    text = secondary,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-            display.tertiary?.let { tertiary ->
-                Text(
-                    text = tertiary,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
-        if (display.highlighted) {
-            Icon(
-                imageVector = Icons.Outlined.CheckCircle,
-                contentDescription = stringResource(id = R.string.transaction_detail_flow_wallet_badge),
-                tint = highlightColor
-            )
-        }
+    )
+}
+
+private fun transactionBadges(
+    isMine: Boolean,
+    addressType: WalletAddressType?,
+    walletBadge: String,
+    changeBadge: String
+): List<String> = buildList {
+    if (isMine) {
+        add(walletBadge)
+    }
+    if (addressType == WalletAddressType.CHANGE) {
+        add(changeBadge)
     }
 }
+
+private val IoBadgeMinWidth = 80.dp
 
 @Composable
 private fun FlowBadge(

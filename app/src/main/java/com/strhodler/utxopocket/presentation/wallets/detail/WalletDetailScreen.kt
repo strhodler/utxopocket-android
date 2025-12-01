@@ -1184,11 +1184,6 @@ private fun WalletDescriptorsSheetContent(
         modifier = modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        Text(
-            text = stringResource(id = R.string.wallet_detail_descriptors_title),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
         DescriptorWarningBanner(
             message = stringResource(id = R.string.wallet_detail_descriptors_hint)
         )
@@ -1240,14 +1235,14 @@ private fun DescriptorEntry(
                     Icon(
                         imageVector = Icons.Outlined.ContentCopy,
                         contentDescription = stringResource(id = R.string.wallet_detail_descriptor_copy_action),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 IconButton(onClick = onShowQr) {
                     Icon(
                         imageVector = Icons.Outlined.QrCode,
                         contentDescription = stringResource(id = R.string.wallet_detail_descriptor_qr_action),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }

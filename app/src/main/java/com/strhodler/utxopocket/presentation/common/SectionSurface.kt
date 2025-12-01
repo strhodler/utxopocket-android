@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Card
@@ -102,6 +104,9 @@ fun SectionCard(
             }
         }
         resolvedHeader?.invoke()
+        if (resolvedHeader != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+        }
 
         if (items.isNotEmpty()) {
             Card(

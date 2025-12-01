@@ -53,7 +53,8 @@ import androidx.compose.material.icons.outlined.ArrowDropDown
 import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
-import com.strhodler.utxopocket.presentation.components.WalletSwitch
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import com.strhodler.utxopocket.presentation.theme.colorSchemeFor
@@ -158,11 +159,7 @@ private fun InterfaceSettingsScreen(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        SectionCard(
-            title = null,
-            contentPadding = PaddingValues(0.dp),
-            divider = true
-        ) {
+        SectionCard {
             item {
                 ListItem(
                     headlineContent = {
@@ -235,9 +232,10 @@ private fun InterfaceSettingsScreen(
                         )
                     },
                     trailingContent = {
-                        WalletSwitch(
+                        Switch(
                             checked = state.hapticsEnabled,
-                            onCheckedChange = onHapticsToggled
+                            onCheckedChange = onHapticsToggled,
+                            colors = SwitchDefaults.colors()
                         )
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)

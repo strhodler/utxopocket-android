@@ -239,6 +239,7 @@
     <string name="transaction_detail_section_flow">Gráfico de transacción</string>
     <string name="transaction_detail_flow_inputs">Entradas</string>
     <string name="transaction_detail_flow_outputs">Salidas</string>
+    <string name="transaction_detail_flow_index_heading">Índice %1$d: %2$s</string>
     <string name="transaction_detail_flow_unknown_output">Salida #%1$d</string>
     <string name="transaction_detail_flow_wallet_badge">Billetera</string>
     <string name="transaction_detail_flow_external_badge">Externa</string>
@@ -492,8 +493,10 @@
     <string name="node_overview_tor_required">Esta conexión usa Tor.</string>
     <string name="node_overview_tor_optional">Esta conexión puede funcionar sin Tor.</string>
     <string name="node_overview_tab_status">Detalles</string>
+    <string name="node_overview_details_section_title">Detalles del servidor</string>
     <string name="node_overview_tab_management">Gestión</string>
     <string name="node_overview_tab_tor">Tor</string>
+    <string name="tor_overview_section_title">Conexión Tor</string>
     <string name="node_overview_network_title">Red activa</string>
     <string name="node_overview_network_action">Cambiar red</string>
     <string name="node_custom_save_button">Guardar cambios</string>

@@ -333,6 +333,7 @@
     <string name="transaction_detail_section_flow">Transaction graph</string>
     <string name="transaction_detail_flow_inputs">Inputs</string>
     <string name="transaction_detail_flow_outputs">Outputs</string>
+    <string name="transaction_detail_flow_index_heading">Index %1$d: %2$s</string>
     <string name="transaction_detail_flow_unknown_output">Output #%1$d</string>
     <string name="transaction_detail_flow_wallet_badge">Wallet</string>
     <string name="transaction_detail_flow_external_badge">External</string>
@@ -376,8 +377,8 @@
     <string name="transaction_detail_fee_rate">Fee rate</string>
     <string name="transaction_detail_block_height">Block height</string>
     <string name="transaction_detail_block_hash">Block hash</string>
-    <string name="transaction_detail_section_status">Confirmation &amp; status</string>
-    <string name="transaction_detail_section_size">Size &amp; encoding</string>
+    <string name="transaction_detail_section_status">Confirmation and status</string>
+    <string name="transaction_detail_section_size">Size and encoding</string>
     <string name="transaction_detail_size_bytes">Bytes</string>
     <string name="transaction_detail_vbytes">Virtual size</string>
     <string name="transaction_detail_version">Version</string>
@@ -913,8 +914,10 @@
     <string name="node_item_type_custom">Custom</string>
     <string name="node_item_type_no_tor">No Tor</string>
     <string name="node_overview_tab_status">Details</string>
+    <string name="node_overview_details_section_title">Server details</string>
     <string name="node_overview_tab_management">Manage</string>
     <string name="node_overview_tab_tor">Tor</string>
+    <string name="tor_overview_section_title">Tor connection</string>
     <string name="node_overview_network_title">Active network</string>
     <string name="node_overview_network_action">Switch network</string>
     <string name="wiki_back">Back</string>

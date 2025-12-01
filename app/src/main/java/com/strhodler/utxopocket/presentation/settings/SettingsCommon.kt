@@ -42,7 +42,8 @@ import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
-import com.strhodler.utxopocket.presentation.components.WalletSwitch
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 
 @Composable
 internal fun SettingsCard(
@@ -124,11 +125,8 @@ internal fun SettingsSwitchRow(
     enabled: Boolean = true,
     supportingText: String? = null
 ) {
-    val rowModifier = Modifier
-        .fillMaxWidth()
-        .alpha(if (enabled) 1f else 0.5f)
     ListItem(
-        modifier = rowModifier,
+        modifier = Modifier.fillMaxWidth(),
         headlineContent = {
             Text(text = title, style = androidx.compose.material3.MaterialTheme.typography.bodyLarge)
         },
@@ -142,10 +140,11 @@ internal fun SettingsSwitchRow(
             }
         },
         trailingContent = {
-            WalletSwitch(
+            Switch(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
-                enabled = enabled
+                enabled = enabled,
+                colors = SwitchDefaults.colors()
             )
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)

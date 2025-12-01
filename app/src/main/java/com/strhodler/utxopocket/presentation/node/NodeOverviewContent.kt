@@ -2,11 +2,13 @@ package com.strhodler.utxopocket.presentation.node
 
 import android.content.res.Resources
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -49,12 +51,11 @@ import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
-import com.strhodler.utxopocket.presentation.node.NodeContentSpacing
 import com.strhodler.utxopocket.presentation.common.SectionCard
+import com.strhodler.utxopocket.presentation.node.NodeContentSpacing
 import com.strhodler.utxopocket.presentation.tor.TorStatusActionUiState
 import java.text.NumberFormat
 import java.util.Locale
-import androidx.compose.ui.unit.dp
 
 @Composable
 fun NodeOverviewContent(
@@ -81,7 +82,7 @@ fun NodeOverviewContent(
         verticalArrangement = Arrangement.spacedBy(NodeContentSpacing)
     ) {
         SectionCard(
-            contentPadding = PaddingValues(vertical = 12.dp),
+            title = stringResource(id = R.string.node_overview_details_section_title),
             divider = false
         ) {
             item {
@@ -151,7 +152,7 @@ fun NodeTorStatusSection(
 
     SectionCard(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(0.dp),
+        title = stringResource(id = R.string.tor_overview_section_title),
         spacedContent = false,
         divider = false
     ) {
@@ -173,7 +174,12 @@ fun NodeTorStatusSection(
                     )
                 },
                 trailingContent = {
-                    TorStatusPill(status = status.torStatus)
+                    Box(
+                        modifier = Modifier.fillMaxHeight(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        TorStatusPill(status = status.torStatus)
+                    }
                 }
             )
         }

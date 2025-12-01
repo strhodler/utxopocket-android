@@ -57,7 +57,8 @@ import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.common.ListSection
-import com.strhodler.utxopocket.presentation.components.WalletSwitch
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import kotlinx.coroutines.launch
 
 @Composable
@@ -483,37 +484,39 @@ private fun NodeListItem(
                                 .width(1.dp),
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
                         )
-                        WalletSwitch(
+                        Switch(
                             checked = connected,
                             enabled = isNetworkOnline,
                             interactionSource = remember { MutableInteractionSource() },
                             onCheckedChange = { checked ->
                                 if (interactionsLocked) {
                                     onInteractionBlocked()
-                                    return@WalletSwitch
+                                    return@Switch
                                 }
                                 when {
                                     checked && !connected -> onActivate()
                                     !checked && connected -> onDeactivate?.invoke()
                                 }
-                            }
+                            },
+                            colors = SwitchDefaults.colors()
                         )
                     }
                 } else {
-                    WalletSwitch(
+                    Switch(
                         checked = connected,
                         enabled = isNetworkOnline,
                         interactionSource = remember { MutableInteractionSource() },
                         onCheckedChange = { checked ->
                             if (interactionsLocked) {
                                 onInteractionBlocked()
-                                return@WalletSwitch
+                                return@Switch
                             }
                             when {
                                 checked && !connected -> onActivate()
                                 !checked && connected -> onDeactivate?.invoke()
                             }
-                        }
+                        },
+                        colors = SwitchDefaults.colors()
                     )
                 }
             },

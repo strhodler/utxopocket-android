@@ -34,7 +34,8 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
-import com.strhodler.utxopocket.presentation.components.WalletSwitch
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
@@ -197,9 +198,10 @@ private fun WalletSettingsScreen(
                         )
                     },
                     trailingContent = {
-                        WalletSwitch(
+                        Switch(
                             checked = state.transactionAnalysisEnabled,
-                            onCheckedChange = onTransactionAnalysisToggled
+                            onCheckedChange = onTransactionAnalysisToggled,
+                            colors = SwitchDefaults.colors()
                         )
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -221,9 +223,10 @@ private fun WalletSettingsScreen(
                         )
                     },
                     trailingContent = {
-                        WalletSwitch(
+                        Switch(
                             checked = state.utxoHealthEnabled,
-                            onCheckedChange = onUtxoHealthToggled
+                            onCheckedChange = onUtxoHealthToggled,
+                            colors = SwitchDefaults.colors()
                         )
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -245,10 +248,11 @@ private fun WalletSettingsScreen(
                         )
                     },
                     trailingContent = {
-                        WalletSwitch(
+                        Switch(
                             checked = state.walletHealthEnabled,
                             onCheckedChange = onWalletHealthToggled,
-                            enabled = state.walletHealthToggleEnabled
+                            enabled = state.walletHealthToggleEnabled,
+                            colors = SwitchDefaults.colors()
                         )
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -268,7 +272,6 @@ private fun WalletSettingsScreen(
 
         SectionCard(
             title = stringResource(id = R.string.settings_section_utxo_management),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 12.dp),
             spacedContent = true,
             divider = false
         ) {

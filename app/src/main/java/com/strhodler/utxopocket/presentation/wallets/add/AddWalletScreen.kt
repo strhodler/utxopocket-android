@@ -33,7 +33,6 @@ import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -77,11 +76,11 @@ import com.strhodler.utxopocket.domain.model.DescriptorWarning
 import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.common.UrMultiPartScanActivity
-import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBanner
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBannerStyle
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
-import com.strhodler.utxopocket.presentation.components.WalletSwitch
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import kotlinx.coroutines.launch
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -357,57 +356,48 @@ private fun FormCard(
         }
     )
 
-    SectionCard(
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        spacedContent = true,
-        divider = false
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        item {
-            WalletNameInput(
-                value = state.walletName,
-                onChange = onWalletNameChange
-            )
-        }
+        WalletNameInput(
+            value = state.walletName,
+            onChange = onWalletNameChange
+        )
         when (importMode) {
             WalletImportMode.DESCRIPTOR -> {
-                item {
-                    DescriptorInputs(
-                        descriptor = state.descriptor,
-                        onDescriptorChange = onDescriptorChange,
-                        onScanDescriptor = startDescriptorScan
-                    )
-                }
-                item {
-                    DescriptorAdvancedOptions(
-                        showAdvanced = state.showAdvanced,
-                        onToggleAdvanced = onToggleAdvanced,
-                        changeDescriptor = state.changeDescriptor,
-                        onChangeDescriptorChange = onChangeDescriptorChange,
-                        selectedNetwork = state.selectedNetwork
-                    )
-                }
+                DescriptorInputs(
+                    descriptor = state.descriptor,
+                    onDescriptorChange = onDescriptorChange,
+                    onScanDescriptor = startDescriptorScan
+                )
+                DescriptorAdvancedOptions(
+                    showAdvanced = state.showAdvanced,
+                    onToggleAdvanced = onToggleAdvanced,
+                    changeDescriptor = state.changeDescriptor,
+                    onChangeDescriptorChange = onChangeDescriptorChange,
+                    selectedNetwork = state.selectedNetwork
+                )
             }
 
             WalletImportMode.EXTENDED_KEY -> {
-                item {
-                    ExtendedKeyInputs(
-                        form = state.extendedForm,
-                        onExtendedKeyChange = onExtendedKeyChange,
-                        onScriptTypeChange = onExtendedScriptTypeChange,
-                        onIncludeChangeBranch = onExtendedIncludeChangeBranch,
-                        onScanExtendedKey = startExtendedScan
-                    )
-                }
-                item {
-                    ExtendedKeyAdvancedOptions(
-                        showAdvanced = state.showExtendedAdvanced,
-                        onToggleAdvanced = onToggleExtendedAdvanced,
-                        derivationPath = state.extendedForm.derivationPath,
-                        onDerivationPathChange = onExtendedDerivationPathChange,
-                        masterFingerprint = state.extendedForm.masterFingerprint,
-                        onFingerprintChange = onExtendedFingerprintChange
-                    )
-                }
+                ExtendedKeyInputs(
+                    form = state.extendedForm,
+                    onExtendedKeyChange = onExtendedKeyChange,
+                    onScriptTypeChange = onExtendedScriptTypeChange,
+                    onIncludeChangeBranch = onExtendedIncludeChangeBranch,
+                    onScanExtendedKey = startExtendedScan
+                )
+                ExtendedKeyAdvancedOptions(
+                    showAdvanced = state.showExtendedAdvanced,
+                    onToggleAdvanced = onToggleExtendedAdvanced,
+                    derivationPath = state.extendedForm.derivationPath,
+                    onDerivationPathChange = onExtendedDerivationPathChange,
+                    masterFingerprint = state.extendedForm.masterFingerprint,
+                    onFingerprintChange = onExtendedFingerprintChange
+                )
             }
         }
     }
@@ -582,9 +572,10 @@ private fun ExtendedKeyInputs(
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
-            WalletSwitch(
+            Switch(
                 checked = form.includeChangeBranch,
-                onCheckedChange = onIncludeChangeBranch
+                onCheckedChange = onIncludeChangeBranch,
+                colors = SwitchDefaults.colors()
             )
         }
         form.errorMessage?.let { error ->
@@ -878,38 +869,25 @@ private fun ValidationSummary(
 
         state.validation is DescriptorValidationResult.Valid -> {
             val valid = state.validation
-            SectionCard(
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
-                contentPadding = PaddingValues(16.dp),
-                spacedContent = true,
-                divider = false
-            ) {
-                item {
-                    Text(
-                        text = stringResource(
-                            id = R.string.add_wallet_descriptor_detected,
-                            stringResource(id = descriptorTypeLabel(valid.type))
-                        ),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-                item {
-                    Text(
-                        text = if (valid.hasWildcard) {
-                            stringResource(id = R.string.add_wallet_descriptor_wildcard_yes)
-                        } else {
-                            stringResource(id = R.string.add_wallet_descriptor_wildcard_no)
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(
+                        id = R.string.add_wallet_descriptor_detected,
+                        stringResource(id = descriptorTypeLabel(valid.type))
+                    ),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = if (valid.hasWildcard) {
+                        stringResource(id = R.string.add_wallet_descriptor_wildcard_yes)
+                    } else {
+                        stringResource(id = R.string.add_wallet_descriptor_wildcard_no)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 if (valid.warnings.isNotEmpty()) {
-                    item {
-                        WarningList(warnings = valid.warnings)
-                    }
+                    WarningList(warnings = valid.warnings)
                 }
             }
         }
