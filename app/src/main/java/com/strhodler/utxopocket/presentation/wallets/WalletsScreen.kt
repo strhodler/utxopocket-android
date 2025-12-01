@@ -223,7 +223,7 @@ private fun WalletsContent(
                     title = stringResource(id = R.string.tor_status_banner_offline_title),
                     supporting = stringResource(id = R.string.tor_status_banner_offline_supporting),
                     icon = Icons.Outlined.Warning,
-                    containerColor = scheme.surfaceContainerHigh,
+                    containerColor = scheme.surfaceContainer,
                     contentColor = scheme.onSurface,
                     onClick = onConnectTor
                 )

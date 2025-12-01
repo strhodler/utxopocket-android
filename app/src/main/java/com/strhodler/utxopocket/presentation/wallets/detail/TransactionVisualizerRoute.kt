@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -27,21 +26,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -71,13 +62,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -288,6 +280,7 @@ private fun TransactionVisualizerContent(
     LaunchedEffect(sheetVisible) {
         if (!sheetVisible) {
             showDetails = false
+            selectedNodeId = null
         }
     }
 
@@ -327,22 +320,8 @@ private fun TransactionVisualizerContent(
                     )
                 }
                 else -> {
-                    TransactionDetailsPanel(
-                        transaction = transaction,
-                        graph = renderGraph,
-                        selectedNodeId = selectedNodeId,
-                        onNodeSelected = { node, _ ->
-                            selectedNodeId = node?.id
-                            showDetails = node != null
-                        },
-                        onGroupExpand = { groupId ->
-                            renderGraph = expandGroup(renderGraph, groupId)
-                        },
-                        onGroupMemberSelect = { groupId, member ->
-                            renderGraph = extractNodeFromGroup(renderGraph, groupId, member.id)
-                            selectedNodeId = member.id
-                            showDetails = true
-                        },
+                    NodeInfoSheet(
+                        node = selectedNode,
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(max = maxSheetHeight)
@@ -596,7 +575,7 @@ private fun nodeColor(node: GraphNode, colors: ColorScheme): Color =
         GraphRole.Fee -> colors.errorContainer
         GraphRole.Group -> colors.surfaceContainerHigh
         GraphRole.Input -> if (node.isMine) colors.primaryContainer else colors.surfaceVariant
-        GraphRole.Output -> if (node.isMine) colors.tertiaryContainer else colors.surfaceVariant
+        GraphRole.Output -> if (node.isMine) colors.primaryContainer else colors.surfaceVariant
     }
 
 private fun expandGroup(graph: TransactionGraph, groupId: String): TransactionGraph {
@@ -722,269 +701,127 @@ private fun roleLabel(node: GraphNode): Int = when (node.role) {
     }
 }
 
-private sealed interface PanelItem {
-    data class Header(val title: String) : PanelItem
-    data class Count(val label: String, val value: String) : PanelItem
-    data class NodeEntry(val node: GraphNode) : PanelItem
-    data class GroupEntry(val node: GraphNode) : PanelItem
-    data class GroupMember(val groupId: String, val member: GraphNode) : PanelItem
-}
-
 @Composable
-private fun TransactionDetailsPanel(
-    transaction: WalletTransaction,
-    graph: TransactionGraph,
-    selectedNodeId: String?,
-    onNodeSelected: (GraphNode?, Boolean) -> Unit,
-    onGroupExpand: (String) -> Unit,
-    onGroupMemberSelect: (String, GraphNode) -> Unit,
+private fun NodeInfoSheet(
+    node: GraphNode,
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val feeNode = remember(graph) { graph.nodes.firstOrNull { it.role == GraphRole.Fee } }
-    val inputNodes = remember(graph) { graph.nodes.filter { it.role == GraphRole.Input } }
-    val outputNodes = remember(graph) { graph.nodes.filter { it.role == GraphRole.Output || it.role == GraphRole.Change } }
-    val inputGroups = remember(graph) {
-        graph.groups.filterValues { group ->
-            group.members.firstOrNull()?.role == GraphRole.Input
+    val ownershipLabel = when (node.role) {
+        GraphRole.Input, GraphRole.Output, GraphRole.Change -> if (node.isMine) {
+            stringResource(id = R.string.transaction_visualizer_wallet_owned)
+        } else {
+            stringResource(id = R.string.transaction_visualizer_external_owned)
         }
+        else -> null
     }
-    val outputGroups = remember(graph) {
-        graph.groups.filterValues { group ->
-            val role = group.members.firstOrNull()?.role
-            role == GraphRole.Output || role == GraphRole.Change
-        }
+    val valueLabel = node.valueSats?.let { formatBtc(it) }
+        ?: stringResource(id = R.string.transaction_detail_unknown)
+    val addressLabel = node.address?.let { address ->
+        formatTxidMiddle(address, keepStart = 12, keepEnd = 8)
     }
-    val listState = rememberLazyListState()
-    val items = buildList {
-        add(PanelItem.Header(stringResource(id = R.string.transaction_visualizer_summary_inputs, graph.summary.inputCount)))
-        inputNodes.sortedBy { it.id }.forEach { add(PanelItem.NodeEntry(it)) }
-        inputGroups.toSortedMap().forEach { (groupId, group) ->
-            val groupNode = graph.nodes.firstOrNull { it.id == groupId } ?: return@forEach
-            add(PanelItem.GroupEntry(groupNode))
-            group.members.sortedBy { it.id }.forEach { member ->
-                add(PanelItem.GroupMember(groupId, member))
-            }
-        }
-        add(PanelItem.Header(stringResource(id = R.string.transaction_visualizer_summary_outputs, graph.summary.outputCount)))
-        outputNodes.sortedBy { it.id }.forEach { add(PanelItem.NodeEntry(it)) }
-        outputGroups.toSortedMap().forEach { (groupId, group) ->
-            val groupNode = graph.nodes.firstOrNull { it.id == groupId } ?: return@forEach
-            add(PanelItem.GroupEntry(groupNode))
-            group.members.sortedBy { it.id }.forEach { member ->
-                add(PanelItem.GroupMember(groupId, member))
-            }
-        }
-        feeNode?.let { fee ->
-            add(PanelItem.Header(stringResource(id = R.string.transaction_visualizer_role_fee)))
-            add(PanelItem.NodeEntry(fee))
-        }
-    }
-
-    LaunchedEffect(selectedNodeId, items) {
-        val targetIndex = items.indexOfFirst {
-            when (it) {
-                is PanelItem.NodeEntry -> it.node.id == selectedNodeId
-                is PanelItem.GroupEntry -> it.node.id == selectedNodeId
-                is PanelItem.GroupMember -> it.member.id == selectedNodeId
-                else -> false
-            }
-        }
-        if (targetIndex >= 0) {
-            listState.animateScrollToItem(index = targetIndex, scrollOffset = 0)
-        }
-    }
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = modifier
             .background(colorScheme.surface)
-    ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxHeight(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            item(key = "header-main") {
-                ListItem(
-                    colors = ListItemDefaults.colors(
-                        containerColor = Color.Transparent,
-                        headlineColor = colorScheme.onSurface,
-                        supportingColor = colorScheme.onSurfaceVariant
-                    ),
-                    headlineContent = {
-                        Text(
-                            text = stringResource(id = R.string.transaction_visualizer_details_title),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    },
-                    leadingContent = null,
-                    trailingContent = null,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    tonalElevation = 0.dp,
-                    shadowElevation = 0.dp
-                )
-            }
-            itemsIndexed(items, key = { index, item ->
-                when (item) {
-                    is PanelItem.Header -> "header-$index-${item.title}"
-                    is PanelItem.Count -> "count-$index-${item.label}"
-                    is PanelItem.NodeEntry -> "node-${item.node.id}"
-                    is PanelItem.GroupEntry -> "group-${item.node.id}"
-                    is PanelItem.GroupMember -> "group-${item.groupId}-member-${item.member.id}"
-                }
-            }) { _, item ->
-            when (item) {
-                is PanelItem.Header -> {
-                    SectionHeader(
-                        text = item.title,
-                        color = colorScheme.onSurface
-                    )
-                }
-                is PanelItem.Count -> {
-                    ListItem(
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        headlineContent = {
-                            Text(
-                                text = item.label,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        },
-                        trailingContent = {
-                            Text(
-                                text = item.value,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = colorScheme.onSurfaceVariant
-                            )
-                        }
-                    )
-                }
-                is PanelItem.NodeEntry -> {
-                    TransactionDetailEntry(
-                        node = item.node,
-                        colorScheme = colorScheme,
-                        graph = graph,
-                        isSelected = selectedNodeId == item.node.id,
-                        onSelect = { onNodeSelected(item.node, true) }
-                    )
-                }
-                is PanelItem.GroupEntry -> {
-                    TransactionDetailEntry(
-                        node = item.node,
-                        colorScheme = colorScheme,
-                        graph = graph,
-                        isSelected = selectedNodeId == item.node.id,
-                        onSelect = { onGroupExpand(item.node.id) }
-                    )
-                }
-                is PanelItem.GroupMember -> {
-                    TransactionDetailEntry(
-                        node = item.member,
-                        colorScheme = colorScheme,
-                        graph = graph,
-                        isSelected = selectedNodeId == item.member.id,
-                        isGroupMember = true,
-                        onSelect = { onGroupMemberSelect(item.groupId, item.member) }
-                    )
-                }
-            }
-        }
-    }
-}
-}
-
-@Composable
-private fun SectionHeader(text: String, color: Color) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelLarge,
-        color = color,
-        fontWeight = FontWeight.Medium,
-        modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp)
-    )
-}
-
-@Composable
-private fun TransactionDetailEntry(
-    node: GraphNode,
-    colorScheme: ColorScheme,
-    graph: TransactionGraph,
-    isSelected: Boolean,
-    isGroupMember: Boolean = false,
-    onSelect: () -> Unit
-) {
-    val indicatorColor = nodeColor(node, colorScheme)
-    val groupChildren = graph.groups[node.id]?.members?.size ?: node.children
-    val indicatorLabel = when (node.role) {
-        GraphRole.Input -> stringResource(
-            if (node.isMine) R.string.transaction_visualizer_wallet_owned else R.string.transaction_visualizer_role_input
-        )
-        GraphRole.Output -> stringResource(
-            if (node.isMine) R.string.transaction_visualizer_wallet_owned else R.string.transaction_visualizer_legend_external
-        )
-        GraphRole.Change -> stringResource(id = R.string.transaction_visualizer_role_change)
-        GraphRole.Fee -> stringResource(id = R.string.transaction_visualizer_role_fee)
-        GraphRole.Group -> stringResource(
-            id = R.string.transaction_visualizer_group_child_count,
-            groupChildren
-        )
-    }
-    val addressLabel = node.address?.let { address ->
-        formatTxidMiddle(address, keepStart = 10, keepEnd = 6)
-    }
-    val containerColor = if (isSelected) colorScheme.surfaceContainerHigh else Color.Transparent
-    val contentColor = if (isSelected) colorScheme.onSurface else colorScheme.onSurface
-    val supportingColor = if (isSelected) colorScheme.onSurfaceVariant else colorScheme.onSurfaceVariant
-    val indentModifier = if (isGroupMember) Modifier.padding(start = 12.dp) else Modifier
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .then(indentModifier)
-            .background(
-                color = containerColor,
-                shape = RoundedCornerShape(12.dp)
-            )
-            .clickable { onSelect() }
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .verticalScroll(scrollState),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
         ) {
             Box(
                 modifier = Modifier
-                    .size(12.dp)
-                    .background(color = indicatorColor, shape = CircleShape)
+                    .size(14.dp)
+                    .background(color = nodeColor(node, colorScheme), shape = CircleShape)
             )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = indicatorLabel,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = contentColor,
-                modifier = Modifier.weight(1f)
-            )
-            node.valueSats?.let { value ->
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = formatBtc(value),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = supportingColor,
-                    fontWeight = FontWeight.Medium
+                    text = stringResource(id = roleLabel(node)),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
                 )
+                ownershipLabel?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
-        addressLabel?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodySmall,
-                color = supportingColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+        Divider(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        )
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = {
+                Text(
+                    text = stringResource(id = R.string.transaction_visualizer_value_title),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            },
+            supportingContent = {
+                Text(
+                    text = valueLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant
+                )
+            }
+        )
+        addressLabel?.let { formatted ->
+            Divider(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            )
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.transaction_visualizer_address_title),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        text = formatted,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            )
+        }
+        node.derivationPath?.let { path ->
+            Divider(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            )
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.transaction_visualizer_derivation_title),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        text = path,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                }
             )
         }
     }
@@ -1010,10 +847,12 @@ private fun TransactionInfoSheet(
     } else {
         stringResource(id = R.string.transaction_detail_unknown)
     }
+    val scrollState = rememberScrollState()
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         ListItem(
@@ -1021,7 +860,7 @@ private fun TransactionInfoSheet(
             headlineContent = {
                 Text(
                     text = stringResource(id = R.string.transaction_detail_id_label),
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyLarge
                 )
             },
             supportingContent = {
@@ -1042,12 +881,17 @@ private fun TransactionInfoSheet(
                 }
             }
         )
+        Divider(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        )
         ListItem(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             headlineContent = {
                 Text(
                     text = stringResource(id = R.string.transaction_detail_time),
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyLarge
                 )
             },
             supportingContent = {
@@ -1058,12 +902,17 @@ private fun TransactionInfoSheet(
                 )
             }
         )
+        Divider(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        )
         ListItem(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             headlineContent = {
                 Text(
                     text = stringResource(id = R.string.transaction_detail_confirmations_label),
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyLarge
                 )
             },
             supportingContent = {
@@ -1074,12 +923,17 @@ private fun TransactionInfoSheet(
                 )
             }
         )
+        Divider(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        )
         ListItem(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             headlineContent = {
                 Text(
                     text = stringResource(id = R.string.transaction_visualizer_summary_inputs, inputCount),
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyLarge
                 )
             },
             supportingContent = {
@@ -1090,12 +944,17 @@ private fun TransactionInfoSheet(
                 )
             }
         )
+        Divider(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        )
         ListItem(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             headlineContent = {
                 Text(
                     text = stringResource(id = R.string.transaction_visualizer_summary_outputs, outputCount),
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyLarge
                 )
             },
             supportingContent = {
@@ -1120,18 +979,20 @@ private fun FeeInfoSheet(
     val feeRateLabel = transaction.feeRateSatPerVb?.let { rate ->
         String.format(Locale.getDefault(), "%.2f sats/vB", rate)
     } ?: stringResource(id = R.string.transaction_detail_unknown)
+    val scrollState = rememberScrollState()
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .verticalScroll(scrollState),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         ListItem(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             headlineContent = {
                 Text(
                     text = stringResource(id = R.string.transaction_detail_fee),
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyLarge
                 )
             },
             trailingContent = {
@@ -1141,12 +1002,17 @@ private fun FeeInfoSheet(
                 )
             }
         )
+        Divider(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        )
         ListItem(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             headlineContent = {
                 Text(
                     text = stringResource(id = R.string.transaction_detail_fee_rate),
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyLarge
                 )
             },
             trailingContent = {

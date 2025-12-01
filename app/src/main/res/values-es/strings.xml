@@ -299,6 +299,9 @@
     <string name="transaction_visualizer_value_label">Valor: %1$s</string>
     <string name="transaction_visualizer_address_label">Dirección: %1$s</string>
     <string name="transaction_visualizer_derivation_label">Ruta: %1$s</string>
+    <string name="transaction_visualizer_value_title">Valor</string>
+    <string name="transaction_visualizer_address_title">Dirección</string>
+    <string name="transaction_visualizer_derivation_title">Ruta de derivación</string>
     <string name="transaction_visualizer_wallet_owned">Propiedad de la billetera</string>
     <string name="transaction_visualizer_external_owned">Externa</string>
     <string name="transaction_visualizer_group_child_count">%1$d elementos agrupados</string>
