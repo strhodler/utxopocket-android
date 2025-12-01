@@ -25,7 +25,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -142,7 +141,6 @@ private fun AboutDeveloperContent(
                 DeveloperLinkItem(
                     title = stringResource(id = R.string.about_sheet_link_lightning),
                     value = lightningAddress,
-                    icon = Icons.Outlined.Link,
                     onCopy = { copyDeveloperLink(lightningAddress) }
                 )
             }
@@ -150,7 +148,6 @@ private fun AboutDeveloperContent(
                 DeveloperLinkItem(
                     title = stringResource(id = R.string.about_sheet_link_repository),
                     value = DEVELOPER_REPOSITORY_URL,
-                    icon = Icons.Outlined.OpenInNew,
                     onOpen = onOpenRepository,
                     onCopy = { copyDeveloperLink(DEVELOPER_REPOSITORY_URL) }
                 )
@@ -159,7 +156,6 @@ private fun AboutDeveloperContent(
                 DeveloperLinkItem(
                     title = stringResource(id = R.string.about_sheet_link_telegram),
                     value = TELEGRAM_CHANNEL_URL,
-                    icon = Icons.Outlined.OpenInNew,
                     onOpen = onOpenTelegram,
                     onCopy = { copyDeveloperLink(TELEGRAM_CHANNEL_URL) }
                 )
@@ -168,7 +164,6 @@ private fun AboutDeveloperContent(
                 DeveloperLinkItem(
                     title = stringResource(id = R.string.about_sheet_link_nostr),
                     value = DEVELOPER_NOSTR,
-                    icon = Icons.Outlined.Link,
                     onCopy = { copyDeveloperLink(DEVELOPER_NOSTR) }
                 )
             }
@@ -219,7 +214,6 @@ private fun DeveloperQrPreview(
 private fun DeveloperLinkItem(
     title: String,
     value: String,
-    icon: ImageVector,
     onCopy: (() -> Unit)? = null,
     onOpen: (() -> Unit)? = null
 ) {
@@ -237,13 +231,6 @@ private fun DeveloperLinkItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        },
-        leadingContent = {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         },
         trailingContent = {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

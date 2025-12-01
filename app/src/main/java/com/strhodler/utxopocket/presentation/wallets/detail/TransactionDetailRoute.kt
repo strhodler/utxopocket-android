@@ -1273,18 +1273,17 @@ private fun TransactionDetailHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+                .padding(horizontal = 24.dp, vertical = 36.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                TransactionChip(text = confirmationsLabel)
-                TransactionChip(text = feeRateLabel)
-            }
+            Text(
+                text = broadcastInfo,
+                style = MaterialTheme.typography.bodySmall,
+                color = secondaryContentColor,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
             Text(
                 text = amountText,
                 style = MaterialTheme.typography.headlineLarge.copy(
@@ -1298,13 +1297,6 @@ private fun TransactionDetailHeader(
                     onClick = onCycleBalanceDisplay
                 )
             )
-            Text(
-                text = broadcastInfo,
-                style = MaterialTheme.typography.bodySmall,
-                color = secondaryContentColor,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
@@ -1317,9 +1309,9 @@ private fun TransactionDetailHeader(
                     onClick = onEditLabel
                 )
                 onOpenVisualizer?.let { open ->
-                    FilledTonalButton(
+                    TextButton(
                         onClick = open,
-                        contentPadding = ButtonDefaults.ButtonWithIconContentPadding
+                        contentPadding = ButtonDefaults.TextButtonWithIconContentPadding
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.AutoGraph,
@@ -1672,21 +1664,12 @@ private fun UtxoDetailHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 28.dp),
+                .padding(horizontal = 24.dp, vertical = 36.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             UtxoIdenticon(
                 seed = identiconSeed
-            )
-            Text(
-                text = outpoint,
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = contentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
             )
             Text(
                 text = depositInfo,
@@ -1805,9 +1788,9 @@ private fun LabelChip(
     val hasLabel = !label.isNullOrBlank()
     val actionLabel = label?.takeIf { hasLabel } ?: stringResource(id = addLabelRes)
     val icon = if (hasLabel) Icons.Outlined.Edit else Icons.Outlined.Add
-    FilledTonalButton(
+    TextButton(
         onClick = onClick,
-        contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+        contentPadding = ButtonDefaults.TextButtonWithIconContentPadding,
         modifier = modifier
     ) {
         Icon(

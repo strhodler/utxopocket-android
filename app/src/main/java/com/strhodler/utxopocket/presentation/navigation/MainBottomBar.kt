@@ -22,7 +22,10 @@ fun MainBottomBar(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
-    NavigationBar(modifier = modifier) {
+    NavigationBar(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer
+    ) {
         MainDestination.BottomBarItems.forEach { destination ->
             val selected = currentDestination?.hierarchy?.any { it.route == destination.route } == true
             NavigationBarItem(
@@ -46,7 +49,8 @@ fun MainBottomBar(
                     indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                ),
+                modifier = Modifier.weight(1f)
             )
         }
     }

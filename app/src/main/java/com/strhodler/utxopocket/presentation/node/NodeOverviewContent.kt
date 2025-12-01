@@ -447,7 +447,8 @@ private fun TorStatusPill(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val successContainer = Color(0xFF2ECC71)
+    val successContainer = colorScheme.tertiary
+    val successContent = colorScheme.onTertiary
     val label: String
     val containerColor: Color
     val contentColor: Color
@@ -456,7 +457,7 @@ private fun TorStatusPill(
         is TorStatus.Running -> {
             label = stringResource(id = R.string.tor_status_running)
             containerColor = successContainer
-            contentColor = Color.White
+            contentColor = successContent
             leadingContent = {
                 Icon(
                     imageVector = Icons.Filled.Check,

@@ -314,14 +314,15 @@ private fun NodeHeroHeader(
             stringResource(id = R.string.node_reconnect_select_node)
         else -> null
     }
-    val successContainer = Color(0xFF2ECC71)
+    val successContainer = colorScheme.tertiary
+    val successContent = colorScheme.onTertiary
     val statusChipContainer = when (status.nodeStatus) {
         NodeStatus.Synced -> successContainer
         is NodeStatus.Error -> colorScheme.errorContainer
         else -> colorScheme.surfaceVariant
     }
     val statusChipContent = when (status.nodeStatus) {
-        NodeStatus.Synced -> Color.White
+        NodeStatus.Synced -> successContent
         is NodeStatus.Error -> colorScheme.onErrorContainer
         else -> colorScheme.onSurfaceVariant
     }
@@ -354,7 +355,7 @@ private fun NodeHeroHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 28.dp),
+                .padding(horizontal = 24.dp, vertical = 36.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

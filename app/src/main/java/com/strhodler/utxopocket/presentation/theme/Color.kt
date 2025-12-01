@@ -574,18 +574,84 @@ private val tritanopiaDark = ThemePalette(
     onTertiaryFixedVariant = Color(0xFFF1F5F9)
 )
 
-private val palettesByProfile: Map<ThemeProfile, Pair<ThemePalette, ThemePalette>> = mapOf(
-    ThemeProfile.STANDARD to (brandLightPalette to brandDarkPalette),
-    ThemeProfile.DEUTERANOPIA to (deuteranopiaLight to deuteranopiaDark),
-    ThemeProfile.PROTANOPIA to (protanopiaLight to protanopiaDark),
-    ThemeProfile.TRITANOPIA to (tritanopiaLight to tritanopiaDark)
+fun colorSchemeFor(profile: ThemeProfile, isDark: Boolean): ColorScheme =
+    if (isDark) defaultDarkColorScheme else defaultLightColorScheme
+
+private val defaultLightColorScheme = lightColorScheme(
+    primary = Color(0xFF805610),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFFFDDB3),
+    onPrimaryContainer = Color(0xFF633F00),
+    secondary = Color(0xFF6F5B40),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFFBDEBC),
+    onSecondaryContainer = Color(0xFF56442A),
+    tertiary = Color(0xFF51643F),
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = Color(0xFFD4EABB),
+    onTertiaryContainer = Color(0xFF3A4C2A),
+    error = Color(0xFFBA1A1A),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF93000A),
+    background = Color(0xFFFFF8F4),
+    onBackground = Color(0xFF201B13),
+    surface = Color(0xFFFFF8F4),
+    onSurface = Color(0xFF201B13),
+    surfaceVariant = Color(0xFFF0E0CF),
+    onSurfaceVariant = Color(0xFF4F4539),
+    outline = Color(0xFF817567),
+    outlineVariant = Color(0xFFD3C4B4),
+    scrim = Color(0xFF000000),
+    inverseSurface = Color(0xFF362F27),
+    inverseOnSurface = Color(0xFFFCEFE2),
+    inversePrimary = Color(0xFFF4BD6F),
+    surfaceDim = Color(0xFFE4D8CC),
+    surfaceBright = Color(0xFFFFF8F4),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFFFF1E5),
+    surfaceContainer = Color(0xFFF9ECDF),
+    surfaceContainerHigh = Color(0xFFF3E6DA),
+    surfaceContainerHighest = Color(0xFFEDE0D4)
 )
 
-fun colorSchemeFor(profile: ThemeProfile, isDark: Boolean): ColorScheme {
-    val palettes = palettesByProfile[profile] ?: palettesByProfile.getValue(ThemeProfile.STANDARD)
-    val palette = if (isDark) palettes.second else palettes.first
-    return palette.toColorScheme(isDark)
-}
+private val defaultDarkColorScheme = darkColorScheme(
+    primary = Color(0xFFF4BD6F),
+    onPrimary = Color(0xFF452B00),
+    primaryContainer = Color(0xFF633F00),
+    onPrimaryContainer = Color(0xFFFFDDB3),
+    secondary = Color(0xFFDDC2A1),
+    onSecondary = Color(0xFF3E2D16),
+    secondaryContainer = Color(0xFF56442A),
+    onSecondaryContainer = Color(0xFFFBDEBC),
+    tertiary = Color(0xFFB8CEA1),
+    onTertiary = Color(0xFF243515),
+    tertiaryContainer = Color(0xFF3A4C2A),
+    onTertiaryContainer = Color(0xFFD4EABB),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+    background = Color(0xFF18120B),
+    onBackground = Color(0xFFEDE0D4),
+    surface = Color(0xFF18120B),
+    onSurface = Color(0xFFEDE0D4),
+    surfaceVariant = Color(0xFF4F4539),
+    onSurfaceVariant = Color(0xFFD3C4B4),
+    outline = Color(0xFF9C8F80),
+    outlineVariant = Color(0xFF4F4539),
+    scrim = Color(0xFF000000),
+    inverseSurface = Color(0xFFEDE0D4),
+    inverseOnSurface = Color(0xFF362F27),
+    inversePrimary = Color(0xFF805610),
+    surfaceDim = Color(0xFF18120B),
+    surfaceBright = Color(0xFF3F3830),
+    surfaceContainerLowest = Color(0xFF120D07),
+    surfaceContainerLow = Color(0xFF201B13),
+    surfaceContainer = Color(0xFF251F17),
+    surfaceContainerHigh = Color(0xFF2F2921),
+    surfaceContainerHighest = Color(0xFF3B342B)
+)
 
 // Semantic status colors from brand palette (shared across profiles)
 val statusSuccess = Color(0xFF22C55E)

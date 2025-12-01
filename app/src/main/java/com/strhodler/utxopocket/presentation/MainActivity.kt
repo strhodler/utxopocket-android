@@ -454,31 +454,40 @@ private fun StatusBar(
             else -> fallbackSubtitle
         }
         val topBarColors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            scrolledContainerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
             navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
             actionIconContentColor = MaterialTheme.colorScheme.onSurface
         )
         TopAppBar(
             modifier = modifier,
             title = {
-                Column(
-                    horizontalAlignment = Alignment.Start,
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        text = stringResource(id = R.string.app_name),
-                        style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Start
+                    Icon(
+                        painter = painterResource(id = R.drawable.up_icon),
+                        contentDescription = stringResource(id = R.string.app_name),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
                     )
-                    Text(
-                        text = subtitleText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = subtitleColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Start
-                    )
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text(
+                            text = stringResource(id = R.string.app_name),
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Start
+                        )
+                        Text(
+                            text = subtitleText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = subtitleColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Start
+                        )
+                    }
                 }
             },
             navigationIcon = {},
@@ -507,7 +516,7 @@ private fun StatusBar(
         contentColor: Color? = null,
         tonalElevation: Dp = 3.dp
     ) {
-        val resolvedContainer = containerColor ?: MaterialTheme.colorScheme.surface
+        val resolvedContainer = containerColor ?: MaterialTheme.colorScheme.surfaceContainer
         val resolvedContent = contentColor ?: contentColorFor(resolvedContainer)
         val resolvedElevation = if (containerColor != null && containerColor.alpha <= 0.01f) {
             0.dp
