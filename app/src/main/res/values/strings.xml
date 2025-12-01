@@ -473,6 +473,7 @@
     <string name="utxo_detail_label_error">Unable to update label</string>
     <string name="utxo_detail_label_inherited">Inherited from the transaction label</string>
     <string name="utxo_detail_spendable_toggle_label">Spendable</string>
+    <string name="utxo_detail_spendable_toggle_supporting">Include or exclude this UTXO when spending.</string>
     <string name="utxo_detail_spendable_success">Spendable flag updated</string>
     <string name="utxo_detail_spendable_error">Unable to update the spendable flag</string>
     <string name="utxo_detail_network">Network</string>

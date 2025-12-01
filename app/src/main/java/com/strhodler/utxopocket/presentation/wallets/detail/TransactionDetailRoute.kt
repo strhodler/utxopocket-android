@@ -35,14 +35,16 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -875,163 +877,233 @@ private fun TransactionDetailContent(
                 title = stringResource(id = R.string.transaction_detail_section_overview)
             ) {
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.transaction_detail_id_label),
-                            value = transaction.id,
-                            singleLine = false,
-                            trailing = {
-                                IconButton(onClick = { copyToClipboard(transaction.id) }) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.ContentCopy,
-                                        contentDescription = stringResource(id = R.string.transaction_detail_copy_id)
-                                    )
-                                }
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_id_label),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = transaction.id,
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        trailingContent = {
+                            IconButton(onClick = { copyToClipboard(transaction.id) }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.ContentCopy,
+                                    contentDescription = stringResource(id = R.string.transaction_detail_copy_id)
+                                )
                             }
-                        )
-                    }
+                        }
+                    )
                 }
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.transaction_detail_time),
-                            value = dateLabel
-                        )
-                    }
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_time),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = dateLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
                 }
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.transaction_detail_fee),
-                            value = feeLabel
-                        )
-                    }
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_fee),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = feeLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
                 }
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.transaction_detail_fee_rate),
-                            value = feeRateLabel
-                        )
-                    }
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_fee_rate),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = feeRateLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
                 }
             }
             ListSection(
                 title = stringResource(id = R.string.transaction_detail_section_status)
             ) {
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.transaction_detail_confirmations_label),
-                            value = confirmationsLabel
-                        )
-                    }
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_confirmations_label),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = confirmationsLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
                 }
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.transaction_detail_block_height),
-                            value = blockHeightLabel
-                        )
-                    }
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_block_height),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = blockHeightLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
                 }
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.transaction_detail_block_hash),
-                            value = blockHashValue ?: stringResource(id = R.string.transaction_detail_unknown),
-                            trailing = blockHashValue?.let {
-                                {
-                                    IconButton(onClick = { copyToClipboard(it) }) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.ContentCopy,
-                                            contentDescription = stringResource(id = R.string.transaction_detail_copy_block_hash)
-                                        )
-                                    }
+                    val blockHashDisplay = blockHashValue ?: stringResource(id = R.string.transaction_detail_unknown)
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_block_hash),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = blockHashDisplay,
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        trailingContent = blockHashValue?.let { hash ->
+                            {
+                                IconButton(onClick = { copyToClipboard(hash) }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.ContentCopy,
+                                        contentDescription = stringResource(id = R.string.transaction_detail_copy_block_hash)
+                                    )
                                 }
                             }
-                        )
-                    }
+                        }
+                    )
                 }
             }
             ListSection(
                 title = stringResource(id = R.string.transaction_detail_section_size)
             ) {
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.transaction_detail_size_bytes),
-                            value = sizeBytesLabel
-                        )
-                    }
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_size_bytes),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = sizeBytesLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
                 }
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.transaction_detail_vbytes),
-                            value = vbytesLabel
-                        )
-                    }
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_vbytes),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = vbytesLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
                 }
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.transaction_detail_version),
-                            value = versionLabel
-                        )
-                    }
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_version),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = versionLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
                 }
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.transaction_detail_structure),
-                            value = structureLabel
-                        )
-                    }
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_structure),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = structureLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
                 }
             }
 
@@ -1400,48 +1472,68 @@ private fun UtxoDetailContent(
                 title = stringResource(id = R.string.utxo_detail_section_overview)
             ) {
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.utxo_detail_outpoint_label),
-                            value = fullOutpoint,
-                            trailing = {
-                                IconButton(onClick = { copyToClipboard(fullOutpoint) }) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.ContentCopy,
-                                        contentDescription = stringResource(id = R.string.utxo_detail_copy_outpoint)
-                                    )
-                                }
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.utxo_detail_outpoint_label),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = fullOutpoint,
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        trailingContent = {
+                            IconButton(onClick = { copyToClipboard(fullOutpoint) }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.ContentCopy,
+                                    contentDescription = stringResource(id = R.string.utxo_detail_copy_outpoint)
+                                )
                             }
-                        )
-                    }
+                        }
+                    )
                 }
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.utxo_detail_status),
-                            value = statusLabel
-                        )
-                    }
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.utxo_detail_status),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = statusLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
                 }
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.utxo_detail_confirmations),
-                            value = confirmationsLabel
-                        )
-                    }
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.utxo_detail_confirmations),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = confirmationsLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
                 }
             }
             ListSection(
@@ -1449,87 +1541,119 @@ private fun UtxoDetailContent(
             ) {
                 utxo.address?.let { address ->
                     item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
-                        ) {
-                            DetailRow(
-                                label = stringResource(id = R.string.utxo_detail_address),
-                                value = address,
-                                singleLine = false,
-                                trailing = {
-                                    IconButton(onClick = { copyToClipboard(address) }) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.ContentCopy,
-                                            contentDescription = stringResource(id = R.string.utxo_detail_copy_address)
-                                        )
-                                    }
-                                }
-                            )
-                        }
-                    }
-                }
-                addressTypeLabel?.let { label ->
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
-                        ) {
-                            DetailRow(
-                                label = stringResource(id = R.string.utxo_detail_keychain),
-                                value = label
-                            )
-                        }
-                    }
-                }
-                utxo.derivationPath?.let { path ->
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
-                        ) {
-                            DetailRow(
-                                label = stringResource(id = R.string.utxo_detail_derivation_path),
-                                value = path
-                            )
-                        }
-                    }
-                }
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.utxo_detail_txid),
-                            value = utxo.txid,
-                            singleLine = false,
-                            trailing = {
-                                IconButton(onClick = { copyToClipboard(utxo.txid) }) {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            headlineContent = {
+                                Text(
+                                    text = stringResource(id = R.string.utxo_detail_address),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = address,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            trailingContent = {
+                                IconButton(onClick = { copyToClipboard(address) }) {
                                     Icon(
                                         imageVector = Icons.Outlined.ContentCopy,
-                                        contentDescription = stringResource(id = R.string.utxo_detail_copy_txid)
+                                        contentDescription = stringResource(id = R.string.utxo_detail_copy_address)
                                     )
                                 }
                             }
                         )
                     }
                 }
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        DetailRow(
-                            label = stringResource(id = R.string.utxo_detail_vout),
-                            value = utxo.vout.toString()
+                addressTypeLabel?.let { label ->
+                    item {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            headlineContent = {
+                                Text(
+                                    text = stringResource(id = R.string.utxo_detail_keychain),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
                         )
                     }
+                }
+                utxo.derivationPath?.let { path ->
+                    item {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            headlineContent = {
+                                Text(
+                                    text = stringResource(id = R.string.utxo_detail_derivation_path),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = path,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        )
+                    }
+                }
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.utxo_detail_txid),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = utxo.txid,
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        trailingContent = {
+                            IconButton(onClick = { copyToClipboard(utxo.txid) }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.ContentCopy,
+                                    contentDescription = stringResource(id = R.string.utxo_detail_copy_txid)
+                                )
+                            }
+                        }
+                    )
+                }
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.utxo_detail_vout),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = utxo.vout.toString(),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
                 }
             }
         }
@@ -1647,35 +1771,39 @@ private fun SpendableToggleCard(
     updating: Boolean,
     onToggle: (Boolean) -> Unit,
     modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors(),
+    ) {
+        Card(
+            modifier = modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
         shape = MaterialTheme.shapes.large,
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(id = R.string.utxo_detail_spendable_toggle_label),
-                    style = MaterialTheme.typography.titleMedium
-                )
-                WalletSwitch(
-                    checked = spendable,
-                    onCheckedChange = { onToggle(it) },
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.utxo_detail_spendable_toggle_label),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        text = stringResource(id = R.string.utxo_detail_spendable_toggle_supporting),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                trailingContent = {
+                    WalletSwitch(
+                        checked = spendable,
+                        onCheckedChange = { onToggle(it) },
                     enabled = !updating
                 )
             }
-        }
+        )
     }
 }
 
@@ -1900,7 +2028,10 @@ private fun CollapsibleHealthCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors(),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
         shape = MaterialTheme.shapes.large,
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -2006,15 +2137,33 @@ private fun TransactionHealthSummaryCard(
                     deltaText,
                     severityLabel
                 )
-                val valueColor = when {
-                    indicator.delta < 0 -> MaterialTheme.colorScheme.error
-                    indicator.delta > 0 -> Color(0xFF2E7D32)
-                    else -> MaterialTheme.colorScheme.onSurface
+                val severityColor = when (indicator.severity) {
+                    TransactionHealthSeverity.LOW -> MaterialTheme.colorScheme.secondary
+                    TransactionHealthSeverity.MEDIUM -> MaterialTheme.colorScheme.tertiary
+                    TransactionHealthSeverity.HIGH -> MaterialTheme.colorScheme.error
                 }
-                DetailRow(
-                    label = label,
-                    value = valueText,
-                    valueColor = valueColor
+                ListItem(
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    headlineContent = {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            text = valueText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingContent = {
+                        Text(
+                            text = severityLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = severityColor
+                        )
+                    }
                 )
             }
         }
@@ -2089,15 +2238,33 @@ private fun UtxoHealthSummaryCard(
                     deltaText,
                     severityLabel
                 )
-                val valueColor = when {
-                    indicator.delta < 0 -> MaterialTheme.colorScheme.error
-                    indicator.delta > 0 -> Color(0xFF2E7D32)
-                    else -> MaterialTheme.colorScheme.onSurface
+                val severityColor = when (indicator.severity) {
+                    UtxoHealthSeverity.LOW -> MaterialTheme.colorScheme.secondary
+                    UtxoHealthSeverity.MEDIUM -> MaterialTheme.colorScheme.tertiary
+                    UtxoHealthSeverity.HIGH -> MaterialTheme.colorScheme.error
                 }
-                DetailRow(
-                    label = label,
-                    value = valueText,
-                    valueColor = valueColor
+                ListItem(
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    headlineContent = {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            text = valueText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingContent = {
+                        Text(
+                            text = severityLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = severityColor
+                        )
+                    }
                 )
             }
         }
@@ -2126,38 +2293,6 @@ private fun TransactionHealthSeverity.labelRes(): Int = when (this) {
     TransactionHealthSeverity.LOW -> R.string.transaction_health_severity_low
     TransactionHealthSeverity.MEDIUM -> R.string.transaction_health_severity_medium
     TransactionHealthSeverity.HIGH -> R.string.transaction_health_severity_high
-}
-
-@Composable
-private fun DetailRow(
-    label: String,
-    value: String,
-    emphasize: Boolean = false,
-    singleLine: Boolean = false,
-    valueColor: Color? = null,
-    trailing: (@Composable () -> Unit)? = null
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = value,
-                style = if (emphasize) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
-                color = valueColor ?: MaterialTheme.colorScheme.onSurface,
-                maxLines = if (singleLine) 1 else Int.MAX_VALUE,
-                overflow = if (singleLine) TextOverflow.Ellipsis else TextOverflow.Clip
-            )
-        }
-        trailing?.invoke()
-    }
 }
 
 @Composable

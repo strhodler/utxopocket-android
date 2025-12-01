@@ -20,8 +20,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -67,7 +67,7 @@ fun SectionCard(
     headerActionContentDescription: String? = null,
     onHeaderActionClick: (() -> Unit)? = null,
     header: (@Composable () -> Unit)? = null,
-    contentPadding: PaddingValues = PaddingValues(0.dp),
+    contentPadding: PaddingValues = PaddingValues(vertical = 8.dp),
     headerPadding: PaddingValues = PaddingValues(start = 12.dp, top = 8.dp, end = 12.dp, bottom = 4.dp),
     spacedContent: Boolean = false,
     divider: Boolean = true,
@@ -124,31 +124,14 @@ fun SectionCard(
                     items.forEachIndexed { index, item ->
                         item()
                         if (divider && index < items.lastIndex) {
-                            HorizontalDivider()
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant
+                            )
                         }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun ListSection(
-    title: String,
-    subtitle: String? = null,
-    modifier: Modifier = Modifier,
-    content: SectionCardScope.() -> Unit
-) {
-    SectionCard(
-        title = title,
-        subtitle = subtitle,
-        contentPadding = PaddingValues(0.dp),
-        spacedContent = false,
-        divider = true,
-        modifier = modifier.fillMaxWidth()
-    ) {
-        content()
     }
 }
 
@@ -187,7 +170,7 @@ fun ContentSection(
     title: String,
     subtitle: String? = null,
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(0.dp),
+    contentPadding: PaddingValues = PaddingValues(vertical = 8.dp),
     content: SectionCardScope.() -> Unit
 ) {
     SectionCard(
@@ -196,6 +179,25 @@ fun ContentSection(
         contentPadding = contentPadding,
         spacedContent = true,
         divider = false,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        content()
+    }
+}
+
+@Composable
+fun ListSection(
+    title: String,
+    subtitle: String? = null,
+    modifier: Modifier = Modifier,
+    content: SectionCardScope.() -> Unit
+) {
+    SectionCard(
+        title = title,
+        subtitle = subtitle,
+        contentPadding = PaddingValues(vertical = 8.dp),
+        spacedContent = false,
+        divider = true,
         modifier = modifier.fillMaxWidth()
     ) {
         content()

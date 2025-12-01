@@ -353,6 +353,7 @@
     <string name="utxo_detail_label_error">No se pudo actualizar la etiqueta</string>
     <string name="utxo_detail_label_inherited">Heredada de la etiqueta de la transacción</string>
     <string name="utxo_detail_spendable_toggle_label">Gastable</string>
+    <string name="utxo_detail_spendable_toggle_supporting">Incluye o excluye este UTXO al gastar.</string>
     <string name="utxo_detail_spendable_success">Estado de gasto actualizado</string>
     <string name="utxo_detail_spendable_error">No se pudo actualizar el estado de gasto</string>
     <string name="utxo_detail_network">Red</string>

@@ -79,9 +79,7 @@ private fun SettingsHomeScreen(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        SectionCard(
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 12.dp)
-        ) {
+        SectionCard {
             item {
                 SettingsNavigationRow(
                     title = stringResource(id = R.string.settings_section_interface),
