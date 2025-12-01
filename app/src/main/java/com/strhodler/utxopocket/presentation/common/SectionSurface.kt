@@ -38,7 +38,8 @@ fun SectionHeader(
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         subtitle?.let {
             Text(
@@ -67,10 +68,13 @@ fun SectionCard(
     onHeaderActionClick: (() -> Unit)? = null,
     header: (@Composable () -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(0.dp),
-    headerPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+    headerPadding: PaddingValues = PaddingValues(start = 12.dp, top = 8.dp, end = 12.dp, bottom = 4.dp),
     spacedContent: Boolean = false,
     divider: Boolean = true,
-    colors: CardColors = CardDefaults.elevatedCardColors(),
+    colors: CardColors = CardDefaults.elevatedCardColors(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        contentColor = MaterialTheme.colorScheme.onSurface
+    ),
     modifier: Modifier = Modifier,
     content: SectionCardScope.() -> Unit
 ) {
@@ -78,39 +82,34 @@ fun SectionCard(
     items.clear()
     SectionCardScope(items).content()
 
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = colors,
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            val resolvedHeader = header ?: title?.let {
-                @Composable {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        RowWithAction(
-                            title = it,
-                            subtitle = subtitle,
-                            actionIcon = headerActionIcon,
-                            actionContentDescription = headerActionContentDescription,
-                            onActionClick = onHeaderActionClick
-                        )
-                    }
-                }
-            }
-            resolvedHeader?.let {
+    Column(modifier = modifier.fillMaxWidth()) {
+        val resolvedHeader = header ?: title?.let {
+            @Composable {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(headerPadding)
-                ) { it() }
-                if (items.isNotEmpty()) HorizontalDivider()
+                        .padding(headerPadding),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    RowWithAction(
+                        title = it,
+                        subtitle = subtitle,
+                        actionIcon = headerActionIcon,
+                        actionContentDescription = headerActionContentDescription,
+                        onActionClick = onHeaderActionClick
+                    )
+                }
             }
+        }
+        resolvedHeader?.invoke()
 
-            if (items.isNotEmpty()) {
+        if (items.isNotEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                colors = colors,
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
                 val arrangement = if (spacedContent) {
                     Arrangement.spacedBy(12.dp)
                 } else {

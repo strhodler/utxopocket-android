@@ -1695,7 +1695,7 @@ private fun WalletAddressListItem(
         Modifier
     }
 
-    val addressCardColor = MaterialTheme.colorScheme.surfaceContainerLow
+    val addressCardColor = MaterialTheme.colorScheme.surfaceContainer
     Card(
         modifier = modifier
             .fillMaxWidth()

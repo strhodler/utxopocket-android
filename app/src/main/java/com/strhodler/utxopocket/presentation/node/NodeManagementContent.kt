@@ -298,8 +298,8 @@ private fun AvailableNodesSection(
     )
     val customBadge = NodeTypeBadge(
         label = customTypeLabel,
-        containerColor = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary
     )
     val nodes = buildList {
         publicNodes.forEach { node ->

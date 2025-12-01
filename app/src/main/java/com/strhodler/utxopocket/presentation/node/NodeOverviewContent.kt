@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
@@ -160,14 +161,15 @@ fun NodeTorStatusSection(
                 headlineContent = {
                     Text(
                         text = stringResource(id = R.string.tor_overview_title),
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
                 supportingContent = {
                     Text(
                         text = requirementMessage,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 trailingContent = {
@@ -184,13 +186,14 @@ fun NodeTorStatusSection(
                 headlineContent = {
                     Text(
                         text = stringResource(id = R.string.tor_overview_proxy_label),
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
                 supportingContent = {
                     Text(
                         text = proxyValue,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -205,14 +208,15 @@ fun NodeTorStatusSection(
                 headlineContent = {
                     Text(
                         text = stringResource(id = R.string.tor_overview_bootstrap_label),
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
                 supportingContent = {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
                             text = bootstrapValue,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         bootstrapSupporting?.let {
@@ -244,13 +248,14 @@ fun NodeTorStatusSection(
                 headlineContent = {
                     Text(
                         text = stringResource(id = R.string.tor_overview_latest_event_label),
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
                 supportingContent = {
                     Text(
                         text = latestLog ?: stringResource(id = R.string.tor_overview_latest_event_empty),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -541,33 +546,34 @@ private fun NodeDetailListItem(
     value: String,
     supportingText: String? = null,
     modifier: Modifier = Modifier
-) {
-    ListItem(
-        modifier = modifier.fillMaxWidth(),
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        headlineContent = {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyLarge
-            )
-        },
-        supportingContent = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                SelectionContainer {
+    ) {
+        ListItem(
+            modifier = modifier.fillMaxWidth(),
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = value,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                supportingText?.let {
-                    Text(
-                        text = it,
+                        text = label,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    SelectionContainer {
+                        Text(
+                            text = value,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    supportingText?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-            }
         }
     )
 }

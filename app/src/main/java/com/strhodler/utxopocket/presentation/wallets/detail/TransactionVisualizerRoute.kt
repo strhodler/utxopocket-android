@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -477,13 +478,12 @@ private fun TransactionGraphCanvas(
         graph.edges.forEach { edge ->
             val from = layoutById[edge.from] ?: return@forEach
             val to = layoutById[edge.to] ?: return@forEach
-            val edgeColor = if (selectedNodeId == null ||
-                selectedNodeId == from.node.id ||
-                selectedNodeId == to.node.id
-            ) {
-                colorScheme.outline
-            } else {
-                colorScheme.outlineVariant
+            val edgeColor = when {
+                selectedNodeId == null ||
+                    selectedNodeId == from.node.id ||
+                    selectedNodeId == to.node.id ->
+                    colorScheme.outline.copy(alpha = 0.45f)
+                else -> colorScheme.outlineVariant.copy(alpha = 0.25f)
             }
             drawLine(
                 color = edgeColor,
@@ -494,8 +494,8 @@ private fun TransactionGraphCanvas(
         }
         nodeLayouts.forEach { state ->
             val isSelected = selectedNodeId == null || selectedNodeId == state.node.id
-            val fillColor = if (isSelected) nodeColor(state.node, colorScheme) else colorScheme.surfaceVariant
-            val strokeColor = if (isSelected) colorScheme.outline else colorScheme.outlineVariant
+            val strokeColor = nodeStrokeColor(state.node, colorScheme)
+            val fillColor = nodeFillColor(state.node, colorScheme, isSelected)
             val textColor = if (isSelected) colorScheme.onSurface else colorScheme.onSurfaceVariant
             val stroke = Stroke(width = 1.dp.toPx())
             drawCircle(
@@ -557,6 +557,7 @@ private fun VisualizerError(
 
 private const val TRANSACTION_HUB_ID = "tx-hub"
 private const val GROUP_CHUNK_SIZE = 50
+private const val NODE_LIGHTEN_FRACTION = 0.25f
 
 internal fun radiusFor(node: GraphNode, density: Density): Float {
     val base = when (node.role) {
@@ -569,14 +570,30 @@ internal fun radiusFor(node: GraphNode, density: Density): Float {
     return with(density) { scaled.toPx() }
 }
 
-private fun nodeColor(node: GraphNode, colors: ColorScheme): Color =
+private fun nodeStrokeColor(node: GraphNode, colors: ColorScheme): Color =
     when (node.role) {
         GraphRole.Change -> colors.secondaryContainer
         GraphRole.Fee -> colors.errorContainer
-        GraphRole.Group -> colors.surfaceContainerHigh
-        GraphRole.Input -> if (node.isMine) colors.primaryContainer else colors.surfaceVariant
-        GraphRole.Output -> if (node.isMine) colors.primaryContainer else colors.surfaceVariant
+        GraphRole.Group -> if (node.id == TRANSACTION_HUB_ID) colors.outline else colors.surfaceContainerHigh
+        GraphRole.Input -> if (node.isMine) colors.primaryContainer else colors.surfaceContainerHigh
+        GraphRole.Output -> if (node.isMine) colors.primaryContainer else colors.surfaceContainerHigh
     }
+
+// Backward-compatible alias used by older call sites (e.g., previews)
+private fun nodeColor(node: GraphNode, colors: ColorScheme): Color = nodeStrokeColor(node, colors)
+
+private fun nodeFillColor(node: GraphNode, colors: ColorScheme, isSelected: Boolean): Color {
+    if (node.role == GraphRole.Group && node.id == TRANSACTION_HUB_ID) {
+        // Transaction hub matches the background but keeps a distinct border.
+        return colors.background
+    }
+    val stroke = nodeStrokeColor(node, colors)
+    val base = if (isSelected) stroke else lerp(stroke, colors.surfaceContainerLow, 0.4f)
+    return softenedNodeFillColor(base, colors)
+}
+
+private fun softenedNodeFillColor(base: Color, colors: ColorScheme): Color =
+    lerp(base, colors.surfaceBright, NODE_LIGHTEN_FRACTION)
 
 private fun expandGroup(graph: TransactionGraph, groupId: String): TransactionGraph {
     val group = graph.groups[groupId] ?: return graph
@@ -737,7 +754,7 @@ private fun NodeInfoSheet(
             Box(
                 modifier = Modifier
                     .size(14.dp)
-                    .background(color = nodeColor(node, colorScheme), shape = CircleShape)
+                    .background(color = nodeStrokeColor(node, colorScheme), shape = CircleShape)
             )
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -760,21 +777,9 @@ private fun NodeInfoSheet(
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
         )
-        ListItem(
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            headlineContent = {
-                Text(
-                    text = stringResource(id = R.string.transaction_visualizer_value_title),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            },
-            supportingContent = {
-                Text(
-                    text = valueLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant
-                )
-            }
+        NodeDetailItem(
+            label = stringResource(id = R.string.transaction_visualizer_value_title),
+            value = valueLabel
         )
         addressLabel?.let { formatted ->
             Divider(
@@ -782,23 +787,9 @@ private fun NodeInfoSheet(
                     .fillMaxWidth()
                     .padding(vertical = 8.dp)
             )
-            ListItem(
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                headlineContent = {
-                    Text(
-                        text = stringResource(id = R.string.transaction_visualizer_address_title),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                },
-                supportingContent = {
-                    Text(
-                        text = formatted,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+            NodeDetailItem(
+                label = stringResource(id = R.string.transaction_visualizer_address_title),
+                value = formatted
             )
         }
         node.derivationPath?.let { path ->
@@ -807,21 +798,9 @@ private fun NodeInfoSheet(
                     .fillMaxWidth()
                     .padding(vertical = 8.dp)
             )
-            ListItem(
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                headlineContent = {
-                    Text(
-                        text = stringResource(id = R.string.transaction_visualizer_derivation_title),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                },
-                supportingContent = {
-                    Text(
-                        text = path,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant
-                    )
-                }
+            NodeDetailItem(
+                label = stringResource(id = R.string.transaction_visualizer_derivation_title),
+                value = path
             )
         }
     }
@@ -863,21 +842,24 @@ private fun TransactionInfoSheet(
                     style = MaterialTheme.typography.bodyLarge
                 )
             },
-            supportingContent = {
-                Text(
-                    text = transaction.id,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            },
             trailingContent = {
-                IconButton(onClick = { copyToClipboard(transaction.id) }) {
-                    Icon(
-                        imageVector = Icons.Outlined.ContentCopy,
-                        contentDescription = stringResource(id = R.string.transaction_detail_copy_id)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = transaction.id,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    IconButton(onClick = { copyToClipboard(transaction.id) }) {
+                        Icon(
+                            imageVector = Icons.Outlined.ContentCopy,
+                            contentDescription = stringResource(id = R.string.transaction_detail_copy_id)
+                        )
+                    }
                 }
             }
         )
@@ -894,11 +876,12 @@ private fun TransactionInfoSheet(
                     style = MaterialTheme.typography.bodyLarge
                 )
             },
-            supportingContent = {
+            trailingContent = {
                 Text(
                     text = dateLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         )
@@ -915,11 +898,10 @@ private fun TransactionInfoSheet(
                     style = MaterialTheme.typography.bodyLarge
                 )
             },
-            supportingContent = {
+            trailingContent = {
                 Text(
                     text = confirmationsLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         )
@@ -936,11 +918,10 @@ private fun TransactionInfoSheet(
                     style = MaterialTheme.typography.bodyLarge
                 )
             },
-            supportingContent = {
+            trailingContent = {
                 Text(
                     text = inputCount.toString(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         )
@@ -957,11 +938,10 @@ private fun TransactionInfoSheet(
                     style = MaterialTheme.typography.bodyLarge
                 )
             },
-            supportingContent = {
+            trailingContent = {
                 Text(
                     text = outputCount.toString(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         )
@@ -1030,6 +1010,31 @@ private fun formatTxidMiddle(txid: String, keepStart: Int = 10, keepEnd: Int = 6
     val prefix = txid.take(keepStart)
     val suffix = txid.takeLast(keepEnd)
     return "$prefix...$suffix"
+}
+
+@Composable
+private fun NodeDetailItem(
+    label: String,
+    value: String
+) {
+    ListItem(
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        headlineContent = {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    )
 }
 
 @Composable
