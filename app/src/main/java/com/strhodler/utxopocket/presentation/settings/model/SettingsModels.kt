@@ -3,6 +3,7 @@ package com.strhodler.utxopocket.presentation.settings.model
 import androidx.annotation.StringRes
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
@@ -28,6 +29,11 @@ data class SettingsUiState(
     val connectionIdleTimeoutMinutes: Int = AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES,
     val dustThresholdSats: Long = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS,
     val dustThresholdInput: String = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS.toString(),
+    val preferredNetwork: BitcoinNetwork = BitcoinNetwork.DEFAULT,
+    val blockExplorerNormalCustomInput: String = "",
+    val blockExplorerOnionCustomInput: String = "",
+    val blockExplorerNormalCustomNameInput: String = "",
+    val blockExplorerOnionCustomNameInput: String = "",
     val transactionHealthParameters: TransactionHealthParameters = TransactionHealthParameters(),
     val transactionHealthInputs: TransactionHealthParameterInputs = TransactionHealthParameterInputs(),
     val transactionInputsDirty: Boolean = false,

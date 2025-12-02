@@ -4,6 +4,8 @@ import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
+import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
@@ -36,6 +38,7 @@ interface AppPreferencesRepository {
     val utxoHealthParameters: Flow<UtxoHealthParameters>
     val networkLogsEnabled: Flow<Boolean>
     val networkLogsInfoSeen: Flow<Boolean>
+    val blockExplorerPreferences: Flow<BlockExplorerPreferences>
 
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setPreferredNetwork(network: BitcoinNetwork)
@@ -66,6 +69,9 @@ interface AppPreferencesRepository {
     suspend fun resetUtxoHealthParameters()
     suspend fun setNetworkLogsEnabled(enabled: Boolean)
     suspend fun setNetworkLogsInfoSeen(seen: Boolean)
+    suspend fun setBlockExplorerBucket(network: BitcoinNetwork, bucket: BlockExplorerBucket)
+    suspend fun setBlockExplorerPreset(network: BitcoinNetwork, bucket: BlockExplorerBucket, presetId: String)
+    suspend fun setBlockExplorerCustom(network: BitcoinNetwork, bucket: BlockExplorerBucket, url: String?, name: String?)
     suspend fun wipeAll()
 
     companion object {

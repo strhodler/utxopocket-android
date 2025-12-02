@@ -280,7 +280,15 @@
     <string name="transaction_detail_copy_block_hash">Copiar hash del bloque</string>
     <string name="transaction_detail_copy_raw_hex">Copiar hex bruto</string>
     <string name="transaction_detail_raw_hex">Transacción cruda (hex)</string>
-    <string name="transaction_detail_open_visualizer">Abrir visualizador</string>
+    <string name="transaction_detail_open_in_explorer">Explorador de bloques</string>
+    <string name="transaction_detail_explorer_onion_snackbar">Explorador abierto. Pega el txid en la página.</string>
+    <string name="transaction_detail_explorer_missing">Añade un explorador en Ajustes para abrir esta transacción.</string>
+    <string name="transaction_detail_explorer_sheet_title">Elige un explorador</string>
+    <string name="transaction_detail_explorer_sheet_subtitle">Selecciona un explorador y lo abriremos enseguida.</string>
+    <string name="transaction_detail_explorer_manual_hint">Abre la página base; pega el txid manualmente.</string>
+    <string name="transaction_detail_explorer_direct_hint">Añade el txid automáticamente.</string>
+    <string name="transaction_detail_explorer_add">Añadir explorador</string>
+    <string name="transaction_detail_open_visualizer">Visualizador de tx</string>
     <string name="transaction_detail_visualizer_content_description">Abrir visualizador de transacciones</string>
 
     <string name="transaction_visualizer_back">Atrás</string>
@@ -567,6 +575,7 @@
     <string name="add_wallet_scan_descriptor">Escanear descriptor</string>
     <string name="add_wallet_scan_permission_denied">Se requiere la cámara para escanear descriptores.</string>
     <string name="add_wallet_scan_invalid">No encontramos un descriptor en ese código QR.</string>
+    <string name="add_wallet_scan_qr_content_description">Escanear QR</string>
 
     <!-- Dialogs & common -->
     <string name="dialog_close">Cerrar</string>
@@ -615,6 +624,26 @@
     <string name="settings_dust_threshold_label">Umbral de dust</string>
     <string name="settings_dust_threshold_placeholder">Introduce sats</string>
     <string name="settings_dust_threshold_support">Marca salidas pequeñas para revisarlas antes de gastar; pon 0 para desactivar avisos de dust.</string>
+    <string name="settings_block_explorer_title">Explorador %1$s</string>
+    <string name="settings_block_explorer_support">Añade exploradores aquí; podrás elegir cuál abrir desde una hoja inferior en el detalle de transacción.</string>
+    <string name="settings_block_explorer_bucket_normal">Normal</string>
+    <string name="settings_block_explorer_bucket_onion">.onion</string>
+    <string name="settings_block_explorer_presets_label">Exploradores integrados</string>
+    <string name="settings_block_explorer_clearnet_title">Exploradores clearnet</string>
+    <string name="settings_block_explorer_tor_title">Exploradores Tor</string>
+    <string name="settings_block_explorer_add_clearnet">Añadir explorador clearnet</string>
+    <string name="settings_block_explorer_add_tor">Añadir explorador Tor</string>
+    <string name="settings_block_explorer_preset_support_txid">Añade el txid a la URL.</string>
+    <string name="settings_block_explorer_preset_onion_hint">Abre solo la página base; pega el txid manualmente.</string>
+    <string name="settings_block_explorer_custom_name_label">Nombre del explorador</string>
+    <string name="settings_block_explorer_custom_name_tor_label">Nombre del explorador Tor</string>
+    <string name="settings_block_explorer_add_info_clearnet">Añade un explorador para %1$s. Usa URLs http/https; la app añadirá el txid cuando sea posible.</string>
+    <string name="settings_block_explorer_add_info_tor">Añade un explorador Tor para %1$s. Los enlaces .onion abren la página base para que pegues el txid.</string>
+    <string name="settings_block_explorer_custom_url_label">URL base personalizada</string>
+    <string name="settings_block_explorer_custom_url_placeholder">https://ejemplo.com/tx/</string>
+    <string name="settings_block_explorer_custom_onion_label">Explorador .onion personalizado</string>
+    <string name="settings_block_explorer_custom_onion_placeholder">http://ejemplo.onion</string>
+    <string name="settings_block_explorer_custom_support">Usa http/https. Los enlaces .onion abren solo la base; pega el txid tú mismo.</string>
 
     <!-- Settings: health parameters -->
     <string name="settings_health_parameters_cta">Ajustes avanzados de salud</string>

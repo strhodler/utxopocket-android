@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AutoGraph
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
@@ -46,6 +47,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -98,6 +101,10 @@ import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.displayLabel
 import com.strhodler.utxopocket.domain.model.WalletDefaults
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
+import com.strhodler.utxopocket.domain.model.BlockExplorerCatalog
+import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.UtxoStatus
 import com.strhodler.utxopocket.domain.model.UtxoAnalysisContext
 import com.strhodler.utxopocket.domain.model.UtxoHealthIndicatorType
@@ -117,6 +124,7 @@ import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.material3.rememberModalBottomSheetState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -135,6 +143,7 @@ import com.strhodler.utxopocket.domain.service.TransactionHealthAnalyzer
 import com.strhodler.utxopocket.data.utxohealth.DefaultUtxoHealthAnalyzer
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import io.github.thibseisel.identikon.Identicon
 import io.github.thibseisel.identikon.drawToBitmap
@@ -176,6 +185,7 @@ fun TransactionDetailRoute(
     onBack: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onOpenVisualizer: (Long, String) -> Unit,
+    onOpenWalletSettings: () -> Unit,
     viewModel: TransactionDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -243,6 +253,7 @@ fun TransactionDetailRoute(
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             onOpenWikiTopic = onOpenWikiTopic,
             onShowMessage = showSnackbar,
+            onOpenWalletSettings = onOpenWalletSettings,
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
@@ -368,7 +379,8 @@ class TransactionDetailViewModel @Inject constructor(
         appPreferencesRepository.transactionHealthParameters,
         appPreferencesRepository.transactionAnalysisEnabled,
         storedHealthState,
-        appPreferencesRepository.hapticsEnabled
+        appPreferencesRepository.hapticsEnabled,
+        appPreferencesRepository.blockExplorerPreferences
     ) { values: Array<Any?> ->
         val detail = values[0] as WalletDetail?
         val balanceUnit = values[1] as BalanceUnit
@@ -380,6 +392,7 @@ class TransactionDetailViewModel @Inject constructor(
         @Suppress("UNCHECKED_CAST")
         val storedHealth = values[7] as List<TransactionHealthResult>
         val hapticsEnabled = values[8] as Boolean
+        val blockExplorerPrefs = values[9] as BlockExplorerPreferences
         val storedHealthMap = storedHealth.associateBy { it.transactionId }
         if (analysisEnabled && detail != null) {
             val computedHealth = transactionHealthAnalyzer
@@ -408,7 +421,8 @@ class TransactionDetailViewModel @Inject constructor(
                 advancedMode = advancedMode,
                 error = TransactionDetailError.NotFound,
                 transactionAnalysisEnabled = analysisEnabled,
-                transactionHealth = null
+                transactionHealth = null,
+                blockExplorerOptions = emptyList()
             )
 
             transaction == null -> TransactionDetailUiState(
@@ -421,21 +435,27 @@ class TransactionDetailViewModel @Inject constructor(
                 advancedMode = advancedMode,
                 error = TransactionDetailError.NotFound,
                 transactionAnalysisEnabled = analysisEnabled,
-                transactionHealth = null
+                transactionHealth = null,
+                blockExplorerOptions = emptyList()
             )
 
-            else -> TransactionDetailUiState(
-                isLoading = false,
-                walletSummary = detail.summary,
-                transaction = transaction,
-                balanceUnit = balanceUnit,
-                balancesHidden = balancesHidden,
-                advancedMode = advancedMode,
-                hapticsEnabled = hapticsEnabled,
-                error = null,
-                transactionAnalysisEnabled = analysisEnabled,
-                transactionHealth = transactionHealth
-            )
+            else -> {
+                val explorerOptions =
+                    resolveBlockExplorerOptions(detail.summary.network, transaction.id, blockExplorerPrefs)
+                TransactionDetailUiState(
+                    isLoading = false,
+                    walletSummary = detail.summary,
+                    transaction = transaction,
+                    balanceUnit = balanceUnit,
+                    balancesHidden = balancesHidden,
+                    advancedMode = advancedMode,
+                    hapticsEnabled = hapticsEnabled,
+                    error = null,
+                    transactionAnalysisEnabled = analysisEnabled,
+                    transactionHealth = transactionHealth,
+                    blockExplorerOptions = explorerOptions
+                )
+            }
         }
     }.stateIn(
         scope = viewModelScope,
@@ -454,6 +474,44 @@ class TransactionDetailViewModel @Inject constructor(
     fun cycleBalanceDisplayMode() {
         viewModelScope.launch {
             appPreferencesRepository.cycleBalanceDisplayMode()
+        }
+    }
+}
+
+private fun resolveBlockExplorerOptions(
+    network: BitcoinNetwork,
+    txId: String,
+    preferences: BlockExplorerPreferences
+): List<BlockExplorerOption> {
+    val selection = preferences.forNetwork(network)
+    return BlockExplorerBucket.entries.flatMap { bucket ->
+        val customUrl = selection.customUrlFor(bucket).orEmpty()
+        val customName = selection.customNameFor(bucket).orEmpty()
+        BlockExplorerCatalog.presetsFor(network, bucket).mapNotNull { preset ->
+            val baseUrl = when {
+                BlockExplorerCatalog.isCustomPreset(preset.id, bucket) -> customUrl
+                else -> preset.baseUrl
+            }.trim()
+            if (baseUrl.isBlank()) return@mapNotNull null
+            val targetUrl = if (preset.supportsTxId) {
+                "$baseUrl$txId"
+            } else {
+                baseUrl
+            }
+            val hasValidScheme = targetUrl.startsWith("http://") || targetUrl.startsWith("https://")
+            if (!hasValidScheme) return@mapNotNull null
+            val name = if (BlockExplorerCatalog.isCustomPreset(preset.id, bucket) && customName.isNotBlank()) {
+                customName
+            } else {
+                preset.name
+            }
+            BlockExplorerOption(
+                id = preset.id,
+                name = name,
+                bucket = bucket,
+                url = targetUrl,
+                requiresManualTxId = !preset.supportsTxId
+            )
         }
     }
 }
@@ -489,7 +547,8 @@ class UtxoDetailViewModel @Inject constructor(
         appPreferencesRepository.utxoHealthParameters,
         appPreferencesRepository.utxoHealthEnabled,
         storedUtxoHealthState,
-        appPreferencesRepository.hapticsEnabled
+        appPreferencesRepository.hapticsEnabled,
+        appPreferencesRepository.blockExplorerPreferences
     ) { values: Array<Any?> ->
         val detail = values[0] as WalletDetail?
         val balanceUnit = values[1] as BalanceUnit
@@ -501,6 +560,7 @@ class UtxoDetailViewModel @Inject constructor(
         @Suppress("UNCHECKED_CAST")
         val storedHealth = values[7] as List<UtxoHealthResult>
         val hapticsEnabled = values[8] as Boolean
+        val blockExplorerPrefs = values[9] as BlockExplorerPreferences
         val utxo = detail?.utxos?.firstOrNull { it.txid == txId && it.vout == vout }
         val stored = storedHealth.firstOrNull { it.txid == txId && it.vout == vout }
         val utxoHealth = if (healthEnabled && utxo != null) {
@@ -531,7 +591,8 @@ class UtxoDetailViewModel @Inject constructor(
                 error = UtxoDetailError.NotFound,
                 dustThresholdSats = dustThreshold,
                 utxoHealthEnabled = healthEnabled,
-                utxoHealth = null
+                utxoHealth = null,
+                blockExplorerOptions = emptyList()
             )
 
             utxo == null -> UtxoDetailUiState(
@@ -545,7 +606,8 @@ class UtxoDetailViewModel @Inject constructor(
                 error = UtxoDetailError.NotFound,
                 dustThresholdSats = dustThreshold,
                 utxoHealthEnabled = healthEnabled,
-                utxoHealth = null
+                utxoHealth = null,
+                blockExplorerOptions = emptyList()
             )
 
             else -> UtxoDetailUiState(
@@ -560,7 +622,12 @@ class UtxoDetailViewModel @Inject constructor(
                 dustThresholdSats = dustThreshold,
                 utxoHealthEnabled = healthEnabled,
                 utxoHealth = utxoHealth,
-                depositTimestamp = depositTimestamp
+                depositTimestamp = depositTimestamp,
+                blockExplorerOptions = resolveBlockExplorerOptions(
+                    detail.summary.network,
+                    utxo.txid,
+                    blockExplorerPrefs
+                )
             )
         }
     }.stateIn(
@@ -602,7 +669,8 @@ data class TransactionDetailUiState(
     val advancedMode: Boolean = false,
     val error: TransactionDetailError? = null,
     val transactionAnalysisEnabled: Boolean = true,
-    val transactionHealth: TransactionHealthResult? = null
+    val transactionHealth: TransactionHealthResult? = null,
+    val blockExplorerOptions: List<BlockExplorerOption> = emptyList()
 )
 
 sealed interface TransactionDetailError {
@@ -621,12 +689,21 @@ data class UtxoDetailUiState(
     val dustThresholdSats: Long = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS,
     val utxoHealthEnabled: Boolean = true,
     val utxoHealth: UtxoHealthResult? = null,
-    val depositTimestamp: Long? = null
+    val depositTimestamp: Long? = null,
+    val blockExplorerOptions: List<BlockExplorerOption> = emptyList()
 )
 
 sealed interface UtxoDetailError {
     data object NotFound : UtxoDetailError
 }
+
+data class BlockExplorerOption(
+    val id: String,
+    val name: String,
+    val bucket: BlockExplorerBucket,
+    val url: String,
+    val requiresManualTxId: Boolean
+)
 
 @Composable
 private fun TransactionDetailScreen(
@@ -636,6 +713,7 @@ private fun TransactionDetailScreen(
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
+    onOpenWalletSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     when {
@@ -651,18 +729,19 @@ private fun TransactionDetailScreen(
         }
 
         else -> {
-            TransactionDetailContent(
-                state = state,
-                onEditTransactionLabel = onEditTransactionLabel,
-                onOpenVisualizer = onOpenVisualizer,
-                onCycleBalanceDisplay = onCycleBalanceDisplay,
-                onOpenWikiTopic = onOpenWikiTopic,
-                onShowMessage = onShowMessage,
-                modifier = modifier
-            )
+                TransactionDetailContent(
+                    state = state,
+                    onEditTransactionLabel = onEditTransactionLabel,
+                    onOpenVisualizer = onOpenVisualizer,
+                    onCycleBalanceDisplay = onCycleBalanceDisplay,
+                    onOpenWikiTopic = onOpenWikiTopic,
+                    onShowMessage = onShowMessage,
+                    onOpenWalletSettings = onOpenWalletSettings,
+                    modifier = modifier
+                )
+            }
         }
     }
-}
 
 @Composable
 private fun UtxoDetailScreen(
@@ -765,6 +844,7 @@ private fun LabelEditDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransactionDetailContent(
     state: TransactionDetailUiState,
@@ -773,6 +853,7 @@ private fun TransactionDetailContent(
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
+    onOpenWalletSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val transaction = requireNotNull(state.transaction)
@@ -812,6 +893,20 @@ private fun TransactionDetailContent(
     val maxFlowItems = 5
     var showAllInputs by remember { mutableStateOf(false) }
     var showAllOutputs by remember { mutableStateOf(false) }
+    val explorerOptions = state.blockExplorerOptions
+    val explorerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showExplorerSheet by remember { mutableStateOf(false) }
+    val explorerMessage = stringResource(id = R.string.transaction_detail_explorer_onion_snackbar)
+    val explorerMissingMessage = stringResource(id = R.string.transaction_detail_explorer_missing)
+    val explorerScope = rememberCoroutineScope()
+    val uriHandler = LocalUriHandler.current
+    val openExplorer: () -> Unit = {
+        if (explorerOptions.isEmpty()) {
+            showShortMessage(explorerMissingMessage)
+        } else {
+            showExplorerSheet = true
+        }
+    }
 
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
@@ -825,6 +920,7 @@ private fun TransactionDetailContent(
             onEditLabel = { onEditTransactionLabel(transaction.label) },
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             onOpenVisualizer = visualizerAction,
+            onOpenExplorer = openExplorer,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -1245,6 +1341,91 @@ private fun TransactionDetailContent(
                 }
             }
         }
+        if (showExplorerSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showExplorerSheet = false },
+                sheetState = explorerSheetState
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (explorerOptions.isEmpty()) {
+                        Text(
+                            text = stringResource(id = R.string.transaction_detail_explorer_missing),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        explorerOptions.forEach { option ->
+                            val bucketLabel = if (option.bucket == BlockExplorerBucket.ONION) {
+                                stringResource(id = R.string.settings_block_explorer_bucket_onion)
+                            } else {
+                                stringResource(id = R.string.settings_block_explorer_bucket_normal)
+                            }
+                            val behavior = if (option.requiresManualTxId) {
+                                stringResource(id = R.string.transaction_detail_explorer_manual_hint)
+                            } else {
+                                stringResource(id = R.string.transaction_detail_explorer_direct_hint)
+                            }
+                            ListItem(
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                headlineContent = {
+                                    Text(
+                                        text = option.name,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                },
+                                supportingContent = {
+                                    Text(
+                                        text = "$bucketLabel • $behavior",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
+                                trailingContent = {
+                                    Icon(
+                                        imageVector = Icons.Outlined.OpenInNew,
+                                        contentDescription = null
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(MaterialTheme.shapes.medium)
+                                    .clickable {
+                                        explorerScope.launch {
+                                            explorerSheetState.hide()
+                                        }.invokeOnCompletion {
+                                            showExplorerSheet = false
+                                            uriHandler.openUri(option.url)
+                                            if (option.requiresManualTxId) {
+                                                showShortMessage(explorerMessage)
+                                            }
+                                        }
+                                    }
+                            )
+                        }
+                    }
+                    TextButton(
+                        onClick = {
+                            explorerScope.launch {
+                                explorerSheetState.hide()
+                            }.invokeOnCompletion {
+                                showExplorerSheet = false
+                                onOpenWalletSettings()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
+                    ) {
+                        Text(text = stringResource(id = R.string.transaction_detail_explorer_add))
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1259,6 +1440,7 @@ private fun TransactionDetailHeader(
     onEditLabel: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenVisualizer: (() -> Unit)?,
+    onOpenExplorer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val contentColor = MaterialTheme.colorScheme.onSurface
@@ -1308,6 +1490,12 @@ private fun TransactionDetailHeader(
                     editLabelRes = R.string.transaction_detail_label_edit_action,
                     onClick = onEditLabel
                 )
+            }
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 onOpenVisualizer?.let { open ->
                     TextButton(
                         onClick = open,
@@ -1324,6 +1512,17 @@ private fun TransactionDetailHeader(
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
+                }
+                TextButton(
+                    onClick = onOpenExplorer,
+                    contentPadding = ButtonDefaults.TextButtonWithIconContentPadding
+                ) {
+                    Icon(imageVector = Icons.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                    Text(
+                        text = stringResource(id = R.string.transaction_detail_open_in_explorer),
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         }

@@ -322,6 +322,15 @@ fun MainNavHost(
                         navController.navigate(
                             WalletsNavigation.transactionVisualizerRoute(walletId, txId)
                         )
+                    },
+                    onOpenWalletSettings = {
+                        navController.navigate(MainDestination.Settings.route) {
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                        navController.navigate(SettingsNavigation.WalletRoute) {
+                            launchSingleTop = true
+                        }
                     }
                 )
             }
