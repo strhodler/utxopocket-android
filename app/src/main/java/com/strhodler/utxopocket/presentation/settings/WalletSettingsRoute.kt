@@ -18,7 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Help
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -412,7 +412,7 @@ private fun WalletSettingsScreen(
                     text = stringResource(id = R.string.settings_block_explorer_clearnet_title),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
                 )
             }
             normalPresets.forEach { preset ->
@@ -469,7 +469,7 @@ private fun WalletSettingsScreen(
                 }
             }
             item {
-                FilledTonalButton(onClick = { explorerSheet = ExplorerSheetType.CLEARNET }) {
+                TextButton(onClick = { explorerSheet = ExplorerSheetType.CLEARNET }) {
                     Text(text = stringResource(id = R.string.settings_block_explorer_add_clearnet))
                 }
             }
@@ -483,7 +483,7 @@ private fun WalletSettingsScreen(
                     text = stringResource(id = R.string.settings_block_explorer_tor_title),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
                 )
             }
             onionPresets.forEach { preset ->
@@ -540,7 +540,7 @@ private fun WalletSettingsScreen(
                 }
             }
             item {
-                FilledTonalButton(onClick = { explorerSheet = ExplorerSheetType.TOR }) {
+                TextButton(onClick = { explorerSheet = ExplorerSheetType.TOR }) {
                     Text(text = stringResource(id = R.string.settings_block_explorer_add_tor))
                 }
             }
