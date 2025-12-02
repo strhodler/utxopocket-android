@@ -628,7 +628,7 @@ private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackSta
     reducedMotion: Boolean
 ) = when {
     targetState.destination.route.matchesRoute(WalletsNavigation.AddRoute) ->
-        sharedAxisYEnter(reducedMotion = reducedMotion, forward = true)
+        sharedAxisXEnter(reducedMotion = reducedMotion, forward = true)
 
     targetState.destination.route.matchesRoute(WalletsNavigation.DetailRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.TransactionDetailRoute) ||
@@ -647,7 +647,7 @@ private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackSta
     reducedMotion: Boolean
 ) = when {
     targetState.destination.route.matchesRoute(WalletsNavigation.AddRoute) ->
-        sharedAxisYExit(reducedMotion = reducedMotion, forward = true)
+        sharedAxisXExit(reducedMotion = reducedMotion, forward = true)
 
     targetState.destination.route.matchesRoute(WalletsNavigation.DetailRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.TransactionDetailRoute) ||
@@ -666,7 +666,7 @@ private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackSta
     reducedMotion: Boolean
 ) = when {
     initialState.destination.route.matchesRoute(WalletsNavigation.AddRoute) ->
-        sharedAxisYEnter(reducedMotion = reducedMotion, forward = false)
+        sharedAxisXEnter(reducedMotion = reducedMotion, forward = false)
 
     initialState.destination.route.matchesRoute(WalletsNavigation.DetailRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.TransactionDetailRoute) ||
@@ -685,7 +685,7 @@ private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackSta
     reducedMotion: Boolean
 ) = when {
     initialState.destination.route.matchesRoute(WalletsNavigation.AddRoute) ->
-        sharedAxisYExit(reducedMotion = reducedMotion, forward = false)
+        sharedAxisXExit(reducedMotion = reducedMotion, forward = false)
 
     initialState.destination.route.matchesRoute(WalletsNavigation.DetailRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.TransactionDetailRoute) ||

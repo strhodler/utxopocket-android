@@ -176,7 +176,6 @@ fun WalletsScreen(
             isNetworkOnline = isNetworkOnline,
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             blockHeight = state.blockHeight,
-            feeRateSatPerVb = state.feeRateSatPerVb,
             selectedNetwork = state.selectedNetwork,
             modifier = Modifier
                 .fillMaxSize()
@@ -197,7 +196,6 @@ private fun WalletsContent(
     isNetworkOnline: Boolean,
     onCycleBalanceDisplay: () -> Unit,
     blockHeight: Long?,
-    feeRateSatPerVb: Double?,
     selectedNetwork: BitcoinNetwork,
     modifier: Modifier = Modifier
 ) {
@@ -351,7 +349,6 @@ private fun WalletsContent(
             modifier = Modifier.fillMaxSize(),
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             blockHeight = blockHeight,
-            feeRateSatPerVb = feeRateSatPerVb,
             selectedNetwork = selectedNetwork
         )
     }
@@ -379,7 +376,6 @@ private fun WalletsList(
     modifier: Modifier = Modifier,
     onCycleBalanceDisplay: () -> Unit,
     blockHeight: Long?,
-    feeRateSatPerVb: Double?,
     selectedNetwork: BitcoinNetwork
 ) {
     if (wallets.isEmpty()) {
@@ -431,7 +427,6 @@ private fun WalletsList(
                     balancesHidden = balancesHidden,
                     onCycleBalanceDisplay = onCycleBalanceDisplay,
                     blockHeight = blockHeight,
-                    feeRateSatPerVb = feeRateSatPerVb,
                     network = selectedNetwork
                 )
             }
@@ -700,7 +695,6 @@ private fun WalletsBalanceCarousel(
     balancesHidden: Boolean,
     onCycleBalanceDisplay: () -> Unit,
     blockHeight: Long?,
-    feeRateSatPerVb: Double?,
     network: BitcoinNetwork,
     modifier: Modifier = Modifier
 ) {
@@ -787,33 +781,6 @@ private fun WalletsBalanceCarousel(
                             )
                         }
                     }
-
-                    WalletHeaderPage.FeeRate -> {
-                        val feeText = feeRateSatPerVb?.let {
-                            stringResource(
-                                id = R.string.wallets_fee_rate_value,
-                                numberFormat.format(it)
-                            )
-                        } ?: stringResource(id = R.string.wallets_fee_rate_unknown)
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = stringResource(id = R.string.wallets_fee_rate_label),
-                                style = MaterialTheme.typography.titleMedium,
-                                textAlign = TextAlign.Center
-                            )
-                            Text(
-                                text = feeText,
-                                style = MaterialTheme.typography.headlineLarge.copy(
-                                    fontWeight = FontWeight.Medium
-                                ),
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
                 }
             }
 
@@ -845,8 +812,7 @@ private fun WalletsBalanceCarousel(
 
 private enum class WalletHeaderPage {
     TotalBalance,
-    BlockHeight,
-    FeeRate
+    BlockHeight
 }
 
 private fun networkLabelRes(network: BitcoinNetwork): Int = when (network) {

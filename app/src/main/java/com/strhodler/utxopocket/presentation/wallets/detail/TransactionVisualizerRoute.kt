@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -254,7 +256,15 @@ private fun TransactionVisualizerContent(
     val bottomSheetState = rememberStandardBottomSheetState(
         initialValue = SheetValue.Hidden,
         skipHiddenState = false,
-        confirmValueChange = { value -> value != SheetValue.PartiallyExpanded }
+        confirmValueChange = { target ->
+            if (target == SheetValue.Hidden) {
+                showDetails = false
+                selectedNodeId = null
+                true
+            } else {
+                target != SheetValue.PartiallyExpanded
+            }
+        }
     )
     val scaffoldState = rememberBottomSheetScaffoldState(bottomSheetState = bottomSheetState)
     val coroutineScope = rememberCoroutineScope()
@@ -290,7 +300,7 @@ private fun TransactionVisualizerContent(
         sheetPeekHeight = 0.dp,
         sheetSwipeEnabled = selectedNodeId != null,
         sheetDragHandle = { BottomSheetDefaults.DragHandle() },
-        sheetContainerColor = MaterialTheme.colorScheme.surface,
+        sheetContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
         sheetContent = {
             val transaction = requireNotNull(state.transaction)
             val selectedNode = selectedNodeId?.let { id ->
@@ -839,21 +849,24 @@ private fun TransactionInfoSheet(
             headlineContent = {
                 Text(
                     text = stringResource(id = R.string.transaction_detail_id_label),
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
-            trailingContent = {
+            supportingContent = {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = transaction.id,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = FontFamily.Monospace,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    SelectionContainer(
+                        modifier = Modifier.weight(1f, fill = true)
+                    ) {
+                        Text(
+                            text = transaction.id,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
                     IconButton(onClick = { copyToClipboard(transaction.id) }) {
                         Icon(
                             imageVector = Icons.Outlined.ContentCopy,

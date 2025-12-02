@@ -1,5 +1,7 @@
 package com.strhodler.utxopocket.presentation.node
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
@@ -25,6 +27,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.collectLatest
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.StatusBarUiState
+import com.strhodler.utxopocket.presentation.motion.rememberReducedMotionEnabled
+import com.strhodler.utxopocket.presentation.motion.sharedAxisXEnter
+import com.strhodler.utxopocket.presentation.motion.sharedAxisXExit
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.tor.TorStatusViewModel
 import com.strhodler.utxopocket.presentation.node.NodeStatusViewModel.NodeStatusEvent
@@ -43,6 +48,7 @@ fun NodeStatusRoute(
     val snackbarHostState = remember { SnackbarHostState() }
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
+    val reducedMotion = rememberReducedMotionEnabled()
     val qrEditorState = rememberNodeCustomNodeEditorState(
         isEditorVisible = state.isCustomNodeEditorVisible,
         nodeConnectionOption = state.nodeConnectionOption,
@@ -87,25 +93,27 @@ fun NodeStatusRoute(
     val overviewTitle = stringResource(id = R.string.node_overview_title)
     val addCustomTitle = stringResource(id = R.string.node_custom_add_title)
     val editCustomTitle = stringResource(id = R.string.node_custom_edit_title)
+    val topBarTitle = remember(editorVisible, isEditing, addCustomTitle, editCustomTitle, overviewTitle) {
+        when {
+            editorVisible && isEditing -> editCustomTitle
+            editorVisible -> addCustomTitle
+            else -> overviewTitle
+        }
+    }
 
-    if (editorVisible) {
-        val title = if (isEditing) editCustomTitle else addCustomTitle
-        SetSecondaryTopBar(
-            title = title,
-            onBackClick = viewModel::onDismissCustomNodeEditor,
-            actions = {
-                IconButton(
-                    onClick = { showCustomNodeInfoSheet = true }
-                ) {
+    SetSecondaryTopBar(
+        title = topBarTitle,
+        onBackClick = if (editorVisible) viewModel::onDismissCustomNodeEditor else onBack,
+        actions = {
+            if (editorVisible) {
+                IconButton(onClick = { showCustomNodeInfoSheet = true }) {
                     Icon(
                         imageVector = Icons.Outlined.Info,
                         contentDescription = stringResource(id = R.string.node_custom_info_button)
                     )
                 }
                 if (isEditing) {
-                    IconButton(
-                        onClick = { showDeleteDialog = true }
-                    ) {
+                    IconButton(onClick = { showDeleteDialog = true }) {
                         Icon(
                             imageVector = Icons.Outlined.Delete,
                             contentDescription = stringResource(id = R.string.node_custom_delete_button)
@@ -113,122 +121,130 @@ fun NodeStatusRoute(
                     }
                 }
             }
-        )
-    } else {
-        SetSecondaryTopBar(
-            title = overviewTitle,
-            onBackClick = onBack,
-            actions = { }
-        )
-    }
+        }
+    )
 
-    if (editorVisible) {
-        val primaryLabel = if (isEditing) {
-            stringResource(id = R.string.node_custom_save_button)
-        } else {
-            stringResource(id = R.string.node_custom_add_button)
-        }
-        val isPrimaryActionEnabled = if (isEditing) {
-            state.customNodeHasChanges
-        } else {
-            state.customNodeFormValid
-        }
-        CustomNodeEditorScreen(
-            nameValue = state.newCustomName,
-            onionValue = state.newCustomOnion,
-            portValue = state.newCustomPort,
-            isTesting = state.isTestingCustomNode,
-            errorMessage = state.customNodeError,
-            qrErrorMessage = qrEditorState.qrErrorMessage,
-            isPrimaryActionEnabled = isPrimaryActionEnabled,
-            primaryActionLabel = primaryLabel,
-            onDismiss = viewModel::onDismissCustomNodeEditor,
-            onNameChanged = viewModel::onNewCustomNameChanged,
-            onOnionChanged = {
-                qrEditorState.clearQrError()
-                viewModel.onNewCustomOnionChanged(it)
-            },
-            onPortChanged = viewModel::onNewCustomPortChanged,
-            onPrimaryAction = if (isEditing) {
-                viewModel::onSaveCustomNodeEdits
+    AnimatedContent(
+        targetState = editorVisible,
+        transitionSpec = {
+            sharedAxisXEnter(
+                reducedMotion = reducedMotion,
+                forward = targetState
+            ) togetherWith sharedAxisXExit(
+                reducedMotion = reducedMotion,
+                forward = targetState
+            )
+        },
+        label = "nodeEditorTransition"
+    ) { editingVisible ->
+        if (editingVisible) {
+            val primaryLabel = if (isEditing) {
+                stringResource(id = R.string.node_custom_save_button)
             } else {
-                viewModel::onTestAndAddCustomNode
-            },
-            onStartQrScan = qrEditorState.startQrScan,
-            onClearQrError = qrEditorState.clearQrError
-        )
+                stringResource(id = R.string.node_custom_add_button)
+            }
+            val isPrimaryActionEnabled = if (isEditing) {
+                state.customNodeHasChanges
+            } else {
+                state.customNodeFormValid
+            }
+            CustomNodeEditorScreen(
+                nameValue = state.newCustomName,
+                onionValue = state.newCustomOnion,
+                portValue = state.newCustomPort,
+                isTesting = state.isTestingCustomNode,
+                errorMessage = state.customNodeError,
+                qrErrorMessage = qrEditorState.qrErrorMessage,
+                isPrimaryActionEnabled = isPrimaryActionEnabled,
+                primaryActionLabel = primaryLabel,
+                onDismiss = viewModel::onDismissCustomNodeEditor,
+                onNameChanged = viewModel::onNewCustomNameChanged,
+                onOnionChanged = {
+                    qrEditorState.clearQrError()
+                    viewModel.onNewCustomOnionChanged(it)
+                },
+                onPortChanged = viewModel::onNewCustomPortChanged,
+                onPrimaryAction = if (isEditing) {
+                    viewModel::onSaveCustomNodeEdits
+                } else {
+                    viewModel::onTestAndAddCustomNode
+                },
+                onStartQrScan = qrEditorState.startQrScan,
+                onClearQrError = qrEditorState.clearQrError
+            )
 
-        if (showDeleteDialog && isEditing) {
-            val deleteLabelRaw = remember(
-                state.newCustomName,
-                state.newCustomOnion
-            ) {
-                buildCustomNodeLabel(
-                    name = state.newCustomName,
-                    onion = state.newCustomOnion,
-                    port = state.newCustomPort
+            if (showDeleteDialog && isEditing) {
+                val deleteLabelRaw = remember(
+                    state.newCustomName,
+                    state.newCustomOnion
+                ) {
+                    buildCustomNodeLabel(
+                        name = state.newCustomName,
+                        onion = state.newCustomOnion,
+                        port = state.newCustomPort
+                    )
+                }
+                val deleteLabel = if (deleteLabelRaw.isNotBlank()) {
+                    deleteLabelRaw
+                } else {
+                    addCustomTitle
+                }
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text(text = stringResource(id = R.string.node_custom_delete_confirm_title)) },
+                    text = {
+                        Text(
+                            text = stringResource(
+                                id = R.string.node_custom_delete_confirm_message,
+                                deleteLabel
+                            )
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showDeleteDialog = false
+                                state.editingCustomNodeId?.let { id ->
+                                    viewModel.onDeleteCustomNode(id)
+                                }
+                            }
+                        ) {
+                            Text(text = stringResource(id = R.string.node_custom_delete_confirm_confirm))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = false }) {
+                            Text(text = stringResource(id = android.R.string.cancel))
+                        }
+                    }
                 )
             }
-            val deleteLabel = if (deleteLabelRaw.isNotBlank()) {
-                deleteLabelRaw
-            } else {
-                addCustomTitle
-            }
-            AlertDialog(
-                onDismissRequest = { showDeleteDialog = false },
-                title = { Text(text = stringResource(id = R.string.node_custom_delete_confirm_title)) },
-                text = {
-                    Text(
-                        text = stringResource(
-                            id = R.string.node_custom_delete_confirm_message,
-                            deleteLabel
-                        )
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showDeleteDialog = false
-                            state.editingCustomNodeId?.let { id ->
-                                viewModel.onDeleteCustomNode(id)
-                            }
-                        }
-                    ) {
-                        Text(text = stringResource(id = R.string.node_custom_delete_confirm_confirm))
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteDialog = false }) {
-                        Text(text = stringResource(id = android.R.string.cancel))
-                    }
-                }
-            )
-        }
 
-        if (showCustomNodeInfoSheet) {
-            CustomNodeGuidanceBottomSheet(
-                onDismiss = { showCustomNodeInfoSheet = false }
+            if (showCustomNodeInfoSheet) {
+                CustomNodeGuidanceBottomSheet(
+                    onDismiss = { showCustomNodeInfoSheet = false }
+                )
+            }
+        } else {
+            NodeStatusScreen(
+                status = status,
+                state = state,
+                snackbarHostState = snackbarHostState,
+                torActionsState = torActionsState,
+                interactionsLocked = state.isSyncBusy,
+                onInteractionBlocked = viewModel::notifyInteractionBlocked,
+                onOpenNetworkLogs = onOpenNetworkLogs,
+                onNetworkSelected = viewModel::onNetworkSelected,
+                onPublicNodeSelected = viewModel::onPublicNodeSelected,
+                onCustomNodeSelected = viewModel::onCustomNodeSelected,
+                onCustomNodeDetails = viewModel::onEditCustomNode,
+                onAddCustomNodeClick = viewModel::onAddCustomNodeClicked,
+                initialTabIndex = initialTabIndex,
+                onDisconnect = viewModel::disconnectNode,
+                onRenewTorIdentity = torViewModel::onRenewIdentity,
+                onStartTor = torViewModel::onStartTor
             )
         }
-    } else {
-        NodeStatusScreen(
-            status = status,
-            state = state,
-            snackbarHostState = snackbarHostState,
-            torActionsState = torActionsState,
-            interactionsLocked = state.isSyncBusy,
-            onInteractionBlocked = viewModel::notifyInteractionBlocked,
-            onOpenNetworkLogs = onOpenNetworkLogs,
-            onNetworkSelected = viewModel::onNetworkSelected,
-            onPublicNodeSelected = viewModel::onPublicNodeSelected,
-            onCustomNodeSelected = viewModel::onCustomNodeSelected,
-            onCustomNodeDetails = viewModel::onEditCustomNode,
-            onAddCustomNodeClick = viewModel::onAddCustomNodeClicked,
-            initialTabIndex = initialTabIndex,
-            onDisconnect = viewModel::disconnectNode,
-            onRenewTorIdentity = torViewModel::onRenewIdentity,
-            onStartTor = torViewModel::onStartTor
-        )
     }
 }
 

@@ -32,6 +32,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDownward
@@ -187,15 +189,34 @@ fun WalletDetailScreen(
         }
 
         state.summary == null -> {
-            Box(modifier = modifier.fillMaxSize())
+            Box(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(contentPadding)
+                    .padding(top = topContentPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
         }
 
         else -> {
+            val pullToRefreshState = rememberPullToRefreshState()
             RefreshableContent(
                 isRefreshing = state.isRefreshing,
                 onRefresh = {
                     if (!state.isRefreshing) {
                         onRefreshRequested()
+                    }
+                },
+                state = pullToRefreshState,
+                indicator = {
+                    if (!state.isRefreshing) {
+                        PullToRefreshDefaults.Indicator(
+                            modifier = Modifier.align(Alignment.TopCenter),
+                            isRefreshing = state.isRefreshing,
+                            state = pullToRefreshState
+                        )
                     }
                 },
                 modifier = modifier.fillMaxSize()
@@ -371,6 +392,7 @@ private fun WalletDetailContent(
                 onRangeSelected = onBalanceRangeSelected,
                 showBalanceChart = state.showBalanceChart,
                 onShowBalanceChartChanged = onShowBalanceChartChanged,
+                isRefreshing = state.isRefreshing,
                 onRefreshRequested = onRefreshRequested,
                 onCycleBalanceDisplay = onCycleBalanceDisplay
             )
@@ -744,6 +766,7 @@ private fun WalletSummaryHeader(
     onRangeSelected: (BalanceRange) -> Unit,
     showBalanceChart: Boolean,
     onShowBalanceChartChanged: (Boolean) -> Unit,
+    isRefreshing: Boolean,
     onRefreshRequested: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier = Modifier
@@ -786,6 +809,7 @@ private fun WalletSummaryHeader(
             selectedRange = selectedRange,
             showBalanceChart = showBalanceChart,
             onShowBalanceChartChanged = onShowBalanceChartChanged,
+            isRefreshing = isRefreshing,
             onRefreshRequested = onRefreshRequested,
             onRangeSelected = onRangeSelected,
             onCycleBalanceDisplay = onCycleBalanceDisplay,
@@ -813,6 +837,7 @@ private fun WalletDetailHeader(
     selectedRange: BalanceRange,
     showBalanceChart: Boolean,
     onShowBalanceChartChanged: (Boolean) -> Unit,
+    isRefreshing: Boolean,
     onRefreshRequested: () -> Unit,
     onRangeSelected: (BalanceRange) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
@@ -853,7 +878,11 @@ private fun WalletDetailHeader(
             )
         )
         val hasChartData = balancePoints.isNotEmpty()
-        val refreshLabel = stringResource(id = R.string.wallet_detail_pull_to_refresh_hint)
+        val refreshLabel = if (isRefreshing) {
+            stringResource(id = R.string.wallets_state_syncing)
+        } else {
+            stringResource(id = R.string.wallet_detail_pull_to_refresh_hint)
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
@@ -861,13 +890,21 @@ private fun WalletDetailHeader(
         ) {
             TextButton(
                 onClick = onRefreshRequested,
+                enabled = !isRefreshing,
                 contentPadding = ButtonDefaults.TextButtonWithIconContentPadding
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Refresh,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
+                if (isRefreshing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
                 Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
                 Text(
                     text = refreshLabel,
@@ -2244,11 +2281,10 @@ private fun TransactionDetailedCard(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
+                Box(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    contentAlignment = Alignment.CenterStart
                 ) {
-                    LabelOrPlaceholder(transaction.label)
                     Text(
                         text = amountText,
                         style = MaterialTheme.typography.titleMedium
@@ -2373,11 +2409,10 @@ private fun UtxoDetailedCard(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
+                Box(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    contentAlignment = Alignment.CenterStart
                 ) {
-                    LabelOrPlaceholder(utxo.displayLabel)
                     Text(
                         text = amountText,
                         style = MaterialTheme.typography.titleMedium
