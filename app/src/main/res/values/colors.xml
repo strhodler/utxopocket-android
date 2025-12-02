@@ -14,4 +14,5 @@
     <color name="splash_background">#F9FAFB</color>
     <color name="splash_icon_background">#E5E7EB</color>
     <color name="splash_icon_primary">#F7931A</color>
+    <color name="splash_icon_tint">#1F2937</color>
 </resources>

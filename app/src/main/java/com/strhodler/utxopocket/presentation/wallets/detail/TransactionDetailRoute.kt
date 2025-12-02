@@ -75,7 +75,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
 import com.strhodler.utxopocket.presentation.common.ContentSection
 import com.strhodler.utxopocket.presentation.common.ListSection
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -718,7 +718,7 @@ private fun LabelEditDialog(
         title = { Text(text = stringResource(id = titleRes)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
+                TextField(
                     value = value,
                     onValueChange = { input ->
                         value = if (input.length <= UTXO_LABEL_MAX_LENGTH) {

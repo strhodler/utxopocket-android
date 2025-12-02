@@ -19,8 +19,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -165,7 +165,7 @@ internal fun <T> SettingsSelectRow(
     var dropdownWidth by remember { mutableStateOf(Dp.Unspecified) }
     val density = LocalDensity.current
     val focusManager = LocalFocusManager.current
-    val textFieldColors = OutlinedTextFieldDefaults.colors(
+    val textFieldColors = TextFieldDefaults.colors(
         focusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
         unfocusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
         disabledContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface
@@ -177,7 +177,7 @@ internal fun <T> SettingsSelectRow(
             style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
         )
         Box {
-            OutlinedTextField(
+            TextField(
                 value = selectedLabel,
                 onValueChange = {},
                 readOnly = true,

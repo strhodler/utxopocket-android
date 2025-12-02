@@ -40,7 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
@@ -358,8 +358,7 @@ private fun FormCard(
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         WalletNameInput(
@@ -439,7 +438,7 @@ private fun DescriptorInputs(
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        OutlinedTextField(
+        TextField(
             modifier = Modifier.fillMaxWidth(),
             value = descriptor,
             onValueChange = onDescriptorChange,
@@ -487,7 +486,7 @@ private fun DescriptorAdvancedOptions(
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                OutlinedTextField(
+                TextField(
                     modifier = Modifier.fillMaxWidth(),
                     value = changeDescriptor,
                     onValueChange = onChangeDescriptorChange,
@@ -521,7 +520,7 @@ private fun ExtendedKeyInputs(
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        OutlinedTextField(
+        TextField(
             modifier = Modifier.fillMaxWidth(),
             value = form.extendedKey,
             onValueChange = onExtendedKeyChange,
@@ -611,7 +610,7 @@ private fun ExtendedKeyAdvancedOptions(
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                OutlinedTextField(
+                TextField(
                     modifier = Modifier.fillMaxWidth(),
                     value = derivationPath,
                     onValueChange = onDerivationPathChange,
@@ -624,7 +623,7 @@ private fun ExtendedKeyAdvancedOptions(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                OutlinedTextField(
+                TextField(
                     modifier = Modifier.fillMaxWidth(),
                     value = masterFingerprint,
                     onValueChange = onFingerprintChange,
@@ -659,7 +658,7 @@ private fun ExtendedKeyScriptTypeSelector(
     val interactionSource = remember { MutableInteractionSource() }
     Box(modifier = modifier.fillMaxWidth()) {
         val fieldValue = selectedType?.let { stringResource(id = extendedKeyScriptTypeLabel(it)) } ?: ""
-        OutlinedTextField(
+        TextField(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(
@@ -819,10 +818,10 @@ private fun defaultWalletScanOptions(): ScanOptions = ScanOptions().apply {
 @Composable
 private fun WalletNameInput(
     value: String,
-    onChange: (String) -> Unit
+        onChange: (String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
+        TextField(
             modifier = Modifier.fillMaxWidth(),
             value = value,
             onValueChange = onChange,

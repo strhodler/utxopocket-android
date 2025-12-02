@@ -15,7 +15,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -276,7 +276,7 @@ private fun WalletSettingsScreen(
             divider = false
         ) {
             item {
-                OutlinedTextField(
+                TextField(
                     value = state.dustThresholdInput,
                     onValueChange = onDustThresholdChanged,
                     label = { Text(text = stringResource(id = R.string.settings_dust_threshold_label)) },

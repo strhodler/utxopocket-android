@@ -43,7 +43,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -716,7 +716,7 @@ private fun RenameWalletDialog(
         title = { Text(text = stringResource(id = R.string.wallet_detail_rename_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
+                TextField(
                     value = name,
                     onValueChange = { input ->
                         name = if (input.length <= WALLET_NAME_MAX_LENGTH) {
