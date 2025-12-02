@@ -173,28 +173,21 @@ fun WalletDetailScreen(
     modifier: Modifier = Modifier
 ) {
     when {
-        state.isLoading -> {
+        state.summary == null && state.errorMessage != null -> {
             Box(
                 modifier = modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator()
-            }
-        }
-
-        state.summary == null -> {
-            Box(
-                modifier = modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                val errorText = when (state.errorMessage) {
-                    WalletDetailError.NotFound, null -> stringResource(id = R.string.wallet_detail_not_found)
-                }
+                val errorText = stringResource(id = R.string.wallet_detail_not_found)
                 Text(
                     text = errorText,
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
+        }
+
+        state.summary == null -> {
+            Box(modifier = modifier.fillMaxSize())
         }
 
         else -> {
@@ -1631,7 +1624,12 @@ private fun WalletTabs(
         selectedTabIndex = selected.ordinal,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         edgePadding = 0.dp,
-        indicator = {}
+        indicator = { tabPositions ->
+            TabRowDefaults.SecondaryIndicator(
+                modifier = Modifier.tabIndicatorOffset(tabPositions[selected.ordinal]),
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
     ) {
         tabs.forEach { tab ->
             Tab(

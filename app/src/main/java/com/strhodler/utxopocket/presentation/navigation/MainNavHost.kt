@@ -5,6 +5,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -13,6 +14,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.strhodler.utxopocket.presentation.motion.fadeThroughIn
+import com.strhodler.utxopocket.presentation.motion.fadeThroughOut
+import com.strhodler.utxopocket.presentation.motion.rememberReducedMotionEnabled
+import com.strhodler.utxopocket.presentation.motion.sharedAxisXEnter
+import com.strhodler.utxopocket.presentation.motion.sharedAxisXExit
+import com.strhodler.utxopocket.presentation.motion.sharedAxisYEnter
+import com.strhodler.utxopocket.presentation.motion.sharedAxisYExit
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.glossary.GlossaryDetailRoute
@@ -59,10 +67,23 @@ fun MainNavHost(
     modifier: Modifier = Modifier,
     statusBarState: StatusBarUiState
 ) {
+    val reducedMotion = rememberReducedMotionEnabled()
     NavHost(
         navController = navController,
         startDestination = MainDestination.Wallets.route,
-        modifier = modifier
+        modifier = modifier,
+        enterTransition = {
+            defaultEnterTransition(reducedMotion)
+        },
+        exitTransition = {
+            defaultExitTransition(reducedMotion)
+        },
+        popEnterTransition = {
+            defaultPopEnterTransition(reducedMotion)
+        },
+        popExitTransition = {
+            defaultPopExitTransition(reducedMotion)
+        }
     ) {
         navigation(
             route = MainDestination.Wallets.route,
@@ -594,4 +615,87 @@ fun MainNavHost(
             }
         }
     }
+}
+
+private fun String?.matchesRoute(prefix: String): Boolean {
+    if (this == null) return false
+    val sanitizedSelf = this.substringBefore("?")
+    val sanitizedPrefix = prefix.substringBefore("?")
+    return sanitizedSelf.startsWith(sanitizedPrefix)
+}
+
+private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackStackEntry>.defaultEnterTransition(
+    reducedMotion: Boolean
+) = when {
+    targetState.destination.route.matchesRoute(WalletsNavigation.AddRoute) ->
+        sharedAxisYEnter(reducedMotion = reducedMotion, forward = true)
+
+    targetState.destination.route.matchesRoute(WalletsNavigation.DetailRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.TransactionDetailRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.TransactionVisualizerRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.UtxoDetailRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.AddressDetailRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.ExportLabelsRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.ImportLabelsRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.NodeStatusRoute) ->
+        sharedAxisXEnter(reducedMotion = reducedMotion, forward = true)
+
+    else -> fadeThroughIn(reducedMotion)
+}
+
+private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackStackEntry>.defaultExitTransition(
+    reducedMotion: Boolean
+) = when {
+    targetState.destination.route.matchesRoute(WalletsNavigation.AddRoute) ->
+        sharedAxisYExit(reducedMotion = reducedMotion, forward = true)
+
+    targetState.destination.route.matchesRoute(WalletsNavigation.DetailRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.TransactionDetailRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.TransactionVisualizerRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.UtxoDetailRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.AddressDetailRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.ExportLabelsRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.ImportLabelsRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.NodeStatusRoute) ->
+        sharedAxisXExit(reducedMotion = reducedMotion, forward = true)
+
+    else -> fadeThroughOut(reducedMotion)
+}
+
+private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackStackEntry>.defaultPopEnterTransition(
+    reducedMotion: Boolean
+) = when {
+    initialState.destination.route.matchesRoute(WalletsNavigation.AddRoute) ->
+        sharedAxisYEnter(reducedMotion = reducedMotion, forward = false)
+
+    initialState.destination.route.matchesRoute(WalletsNavigation.DetailRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.TransactionDetailRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.TransactionVisualizerRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.UtxoDetailRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.AddressDetailRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.ExportLabelsRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.ImportLabelsRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.NodeStatusRoute) ->
+        sharedAxisXEnter(reducedMotion = reducedMotion, forward = false)
+
+    else -> fadeThroughIn(reducedMotion)
+}
+
+private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackStackEntry>.defaultPopExitTransition(
+    reducedMotion: Boolean
+) = when {
+    initialState.destination.route.matchesRoute(WalletsNavigation.AddRoute) ->
+        sharedAxisYExit(reducedMotion = reducedMotion, forward = false)
+
+    initialState.destination.route.matchesRoute(WalletsNavigation.DetailRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.TransactionDetailRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.TransactionVisualizerRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.UtxoDetailRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.AddressDetailRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.ExportLabelsRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.ImportLabelsRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.NodeStatusRoute) ->
+        sharedAxisXExit(reducedMotion = reducedMotion, forward = false)
+
+    else -> fadeThroughOut(reducedMotion)
 }
