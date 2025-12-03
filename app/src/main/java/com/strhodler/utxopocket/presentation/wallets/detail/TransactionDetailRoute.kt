@@ -143,13 +143,16 @@ import com.strhodler.utxopocket.domain.service.TransactionHealthAnalyzer
 import com.strhodler.utxopocket.data.utxohealth.DefaultUtxoHealthAnalyzer
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import io.github.thibseisel.identikon.Identicon
 import io.github.thibseisel.identikon.drawToBitmap
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 
 private const val UTXO_LABEL_MAX_LENGTH = 255
 
@@ -482,22 +485,21 @@ private fun resolveBlockExplorerOptions(
     preferences: BlockExplorerPreferences
 ): List<BlockExplorerOption> {
     val selection = preferences.forNetwork(network)
-    return BlockExplorerBucket.entries.flatMap { bucket ->
+    if (!selection.enabled) {
+        return emptyList()
+    }
+    val orderedBuckets = listOf(selection.bucket) + BlockExplorerBucket.entries.filterNot { it == selection.bucket }
+    return orderedBuckets.flatMap { bucket ->
         val customUrl = selection.customUrlFor(bucket).orEmpty()
         val customName = selection.customNameFor(bucket).orEmpty()
-        BlockExplorerCatalog.presetsFor(network, bucket).mapNotNull { preset ->
+        val presets = BlockExplorerCatalog.presetsFor(network, bucket)
+        presets.mapNotNull { preset ->
+            if (!selection.isPresetEnabled(preset.id)) return@mapNotNull null
             val baseUrl = when {
                 BlockExplorerCatalog.isCustomPreset(preset.id, bucket) -> customUrl
                 else -> preset.baseUrl
-            }.trim()
-            if (baseUrl.isBlank()) return@mapNotNull null
-            val targetUrl = if (preset.supportsTxId) {
-                "$baseUrl$txId"
-            } else {
-                baseUrl
             }
-            val hasValidScheme = targetUrl.startsWith("http://") || targetUrl.startsWith("https://")
-            if (!hasValidScheme) return@mapNotNull null
+            val resolution = buildExplorerUrl(baseUrl, network, txId, preset.supportsTxId) ?: return@mapNotNull null
             val name = if (BlockExplorerCatalog.isCustomPreset(preset.id, bucket) && customName.isNotBlank()) {
                 customName
             } else {
@@ -507,11 +509,82 @@ private fun resolveBlockExplorerOptions(
                 id = preset.id,
                 name = name,
                 bucket = bucket,
-                url = targetUrl,
-                requiresManualTxId = !preset.supportsTxId
+                url = resolution.url,
+                requiresManualTxId = resolution.requiresManualTxId
             )
         }
     }
+}
+
+private data class ExplorerResolution(
+    val url: String,
+    val requiresManualTxId: Boolean
+)
+
+private fun buildExplorerUrl(
+    baseUrl: String,
+    network: BitcoinNetwork,
+    txId: String,
+    supportsTxId: Boolean
+): ExplorerResolution? {
+    val trimmed = baseUrl.trim().removeSuffix("/")
+    if (trimmed.isBlank()) return null
+    val hasScheme = trimmed.startsWith("http://") || trimmed.startsWith("https://")
+    if (!hasScheme) return null
+    val placeholder = when {
+        trimmed.contains("{txid}") -> "{txid}"
+        trimmed.contains("{0}") -> "{0}"
+        else -> null
+    }
+    if (supportsTxId && placeholder != null) {
+        return ExplorerResolution(trimmed.replace(placeholder, txId), false)
+    }
+    val hasTxPath = trimmed.endsWith("/tx") || trimmed.contains("/tx/")
+    if (supportsTxId && hasTxPath) {
+        return ExplorerResolution("$trimmed/$txId", false)
+    }
+    if (supportsTxId) {
+        val networkSegment = when (network) {
+            BitcoinNetwork.MAINNET -> null
+            BitcoinNetwork.TESTNET -> "testnet"
+            BitcoinNetwork.TESTNET4 -> "testnet4"
+            BitcoinNetwork.SIGNET -> "signet"
+        }
+        val withNetwork = networkSegment?.let { segment ->
+            if (trimmed.contains("/$segment")) {
+                trimmed
+            } else {
+                "${trimmed.trimEnd('/')}/$segment"
+            }
+        } ?: trimmed
+        return ExplorerResolution("${withNetwork.trimEnd('/')}/tx/$txId", false)
+    }
+    return ExplorerResolution(trimmed, true)
+}
+
+private val PREFERRED_TOR_PACKAGES = listOf("org.torproject.torbrowser", "org.torproject.android")
+
+private fun openExplorerUri(context: Context, option: BlockExplorerOption) {
+    val baseIntent = Intent(Intent.ACTION_VIEW, Uri.parse(option.url)).apply {
+        addCategory(Intent.CATEGORY_BROWSABLE)
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+    }
+    val packageManager = context.packageManager
+    if (option.bucket == BlockExplorerBucket.ONION) {
+        val preferredPackage = PREFERRED_TOR_PACKAGES.firstOrNull { pkg ->
+            val intent = Intent(baseIntent).apply { `package` = pkg }
+            intent.resolveActivity(packageManager) != null
+        }
+        if (preferredPackage != null) {
+            val torIntent = Intent(baseIntent).apply { `package` = preferredPackage }
+            runCatching { context.startActivity(torIntent) }
+                .onSuccess { return }
+        }
+    }
+    val chooser = Intent.createChooser(baseIntent, null).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    runCatching { context.startActivity(chooser) }
 }
 
 @HiltViewModel
@@ -891,16 +964,27 @@ private fun TransactionDetailContent(
     val maxFlowItems = 5
     var showAllInputs by remember { mutableStateOf(false) }
     var showAllOutputs by remember { mutableStateOf(false) }
-    val explorerOptions = state.blockExplorerOptions
-    val explorerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var showExplorerSheet by remember { mutableStateOf(false) }
-    val explorerMessage = stringResource(id = R.string.transaction_detail_explorer_onion_snackbar)
-    val explorerMissingMessage = stringResource(id = R.string.transaction_detail_explorer_missing)
-    val explorerScope = rememberCoroutineScope()
-    val uriHandler = LocalUriHandler.current
+        val explorerOptions = state.blockExplorerOptions
+        val explorerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        var showExplorerSheet by remember { mutableStateOf(false) }
+        val explorerMessage = stringResource(id = R.string.transaction_detail_explorer_onion_snackbar)
+        val explorerMissingMessage = stringResource(id = R.string.transaction_detail_explorer_missing)
+        val copyTxidMessage = stringResource(id = R.string.transaction_detail_id_copied)
+        val explorerDisabledMessage = stringResource(id = R.string.transaction_detail_explorer_disabled)
+        val explorerScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val explorerButtonEnabled = explorerOptions.isNotEmpty()
     val openExplorer: () -> Unit = {
         if (explorerOptions.isEmpty()) {
             showShortMessage(explorerMissingMessage)
+        } else {
+            showExplorerSheet = true
+        }
+    }
+    val openExplorerOrSettings: () -> Unit = {
+        if (explorerOptions.isEmpty()) {
+            showShortMessage(explorerDisabledMessage)
+            onOpenWalletSettings()
         } else {
             showExplorerSheet = true
         }
@@ -918,7 +1002,8 @@ private fun TransactionDetailContent(
             onEditLabel = { onEditTransactionLabel(transaction.label) },
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             onOpenVisualizer = visualizerAction,
-            onOpenExplorer = openExplorer,
+            onOpenExplorer = openExplorerOrSettings,
+            explorerEnabled = explorerButtonEnabled,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -1407,19 +1492,19 @@ private fun TransactionDetailContent(
                                     )
                                 },
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(MaterialTheme.shapes.medium)
-                                    .clickable {
-                                        explorerScope.launch {
-                                            explorerSheetState.hide()
-                                        }.invokeOnCompletion {
-                                            showExplorerSheet = false
-                                            uriHandler.openUri(option.url)
-                                            if (option.requiresManualTxId) {
-                                                showShortMessage(explorerMessage)
+                                        .fillMaxWidth()
+                                        .clip(MaterialTheme.shapes.medium)
+                                        .clickable {
+                                            explorerScope.launch {
+                                                explorerSheetState.hide()
+                                            }.invokeOnCompletion {
+                                                showExplorerSheet = false
+                                                openExplorerUri(context, option)
+                                                if (option.requiresManualTxId) {
+                                                    showShortMessage(explorerMessage)
+                                                }
                                             }
                                         }
-                                    }
                             )
                         }
                     }
@@ -1437,6 +1522,22 @@ private fun TransactionDetailContent(
                             .padding(top = 4.dp)
                     ) {
                         Text(text = stringResource(id = R.string.transaction_detail_explorer_add))
+                    }
+                    TextButton(
+                        onClick = {
+                            explorerScope.launch {
+                                explorerSheetState.hide()
+                            }.invokeOnCompletion {
+                                showExplorerSheet = false
+                                copyToClipboard(transaction.id)
+                                showShortMessage(copyTxidMessage)
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
+                    ) {
+                        Text(text = stringResource(id = R.string.transaction_detail_copy_txid_action))
                     }
                 }
             }
@@ -1456,6 +1557,7 @@ private fun TransactionDetailHeader(
     onCycleBalanceDisplay: () -> Unit,
     onOpenVisualizer: (() -> Unit)?,
     onOpenExplorer: () -> Unit,
+    explorerEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
     val contentColor = MaterialTheme.colorScheme.onSurface
@@ -1530,6 +1632,7 @@ private fun TransactionDetailHeader(
                 }
                 TextButton(
                     onClick = onOpenExplorer,
+                    enabled = explorerEnabled,
                     contentPadding = ButtonDefaults.TextButtonWithIconContentPadding
                 ) {
                     Icon(imageVector = Icons.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))

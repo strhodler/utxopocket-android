@@ -7,6 +7,7 @@ import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
+import com.strhodler.utxopocket.domain.model.BlockExplorerCatalog
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemeProfile
@@ -96,6 +97,10 @@ class SettingsViewModel @Inject constructor(
                 val customOnion = networkExplorerPrefs.customOnionUrl.orEmpty()
                 val customNormalName = networkExplorerPrefs.customNormalName.orEmpty()
                 val customOnionName = networkExplorerPrefs.customOnionName.orEmpty()
+                val normalPresetIds = BlockExplorerCatalog.presetsFor(preferredNetwork, BlockExplorerBucket.NORMAL).map { it.id }.toSet()
+                val onionPresetIds = BlockExplorerCatalog.presetsFor(preferredNetwork, BlockExplorerBucket.ONION).map { it.id }.toSet()
+                val hiddenNormal = networkExplorerPrefs.hiddenPresetIds.filter { it in normalPresetIds }.toSet()
+                val hiddenOnion = networkExplorerPrefs.hiddenPresetIds.filter { it in onionPresetIds }.toSet()
 
                 previous.copy(
                     preferredNetwork = preferredNetwork,
@@ -128,6 +133,12 @@ class SettingsViewModel @Inject constructor(
                     } else {
                         UtxoHealthParameterInputs.from(utxoParameters)
                     },
+                    blockExplorerEnabled = networkExplorerPrefs.enabled,
+                    blockExplorerBucket = networkExplorerPrefs.bucket,
+                    blockExplorerNormalPresetId = networkExplorerPrefs.normalPresetId,
+                    blockExplorerOnionPresetId = networkExplorerPrefs.onionPresetId,
+                    blockExplorerNormalHidden = hiddenNormal,
+                    blockExplorerOnionHidden = hiddenOnion,
                     blockExplorerNormalCustomInput = customNormal,
                     blockExplorerOnionCustomInput = customOnion,
                     blockExplorerNormalCustomNameInput = customNormalName,
@@ -257,6 +268,29 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun onBlockExplorerEnabledChanged(enabled: Boolean) {
+        val network = _uiState.value.preferredNetwork
+        _uiState.update { it.copy(blockExplorerEnabled = enabled) }
+        viewModelScope.launch {
+            appPreferencesRepository.setBlockExplorerEnabled(network, enabled)
+        }
+    }
+
+    fun onBlockExplorerPresetSelected(bucket: BlockExplorerBucket, presetId: String) {
+        val network = _uiState.value.preferredNetwork
+        _uiState.update { current ->
+            current.copy(
+                blockExplorerBucket = bucket,
+                blockExplorerNormalPresetId = if (bucket == BlockExplorerBucket.NORMAL) presetId else current.blockExplorerNormalPresetId,
+                blockExplorerOnionPresetId = if (bucket == BlockExplorerBucket.ONION) presetId else current.blockExplorerOnionPresetId
+            )
+        }
+        viewModelScope.launch {
+            appPreferencesRepository.setBlockExplorerBucket(network, bucket)
+            appPreferencesRepository.setBlockExplorerPreset(network, bucket, presetId)
+        }
+    }
+
     fun onBlockExplorerNormalChanged(name: String, url: String) {
         updateBlockExplorerCustom(BlockExplorerBucket.NORMAL, name, url)
     }
@@ -271,6 +305,27 @@ class SettingsViewModel @Inject constructor(
 
     fun removeBlockExplorerOnion() {
         updateBlockExplorerCustom(BlockExplorerBucket.ONION, "", "")
+    }
+
+    fun onBlockExplorerVisibilityChanged(bucket: BlockExplorerBucket, presetId: String, enabled: Boolean) {
+        val network = _uiState.value.preferredNetwork
+        _uiState.update { current ->
+            when (bucket) {
+                BlockExplorerBucket.NORMAL -> {
+                    val updated = current.blockExplorerNormalHidden.toMutableSet()
+                    if (enabled) updated.remove(presetId) else updated.add(presetId)
+                    current.copy(blockExplorerNormalHidden = updated)
+                }
+                BlockExplorerBucket.ONION -> {
+                    val updated = current.blockExplorerOnionHidden.toMutableSet()
+                    if (enabled) updated.remove(presetId) else updated.add(presetId)
+                    current.copy(blockExplorerOnionHidden = updated)
+                }
+            }
+        }
+        viewModelScope.launch {
+            appPreferencesRepository.setBlockExplorerVisibility(network, bucket, presetId, enabled)
+        }
     }
 
     private fun updateBlockExplorerCustom(bucket: BlockExplorerBucket, name: String, url: String) {
@@ -289,6 +344,18 @@ class SettingsViewModel @Inject constructor(
                 )
             }
         }
+        val presetId = if (trimmedUrl.isNotBlank()) {
+            BlockExplorerCatalog.customPresetId(bucket)
+        } else {
+            BlockExplorerCatalog.defaultPresetId(network, bucket)
+        }
+        _uiState.update { current ->
+            current.copy(
+                blockExplorerBucket = if (trimmedUrl.isNotBlank()) bucket else current.blockExplorerBucket,
+                blockExplorerNormalPresetId = if (bucket == BlockExplorerBucket.NORMAL) presetId else current.blockExplorerNormalPresetId,
+                blockExplorerOnionPresetId = if (bucket == BlockExplorerBucket.ONION) presetId else current.blockExplorerOnionPresetId
+            )
+        }
         viewModelScope.launch {
             appPreferencesRepository.setBlockExplorerCustom(
                 network,
@@ -296,6 +363,26 @@ class SettingsViewModel @Inject constructor(
                 trimmedUrl.takeIf { it.isNotBlank() },
                 trimmedName.takeIf { it.isNotBlank() }
             )
+            appPreferencesRepository.setBlockExplorerBucket(network, if (trimmedUrl.isNotBlank()) bucket else _uiState.value.blockExplorerBucket)
+            appPreferencesRepository.setBlockExplorerPreset(network, bucket, presetId)
+            if (trimmedUrl.isBlank()) {
+                appPreferencesRepository.setBlockExplorerVisibility(
+                    network,
+                    bucket,
+                    BlockExplorerCatalog.customPresetId(bucket),
+                    true
+                )
+                _uiState.update { current ->
+                    when (bucket) {
+                        BlockExplorerBucket.NORMAL -> current.copy(
+                            blockExplorerNormalHidden = current.blockExplorerNormalHidden - BlockExplorerCatalog.customPresetId(bucket)
+                        )
+                        BlockExplorerBucket.ONION -> current.copy(
+                            blockExplorerOnionHidden = current.blockExplorerOnionHidden - BlockExplorerCatalog.customPresetId(bucket)
+                        )
+                    }
+                }
+            }
         }
     }
 

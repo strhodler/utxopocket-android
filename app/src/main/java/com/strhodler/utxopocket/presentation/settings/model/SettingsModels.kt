@@ -4,6 +4,8 @@ import androidx.annotation.StringRes
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
+import com.strhodler.utxopocket.domain.model.BlockExplorerCatalog
 import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
@@ -30,6 +32,12 @@ data class SettingsUiState(
     val dustThresholdSats: Long = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS,
     val dustThresholdInput: String = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS.toString(),
     val preferredNetwork: BitcoinNetwork = BitcoinNetwork.DEFAULT,
+    val blockExplorerEnabled: Boolean = true,
+    val blockExplorerBucket: BlockExplorerBucket = BlockExplorerBucket.NORMAL,
+    val blockExplorerNormalPresetId: String = BlockExplorerCatalog.defaultPresetId(BitcoinNetwork.DEFAULT, BlockExplorerBucket.NORMAL),
+    val blockExplorerOnionPresetId: String = BlockExplorerCatalog.defaultPresetId(BitcoinNetwork.DEFAULT, BlockExplorerBucket.ONION),
+    val blockExplorerNormalHidden: Set<String> = emptySet(),
+    val blockExplorerOnionHidden: Set<String> = emptySet(),
     val blockExplorerNormalCustomInput: String = "",
     val blockExplorerOnionCustomInput: String = "",
     val blockExplorerNormalCustomNameInput: String = "",

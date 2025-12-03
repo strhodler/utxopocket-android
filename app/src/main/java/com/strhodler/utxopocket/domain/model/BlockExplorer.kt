@@ -17,13 +17,15 @@ data class BlockExplorerPreset(
 )
 
 data class BlockExplorerNetworkPreference(
+    val enabled: Boolean = true,
     val bucket: BlockExplorerBucket = BlockExplorerBucket.NORMAL,
     val normalPresetId: String = BlockExplorerCatalog.defaultPresetId(BitcoinNetwork.DEFAULT, BlockExplorerBucket.NORMAL),
     val onionPresetId: String = BlockExplorerCatalog.defaultPresetId(BitcoinNetwork.DEFAULT, BlockExplorerBucket.ONION),
     val customNormalUrl: String? = null,
     val customOnionUrl: String? = null,
     val customNormalName: String? = null,
-    val customOnionName: String? = null
+    val customOnionName: String? = null,
+    val hiddenPresetIds: Set<String> = emptySet()
 ) {
     fun presetIdFor(bucket: BlockExplorerBucket): String =
         when (bucket) {
@@ -42,6 +44,8 @@ data class BlockExplorerNetworkPreference(
             BlockExplorerBucket.NORMAL -> customNormalName
             BlockExplorerBucket.ONION -> customOnionName
         }
+
+    fun isPresetEnabled(presetId: String): Boolean = !hiddenPresetIds.contains(presetId)
 }
 
 data class BlockExplorerPreferences(
@@ -50,9 +54,11 @@ data class BlockExplorerPreferences(
     fun forNetwork(network: BitcoinNetwork): BlockExplorerNetworkPreference =
         selections[network]
             ?: BlockExplorerNetworkPreference(
+                enabled = true,
                 bucket = BlockExplorerBucket.NORMAL,
                 normalPresetId = BlockExplorerCatalog.defaultPresetId(network, BlockExplorerBucket.NORMAL),
-                onionPresetId = BlockExplorerCatalog.defaultPresetId(network, BlockExplorerBucket.ONION)
+                onionPresetId = BlockExplorerCatalog.defaultPresetId(network, BlockExplorerBucket.ONION),
+                hiddenPresetIds = emptySet()
             )
 }
 
@@ -65,7 +71,6 @@ object BlockExplorerCatalog {
             BlockExplorerBucket.NORMAL -> when (network) {
                 BitcoinNetwork.MAINNET -> listOf(
                     BlockExplorerPreset("mempool_main", "mempool.space (Clearnet)", "https://mempool.space/tx/", bucket, supportsTxId = true),
-                    BlockExplorerPreset("blockchain_com_main", "blockchain.com (Clearnet)", "https://www.blockchain.com/explorer/transactions/btc/", bucket, supportsTxId = true),
                     BlockExplorerPreset("blockstream_main", "blockstream.info (Clearnet)", "https://blockstream.info/tx/", bucket, supportsTxId = true),
                     customPreset(bucket)
                 )
@@ -143,6 +148,12 @@ object BlockExplorerCatalog {
 
     fun defaultPresetId(network: BitcoinNetwork, bucket: BlockExplorerBucket): String =
         presetsFor(network, bucket).first().id
+
+    fun customPresetId(bucket: BlockExplorerBucket): String =
+        when (bucket) {
+            BlockExplorerBucket.NORMAL -> CUSTOM_NORMAL_ID
+            BlockExplorerBucket.ONION -> CUSTOM_ONION_ID
+        }
 
     fun resolvePreset(network: BitcoinNetwork, presetId: String, bucket: BlockExplorerBucket): BlockExplorerPreset? =
         presetsFor(network, bucket).firstOrNull { it.id == presetId }

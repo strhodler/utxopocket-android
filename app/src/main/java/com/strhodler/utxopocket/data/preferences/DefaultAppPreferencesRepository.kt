@@ -505,6 +505,29 @@ class DefaultAppPreferencesRepository @Inject constructor(
         }
     }
 
+    override suspend fun setBlockExplorerVisibility(network: BitcoinNetwork, bucket: BlockExplorerBucket, presetId: String, enabled: Boolean) {
+        dataStore.edit { prefs ->
+            val key = blockExplorerHiddenKey(network, bucket)
+            val current = prefs[key]?.split(",")?.filter { it.isNotBlank() }?.toMutableSet() ?: mutableSetOf()
+            if (enabled) {
+                current.remove(presetId)
+            } else {
+                current.add(presetId)
+            }
+            if (current.isEmpty()) {
+                prefs.remove(key)
+            } else {
+                prefs[key] = current.joinToString(",")
+            }
+        }
+    }
+
+    override suspend fun setBlockExplorerEnabled(network: BitcoinNetwork, enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[blockExplorerEnabledKey(network)] = enabled
+        }
+    }
+
     override val nodeConfig: Flow<NodeConfig> =
         dataStore.data.map { prefs -> prefs.toNodeConfig() }
 
@@ -703,6 +726,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     private fun Preferences.toBlockExplorerPreferences(): BlockExplorerPreferences {
         val selections = BitcoinNetwork.entries.associateWith { network ->
+            val enabled = this[blockExplorerEnabledKey(network)] ?: true
             val bucketName = this[blockExplorerBucketKey(network)]
             val bucket = bucketName?.let { runCatching { BlockExplorerBucket.valueOf(it) }.getOrNull() }
                 ?: WalletDefaults.DEFAULT_BLOCK_EXPLORER_BUCKET
@@ -714,18 +738,25 @@ class DefaultAppPreferencesRepository @Inject constructor(
             val customOnion = this[blockExplorerCustomUrlKey(network, BlockExplorerBucket.ONION)]
             val customNormalName = this[blockExplorerCustomNameKey(network, BlockExplorerBucket.NORMAL)]
             val customOnionName = this[blockExplorerCustomNameKey(network, BlockExplorerBucket.ONION)]
+            val hiddenNormal = this[blockExplorerHiddenKey(network, BlockExplorerBucket.NORMAL)]?.split(",")?.filter { it.isNotBlank() }?.toSet().orEmpty()
+            val hiddenOnion = this[blockExplorerHiddenKey(network, BlockExplorerBucket.ONION)]?.split(",")?.filter { it.isNotBlank() }?.toSet().orEmpty()
             BlockExplorerNetworkPreference(
+                enabled = enabled,
                 bucket = bucket,
                 normalPresetId = normalPreset,
                 onionPresetId = onionPreset,
                 customNormalUrl = customNormal,
                 customOnionUrl = customOnion,
                 customNormalName = customNormalName,
-                customOnionName = customOnionName
+                customOnionName = customOnionName,
+                hiddenPresetIds = hiddenNormal + hiddenOnion
             )
         }
         return BlockExplorerPreferences(selections)
     }
+
+    private fun blockExplorerEnabledKey(network: BitcoinNetwork) =
+        booleanPreferencesKey("block_explorer_${network.name.lowercase()}_enabled")
 
     private fun blockExplorerBucketKey(network: BitcoinNetwork) =
         stringPreferencesKey("block_explorer_${network.name.lowercase()}_bucket")
@@ -738,6 +769,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     private fun blockExplorerCustomNameKey(network: BitcoinNetwork, bucket: BlockExplorerBucket) =
         stringPreferencesKey("block_explorer_${network.name.lowercase()}_custom_${bucket.name.lowercase()}_name")
+
+    private fun blockExplorerHiddenKey(network: BitcoinNetwork, bucket: BlockExplorerBucket) =
+        stringPreferencesKey("block_explorer_${network.name.lowercase()}_hidden_${bucket.name.lowercase()}")
 
     private object Keys {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")

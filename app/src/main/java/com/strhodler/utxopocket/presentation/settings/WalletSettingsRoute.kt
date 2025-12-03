@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Help
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.QrCode
@@ -49,6 +51,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -63,6 +66,7 @@ import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.BlockExplorerCatalog
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.SectionCard
+import com.strhodler.utxopocket.presentation.common.SectionHeader
 import com.strhodler.utxopocket.presentation.common.UrMultiPartScanActivity
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
@@ -103,11 +107,21 @@ fun WalletSettingsRoute(
             viewModel.onWalletHealthToggled(enabled)
         }
     }
+    val handleBlockExplorerEnabledChanged: (Boolean) -> Unit = { enabled ->
+        viewModel.onBlockExplorerEnabledChanged(enabled)
+    }
     val handleBlockExplorerNormalChanged: (String, String) -> Unit = { name, value ->
         viewModel.onBlockExplorerNormalChanged(name, value)
     }
     val handleBlockExplorerOnionChanged: (String, String) -> Unit = { name, value ->
         viewModel.onBlockExplorerOnionChanged(name, value)
+    }
+    val handleBlockExplorerVisibilityChanged: (BlockExplorerBucket, String, Boolean) -> Unit =
+        { bucket, presetId, enabled ->
+            viewModel.onBlockExplorerVisibilityChanged(bucket, presetId, enabled)
+        }
+    val handleBlockExplorerPresetSelected: (BlockExplorerBucket, String) -> Unit = { bucket, presetId ->
+        viewModel.onBlockExplorerPresetSelected(bucket, presetId)
     }
     val handleRemoveBlockExplorerNormal: () -> Unit = {
         viewModel.removeBlockExplorerNormal()
@@ -135,6 +149,9 @@ fun WalletSettingsRoute(
                 onUtxoHealthToggled = handleUtxoHealthToggle,
                 onWalletHealthToggled = handleWalletHealthToggle,
                 onDustThresholdChanged = viewModel::onDustThresholdChanged,
+                onBlockExplorerEnabledChanged = handleBlockExplorerEnabledChanged,
+                onBlockExplorerPresetSelected = handleBlockExplorerPresetSelected,
+                onBlockExplorerVisibilityChanged = handleBlockExplorerVisibilityChanged,
                 onBlockExplorerNormalChanged = handleBlockExplorerNormalChanged,
                 onBlockExplorerOnionChanged = handleBlockExplorerOnionChanged,
                 onRemoveBlockExplorerNormal = handleRemoveBlockExplorerNormal,
@@ -213,6 +230,9 @@ private fun WalletSettingsScreen(
     onUtxoHealthToggled: (Boolean) -> Unit,
     onWalletHealthToggled: (Boolean) -> Unit,
     onDustThresholdChanged: (String) -> Unit,
+    onBlockExplorerEnabledChanged: (Boolean) -> Unit,
+    onBlockExplorerPresetSelected: (BlockExplorerBucket, String) -> Unit,
+    onBlockExplorerVisibilityChanged: (BlockExplorerBucket, String, Boolean) -> Unit,
     onBlockExplorerNormalChanged: (String, String) -> Unit,
     onBlockExplorerOnionChanged: (String, String) -> Unit,
     onRemoveBlockExplorerNormal: () -> Unit,
@@ -397,24 +417,68 @@ private fun WalletSettingsScreen(
             BlockExplorerCatalog.presetsFor(state.preferredNetwork, BlockExplorerBucket.ONION)
                 .filterNot { BlockExplorerCatalog.isCustomPreset(it.id, BlockExplorerBucket.ONION) }
         }
+        val clearnetSupport = stringResource(id = R.string.settings_block_explorer_preset_support_txid)
+        val onionSupport = stringResource(id = R.string.settings_block_explorer_preset_onion_hint)
         val customNormal = state.blockExplorerNormalCustomInput.takeIf { it.isNotBlank() }
         val customOnion = state.blockExplorerOnionCustomInput.takeIf { it.isNotBlank() }
+        val explorerEnabled = state.blockExplorerEnabled
+        val selectedBucket = state.blockExplorerBucket
+        val selectedNormalPreset = state.blockExplorerNormalPresetId
+        val selectedOnionPreset = state.blockExplorerOnionPresetId
+        val explorerContentAlpha = if (explorerEnabled) 1f else 0.4f
+        val hiddenNormal = state.blockExplorerNormalHidden
+        val hiddenOnion = state.blockExplorerOnionHidden
 
         SectionCard(
             title = stringResource(id = R.string.settings_block_explorer_title, networkLabel),
             subtitle = stringResource(id = R.string.settings_block_explorer_support),
-            spacedContent = true,
+            spacedContent = false,
             divider = false
         ) {
             item {
-                Text(
-                    text = stringResource(id = R.string.settings_block_explorer_clearnet_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                ListItem(
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    headlineContent = {
+                        Text(
+                            text = stringResource(id = R.string.settings_block_explorer_enabled_label),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            text = stringResource(id = R.string.settings_block_explorer_enabled_support),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingContent = {
+                        Switch(
+                            checked = explorerEnabled,
+                            onCheckedChange = onBlockExplorerEnabledChanged
+                        )
+                    }
                 )
             }
-            normalPresets.forEach { preset ->
+            if (explorerEnabled) {
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        shape = MaterialTheme.shapes.large,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp
+                    ) {
+                        SectionHeader(
+                            title = stringResource(id = R.string.settings_block_explorer_clearnet_title),
+                            subtitle = stringResource(id = R.string.settings_block_explorer_clearnet_subtitle),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                        )
+                    }
+                }
+                normalPresets.forEachIndexed { index, preset ->
+                val isEnabled = !hiddenNormal.contains(preset.id)
+                val supporting = clearnetSupport
                 item {
                     ListItem(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -426,27 +490,42 @@ private fun WalletSettingsScreen(
                         },
                         supportingContent = {
                             Text(
-                                text = stringResource(id = R.string.settings_block_explorer_preset_support_txid),
+                                text = supporting,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        }
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = isEnabled,
+                                onCheckedChange = { enabled ->
+                                    onBlockExplorerVisibilityChanged(BlockExplorerBucket.NORMAL, preset.id, enabled)
+                                }
+                            )
+                        },
+                        modifier = Modifier
+                            .alpha(explorerContentAlpha)
+                            .fillMaxWidth()
                     )
+                    if (index != normalPresets.lastIndex || customNormal != null) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    }
                 }
             }
             customNormal?.let { url ->
+                val isEnabled = !hiddenNormal.contains(BlockExplorerCatalog.customPresetId(BlockExplorerBucket.NORMAL))
                 item {
                     ListItem(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         headlineContent = {
                             val displayName = state.blockExplorerNormalCustomNameInput
-                                .takeIf { it.isNotBlank() }
-                                ?: stringResource(id = R.string.settings_block_explorer_custom_name_label)
-                            Text(
-                                text = displayName,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        },
+                                    .takeIf { it.isNotBlank() }
+                                    ?: stringResource(id = R.string.settings_block_explorer_custom_name_label)
+                                Text(
+                                    text = displayName,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            },
                         supportingContent = {
                             Text(
                                 text = url,
@@ -456,36 +535,60 @@ private fun WalletSettingsScreen(
                         },
                         trailingContent = {
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                IconButton(onClick = { explorerSheet = ExplorerSheetType.CLEARNET }) {
-                                    Icon(imageVector = Icons.Outlined.Edit, contentDescription = null)
-                                }
+                                Switch(
+                                    checked = isEnabled,
+                                    onCheckedChange = { enabled ->
+                                        onBlockExplorerVisibilityChanged(
+                                            BlockExplorerBucket.NORMAL,
+                                            BlockExplorerCatalog.customPresetId(BlockExplorerBucket.NORMAL),
+                                            enabled
+                                        )
+                                    }
+                                )
                                 IconButton(onClick = onRemoveBlockExplorerNormal) {
                                     Icon(imageVector = Icons.Outlined.Delete, contentDescription = null)
                                 }
                             }
-                        }
+                        },
+                        modifier = Modifier
+                            .alpha(explorerContentAlpha)
+                            .fillMaxWidth()
+                            .clickable(enabled = explorerEnabled) {
+                                explorerSheet = ExplorerSheetType.CLEARNET
+                            }
                     )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 }
             }
-            item {
-                TextButton(onClick = { explorerSheet = ExplorerSheetType.CLEARNET }) {
-                    Text(text = stringResource(id = R.string.settings_block_explorer_add_clearnet))
+                item {
+                    TextButton(onClick = { explorerSheet = ExplorerSheetType.CLEARNET }) {
+                        Text(text = stringResource(id = R.string.settings_block_explorer_add_clearnet))
+                    }
                 }
-            }
 
-            item {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            }
+                item {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
 
-            item {
-                Text(
-                    text = stringResource(id = R.string.settings_block_explorer_tor_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
-                )
-            }
-            onionPresets.forEach { preset ->
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        shape = MaterialTheme.shapes.large,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp
+                    ) {
+                        SectionHeader(
+                            title = stringResource(id = R.string.settings_block_explorer_tor_title),
+                            subtitle = stringResource(id = R.string.settings_block_explorer_tor_subtitle),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                        )
+                    }
+                }
+            onionPresets.forEachIndexed { index, preset ->
+                val isEnabled = !hiddenOnion.contains(preset.id)
+                val supporting = onionSupport
                 item {
                     ListItem(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -497,27 +600,42 @@ private fun WalletSettingsScreen(
                         },
                         supportingContent = {
                             Text(
-                                text = stringResource(id = R.string.settings_block_explorer_preset_onion_hint),
+                                text = supporting,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        }
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = isEnabled,
+                                onCheckedChange = { enabled ->
+                                    onBlockExplorerVisibilityChanged(BlockExplorerBucket.ONION, preset.id, enabled)
+                                }
+                            )
+                        },
+                        modifier = Modifier
+                            .alpha(explorerContentAlpha)
+                            .fillMaxWidth()
                     )
+                    if (index != onionPresets.lastIndex || customOnion != null) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                    }
                 }
             }
             customOnion?.let { url ->
+                val isEnabled = !hiddenOnion.contains(BlockExplorerCatalog.customPresetId(BlockExplorerBucket.ONION))
                 item {
                     ListItem(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         headlineContent = {
                             val displayName = state.blockExplorerOnionCustomNameInput
-                                .takeIf { it.isNotBlank() }
-                                ?: stringResource(id = R.string.settings_block_explorer_custom_name_tor_label)
-                            Text(
-                                text = displayName,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        },
+                                    .takeIf { it.isNotBlank() }
+                                    ?: stringResource(id = R.string.settings_block_explorer_custom_name_tor_label)
+                                Text(
+                                    text = displayName,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            },
                         supportingContent = {
                             Text(
                                 text = url,
@@ -527,20 +645,35 @@ private fun WalletSettingsScreen(
                         },
                         trailingContent = {
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                IconButton(onClick = { explorerSheet = ExplorerSheetType.TOR }) {
-                                    Icon(imageVector = Icons.Outlined.Edit, contentDescription = null)
-                                }
+                                Switch(
+                                    checked = isEnabled,
+                                    onCheckedChange = { enabled ->
+                                        onBlockExplorerVisibilityChanged(
+                                            BlockExplorerBucket.ONION,
+                                            BlockExplorerCatalog.customPresetId(BlockExplorerBucket.ONION),
+                                            enabled
+                                        )
+                                    }
+                                )
                                 IconButton(onClick = onRemoveBlockExplorerOnion) {
                                     Icon(imageVector = Icons.Outlined.Delete, contentDescription = null)
                                 }
                             }
-                        }
+                        },
+                        modifier = Modifier
+                            .alpha(explorerContentAlpha)
+                            .fillMaxWidth()
+                            .clickable(enabled = explorerEnabled) {
+                                explorerSheet = ExplorerSheetType.TOR
+                            }
                     )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 }
             }
-            item {
-                TextButton(onClick = { explorerSheet = ExplorerSheetType.TOR }) {
-                    Text(text = stringResource(id = R.string.settings_block_explorer_add_tor))
+                item {
+                    TextButton(onClick = { explorerSheet = ExplorerSheetType.TOR }) {
+                        Text(text = stringResource(id = R.string.settings_block_explorer_add_tor))
+                    }
                 }
             }
         }
@@ -638,10 +771,22 @@ private fun WalletSettingsScreen(
                         onClick = {
                             val trimmed = explorerInput.trim()
                             val trimmedName = explorerNameInput.trim()
+                            val validationError = when {
+                                trimmed.isBlank() -> context.getString(R.string.settings_block_explorer_error_required)
+                                !(trimmed.startsWith("http://") || trimmed.startsWith("https://")) -> context.getString(
+                                    R.string.settings_block_explorer_error_scheme
+                                )
+                                else -> null
+                            }
+                            if (validationError != null) {
+                                explorerScanError = validationError
+                                return@TextButton
+                            }
                             when (sheet) {
                                 ExplorerSheetType.CLEARNET -> onBlockExplorerNormalChanged(trimmedName, trimmed)
                                 ExplorerSheetType.TOR -> onBlockExplorerOnionChanged(trimmedName, trimmed)
                             }
+                            explorerScanError = null
                             coroutineScope.launch {
                                 explorerSheetState.hide()
                             }.invokeOnCompletion {
