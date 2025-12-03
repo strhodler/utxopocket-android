@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,7 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.WalletColor
-import com.strhodler.utxopocket.presentation.wallets.components.toTheme
+import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
 
 @Composable
 fun WalletColorPickerDialog(
@@ -89,7 +90,7 @@ private fun RowScope.WalletColorSwatch(
     onSelected: (WalletColor) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val theme = remember(color) { color.toTheme() }
+    val theme = rememberWalletColorTheme(color)
     val shape: Shape = RoundedCornerShape(16.dp)
     Column(
         modifier = modifier,
@@ -99,10 +100,7 @@ private fun RowScope.WalletColorSwatch(
         Box(
             modifier = Modifier
                 .size(56.dp)
-                .background(
-                    brush = Brush.linearGradient(theme.gradient),
-                    shape = shape
-                )
+                .background(color = theme.primary, shape = shape)
                 .border(
                     width = if (isSelected) 2.dp else 0.dp,
                     color = if (isSelected) Color.White else Color.Transparent,
@@ -148,4 +146,8 @@ private fun walletColorLabel(color: WalletColor): Int = when (color) {
     WalletColor.YELLOW -> R.string.wallet_color_option_yellow
     WalletColor.RED -> R.string.wallet_color_option_red
     WalletColor.CYAN -> R.string.wallet_color_option_cyan
+    WalletColor.INDIGO -> R.string.wallet_color_option_indigo
+    WalletColor.TEAL -> R.string.wallet_color_option_teal
+    WalletColor.BROWN -> R.string.wallet_color_option_brown
+    WalletColor.SLATE -> R.string.wallet_color_option_slate
 }

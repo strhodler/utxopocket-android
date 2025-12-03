@@ -13,14 +13,17 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface WalletDao {
 
-    @Query("SELECT * FROM wallets WHERE network = :network ORDER BY name")
+    @Query("SELECT * FROM wallets WHERE network = :network ORDER BY sort_order, name, id")
     fun observeWallets(network: String): Flow<List<WalletEntity>>
 
-    @Query("SELECT * FROM wallets WHERE network = :network ORDER BY name")
+    @Query("SELECT * FROM wallets WHERE network = :network ORDER BY sort_order, name, id")
     suspend fun getWalletsSnapshot(network: String): List<WalletEntity>
 
     @Query("SELECT * FROM wallets WHERE id = :id")
     fun observeWalletById(id: Long): Flow<WalletEntity?>
+
+    @Query("SELECT * FROM wallets WHERE sync_applied = 0")
+    suspend fun getPendingSyncSessions(): List<WalletEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(wallet: WalletEntity)
@@ -39,6 +42,9 @@ interface WalletDao {
 
     @Query("SELECT * FROM wallets")
     suspend fun getAllWallets(): List<WalletEntity>
+
+    @Query("SELECT MAX(sort_order) FROM wallets WHERE network = :network")
+    suspend fun getMaxSortOrder(network: String): Int?
 
     @Query("DELETE FROM wallets WHERE id = :id")
     suspend fun deleteById(id: Long)
@@ -93,6 +99,58 @@ interface WalletDao {
         lastSyncTime: Long
     )
 
+    @Query(
+        """
+        UPDATE wallets
+        SET
+            sync_session_id = :sessionId,
+            sync_tip_height = :tipHeight,
+            sync_tip_hash = :tipHash,
+            sync_applied = 0,
+            sync_started_at = :startedAt,
+            sync_completed_at = NULL
+        WHERE id = :id
+        """
+    )
+    suspend fun startSyncSession(
+        id: Long,
+        sessionId: String,
+        tipHeight: Long?,
+        tipHash: String?,
+        startedAt: Long
+    )
+
+    @Query(
+        """
+        UPDATE wallets
+        SET
+            sync_applied = 1,
+            sync_completed_at = :completedAt,
+            sync_session_id = NULL
+        WHERE id = :id
+        """
+    )
+    suspend fun markSyncSessionApplied(
+        id: Long,
+        completedAt: Long
+    )
+
+    @Query(
+        """
+        UPDATE wallets
+        SET
+            sync_session_id = NULL,
+            sync_tip_height = NULL,
+            sync_tip_hash = NULL,
+            sync_applied = 1,
+            sync_started_at = NULL,
+            sync_completed_at = NULL,
+            requires_full_scan = 1
+        WHERE id = :id
+        """
+    )
+    suspend fun resetSyncSessionAndForceFullScan(id: Long)
+
     @Transaction
     @Query(
         """
@@ -126,6 +184,14 @@ interface WalletDao {
             wallet_transactions.wallet_id = transaction_health.wallet_id AND
             wallet_transactions.txid = transaction_health.txid
         WHERE wallet_transactions.wallet_id = :walletId
+        AND (
+            (:showReceived = 1 AND wallet_transactions.type = 'RECEIVED') OR
+            (:showSent = 1 AND wallet_transactions.type = 'SENT')
+        )
+        AND (
+            (:showLabeled = 1 AND wallet_transactions.label IS NOT NULL AND TRIM(wallet_transactions.label) != '') OR
+            (:showUnlabeled = 1 AND (wallet_transactions.label IS NULL OR TRIM(wallet_transactions.label) = ''))
+        )
         ORDER BY
             CASE WHEN :sort = 'NEWEST_FIRST' THEN wallet_transactions.timestamp END DESC,
             CASE WHEN :sort = 'OLDEST_FIRST' THEN wallet_transactions.timestamp END ASC,
@@ -139,7 +205,11 @@ interface WalletDao {
     )
     fun pagingTransactions(
         walletId: Long,
-        sort: String
+        sort: String,
+        showLabeled: Boolean,
+        showUnlabeled: Boolean,
+        showReceived: Boolean,
+        showSent: Boolean
     ): PagingSource<Int, WalletTransactionWithRelations>
 
     @Query(
@@ -150,6 +220,14 @@ interface WalletDao {
             wallet_utxos.txid = utxo_health.txid AND
             wallet_utxos.vout = utxo_health.vout
         WHERE wallet_utxos.wallet_id = :walletId
+        AND (
+            (:showSpendable = 1 AND COALESCE(wallet_utxos.spendable, 1) = 1) OR
+            (:showNotSpendable = 1 AND COALESCE(wallet_utxos.spendable, 1) = 0)
+        )
+        AND (
+            (:showLabeled = 1 AND wallet_utxos.label IS NOT NULL AND TRIM(wallet_utxos.label) != '') OR
+            (:showUnlabeled = 1 AND (wallet_utxos.label IS NULL OR TRIM(wallet_utxos.label) = ''))
+        )
         ORDER BY
             CASE WHEN :sort = 'LARGEST_AMOUNT' THEN wallet_utxos.value_sats END DESC,
             CASE WHEN :sort = 'SMALLEST_AMOUNT' THEN wallet_utxos.value_sats END ASC,
@@ -163,7 +241,11 @@ interface WalletDao {
     )
     fun pagingUtxos(
         walletId: Long,
-        sort: String
+        sort: String,
+        showLabeled: Boolean,
+        showUnlabeled: Boolean,
+        showSpendable: Boolean,
+        showNotSpendable: Boolean
     ): PagingSource<Int, WalletUtxoEntity>
 
     @Query("SELECT * FROM wallet_transactions WHERE wallet_id = :walletId")

@@ -10,6 +10,7 @@ import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
@@ -33,6 +34,8 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlin.time.Duration.Companion.minutes
 
 data class StatusBarUiState(
@@ -55,6 +58,7 @@ data class AppEntryUiState(
     val onboardingCompleted: Boolean = false,
     val status: StatusBarUiState = StatusBarUiState(),
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
+    val themeProfile: ThemeProfile = ThemeProfile.DEFAULT,
     val appLanguage: AppLanguage = AppLanguage.EN,
     val pinLockEnabled: Boolean = false,
     val hapticsEnabled: Boolean = true,
@@ -94,7 +98,8 @@ class MainActivityViewModel @Inject constructor(
         refreshWallets = { network -> walletRepository.refresh(network) },
         nodeConfigFlow = nodeConfigurationRepository.nodeConfig,
         networkFlow = appPreferencesRepository.preferredNetwork,
-        networkStatusFlow = networkStatusMonitor.isOnline
+        networkStatusFlow = networkStatusMonitor.isOnline,
+        syncStatusFlow = walletRepository.observeSyncStatus()
     )
 
     // Skips the next lock refresh when the activity is recreated without leaving the app
@@ -104,6 +109,7 @@ class MainActivityViewModel @Inject constructor(
     private var wasBackgrounded = true
     // When true, ignore the next background event (used for config changes).
     private var ignoreNextBackgroundEvent = false
+    private var nodeMetadataPollJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -136,6 +142,7 @@ class MainActivityViewModel @Inject constructor(
         appPreferencesRepository.preferredNetwork,
         torManager.latestLog,
         appPreferencesRepository.themePreference,
+        appPreferencesRepository.themeProfile,
         appPreferencesRepository.appLanguage,
         pinEnabledState,
         lockState,
@@ -151,13 +158,14 @@ class MainActivityViewModel @Inject constructor(
         val network = values[4] as BitcoinNetwork
         val torLog = values[5] as String
         val themePreference = values[6] as ThemePreference
-        val appLanguage = values[7] as AppLanguage
-        val pinEnabled = values[8] as Boolean
-        val locked = values[9] as Boolean
-        val nodeConfig = values[10] as NodeConfig
-        val isNetworkOnline = values[11] as Boolean
-        val hapticsEnabled = values[12] as Boolean
-        val pinShuffleEnabled = values[13] as Boolean
+        val themeProfile = values[7] as ThemeProfile
+        val appLanguage = values[8] as AppLanguage
+        val pinEnabled = values[9] as Boolean
+        val locked = values[10] as Boolean
+        val nodeConfig = values[11] as NodeConfig
+        val isNetworkOnline = values[12] as Boolean
+        val hapticsEnabled = values[13] as Boolean
+        val pinShuffleEnabled = values[14] as Boolean
 
         val snapshotMatchesNetwork = nodeSnapshot.network == network
         val effectiveNodeStatus = if (snapshotMatchesNetwork) {
@@ -165,16 +173,23 @@ class MainActivityViewModel @Inject constructor(
         } else {
             NodeStatus.Idle
         }
-        val isSyncing = (syncStatus.isRefreshing && syncStatus.network == network) ||
-            syncStatus.refreshingWalletIds.isNotEmpty()
+        val isSyncing = syncStatus.network == network &&
+            nodeSnapshot.status is NodeStatus.Synced &&
+            (syncStatus.isRefreshing || syncStatus.activeWalletId != null || syncStatus.refreshingWalletIds.isNotEmpty())
         val torRequired = nodeConfig.requiresTor(network)
+
+        val effectiveTorLog = when (torStatus) {
+            is TorStatus.Connecting,
+            is TorStatus.Running -> torLog
+            else -> ""
+        }
 
         AppEntryUiState(
             isReady = true,
             onboardingCompleted = onboarding,
             status = StatusBarUiState(
                 torStatus = torStatus,
-                torLog = if (torStatus is TorStatus.Connecting) torLog else "",
+                torLog = effectiveTorLog,
                 nodeStatus = effectiveNodeStatus,
                 isSyncing = isSyncing,
                 nodeBlockHeight = nodeSnapshot.blockHeight.takeIf { snapshotMatchesNetwork },
@@ -187,6 +202,7 @@ class MainActivityViewModel @Inject constructor(
                 isNetworkOnline = isNetworkOnline
             ),
             themePreference = themePreference,
+            themeProfile = themeProfile,
             appLanguage = appLanguage,
             pinLockEnabled = pinEnabled,
             hapticsEnabled = hapticsEnabled,
@@ -209,13 +225,16 @@ class MainActivityViewModel @Inject constructor(
         walletRepository.setSyncForegroundState(true)
         viewModelScope.launch {
             resumeNodeIfNeeded()
+            refreshNodeMetadataIfActive()
         }
+        startNodeMetadataPolling()
     }
 
     fun onAppBackgrounded(fromConfigurationChange: Boolean = false) {
         skipNextLockRefresh = fromConfigurationChange
         ignoreNextBackgroundEvent = fromConfigurationChange
         walletRepository.setSyncForegroundState(false)
+        stopNodeMetadataPolling()
     }
 
     fun onAppSentToBackground() {
@@ -285,6 +304,31 @@ class MainActivityViewModel @Inject constructor(
         }
     }
 
+    private fun startNodeMetadataPolling() {
+        if (nodeMetadataPollJob?.isActive == true) return
+        nodeMetadataPollJob = viewModelScope.launch {
+            while (true) {
+                refreshNodeMetadataIfActive()
+                delay(NODE_METADATA_POLL_INTERVAL_MS)
+            }
+        }
+    }
+
+    private fun stopNodeMetadataPolling() {
+        nodeMetadataPollJob?.cancel()
+        nodeMetadataPollJob = null
+    }
+
+    private suspend fun refreshNodeMetadataIfActive() {
+        val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
+        val nodeConfig = nodeConfigurationRepository.nodeConfig.first()
+        val isOnline = networkStatusMonitor.isOnline.first()
+        if (!isOnline || !nodeConfig.hasActiveSelection(preferredNetwork)) {
+            return
+        }
+        walletRepository.refresh(preferredNetwork)
+    }
+
     private fun refreshLockState() {
         viewModelScope.launch {
             val shouldLock = shouldLockNow(
@@ -318,5 +362,6 @@ class MainActivityViewModel @Inject constructor(
 
     private companion object {
         private const val IMMEDIATE_TIMEOUT_GRACE_MS = 1_000L
+        private const val NODE_METADATA_POLL_INTERVAL_MS = 60_000L
     }
 }

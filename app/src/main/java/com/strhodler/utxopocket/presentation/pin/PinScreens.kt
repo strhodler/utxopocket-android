@@ -169,6 +169,15 @@ fun PinSetupScreen(
 
                 DigitKey.Placeholder -> Unit
             }
+        },
+        onBackspaceLongPress = {
+            when (step) {
+                PinSetupStep.Enter -> firstPin = ""
+                PinSetupStep.Confirm -> {
+                    confirmPin = ""
+                    localError = null
+                }
+            }
         }
     )
 }
@@ -250,7 +259,8 @@ fun PinVerificationScreen(
 
                 DigitKey.Placeholder -> Unit
             }
-        }
+        },
+        onBackspaceLongPress = { pin = "" }
     )
 }
 
@@ -268,7 +278,8 @@ private fun PinScreenScaffold(
     keyboardEnabled: Boolean,
     hapticsEnabled: Boolean,
     shuffleDigits: Boolean,
-    onKeyPress: (DigitKey) -> Unit
+    onKeyPress: (DigitKey) -> Unit,
+    onBackspaceLongPress: (() -> Unit)? = null
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -289,7 +300,7 @@ private fun PinScreenScaffold(
                 .systemBarsPadding()
                 .padding(horizontal = 20.dp)
                 .padding(top = topPadding)
-                .padding(bottom = 24.dp),
+                .padding(bottom = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.weight(1f))
@@ -334,11 +345,12 @@ private fun PinScreenScaffold(
                     onKeyPress = onKeyPress,
                     layout = keyboardLayout,
                     hapticsEnabled = hapticsEnabled,
-                    enabled = keyboardEnabled
+                    enabled = keyboardEnabled,
+                    onBackspaceLongPress = onBackspaceLongPress
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(40.dp))
         }
     }
 }

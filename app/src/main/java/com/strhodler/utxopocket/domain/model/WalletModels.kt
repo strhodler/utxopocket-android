@@ -11,7 +11,7 @@ enum class BitcoinNetwork {
     SIGNET;
 
     companion object {
-        val DEFAULT: BitcoinNetwork = TESTNET
+        val DEFAULT: BitcoinNetwork = TESTNET4
     }
 }
 
@@ -40,6 +40,7 @@ sealed class TorStatus {
 
 sealed class NodeStatus {
     data object Idle : NodeStatus()
+    data object Offline : NodeStatus()
     data object Connecting : NodeStatus()
     data object Synced : NodeStatus()
     data object WaitingForTor : NodeStatus()
@@ -49,7 +50,9 @@ sealed class NodeStatus {
 data class SyncStatusSnapshot(
     val isRefreshing: Boolean,
     val network: BitcoinNetwork,
-    val refreshingWalletIds: Set<Long> = emptySet()
+    val refreshingWalletIds: Set<Long> = emptySet(),
+    val activeWalletId: Long? = null,
+    val queuedWalletIds: List<Long> = emptyList()
 )
 
 data class ElectrumServerInfo(
@@ -74,6 +77,7 @@ data class NodeStatusSnapshot(
 data class WalletSummary(
     val id: Long,
     val name: String,
+    val sortOrder: Int = 0,
     val balanceSats: Long,
     val transactionCount: Int,
     val network: BitcoinNetwork,

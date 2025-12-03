@@ -9,7 +9,6 @@ import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
 import com.strhodler.utxopocket.di.ApplicationScope
 import com.strhodler.utxopocket.domain.model.WalletCreationRequest
 import com.strhodler.utxopocket.domain.model.WalletCreationResult
-import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.ur.UniformResourceImportParser
@@ -26,7 +25,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -287,16 +285,10 @@ class AddWalletViewModel @Inject constructor(
                 is WalletCreationResult.Success -> {
                     _uiState.update { it.copy(isSaving = false) }
                     applicationScope.launch {
-                            val nodeSnapshot = walletRepository.observeNodeStatus().first()
-                            if (
-                                nodeSnapshot.status is NodeStatus.Synced &&
-                                nodeSnapshot.network == result.wallet.network
-                            ) {
-                                runCatching { walletRepository.refreshWallet(result.wallet.id) }
-                            }
-                        }
-                        _events.emit(AddWalletEvent.WalletCreated(result.wallet))
+                        runCatching { walletRepository.refreshWallet(result.wallet.id) }
                     }
+                    _events.emit(AddWalletEvent.WalletCreated(result.wallet))
+                }
 
                 is WalletCreationResult.Failure -> {
                     _uiState.update { it.copy(isSaving = false, formError = result.reason) }

@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.model.NetworkEndpointType
 import com.strhodler.utxopocket.domain.model.NetworkErrorLog
 import com.strhodler.utxopocket.domain.model.NetworkNodeSource
-import com.strhodler.utxopocket.domain.model.NetworkTransport
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -18,6 +17,8 @@ import kotlinx.coroutines.launch
 
 data class NetworkLogUiState(
     val logs: List<NetworkErrorLog> = emptyList(),
+    val filteredLogs: List<NetworkErrorLog> = emptyList(),
+    val filter: NetworkLogFilterPreset = NetworkLogFilterPreset.All,
     val loggingEnabled: Boolean = false,
     val showInfoSheet: Boolean = false
 )
@@ -27,6 +28,7 @@ class NetworkLogViewModel @Inject constructor(
     private val networkErrorLogRepository: NetworkErrorLogRepository
 ) : ViewModel() {
 
+    private val filterState = MutableStateFlow(NetworkLogFilterPreset.All)
     private val _uiState = MutableStateFlow(NetworkLogUiState())
     val uiState: StateFlow<NetworkLogUiState> = _uiState.asStateFlow()
 
@@ -35,19 +37,24 @@ class NetworkLogViewModel @Inject constructor(
             combine(
                 networkErrorLogRepository.logs,
                 networkErrorLogRepository.loggingEnabled,
-                networkErrorLogRepository.infoSheetSeen
-            ) { logs, enabled, infoSeen ->
-                Triple(logs, enabled, infoSeen)
-            }.collect { (logs, enabled, infoSeen) ->
-                _uiState.update { current ->
-                    current.copy(
-                        logs = logs,
-                        loggingEnabled = enabled,
-                        showInfoSheet = !infoSeen
-                    )
-                }
+                networkErrorLogRepository.infoSheetSeen,
+                filterState
+            ) { logs, enabled, infoSeen, filter ->
+                NetworkLogUiState(
+                    logs = logs,
+                    filteredLogs = logs.filter { filter.matches(it) },
+                    filter = filter,
+                    loggingEnabled = enabled,
+                    showInfoSheet = !infoSeen
+                )
+            }.collect { state ->
+                _uiState.value = state
             }
         }
+    }
+
+    fun setFilter(filter: NetworkLogFilterPreset) {
+        filterState.value = filter
     }
 
     fun markInfoSheetShown() {
@@ -90,5 +97,21 @@ class NetworkLogViewModel @Inject constructor(
         }
         val network = log.networkType ?: "unknown"
         return "app=${log.appVersion} | android=${log.androidVersion} | network=$network | tor=$torState"
+    }
+}
+
+enum class NetworkLogFilterPreset {
+    All,
+    TorOnly,
+    ClearnetOnly,
+    CustomNodes,
+    PublicNodes;
+
+    fun matches(log: NetworkErrorLog): Boolean = when (this) {
+        All -> true
+        TorOnly -> log.usedTor || log.endpointType == NetworkEndpointType.Onion
+        ClearnetOnly -> !log.usedTor && log.endpointType != NetworkEndpointType.Onion
+        CustomNodes -> log.nodeSource == NetworkNodeSource.Custom
+        PublicNodes -> log.nodeSource == NetworkNodeSource.Public
     }
 }

@@ -38,13 +38,15 @@ fun ConnectionStatusBanner(
     primaryEnabled: Boolean = true,
     secondaryLabel: String? = null,
     onSecondaryClick: (() -> Unit)? = null,
-    style: ConnectionStatusBannerStyle = ConnectionStatusBannerStyle.Neutral
+    style: ConnectionStatusBannerStyle = ConnectionStatusBannerStyle.Neutral,
+    containerColorOverride: Color? = null,
+    contentColorOverride: Color? = null
 ) {
-    val containerColor = when (style) {
+    val containerColor = containerColorOverride ?: when (style) {
         ConnectionStatusBannerStyle.Neutral -> MaterialTheme.colorScheme.surfaceContainerHigh
         ConnectionStatusBannerStyle.Error -> MaterialTheme.colorScheme.errorContainer
     }
-    val textColor = when (style) {
+    val textColor = contentColorOverride ?: when (style) {
         ConnectionStatusBannerStyle.Neutral -> MaterialTheme.colorScheme.onSurface
         ConnectionStatusBannerStyle.Error -> MaterialTheme.colorScheme.onErrorContainer
     }
@@ -61,7 +63,7 @@ fun ConnectionStatusBanner(
         modifier = modifier.fillMaxWidth(),
         color = containerColor,
         tonalElevation = 2.dp,
-        shape = MaterialTheme.shapes.medium
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(
             modifier = Modifier
@@ -112,7 +114,10 @@ fun ActionableStatusBanner(
     modifier: Modifier = Modifier,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
     contentColor: Color = MaterialTheme.colorScheme.onSurface,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    iconTint: Color? = null,
+    trailingIcon: ImageVector? = null,
+    trailingIconTint: Color? = null
 ) {
     val clickableModifier = if (onClick != null) {
         modifier
@@ -124,7 +129,7 @@ fun ActionableStatusBanner(
     Surface(
         modifier = clickableModifier,
         color = containerColor,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         tonalElevation = 2.dp
     ) {
         Row(
@@ -134,11 +139,14 @@ fun ActionableStatusBanner(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = contentColor
-            )
+            val resolvedIconTint = iconTint ?: contentColor
+            if (resolvedIconTint.alpha > 0f) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = resolvedIconTint
+                )
+            }
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -161,9 +169,9 @@ fun ActionableStatusBanner(
             }
             onClick?.let {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                    imageVector = trailingIcon ?: Icons.AutoMirrored.Outlined.ArrowForward,
                     contentDescription = null,
-                    tint = contentColor.copy(alpha = 0.8f)
+                    tint = trailingIconTint ?: contentColor.copy(alpha = 0.8f)
                 )
             }
         }

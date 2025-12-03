@@ -9,17 +9,26 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,6 +40,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -77,7 +87,7 @@ fun NetworkLogViewerRoute(
         }
     )
     var showInfoSheet by rememberSaveable { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LaunchedEffect(state.showInfoSheet) {
         if (state.showInfoSheet) {
@@ -119,6 +129,11 @@ fun NetworkLogViewerRoute(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                NetworkLogFilterRow(
+                    filter = state.filter,
+                    visibleCount = state.filteredLogs.size,
+                    onFilterChange = viewModel::setFilter
+                )
                 Surface(
                     shape = MaterialTheme.shapes.medium,
                     color = Color.Black,
@@ -128,8 +143,8 @@ fun NetworkLogViewerRoute(
                         .weight(1f, fill = true)
                 ) {
                     val listState = rememberLazyListState()
-                    LaunchedEffect(state.logs.size) {
-                        if (state.logs.isNotEmpty()) {
+                    LaunchedEffect(state.filteredLogs.size) {
+                        if (state.filteredLogs.isNotEmpty()) {
                             listState.animateScrollToItem(0)
                         }
                     }
@@ -137,7 +152,7 @@ fun NetworkLogViewerRoute(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.Top
                     ) {
-                        state.logs.firstOrNull()?.let { first ->
+                        state.filteredLogs.firstOrNull()?.let { first ->
                             Text(
                                 text = headerText(first),
                                 style = MaterialTheme.typography.bodySmall,
@@ -147,7 +162,7 @@ fun NetworkLogViewerRoute(
                             )
                             Divider(color = Color.White.copy(alpha = 0.2f))
                         }
-                        if (state.logs.isEmpty()) {
+                        if (state.filteredLogs.isEmpty()) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
@@ -166,7 +181,7 @@ fun NetworkLogViewerRoute(
                                 contentPadding = PaddingValues(vertical = 12.dp, horizontal = 12.dp),
                                 modifier = Modifier.fillMaxSize()
                             ) {
-                                items(state.logs) { log ->
+                                items(state.filteredLogs) { log ->
                                     ConsoleLogEntry(log = log)
                                 }
                             }
@@ -196,10 +211,10 @@ fun NetworkLogViewerRoute(
                 }
                 Button(
                     onClick = {
-                        if (state.logs.isEmpty()) return@Button
-                        copyToClipboard(viewModel.formatLogs(state.logs))
+                        if (state.filteredLogs.isEmpty()) return@Button
+                        copyToClipboard(viewModel.formatLogs(state.filteredLogs))
                     },
-                    enabled = state.logs.isNotEmpty(),
+                    enabled = state.filteredLogs.isNotEmpty(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                     modifier = Modifier.weight(1f)
                 ) {
@@ -215,12 +230,15 @@ fun NetworkLogViewerRoute(
                 showInfoSheet = false
                 viewModel.markInfoSheetShown()
             },
-            sheetState = sheetState
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .navigationBarsPadding()
+                    .padding(horizontal = 24.dp, vertical = 24.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
@@ -249,6 +267,70 @@ fun NetworkLogViewerRoute(
             }
         }
     }
+}
+
+@Composable
+private fun NetworkLogFilterRow(
+    filter: NetworkLogFilterPreset,
+    visibleCount: Int,
+    onFilterChange: (NetworkLogFilterPreset) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val summaryText = stringResource(
+        id = R.string.settings_network_logs_filter_summary,
+        stringResource(id = filter.labelRes()),
+        visibleCount
+    )
+    Card(
+        onClick = { expanded = true },
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = summaryText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Icon(
+                imageVector = Icons.Outlined.ExpandMore,
+                contentDescription = stringResource(id = R.string.settings_network_logs_filter_label),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            NetworkLogFilterPreset.entries.forEach { preset ->
+                DropdownMenuItem(
+                    text = { Text(text = stringResource(id = preset.labelRes())) },
+                    leadingIcon = {
+                        RadioButton(selected = preset == filter, onClick = null)
+                    },
+                    onClick = {
+                        expanded = false
+                        onFilterChange(preset)
+                    }
+                )
+            }
+        }
+    }
+}
+
+private fun NetworkLogFilterPreset.labelRes(): Int = when (this) {
+    NetworkLogFilterPreset.All -> R.string.settings_network_logs_filter_all
+    NetworkLogFilterPreset.TorOnly -> R.string.settings_network_logs_filter_tor
+    NetworkLogFilterPreset.ClearnetOnly -> R.string.settings_network_logs_filter_clearnet
+    NetworkLogFilterPreset.CustomNodes -> R.string.settings_network_logs_filter_custom_nodes
+    NetworkLogFilterPreset.PublicNodes -> R.string.settings_network_logs_filter_public_nodes
 }
 
 @Composable

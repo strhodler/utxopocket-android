@@ -1,47 +1,58 @@
 package com.strhodler.utxopocket.presentation.wallets.detail
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AutoGraph
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,7 +69,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -69,14 +79,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
+import com.strhodler.utxopocket.presentation.common.ContentSection
+import com.strhodler.utxopocket.presentation.common.ListSection
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.TransactionHealthResult
 import com.strhodler.utxopocket.domain.model.TransactionHealthIndicatorType
-import com.strhodler.utxopocket.domain.model.TransactionHealthSeverity
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.TransactionStructure
 import com.strhodler.utxopocket.domain.model.TransactionType
@@ -86,16 +97,18 @@ import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionInput
 import com.strhodler.utxopocket.domain.model.WalletTransactionOutput
-import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.displayLabel
 import com.strhodler.utxopocket.domain.model.WalletDefaults
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
+import com.strhodler.utxopocket.domain.model.BlockExplorerCatalog
+import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.UtxoStatus
 import com.strhodler.utxopocket.domain.model.UtxoAnalysisContext
 import com.strhodler.utxopocket.domain.model.UtxoHealthIndicatorType
 import com.strhodler.utxopocket.domain.model.UtxoHealthResult
-import com.strhodler.utxopocket.domain.model.UtxoHealthSeverity
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.common.balanceValue
@@ -103,17 +116,15 @@ import com.strhodler.utxopocket.presentation.common.transactionAmount
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
+import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
-import com.strhodler.utxopocket.domain.model.WalletColor
-import com.strhodler.utxopocket.presentation.wallets.components.WalletColorTheme
-import com.strhodler.utxopocket.presentation.wallets.components.toTheme
-import com.strhodler.utxopocket.presentation.wallets.components.onGradient
-import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
-import com.strhodler.utxopocket.presentation.wallets.components.walletCardBackground
-import com.strhodler.utxopocket.presentation.wallets.components.walletShimmer
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.material3.rememberModalBottomSheetState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -132,6 +143,7 @@ import com.strhodler.utxopocket.domain.service.TransactionHealthAnalyzer
 import com.strhodler.utxopocket.data.utxohealth.DefaultUtxoHealthAnalyzer
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import io.github.thibseisel.identikon.Identicon
 import io.github.thibseisel.identikon.drawToBitmap
@@ -173,6 +185,7 @@ fun TransactionDetailRoute(
     onBack: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onOpenVisualizer: (Long, String) -> Unit,
+    onOpenWalletSettings: () -> Unit,
     viewModel: TransactionDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -240,10 +253,10 @@ fun TransactionDetailRoute(
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             onOpenWikiTopic = onOpenWikiTopic,
             onShowMessage = showSnackbar,
+            onOpenWalletSettings = onOpenWalletSettings,
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
-                .padding(bottom = 32.dp)
         )
     }
 }
@@ -332,7 +345,6 @@ fun UtxoDetailRoute(
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
-                .padding(bottom = 32.dp)
         )
     }
 }
@@ -365,7 +377,8 @@ class TransactionDetailViewModel @Inject constructor(
         appPreferencesRepository.transactionHealthParameters,
         appPreferencesRepository.transactionAnalysisEnabled,
         storedHealthState,
-        appPreferencesRepository.hapticsEnabled
+        appPreferencesRepository.hapticsEnabled,
+        appPreferencesRepository.blockExplorerPreferences
     ) { values: Array<Any?> ->
         val detail = values[0] as WalletDetail?
         val balanceUnit = values[1] as BalanceUnit
@@ -377,6 +390,7 @@ class TransactionDetailViewModel @Inject constructor(
         @Suppress("UNCHECKED_CAST")
         val storedHealth = values[7] as List<TransactionHealthResult>
         val hapticsEnabled = values[8] as Boolean
+        val blockExplorerPrefs = values[9] as BlockExplorerPreferences
         val storedHealthMap = storedHealth.associateBy { it.transactionId }
         if (analysisEnabled && detail != null) {
             val computedHealth = transactionHealthAnalyzer
@@ -405,7 +419,8 @@ class TransactionDetailViewModel @Inject constructor(
                 advancedMode = advancedMode,
                 error = TransactionDetailError.NotFound,
                 transactionAnalysisEnabled = analysisEnabled,
-                transactionHealth = null
+                transactionHealth = null,
+                blockExplorerOptions = emptyList()
             )
 
             transaction == null -> TransactionDetailUiState(
@@ -418,21 +433,27 @@ class TransactionDetailViewModel @Inject constructor(
                 advancedMode = advancedMode,
                 error = TransactionDetailError.NotFound,
                 transactionAnalysisEnabled = analysisEnabled,
-                transactionHealth = null
+                transactionHealth = null,
+                blockExplorerOptions = emptyList()
             )
 
-            else -> TransactionDetailUiState(
-                isLoading = false,
-                walletSummary = detail.summary,
-                transaction = transaction,
-                balanceUnit = balanceUnit,
-                balancesHidden = balancesHidden,
-                advancedMode = advancedMode,
-                hapticsEnabled = hapticsEnabled,
-                error = null,
-                transactionAnalysisEnabled = analysisEnabled,
-                transactionHealth = transactionHealth
-            )
+            else -> {
+                val explorerOptions =
+                    resolveBlockExplorerOptions(detail.summary.network, transaction.id, blockExplorerPrefs)
+                TransactionDetailUiState(
+                    isLoading = false,
+                    walletSummary = detail.summary,
+                    transaction = transaction,
+                    balanceUnit = balanceUnit,
+                    balancesHidden = balancesHidden,
+                    advancedMode = advancedMode,
+                    hapticsEnabled = hapticsEnabled,
+                    error = null,
+                    transactionAnalysisEnabled = analysisEnabled,
+                    transactionHealth = transactionHealth,
+                    blockExplorerOptions = explorerOptions
+                )
+            }
         }
     }.stateIn(
         scope = viewModelScope,
@@ -451,6 +472,44 @@ class TransactionDetailViewModel @Inject constructor(
     fun cycleBalanceDisplayMode() {
         viewModelScope.launch {
             appPreferencesRepository.cycleBalanceDisplayMode()
+        }
+    }
+}
+
+private fun resolveBlockExplorerOptions(
+    network: BitcoinNetwork,
+    txId: String,
+    preferences: BlockExplorerPreferences
+): List<BlockExplorerOption> {
+    val selection = preferences.forNetwork(network)
+    return BlockExplorerBucket.entries.flatMap { bucket ->
+        val customUrl = selection.customUrlFor(bucket).orEmpty()
+        val customName = selection.customNameFor(bucket).orEmpty()
+        BlockExplorerCatalog.presetsFor(network, bucket).mapNotNull { preset ->
+            val baseUrl = when {
+                BlockExplorerCatalog.isCustomPreset(preset.id, bucket) -> customUrl
+                else -> preset.baseUrl
+            }.trim()
+            if (baseUrl.isBlank()) return@mapNotNull null
+            val targetUrl = if (preset.supportsTxId) {
+                "$baseUrl$txId"
+            } else {
+                baseUrl
+            }
+            val hasValidScheme = targetUrl.startsWith("http://") || targetUrl.startsWith("https://")
+            if (!hasValidScheme) return@mapNotNull null
+            val name = if (BlockExplorerCatalog.isCustomPreset(preset.id, bucket) && customName.isNotBlank()) {
+                customName
+            } else {
+                preset.name
+            }
+            BlockExplorerOption(
+                id = preset.id,
+                name = name,
+                bucket = bucket,
+                url = targetUrl,
+                requiresManualTxId = !preset.supportsTxId
+            )
         }
     }
 }
@@ -486,7 +545,8 @@ class UtxoDetailViewModel @Inject constructor(
         appPreferencesRepository.utxoHealthParameters,
         appPreferencesRepository.utxoHealthEnabled,
         storedUtxoHealthState,
-        appPreferencesRepository.hapticsEnabled
+        appPreferencesRepository.hapticsEnabled,
+        appPreferencesRepository.blockExplorerPreferences
     ) { values: Array<Any?> ->
         val detail = values[0] as WalletDetail?
         val balanceUnit = values[1] as BalanceUnit
@@ -498,6 +558,7 @@ class UtxoDetailViewModel @Inject constructor(
         @Suppress("UNCHECKED_CAST")
         val storedHealth = values[7] as List<UtxoHealthResult>
         val hapticsEnabled = values[8] as Boolean
+        val blockExplorerPrefs = values[9] as BlockExplorerPreferences
         val utxo = detail?.utxos?.firstOrNull { it.txid == txId && it.vout == vout }
         val stored = storedHealth.firstOrNull { it.txid == txId && it.vout == vout }
         val utxoHealth = if (healthEnabled && utxo != null) {
@@ -528,7 +589,8 @@ class UtxoDetailViewModel @Inject constructor(
                 error = UtxoDetailError.NotFound,
                 dustThresholdSats = dustThreshold,
                 utxoHealthEnabled = healthEnabled,
-                utxoHealth = null
+                utxoHealth = null,
+                blockExplorerOptions = emptyList()
             )
 
             utxo == null -> UtxoDetailUiState(
@@ -542,7 +604,8 @@ class UtxoDetailViewModel @Inject constructor(
                 error = UtxoDetailError.NotFound,
                 dustThresholdSats = dustThreshold,
                 utxoHealthEnabled = healthEnabled,
-                utxoHealth = null
+                utxoHealth = null,
+                blockExplorerOptions = emptyList()
             )
 
             else -> UtxoDetailUiState(
@@ -557,7 +620,12 @@ class UtxoDetailViewModel @Inject constructor(
                 dustThresholdSats = dustThreshold,
                 utxoHealthEnabled = healthEnabled,
                 utxoHealth = utxoHealth,
-                depositTimestamp = depositTimestamp
+                depositTimestamp = depositTimestamp,
+                blockExplorerOptions = resolveBlockExplorerOptions(
+                    detail.summary.network,
+                    utxo.txid,
+                    blockExplorerPrefs
+                )
             )
         }
     }.stateIn(
@@ -599,7 +667,8 @@ data class TransactionDetailUiState(
     val advancedMode: Boolean = false,
     val error: TransactionDetailError? = null,
     val transactionAnalysisEnabled: Boolean = true,
-    val transactionHealth: TransactionHealthResult? = null
+    val transactionHealth: TransactionHealthResult? = null,
+    val blockExplorerOptions: List<BlockExplorerOption> = emptyList()
 )
 
 sealed interface TransactionDetailError {
@@ -618,12 +687,21 @@ data class UtxoDetailUiState(
     val dustThresholdSats: Long = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS,
     val utxoHealthEnabled: Boolean = true,
     val utxoHealth: UtxoHealthResult? = null,
-    val depositTimestamp: Long? = null
+    val depositTimestamp: Long? = null,
+    val blockExplorerOptions: List<BlockExplorerOption> = emptyList()
 )
 
 sealed interface UtxoDetailError {
     data object NotFound : UtxoDetailError
 }
+
+data class BlockExplorerOption(
+    val id: String,
+    val name: String,
+    val bucket: BlockExplorerBucket,
+    val url: String,
+    val requiresManualTxId: Boolean
+)
 
 @Composable
 private fun TransactionDetailScreen(
@@ -633,6 +711,7 @@ private fun TransactionDetailScreen(
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
+    onOpenWalletSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     when {
@@ -648,18 +727,19 @@ private fun TransactionDetailScreen(
         }
 
         else -> {
-            TransactionDetailContent(
-                state = state,
-                onEditTransactionLabel = onEditTransactionLabel,
-                onOpenVisualizer = onOpenVisualizer,
-                onCycleBalanceDisplay = onCycleBalanceDisplay,
-                onOpenWikiTopic = onOpenWikiTopic,
-                onShowMessage = onShowMessage,
-                modifier = modifier
-            )
+                TransactionDetailContent(
+                    state = state,
+                    onEditTransactionLabel = onEditTransactionLabel,
+                    onOpenVisualizer = onOpenVisualizer,
+                    onCycleBalanceDisplay = onCycleBalanceDisplay,
+                    onOpenWikiTopic = onOpenWikiTopic,
+                    onShowMessage = onShowMessage,
+                    onOpenWalletSettings = onOpenWalletSettings,
+                    modifier = modifier
+                )
+            }
         }
     }
-}
 
 @Composable
 private fun UtxoDetailScreen(
@@ -715,7 +795,7 @@ private fun LabelEditDialog(
         title = { Text(text = stringResource(id = titleRes)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
+                TextField(
                     value = value,
                     onValueChange = { input ->
                         value = if (input.length <= UTXO_LABEL_MAX_LENGTH) {
@@ -762,6 +842,7 @@ private fun LabelEditDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransactionDetailContent(
     state: TransactionDetailUiState,
@@ -770,6 +851,7 @@ private fun TransactionDetailContent(
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
+    onOpenWalletSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val transaction = requireNotNull(state.transaction)
@@ -795,7 +877,6 @@ private fun TransactionDetailContent(
             DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(it))
         }
     } ?: stringResource(id = R.string.transaction_detail_unknown_date)
-    val shortTransactionId = remember(transaction.id) { formatTransactionId(transaction.id) }
     val broadcastInfoText = if (transaction.timestamp != null) {
         stringResource(id = R.string.transaction_detail_broadcast_info, dateLabel)
     } else {
@@ -807,13 +888,28 @@ private fun TransactionDetailContent(
     val visualizerAction = state.walletSummary?.let { summary ->
         { onOpenVisualizer(summary.id, transaction.id) }
     }
-    val headerTheme = rememberHeaderTheme(state.walletSummary?.color)
+    val maxFlowItems = 5
+    var showAllInputs by remember { mutableStateOf(false) }
+    var showAllOutputs by remember { mutableStateOf(false) }
+    val explorerOptions = state.blockExplorerOptions
+    val explorerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showExplorerSheet by remember { mutableStateOf(false) }
+    val explorerMessage = stringResource(id = R.string.transaction_detail_explorer_onion_snackbar)
+    val explorerMissingMessage = stringResource(id = R.string.transaction_detail_explorer_missing)
+    val explorerScope = rememberCoroutineScope()
+    val uriHandler = LocalUriHandler.current
+    val openExplorer: () -> Unit = {
+        if (explorerOptions.isEmpty()) {
+            showShortMessage(explorerMissingMessage)
+        } else {
+            showExplorerSheet = true
+        }
+    }
 
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
     ) {
         TransactionDetailHeader(
-            transactionId = shortTransactionId,
             broadcastInfo = broadcastInfoText,
             amountText = amountText,
             feeRateLabel = feeRateLabel,
@@ -822,14 +918,14 @@ private fun TransactionDetailContent(
             onEditLabel = { onEditTransactionLabel(transaction.label) },
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             onOpenVisualizer = visualizerAction,
-            headerTheme = headerTheme,
+            onOpenExplorer = openExplorer,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             when {
@@ -872,191 +968,477 @@ private fun TransactionDetailContent(
                 TransactionStructure.TAPROOT -> stringResource(id = R.string.transaction_structure_taproot)
             }
 
-            if (transaction.inputs.isNotEmpty()) {
-                val inputDisplays = transaction.inputs.map { input ->
-                    val hasAddress = !input.address.isNullOrBlank()
-                    val primary = input.address?.takeIf { it.isNotBlank() } ?: formatOutPoint(
-                        input.prevTxid,
-                        input.prevVout
-                    )
-                    val secondary = input.valueSats?.let { balanceText(it, state.balanceUnit) }
-                        ?: stringResource(id = R.string.transaction_detail_unknown)
-                    val tertiary = if (hasAddress) {
-                        formatOutPoint(input.prevTxid, input.prevVout)
-                    } else {
-                        null
-                    }
-                    val badges = buildList {
-                        if (input.isMine) {
-                            add(stringResource(id = R.string.transaction_detail_flow_wallet_badge))
-                        }
-                        input.addressType?.let { type ->
-                            add(
-                                when (type) {
-                                    WalletAddressType.EXTERNAL -> stringResource(id = R.string.transaction_detail_flow_external_badge)
-                                    WalletAddressType.CHANGE -> stringResource(id = R.string.transaction_detail_flow_change_badge)
-                                }
+            ListSection(
+                title = stringResource(id = R.string.transaction_detail_section_overview)
+            ) {
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_id_label),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        },
+                        supportingContent = {
+                            SelectionContainer {
+                                Text(
+                                    text = transaction.id,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        },
+                        trailingContent = {
+                            IconButton(onClick = { copyToClipboard(transaction.id) }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.ContentCopy,
+                                    contentDescription = stringResource(id = R.string.transaction_detail_copy_id)
+                                )
+                            }
                         }
-                    }
-                    FlowDisplay(
-                        primary = primary,
-                        secondary = secondary,
-                        tertiary = tertiary,
-                        badges = badges
                     )
                 }
-                SectionCard(
-                    title = stringResource(id = R.string.transaction_detail_flow_inputs),
-                    contentPadding = PaddingValues(16.dp),
-                    contentSpacing = 12.dp
-                ) {
-                    TransactionFlowColumn(
-                        items = inputDisplays,
-                        modifier = Modifier.fillMaxWidth()
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_time),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = dateLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
+                }
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_fee),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = feeLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
+                }
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_fee_rate),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = feeRateLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
                     )
                 }
             }
-            if (transaction.outputs.isNotEmpty()) {
-                val outputDisplays = transaction.outputs.map { output ->
-                    val primary = output.address?.takeIf { it.isNotBlank() }
-                        ?: stringResource(
-                            id = R.string.transaction_detail_flow_unknown_output,
-                            output.index
-                        )
-                    val badges = buildList {
-                        if (output.isMine) {
-                            add(stringResource(id = R.string.transaction_detail_flow_wallet_badge))
-                        }
-                        output.addressType?.let { type ->
-                            add(
-                                when (type) {
-                                    WalletAddressType.EXTERNAL -> stringResource(id = R.string.transaction_detail_flow_external_badge)
-                                    WalletAddressType.CHANGE -> stringResource(id = R.string.transaction_detail_flow_change_badge)
-                                }
+            ListSection(
+                title = stringResource(id = R.string.transaction_detail_section_status)
+            ) {
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_confirmations_label),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = confirmationsLabel,
+                                style = MaterialTheme.typography.bodyLarge
                             )
                         }
-                    }
-                    val tertiaryParts = mutableListOf<String>()
-                    output.derivationPath?.let { path ->
-                        tertiaryParts += stringResource(
-                            id = R.string.transaction_detail_flow_derivation,
-                            path
-                        )
-                    }
-                    tertiaryParts += formatOutPoint(transaction.id, output.index)
-                    FlowDisplay(
-                        primary = primary,
-                        secondary = balanceText(output.valueSats, state.balanceUnit),
-                        tertiary = tertiaryParts
-                            .filter { it.isNotBlank() }
-                            .joinToString(" • ")
-                            .ifBlank { null },
-                        badges = badges,
-                        highlighted = output.isMine
                     )
                 }
-                SectionCard(
-                    title = stringResource(id = R.string.transaction_detail_flow_outputs),
-                    contentPadding = PaddingValues(16.dp),
-                    contentSpacing = 12.dp
-                ) {
-                    TransactionFlowColumn(
-                        items = outputDisplays,
-                        modifier = Modifier.fillMaxWidth()
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_block_height),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = blockHeightLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
+                }
+                item {
+                    val blockHashDisplay = blockHashValue ?: stringResource(id = R.string.transaction_detail_unknown)
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_block_hash),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            SelectionContainer {
+                                Text(
+                                    text = blockHashDisplay,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        },
+                        trailingContent = blockHashValue?.let { hash ->
+                            {
+                                IconButton(onClick = { copyToClipboard(hash) }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.ContentCopy,
+                                        contentDescription = stringResource(id = R.string.transaction_detail_copy_block_hash)
+                                    )
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+            ListSection(
+                title = stringResource(id = R.string.transaction_detail_section_size)
+            ) {
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_size_bytes),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = sizeBytesLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
+                }
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_vbytes),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = vbytesLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
+                }
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_version),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = versionLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
+                }
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.transaction_detail_structure),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = structureLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
                     )
                 }
             }
 
-            SectionCard(
-                title = stringResource(id = R.string.transaction_detail_section_overview),
-                contentPadding = PaddingValues(16.dp),
-                contentSpacing = 12.dp
-            ) {
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_id_label),
-                    value = transaction.id,
-                    singleLine = false,
-                    trailing = {
-                        IconButton(onClick = { copyToClipboard(transaction.id) }) {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentCopy,
-                                contentDescription = stringResource(id = R.string.transaction_detail_copy_id)
-                            )
+            if (transaction.inputs.isNotEmpty()) {
+                val walletBadge = stringResource(id = R.string.transaction_detail_flow_wallet_badge)
+                val changeBadge = stringResource(id = R.string.transaction_detail_flow_change_badge)
+                val inputDisplays = transaction.inputs.mapIndexed { index, input ->
+                    val amountText = input.valueSats?.let {
+                        balanceText(
+                            balanceSats = it,
+                            unit = state.balanceUnit,
+                            hidden = state.balancesHidden
+                        )
+                    } ?: stringResource(id = R.string.transaction_detail_unknown)
+                    val address = input.address?.takeIf { it.isNotBlank() }
+                        ?: formatOutPoint(input.prevTxid, input.prevVout)
+                    val badges = transactionBadges(
+                        isMine = input.isMine,
+                        addressType = input.addressType,
+                        walletBadge = walletBadge,
+                        changeBadge = changeBadge
+                    )
+                    TransactionIoDisplay(
+                        title = stringResource(
+                            id = R.string.transaction_detail_flow_index_heading,
+                            index,
+                            amountText
+                        ),
+                        address = address,
+                        badges = badges
+                    )
+                }
+                val displayedInputs = if (showAllInputs || inputDisplays.size <= maxFlowItems) {
+                    inputDisplays
+                } else {
+                    inputDisplays.take(maxFlowItems)
+                }
+                ListSection(
+                    title = stringResource(id = R.string.transaction_detail_flow_inputs)
+                ) {
+                    displayedInputs.forEach { display ->
+                        item {
+                            TransactionIoListItem(display = display)
                         }
                     }
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_fee),
-                    value = feeLabel
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_fee_rate),
-                    value = feeRateLabel
-                )
-            }
-            SectionCard(
-                title = stringResource(id = R.string.transaction_detail_section_status),
-                contentPadding = PaddingValues(16.dp),
-                contentSpacing = 12.dp
-            ) {
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_confirmations_label),
-                    value = confirmationsLabel
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_block_height),
-                    value = blockHeightLabel
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_block_hash),
-                    value = blockHashValue ?: stringResource(id = R.string.transaction_detail_unknown),
-                    trailing = blockHashValue?.let {
-                        {
-                        IconButton(onClick = { copyToClipboard(it) }) {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentCopy,
-                                    contentDescription = stringResource(id = R.string.transaction_detail_copy_block_hash)
+                    if (!showAllInputs && inputDisplays.size > maxFlowItems) {
+                        item {
+                            TextButton(
+                                onClick = { showAllInputs = true },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(id = R.string.transaction_detail_show_more_inputs),
+                                    style = MaterialTheme.typography.bodyMedium
                                 )
                             }
                         }
                     }
-                )
-            DetailRow(
-                label = stringResource(id = R.string.transaction_detail_date),
-                value = dateLabel
-            )
-        }
-            SectionCard(
-                title = stringResource(id = R.string.transaction_detail_section_size),
-                contentPadding = PaddingValues(16.dp),
-                contentSpacing = 12.dp
-            ) {
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_size_bytes),
-                    value = sizeBytesLabel
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_vbytes),
-                    value = vbytesLabel
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_version),
-                    value = versionLabel
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.transaction_detail_structure),
-                    value = structureLabel
-                )
+                }
+            }
+            if (transaction.outputs.isNotEmpty()) {
+                val walletBadge = stringResource(id = R.string.transaction_detail_flow_wallet_badge)
+                val changeBadge = stringResource(id = R.string.transaction_detail_flow_change_badge)
+                val outputDisplays = transaction.outputs.map { output ->
+                    val amountText = balanceText(
+                        balanceSats = output.valueSats,
+                        unit = state.balanceUnit,
+                        hidden = state.balancesHidden
+                    )
+                    val address = output.address?.takeIf { it.isNotBlank() }
+                        ?: stringResource(
+                            id = R.string.transaction_detail_flow_unknown_output,
+                            output.index
+                        )
+                    val badges = transactionBadges(
+                        isMine = output.isMine,
+                        addressType = output.addressType,
+                        walletBadge = walletBadge,
+                        changeBadge = changeBadge
+                    )
+                    TransactionIoDisplay(
+                        title = stringResource(
+                            id = R.string.transaction_detail_flow_index_heading,
+                            output.index,
+                            amountText
+                        ),
+                        address = address,
+                        badges = badges
+                    )
+                }
+                val displayedOutputs = if (showAllOutputs || outputDisplays.size <= maxFlowItems) {
+                    outputDisplays
+                } else {
+                    outputDisplays.take(maxFlowItems)
+                }
+                ListSection(
+                    title = stringResource(id = R.string.transaction_detail_flow_outputs)
+                ) {
+                    displayedOutputs.forEach { display ->
+                        item {
+                            TransactionIoListItem(display = display)
+                        }
+                    }
+                    if (!showAllOutputs && outputDisplays.size > maxFlowItems) {
+                        item {
+                            TextButton(
+                                onClick = { showAllOutputs = true },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(id = R.string.transaction_detail_show_more_outputs),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             transaction.rawHex?.let { rawHex ->
-                TransactionHexBlock(
-                    hex = rawHex,
-                    onCopy = {
-                        copyToClipboard(rawHex)
+                ContentSection(
+                    title = stringResource(id = R.string.transaction_detail_raw_hex)
+                ) {
+                    item {
+                        TransactionHexBlock(
+                            hex = rawHex,
+                            onCopy = {
+                                copyToClipboard(rawHex)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+                        )
                     }
-                )
+                }
+            }
+        }
+        if (showExplorerSheet) {
+            ModalBottomSheet(
+                onDismissRequest = { showExplorerSheet = false },
+                sheetState = explorerSheetState
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ActionableStatusBanner(
+                        title = stringResource(id = R.string.settings_block_explorer_privacy_warning),
+                        supporting = stringResource(id = R.string.settings_block_explorer_privacy_action),
+                        icon = Icons.Outlined.OpenInNew,
+                        iconTint = Color.Transparent,
+                        onClick = {
+                            explorerScope.launch { explorerSheetState.hide() }
+                                .invokeOnCompletion {
+                                    showExplorerSheet = false
+                                    onOpenWikiTopic(WikiContent.BlockExplorerPrivacyTopicId)
+                                }
+                        }
+                    )
+                    if (explorerOptions.isEmpty()) {
+                        Text(
+                            text = stringResource(id = R.string.transaction_detail_explorer_missing),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        explorerOptions.forEach { option ->
+                            val bucketLabel = when (option.bucket) {
+                                BlockExplorerBucket.ONION -> stringResource(id = R.string.settings_block_explorer_bucket_onion)
+                                else -> stringResource(id = R.string.settings_block_explorer_bucket_normal)
+                            }
+                            val descriptors = buildList {
+                                if (option.id.startsWith("custom")) {
+                                    add(stringResource(id = R.string.transaction_detail_explorer_custom_hint))
+                                }
+                                add(bucketLabel)
+                                if (option.requiresManualTxId) {
+                                    add(stringResource(id = R.string.transaction_detail_explorer_manual_hint))
+                                }
+                            }
+                            val supportingText = descriptors.joinToString(" • ")
+                            ListItem(
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                headlineContent = {
+                                    Text(
+                                        text = option.name,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                },
+                                supportingContent = {
+                                    Text(
+                                        text = supportingText,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
+                                trailingContent = {
+                                    Icon(
+                                        imageVector = Icons.Outlined.OpenInNew,
+                                        contentDescription = null
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(MaterialTheme.shapes.medium)
+                                    .clickable {
+                                        explorerScope.launch {
+                                            explorerSheetState.hide()
+                                        }.invokeOnCompletion {
+                                            showExplorerSheet = false
+                                            uriHandler.openUri(option.url)
+                                            if (option.requiresManualTxId) {
+                                                showShortMessage(explorerMessage)
+                                            }
+                                        }
+                                    }
+                            )
+                        }
+                    }
+                    TextButton(
+                        onClick = {
+                            explorerScope.launch {
+                                explorerSheetState.hide()
+                            }.invokeOnCompletion {
+                                showExplorerSheet = false
+                                onOpenWalletSettings()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
+                    ) {
+                        Text(text = stringResource(id = R.string.transaction_detail_explorer_add))
+                    }
+                }
             }
         }
     }
@@ -1065,7 +1447,6 @@ private fun TransactionDetailContent(
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
 private fun TransactionDetailHeader(
-    transactionId: String,
     broadcastInfo: String,
     amountText: String,
     feeRateLabel: String,
@@ -1074,82 +1455,90 @@ private fun TransactionDetailHeader(
     onEditLabel: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenVisualizer: (() -> Unit)?,
-    headerTheme: WalletColorTheme,
+    onOpenExplorer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val shimmerPhase = rememberWalletShimmerPhase(durationMillis = 3600, delayMillis = 300)
-    val contentColor = headerTheme.onGradient
-    Column(
-        modifier = modifier
-            .walletCardBackground(headerTheme, cornerRadius = 0.dp)
-            .walletShimmer(
-                phase = shimmerPhase,
-                cornerRadius = 0.dp,
-                shimmerAlpha = 0.14f,
-                highlightColor = contentColor
-            )
-            .padding(horizontal = 24.dp, vertical = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    val contentColor = MaterialTheme.colorScheme.onSurface
+    val secondaryContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+        contentColor = contentColor,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
-        Text(
-            text = transactionId,
-            style = MaterialTheme.typography.titleMedium,
-            color = contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Text(
-            text = broadcastInfo,
-            style = MaterialTheme.typography.bodySmall,
-            color = contentColor.copy(alpha = 0.85f),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Text(
-            text = amountText,
-            style = MaterialTheme.typography.displaySmall.copy(
-                fontWeight = FontWeight.SemiBold,
-                color = contentColor
-            ),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onCycleBalanceDisplay
-            )
-        )
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 36.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            TransactionChip(text = feeRateLabel, contentColor = contentColor)
-            TransactionChip(text = confirmationsLabel, contentColor = contentColor)
-        }
-        LabelChip(
-            label = label,
-            addLabelRes = R.string.transaction_detail_label_add_action,
-            editLabelRes = R.string.transaction_detail_label_edit_action,
-            onClick = onEditLabel
-        )
-        onOpenVisualizer?.let { open ->
-            TextButton(
-                onClick = open,
-                colors = ButtonDefaults.textButtonColors(contentColor = contentColor)
+            Text(
+                text = broadcastInfo,
+                style = MaterialTheme.typography.bodySmall,
+                color = secondaryContentColor,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = amountText,
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontWeight = FontWeight.Medium,
+                    color = contentColor
+                ),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onCycleBalanceDisplay
+                )
+            )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.AutoGraph,
-                    contentDescription = stringResource(id = R.string.transaction_detail_visualizer_content_description),
-                    modifier = Modifier.size(18.dp)
+                LabelChip(
+                    label = label,
+                    addLabelRes = R.string.transaction_detail_label_add_action,
+                    editLabelRes = R.string.transaction_detail_label_edit_action,
+                    onClick = onEditLabel
                 )
-                Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
-                Text(
-                    text = stringResource(id = R.string.transaction_detail_open_visualizer),
-                    style = MaterialTheme.typography.bodySmall
-                )
+            }
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                onOpenVisualizer?.let { open ->
+                    TextButton(
+                        onClick = open,
+                        contentPadding = ButtonDefaults.TextButtonWithIconContentPadding
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AutoGraph,
+                            contentDescription = stringResource(id = R.string.transaction_detail_visualizer_content_description),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                        Text(
+                            text = stringResource(id = R.string.transaction_detail_open_visualizer),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+                TextButton(
+                    onClick = onOpenExplorer,
+                    contentPadding = ButtonDefaults.TextButtonWithIconContentPadding
+                ) {
+                    Icon(imageVector = Icons.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                    Text(
+                        text = stringResource(id = R.string.transaction_detail_open_in_explorer),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         }
     }
@@ -1158,14 +1547,13 @@ private fun TransactionDetailHeader(
 @Composable
 private fun TransactionChip(
     text: String,
-    contentColor: Color,
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        color = contentColor.copy(alpha = 0.18f),
-        contentColor = contentColor
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         Text(
             text = text,
@@ -1196,7 +1584,11 @@ private fun UtxoDetailContent(
     )
     val fullOutpoint = remember(utxo.txid, utxo.vout) { "${utxo.txid}:${utxo.vout}" }
     val displayOutpoint = remember(utxo.txid, utxo.vout) { formatOutPoint(utxo.txid, utxo.vout) }
-    val confirmationsLabel = confirmationLabel(utxo.confirmations)
+    val confirmationsLabel = if (utxo.confirmations <= 0) {
+        stringResource(id = R.string.transaction_detail_pending_confirmation)
+    } else {
+        utxo.confirmations.toString()
+    }
     val statusLabel = when (utxo.status) {
         UtxoStatus.CONFIRMED -> stringResource(id = R.string.utxo_detail_status_confirmed)
         UtxoStatus.PENDING -> stringResource(id = R.string.utxo_detail_status_pending)
@@ -1218,8 +1610,6 @@ private fun UtxoDetailContent(
         }
     }
 
-    val headerTheme = rememberHeaderTheme(state.walletSummary?.color)
-
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
     ) {
@@ -1234,7 +1624,6 @@ private fun UtxoDetailContent(
             isInherited = isInheritedLabel,
             onEditLabel = { onEditLabel(displayLabel) },
             onCycleBalanceDisplay = onCycleBalanceDisplay,
-            headerTheme = headerTheme,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -1271,81 +1660,193 @@ private fun UtxoDetailContent(
                 updating = spendableUpdating,
                 onToggle = onToggleSpendable
             )
-            SectionCard(
-                title = stringResource(id = R.string.utxo_detail_section_overview),
-                contentPadding = PaddingValues(16.dp),
-                contentSpacing = 12.dp
+            ListSection(
+                title = stringResource(id = R.string.utxo_detail_section_overview)
             ) {
-                DetailRow(
-                    label = stringResource(id = R.string.utxo_detail_outpoint_label),
-                    value = fullOutpoint,
-                    trailing = {
-                        IconButton(onClick = { copyToClipboard(fullOutpoint) }) {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentCopy,
-                                contentDescription = stringResource(id = R.string.utxo_detail_copy_outpoint)
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.utxo_detail_outpoint_label),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        }
-                    }
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.utxo_detail_status),
-                    value = statusLabel
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.utxo_detail_confirmations),
-                    value = confirmationsLabel
-                )
-            }
-            SectionCard(
-                title = stringResource(id = R.string.utxo_detail_section_metadata),
-                contentPadding = PaddingValues(16.dp),
-                contentSpacing = 12.dp
-            ) {
-                utxo.address?.let { address ->
-                    DetailRow(
-                        label = stringResource(id = R.string.utxo_detail_address),
-                        value = address,
-                        singleLine = false,
-                        trailing = {
-                            IconButton(onClick = { copyToClipboard(address) }) {
+                        },
+                        supportingContent = {
+                            SelectionContainer {
+                                Text(
+                                    text = fullOutpoint,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        },
+                        trailingContent = {
+                            IconButton(onClick = { copyToClipboard(fullOutpoint) }) {
                                 Icon(
                                     imageVector = Icons.Outlined.ContentCopy,
-                                    contentDescription = stringResource(id = R.string.utxo_detail_copy_address)
+                                    contentDescription = stringResource(id = R.string.utxo_detail_copy_outpoint)
                                 )
                             }
                         }
                     )
                 }
-                addressTypeLabel?.let { label ->
-                    DetailRow(
-                        label = stringResource(id = R.string.utxo_detail_keychain),
-                        value = label
-                    )
-                }
-                utxo.derivationPath?.let { path ->
-                    DetailRow(
-                        label = stringResource(id = R.string.utxo_detail_derivation_path),
-                        value = path
-                    )
-                }
-                DetailRow(
-                    label = stringResource(id = R.string.utxo_detail_txid),
-                    value = utxo.txid,
-                    singleLine = false,
-                    trailing = {
-                        IconButton(onClick = { copyToClipboard(utxo.txid) }) {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentCopy,
-                                contentDescription = stringResource(id = R.string.utxo_detail_copy_txid)
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.utxo_detail_status),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = statusLabel,
+                                style = MaterialTheme.typography.bodyLarge
                             )
                         }
+                    )
+                }
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.utxo_detail_confirmations),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = confirmationsLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
+                }
+            }
+            ListSection(
+                title = stringResource(id = R.string.utxo_detail_section_metadata)
+            ) {
+                utxo.address?.let { address ->
+                    item {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            headlineContent = {
+                                Text(
+                                    text = stringResource(id = R.string.utxo_detail_address),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = address,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            trailingContent = {
+                                IconButton(onClick = { copyToClipboard(address) }) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.ContentCopy,
+                                        contentDescription = stringResource(id = R.string.utxo_detail_copy_address)
+                                    )
+                                }
+                            }
+                        )
                     }
-                )
-                DetailRow(
-                    label = stringResource(id = R.string.utxo_detail_vout),
-                    value = utxo.vout.toString()
-                )
+                }
+                addressTypeLabel?.let { label ->
+                    item {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            headlineContent = {
+                                Text(
+                                    text = stringResource(id = R.string.utxo_detail_keychain),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        )
+                    }
+                }
+                utxo.derivationPath?.let { path ->
+                    item {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            headlineContent = {
+                                Text(
+                                    text = stringResource(id = R.string.utxo_detail_derivation_path),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = path,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        )
+                    }
+                }
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.utxo_detail_txid),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            SelectionContainer {
+                                Text(
+                                    text = utxo.txid,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        },
+                        trailingContent = {
+                            IconButton(onClick = { copyToClipboard(utxo.txid) }) {
+                                Icon(
+                                    imageVector = Icons.Outlined.ContentCopy,
+                                    contentDescription = stringResource(id = R.string.utxo_detail_copy_txid)
+                                )
+                            }
+                        }
+                    )
+                }
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.utxo_detail_vout),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = utxo.vout.toString(),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
+                }
             }
         }
     }
@@ -1363,71 +1864,64 @@ private fun UtxoDetailHeader(
     isInherited: Boolean,
     onEditLabel: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
-    headerTheme: WalletColorTheme,
     modifier: Modifier = Modifier
 ) {
-    val shimmerPhase = rememberWalletShimmerPhase(durationMillis = 3600, delayMillis = 300)
-    val contentColor = headerTheme.onGradient
-    Column(
-        modifier = modifier
-            .walletCardBackground(headerTheme, cornerRadius = 0.dp)
-            .walletShimmer(
-                phase = shimmerPhase,
-                cornerRadius = 0.dp,
-                shimmerAlpha = 0.14f,
-                highlightColor = contentColor
-            )
-            .padding(horizontal = 24.dp, vertical = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    val contentColor = MaterialTheme.colorScheme.onSurface
+    val secondaryContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+        contentColor = contentColor,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
-        UtxoIdenticon(
-            seed = identiconSeed
-        )
-        Text(
-            text = outpoint,
-            style = MaterialTheme.typography.titleMedium,
-            color = contentColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Text(
-            text = depositInfo,
-            style = MaterialTheme.typography.bodySmall,
-            color = contentColor.copy(alpha = 0.85f),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 36.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            UtxoIdenticon(
+                seed = identiconSeed
+            )
+            Text(
+                text = depositInfo,
+                style = MaterialTheme.typography.bodySmall,
+                color = secondaryContentColor,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         RollingBalanceText(
             balanceSats = valueSats,
             unit = unit,
             hidden = balancesHidden,
-            style = MaterialTheme.typography.displaySmall.copy(
-                fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.headlineLarge.copy(
+                fontWeight = FontWeight.Medium,
                 color = contentColor
             ),
             monospaced = true,
+            autoScale = true,
             modifier = Modifier.clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = onCycleBalanceDisplay
+                    onClick = onCycleBalanceDisplay
+                )
             )
-        )
-        LabelChip(
-            label = label,
-            addLabelRes = R.string.utxo_detail_label_add_action,
-            editLabelRes = R.string.utxo_detail_label_edit_action,
-            onClick = onEditLabel
-        )
-        if (isInherited) {
-            Text(
-                text = stringResource(id = R.string.utxo_detail_label_inherited),
-                style = MaterialTheme.typography.bodySmall,
-                color = contentColor.copy(alpha = 0.9f),
-                textAlign = TextAlign.Center
+            LabelChip(
+                label = label,
+                addLabelRes = R.string.utxo_detail_label_add_action,
+                editLabelRes = R.string.utxo_detail_label_edit_action,
+                onClick = onEditLabel
             )
+            if (isInherited) {
+                Text(
+                    text = stringResource(id = R.string.utxo_detail_label_inherited),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = secondaryContentColor,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
@@ -1435,7 +1929,7 @@ private fun UtxoDetailHeader(
 @Composable
 private fun UtxoIdenticon(
     seed: String,
-    size: Dp = 88.dp,
+    size: Dp = 72.dp,
     modifier: Modifier = Modifier
 ) {
     val iconSizePx = with(LocalDensity.current) { size.roundToPx().coerceAtLeast(1) }
@@ -1460,36 +1954,42 @@ private fun SpendableToggleCard(
     updating: Boolean,
     onToggle: (Boolean) -> Unit,
     modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(20.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(0.dp)
+        Card(
+            modifier = modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        shape = MaterialTheme.shapes.large,
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(id = R.string.utxo_detail_spendable_toggle_label),
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Switch(
-                    checked = spendable,
-                    onCheckedChange = { onToggle(it) },
-                    enabled = !updating
-                )
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.utxo_detail_spendable_toggle_label),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        text = stringResource(id = R.string.utxo_detail_spendable_toggle_supporting),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = spendable,
+                                onCheckedChange = { onToggle(it) },
+                                enabled = !updating,
+                                colors = SwitchDefaults.colors()
+                            )
+                        }
+                    )
+                }
             }
-        }
-    }
-}
 
 @Composable
 private fun LabelChip(
@@ -1500,35 +2000,25 @@ private fun LabelChip(
     modifier: Modifier = Modifier
 ) {
     val hasLabel = !label.isNullOrBlank()
-    val chipText = label?.takeIf { hasLabel } ?: stringResource(id = addLabelRes)
-    val backgroundColor = if (hasLabel) {
-        MaterialTheme.colorScheme.surfaceVariant
-    } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-    }
-    Surface(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        color = backgroundColor,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val actionLabel = label?.takeIf { hasLabel } ?: stringResource(id = addLabelRes)
+    val icon = if (hasLabel) Icons.Outlined.Edit else Icons.Outlined.Add
+    TextButton(
+        onClick = onClick,
+        contentPadding = ButtonDefaults.TextButtonWithIconContentPadding,
+        modifier = modifier
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text(
-                text = chipText,
-                style = MaterialTheme.typography.labelMedium
-            )
-            if (hasLabel) {
-                Icon(
-                    imageVector = Icons.Outlined.Edit,
-                    contentDescription = stringResource(id = editLabelRes),
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = stringResource(id = if (hasLabel) editLabelRes else addLabelRes),
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+        Text(
+            text = actionLabel,
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -1536,124 +2026,102 @@ private fun LabelChip(
 private fun TransactionHexBlock(
     hex: String,
     onCopy: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
 ) {
     val copyLabel = stringResource(id = R.string.transaction_detail_copy_raw_hex)
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(contentPadding),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        SelectionContainer {
+            Text(
+                text = hex,
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                softWrap = true
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            SelectionContainer {
-                Text(
-                    text = hex,
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    softWrap = true
+            TextButton(onClick = onCopy) {
+                Icon(
+                    imageVector = Icons.Outlined.ContentCopy,
+                    contentDescription = copyLabel
                 )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(onClick = onCopy) {
-                    Icon(
-                        imageVector = Icons.Outlined.ContentCopy,
-                        contentDescription = copyLabel
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = copyLabel)
-                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = copyLabel)
             }
         }
     }
 }
 
-private data class FlowDisplay(
-    val primary: String,
-    val secondary: String,
-    val tertiary: String? = null,
-    val badges: List<String> = emptyList(),
-    val highlighted: Boolean = false
+private data class TransactionIoDisplay(
+    val title: String,
+    val address: String,
+    val badges: List<String> = emptyList()
 )
 
 @Composable
-private fun TransactionFlowColumn(
-    items: List<FlowDisplay>,
-    modifier: Modifier = Modifier
+private fun TransactionIoListItem(
+    display: TransactionIoDisplay
 ) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        if (items.isEmpty()) {
+    ListItem(
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        headlineContent = {
             Text(
-                text = stringResource(id = R.string.transaction_detail_flow_empty),
+                text = display.title,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items.forEach { item ->
-                    TransactionFlowItem(item)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TransactionFlowItem(display: FlowDisplay) {
-    val highlightColor = colorResource(id = R.color.tor_status_connected)
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
+        },
+        supportingContent = {
             Text(
-                text = display.primary,
-                style = MaterialTheme.typography.bodyMedium
+                text = display.address,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
-            if (display.badges.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        },
+        trailingContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(min = IoBadgeMinWidth),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     display.badges.forEach { badge ->
                         FlowBadge(text = badge)
                     }
                 }
             }
-            Text(
-                text = display.secondary,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium
-            )
-            display.tertiary?.let { tertiary ->
-                Text(
-                    text = tertiary,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
-        if (display.highlighted) {
-            Icon(
-                imageVector = Icons.Outlined.CheckCircle,
-                contentDescription = stringResource(id = R.string.transaction_detail_flow_wallet_badge),
-                tint = highlightColor
-            )
-        }
+    )
+}
+
+private fun transactionBadges(
+    isMine: Boolean,
+    addressType: WalletAddressType?,
+    walletBadge: String,
+    changeBadge: String
+): List<String> = buildList {
+    if (isMine) {
+        add(walletBadge)
+    }
+    if (addressType == WalletAddressType.CHANGE) {
+        add(changeBadge)
     }
 }
+
+private val IoBadgeMinWidth = 80.dp
 
 @Composable
 private fun FlowBadge(
@@ -1726,18 +2194,22 @@ private fun CollapsibleHealthCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        shape = MaterialTheme.shapes.large,
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = onToggle),
+                    .clickable(onClick = onToggle)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -1761,7 +2233,9 @@ private fun CollapsibleHealthCard(
             if (expanded) {
                 content()
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onMoreInfo) {
@@ -1789,22 +2263,9 @@ private fun TransactionHealthSummaryCard(
         onMoreInfo = { onOpenWikiTopic(WikiContent.TransactionHealthTopicId) },
         modifier = modifier
     ) {
-        Text(
-            text = stringResource(
-                id = R.string.transaction_detail_health_indicator_count,
-                health.indicators.size
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(8.dp))
         if (health.badges.isNotEmpty()) {
-            Text(
-                text = stringResource(id = R.string.transaction_detail_health_badges_title),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             FlowRow(
+                modifier = Modifier.padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -1812,34 +2273,47 @@ private fun TransactionHealthSummaryCard(
                     FlowBadge(text = badge.label)
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
         }
         if (health.indicators.isEmpty()) {
             Text(
                 text = stringResource(id = R.string.transaction_detail_health_indicator_none),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
         } else {
-            health.indicators.forEach { indicator ->
-                val label = stringResource(id = indicator.type.labelRes())
-                val severityLabel = stringResource(id = indicator.severity.labelRes())
-                val deltaText = String.format(Locale.getDefault(), "%+d", indicator.delta)
-                val valueText = stringResource(
-                    id = R.string.transaction_detail_health_indicator_value,
-                    deltaText,
-                    severityLabel
-                )
-                val valueColor = when {
-                    indicator.delta < 0 -> MaterialTheme.colorScheme.error
-                    indicator.delta > 0 -> Color(0xFF2E7D32)
-                    else -> MaterialTheme.colorScheme.onSurface
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                health.indicators.forEachIndexed { index, indicator ->
+                    if (index > 0) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                    val label = stringResource(id = indicator.type.labelRes())
+                    val deltaText = String.format(Locale.getDefault(), "%+d", indicator.delta)
+                    val pointsText = stringResource(
+                        id = R.string.transaction_health_points_format,
+                        deltaText
+                    )
+                    ListItem(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingContent = {
+                            Text(
+                                text = pointsText,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
                 }
-                DetailRow(
-                    label = label,
-                    value = valueText,
-                    valueColor = valueColor
-                )
             }
         }
     }
@@ -1861,22 +2335,9 @@ private fun UtxoHealthSummaryCard(
         onMoreInfo = { onOpenWikiTopic(WikiContent.UtxoHealthTopicId) },
         modifier = modifier
     ) {
-        Text(
-            text = stringResource(
-                id = R.string.utxo_detail_health_indicator_count,
-                health.indicators.size
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(8.dp))
         if (health.badges.isNotEmpty()) {
-            Text(
-                text = stringResource(id = R.string.utxo_detail_health_badges_title),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             FlowRow(
+                modifier = Modifier.padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -1884,55 +2345,56 @@ private fun UtxoHealthSummaryCard(
                     FlowBadge(text = badge.label)
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
         }
         if (health.indicators.isEmpty()) {
             Text(
                 text = stringResource(id = R.string.utxo_detail_health_indicator_none),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
         } else {
-            health.indicators.forEach { indicator ->
-                val label = when (indicator.type) {
-                    UtxoHealthIndicatorType.ADDRESS_REUSE -> stringResource(id = R.string.utxo_detail_health_reuse_label)
-                    UtxoHealthIndicatorType.DUST_UTXO -> stringResource(id = R.string.utxo_detail_health_dust_label)
-                    UtxoHealthIndicatorType.CHANGE_UNCONSOLIDATED -> stringResource(id = R.string.utxo_detail_health_change_label)
-                    UtxoHealthIndicatorType.MISSING_LABEL -> stringResource(id = R.string.utxo_detail_health_missing_label)
-                    UtxoHealthIndicatorType.LONG_INACTIVE -> stringResource(id = R.string.utxo_detail_health_long_inactive)
-                    UtxoHealthIndicatorType.WELL_DOCUMENTED_HIGH_VALUE -> stringResource(id = R.string.utxo_detail_health_well_documented)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                health.indicators.forEachIndexed { index, indicator ->
+                    if (index > 0) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                    val label = when (indicator.type) {
+                        UtxoHealthIndicatorType.ADDRESS_REUSE -> stringResource(id = R.string.utxo_detail_health_reuse_label)
+                        UtxoHealthIndicatorType.DUST_UTXO -> stringResource(id = R.string.utxo_detail_health_dust_label)
+                        UtxoHealthIndicatorType.CHANGE_UNCONSOLIDATED -> stringResource(id = R.string.utxo_detail_health_change_label)
+                        UtxoHealthIndicatorType.MISSING_LABEL -> stringResource(id = R.string.utxo_detail_health_missing_label)
+                        UtxoHealthIndicatorType.LONG_INACTIVE -> stringResource(id = R.string.utxo_detail_health_long_inactive)
+                        UtxoHealthIndicatorType.WELL_DOCUMENTED_HIGH_VALUE -> stringResource(id = R.string.utxo_detail_health_well_documented)
+                    }
+                    val deltaText = String.format(Locale.getDefault(), "%+d", indicator.delta)
+                    val pointsText = stringResource(
+                        id = R.string.transaction_health_points_format,
+                        deltaText
+                    )
+                    ListItem(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingContent = {
+                            Text(
+                                text = pointsText,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
                 }
-                val severityLabel = when (indicator.severity) {
-                    UtxoHealthSeverity.LOW -> stringResource(id = R.string.transaction_health_severity_low)
-                    UtxoHealthSeverity.MEDIUM -> stringResource(id = R.string.transaction_health_severity_medium)
-                    UtxoHealthSeverity.HIGH -> stringResource(id = R.string.transaction_health_severity_high)
-                }
-                val deltaText = String.format(Locale.getDefault(), "%+d", indicator.delta)
-                val valueText = stringResource(
-                    id = R.string.utxo_detail_health_indicator_value,
-                    deltaText,
-                    severityLabel
-                )
-                val valueColor = when {
-                    indicator.delta < 0 -> MaterialTheme.colorScheme.error
-                    indicator.delta > 0 -> Color(0xFF2E7D32)
-                    else -> MaterialTheme.colorScheme.onSurface
-                }
-                DetailRow(
-                    label = label,
-                    value = valueText,
-                    valueColor = valueColor
-                )
             }
         }
-    }
-}
-
-private fun formatTransactionId(txid: String): String {
-    return if (txid.length <= 12) {
-        txid
-    } else {
-        "${txid.take(8)}...${txid.takeLast(4)}"
     }
 }
 
@@ -1952,44 +2414,6 @@ private fun TransactionHealthIndicatorType.labelRes(): Int = when (this) {
     TransactionHealthIndicatorType.BATCHING -> R.string.transaction_health_indicator_batching
     TransactionHealthIndicatorType.SEGWIT_ADOPTION -> R.string.transaction_health_indicator_segwit
     TransactionHealthIndicatorType.CONSOLIDATION_HEALTH -> R.string.transaction_health_indicator_consolidation
-}
-
-private fun TransactionHealthSeverity.labelRes(): Int = when (this) {
-    TransactionHealthSeverity.LOW -> R.string.transaction_health_severity_low
-    TransactionHealthSeverity.MEDIUM -> R.string.transaction_health_severity_medium
-    TransactionHealthSeverity.HIGH -> R.string.transaction_health_severity_high
-}
-
-@Composable
-private fun DetailRow(
-    label: String,
-    value: String,
-    emphasize: Boolean = false,
-    singleLine: Boolean = false,
-    valueColor: Color? = null,
-    trailing: (@Composable () -> Unit)? = null
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = value,
-                style = if (emphasize) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
-                color = valueColor ?: MaterialTheme.colorScheme.onSurface,
-                maxLines = if (singleLine) 1 else Int.MAX_VALUE,
-                overflow = if (singleLine) TextOverflow.Ellipsis else TextOverflow.Clip
-            )
-        }
-        trailing?.invoke()
-    }
 }
 
 @Composable
@@ -2050,28 +2474,6 @@ private fun ErrorPlaceholder(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-    }
-}
-
-@Composable
-private fun rememberHeaderTheme(walletColor: WalletColor?): WalletColorTheme {
-    val colorScheme = MaterialTheme.colorScheme
-    return remember(
-        walletColor,
-        colorScheme.primary,
-        colorScheme.primaryContainer,
-        colorScheme.secondary,
-        colorScheme.secondaryContainer
-    ) {
-        walletColor?.toTheme()
-            ?: WalletColorTheme(
-                gradient = listOf(
-                    colorScheme.primary,
-                    colorScheme.primaryContainer,
-                    colorScheme.secondaryContainer
-                ),
-                accent = colorScheme.secondary
-            )
     }
 }
 

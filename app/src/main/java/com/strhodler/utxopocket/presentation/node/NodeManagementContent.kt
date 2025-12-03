@@ -1,60 +1,73 @@
 package com.strhodler.utxopocket.presentation.node
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDropDown
-import androidx.compose.material.icons.outlined.ArrowDropUp
-import androidx.compose.material3.Divider
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Switch
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.layout.onGloballyPositioned
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.PublicNode
+import com.strhodler.utxopocket.presentation.common.SectionCard
+import com.strhodler.utxopocket.presentation.common.ListSection
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import kotlinx.coroutines.launch
 
 @Composable
 fun NodeManagementContent(
     isNetworkOnline: Boolean,
     state: NodeStatusUiState,
     modifier: Modifier = Modifier,
+    interactionsLocked: Boolean,
+    onInteractionBlocked: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
@@ -64,7 +77,7 @@ fun NodeManagementContent(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        verticalArrangement = Arrangement.spacedBy(NodeContentSpacing)
     ) {
         NodeConfigurationContent(
             network = state.preferredNetwork,
@@ -76,6 +89,8 @@ fun NodeManagementContent(
             isNodeConnected = state.isNodeConnected,
             isNodeActivating = state.isNodeActivating,
             isNetworkOnline = isNetworkOnline,
+            interactionsLocked = interactionsLocked,
+            onInteractionBlocked = onInteractionBlocked,
             onNetworkSelected = onNetworkSelected,
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
@@ -98,6 +113,8 @@ fun NodeConfigurationContent(
     isNodeConnected: Boolean,
     isNodeActivating: Boolean,
     isNetworkOnline: Boolean,
+    interactionsLocked: Boolean,
+    onInteractionBlocked: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
@@ -108,11 +125,20 @@ fun NodeConfigurationContent(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(NodeContentSpacing)
     ) {
         NodeNetworkSelector(
             selectedNetwork = network,
-            onNetworkSelected = onNetworkSelected
+            enabled = isNetworkOnline,
+            interactionsLocked = interactionsLocked,
+            onNetworkSelected = { selected ->
+                if (interactionsLocked) {
+                    onInteractionBlocked()
+                } else {
+                    onNetworkSelected(selected)
+                }
+            },
+            onInteractionBlocked = onInteractionBlocked
         )
 
         AvailableNodesSection(
@@ -124,6 +150,8 @@ fun NodeConfigurationContent(
             isNodeConnected = isNodeConnected,
             isNodeActivating = isNodeActivating,
             isNetworkOnline = isNetworkOnline,
+            interactionsLocked = interactionsLocked,
+            onInteractionBlocked = onInteractionBlocked,
             network = network,
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
@@ -135,65 +163,108 @@ fun NodeConfigurationContent(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NodeNetworkSelector(
     selectedNetwork: BitcoinNetwork,
-    onNetworkSelected: (BitcoinNetwork) -> Unit
+    enabled: Boolean,
+    interactionsLocked: Boolean,
+    onNetworkSelected: (BitcoinNetwork) -> Unit,
+    onInteractionBlocked: () -> Unit
 ) {
     val options = remember { BitcoinNetwork.entries }
-    var expanded by remember { mutableStateOf(false) }
-    var fieldWidth by remember { mutableStateOf(Dp.Unspecified) }
-    val density = LocalDensity.current
-    val focusManager = LocalFocusManager.current
-    val trailingIcon = if (expanded) Icons.Outlined.ArrowDropUp else Icons.Outlined.ArrowDropDown
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showSheet by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val itemAlpha = if (enabled) 1f else 0.5f
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = stringResource(id = R.string.network_select_title),
-            style = MaterialTheme.typography.titleMedium
-        )
-        Box {
-            OutlinedTextField(
-                value = networkLabel(selectedNetwork),
-                onValueChange = {},
-                readOnly = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onGloballyPositioned { coordinates ->
-                        fieldWidth = with(density) { coordinates.size.width.toDp() }
-                    }
-                    .onFocusChanged { state -> expanded = state.isFocused },
-                trailingIcon = {
+    SectionCard(
+        title = stringResource(id = R.string.network_section_title),
+        contentPadding = PaddingValues(vertical = 8.dp),
+        divider = false
+    ) {
+        item {
+            ListItem(
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.network_select_title),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        text = networkLabel(selectedNetwork),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                trailingContent = {
                     Icon(
-                        imageVector = trailingIcon,
+                        imageVector = Icons.Outlined.ArrowDropDown,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    disabledContainerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = {
-                    expanded = false
-                    focusManager.clearFocus(force = true)
-                },
-                modifier = if (fieldWidth != Dp.Unspecified) Modifier.width(fieldWidth) else Modifier
-            ) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(text = networkLabel(option)) },
-                        onClick = {
-                            onNetworkSelected(option)
-                            expanded = false
-                            focusManager.clearFocus(force = true)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .alpha(itemAlpha)
+                    .clickable {
+                        if (!enabled || interactionsLocked) {
+                            onInteractionBlocked()
+                        } else {
+                            showSheet = true
                         }
+                    },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+        }
+    }
+
+    if (showSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = stringResource(id = R.string.network_select_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+                options.forEach { option ->
+                    val selected = option == selectedNetwork
+                    ListItem(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                scope.launch {
+                                    onNetworkSelected(option)
+                                    sheetState.hide()
+                                    showSheet = false
+                                }
+                            },
+                        leadingContent = {
+                            RadioButton(
+                                selected = selected,
+                                onClick = null
+                            )
+                        },
+                        headlineContent = {
+                            Text(
+                                text = networkLabel(option),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                 }
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }
@@ -209,6 +280,8 @@ private fun AvailableNodesSection(
     isNodeConnected: Boolean,
     isNodeActivating: Boolean,
     isNetworkOnline: Boolean,
+    interactionsLocked: Boolean,
+    onInteractionBlocked: () -> Unit,
     network: BitcoinNetwork,
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
@@ -219,18 +292,26 @@ private fun AvailableNodesSection(
 ) {
     val publicTypeLabel = stringResource(id = R.string.node_item_type_public)
     val customTypeLabel = stringResource(id = R.string.node_item_type_custom)
-    val noTorLabel = stringResource(id = R.string.node_item_type_no_tor)
-    val torLabel = stringResource(id = R.string.status_tor)
+    val publicBadge = NodeTypeBadge(
+        label = publicTypeLabel,
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+    )
+    val customBadge = NodeTypeBadge(
+        label = customTypeLabel,
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary
+    )
     val nodes = buildList {
         publicNodes.forEach { node ->
             add(
                 AvailableNodeItem(
                     title = node.displayName,
                     subtitle = sanitizeEndpoint(node.endpoint),
-                    typeLabels = listOf(publicTypeLabel, torLabel),
+                    typeBadge = publicBadge,
                     selected = activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
                     connected = (isNodeConnected || isNodeActivating) &&
-                        activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
+                            activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
                     onActivate = { onPublicNodeSelected(node.id) },
                     onDetailsClick = { onPublicNodeSelected(node.id) },
                     onDeactivate = onDisconnect
@@ -238,74 +319,82 @@ private fun AvailableNodesSection(
             )
         }
         customNodes.forEach { node ->
-            val labels = buildList {
-                add(customTypeLabel)
-                if (node.routeThroughTor) {
-                    add(torLabel)
-                } else {
-                    add(noTorLabel)
-                }
-            }
             add(
                 AvailableNodeItem(
                     title = node.displayLabel(),
                     subtitle = sanitizeEndpoint(node.endpointLabel()),
-                    typeLabels = labels,
+                    typeBadge = customBadge,
                     selected = activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
                     connected = (isNodeConnected || isNodeActivating) &&
-                        activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
+                            activeOption == NodeConnectionOption.CUSTOM && node.id == selectedCustomId,
                     onActivate = { onCustomNodeSelected(node.id) },
                     onDetailsClick = { onCustomNodeDetails(node.id) },
-                    onDeactivate = onDisconnect
+                    onDeactivate = onDisconnect,
+                    showSettings = true
                 )
             )
         }
     }
-
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            text = stringResource(id = R.string.node_section_available_title),
-            style = MaterialTheme.typography.titleMedium
-        )
-        Text(
-            text = stringResource(id = R.string.node_section_available_description),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        if (nodes.isEmpty()) {
-            Text(
-                text = stringResource(id = R.string.node_section_available_empty),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                nodes.forEachIndexed { index, item ->
-                    NodeListItem(
-                        title = item.title,
-                        subtitle = item.subtitle,
-                        typeLabels = item.typeLabels,
-                        selected = item.selected,
-                        connected = item.connected,
-                        onActivate = item.onActivate,
-                        onDetailsClick = item.onDetailsClick,
-                        onDeactivate = item.onDeactivate,
-                        isNetworkOnline = isNetworkOnline,
-                        showDivider = index < nodes.lastIndex
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        ListSection(
+            title = stringResource(id = R.string.node_section_available_title),
+            subtitle = stringResource(id = R.string.node_section_available_description)
+        ) {
+            if (nodes.isEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(id = R.string.node_section_available_empty),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 20.dp)
                     )
                 }
+            } else {
+                nodes.forEach { nodeItem ->
+            item {
+                NodeListItem(
+                    title = nodeItem.title,
+                    subtitle = nodeItem.subtitle,
+                    typeBadge = nodeItem.typeBadge,
+                    selected = nodeItem.selected,
+                    connected = nodeItem.connected,
+                    onActivate = nodeItem.onActivate,
+                    onDetailsClick = nodeItem.onDetailsClick,
+                    onDeactivate = nodeItem.onDeactivate,
+                    isNetworkOnline = isNetworkOnline,
+                    interactionsLocked = interactionsLocked,
+                    onInteractionBlocked = onInteractionBlocked,
+                    showSettings = nodeItem.showSettings
+                )
             }
         }
+    }
+        }
 
-        TextButton(
-            onClick = onAddCustomNodeClick,
+        Button(
+            onClick = {
+                if (interactionsLocked) {
+                    onInteractionBlocked()
+                } else {
+                    onAddCustomNodeClick()
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = AddCustomNodeButtonMinHeight),
-            contentPadding = AddCustomNodeButtonContentPadding
+            contentPadding = AddCustomNodeButtonContentPadding,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
         ) {
-            Icon(imageVector = Icons.Outlined.Add, contentDescription = null)
+            Icon(
+                imageVector = Icons.Outlined.Add,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = stringResource(
@@ -330,45 +419,34 @@ private fun AvailableNodesSection(
 private fun NodeListItem(
     title: String,
     subtitle: String?,
-    typeLabels: List<String> = emptyList(),
+    typeBadge: NodeTypeBadge,
     selected: Boolean,
     connected: Boolean,
     onActivate: () -> Unit,
     onDetailsClick: () -> Unit,
     onDeactivate: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    showDivider: Boolean = false,
-    isNetworkOnline: Boolean = true
+    isNetworkOnline: Boolean = true,
+    interactionsLocked: Boolean = false,
+    onInteractionBlocked: () -> Unit = {},
+    showSettings: Boolean = false,
+    onSettingsClick: (() -> Unit)? = null
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        val supportingContent: (@Composable (() -> Unit))? =
-            if (subtitle != null || typeLabels.isNotEmpty()) {
-                {
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        subtitle?.let {
-                            Text(
-                                text = it,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        val typeLabelText = typeLabels.filter { it.isNotBlank() }.joinToString(" | ")
-                        if (typeLabelText.isNotBlank()) {
-                            Text(
-                                text = typeLabelText,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
+        val supportingContent: (@Composable (() -> Unit))? = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                subtitle?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
-            } else {
-                null
+                TypeBadge(badge = typeBadge)
             }
+        }
         ListItem(
             headlineContent = {
                 Text(
@@ -381,50 +459,124 @@ private fun NodeListItem(
             },
             supportingContent = supportingContent,
             trailingContent = {
-                Switch(
-                    checked = connected,
-                    enabled = isNetworkOnline,
-                    onCheckedChange = { checked ->
-                        when {
-                            checked && !connected -> onActivate()
-                            !checked && connected -> onDeactivate?.invoke()
-                        }
+                if (showSettings && onSettingsClick != null) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                            contentDescription = stringResource(id = R.string.node_custom_edit_title),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable {
+                                    if (interactionsLocked) {
+                                        onInteractionBlocked()
+                                    } else {
+                                        onSettingsClick()
+                                    }
+                                }
+                        )
+                        Divider(
+                            modifier = Modifier
+                                .height(28.dp)
+                                .width(1.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                        )
+                        Switch(
+                            checked = connected,
+                            enabled = isNetworkOnline,
+                            interactionSource = remember { MutableInteractionSource() },
+                            onCheckedChange = { checked ->
+                                if (interactionsLocked) {
+                                    onInteractionBlocked()
+                                    return@Switch
+                                }
+                                when {
+                                    checked && !connected -> onActivate()
+                                    !checked && connected -> onDeactivate?.invoke()
+                                }
+                            },
+                            colors = SwitchDefaults.colors()
+                        )
                     }
-                )
+                } else {
+                    Switch(
+                        checked = connected,
+                        enabled = isNetworkOnline,
+                        interactionSource = remember { MutableInteractionSource() },
+                        onCheckedChange = { checked ->
+                            if (interactionsLocked) {
+                                onInteractionBlocked()
+                                return@Switch
+                            }
+                            when {
+                                checked && !connected -> onActivate()
+                                !checked && connected -> onDeactivate?.invoke()
+                            }
+                        },
+                        colors = SwitchDefaults.colors()
+                    )
+                }
             },
             modifier = Modifier
                 .fillMaxWidth()
                 .selectable(
                     selected = selected,
-                    onClick = onDetailsClick,
-                    role = Role.Button
+                    onClick = {
+                        if (interactionsLocked) {
+                            onInteractionBlocked()
+                        } else {
+                            onDetailsClick()
+                        }
+                    },
+                    role = Role.Button,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
                 ),
-            colors = ListItemDefaults.colors(
-                containerColor = if (selected) {
-                    MaterialTheme.colorScheme.surfaceContainerHigh
-                } else {
-                    Color.Transparent
-                }
-            )
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            tonalElevation = 0.dp
         )
-        if (showDivider) {
-            Divider(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
-        }
+    }
+}
+
+@Composable
+private fun TypeBadge(
+    badge: NodeTypeBadge,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        color = badge.containerColor,
+        contentColor = badge.contentColor,
+        shape = RoundedCornerShape(999.dp)
+    ) {
+        Text(
+            text = badge.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = badge.contentColor,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
     }
 }
 
 data class AvailableNodeItem(
     val title: String,
     val subtitle: String,
-    val typeLabels: List<String>,
+    val typeBadge: NodeTypeBadge,
     val selected: Boolean,
     val connected: Boolean,
     val onActivate: () -> Unit,
     val onDetailsClick: () -> Unit,
-    val onDeactivate: (() -> Unit)? = null
+    val onDeactivate: (() -> Unit)? = null,
+    val showSettings: Boolean = false
+)
+
+data class NodeTypeBadge(
+    val label: String,
+    val containerColor: Color,
+    val contentColor: Color
 )
 
 @Composable

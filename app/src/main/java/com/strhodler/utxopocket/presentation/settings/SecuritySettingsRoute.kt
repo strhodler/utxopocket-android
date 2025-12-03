@@ -13,23 +13,33 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,9 +64,14 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Compa
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_CONNECTION_IDLE_MINUTES
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_PIN_AUTO_LOCK_MINUTES
 import com.strhodler.utxopocket.presentation.MainActivity
+import com.strhodler.utxopocket.presentation.common.ContentSection
+import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
+import com.strhodler.utxopocket.presentation.common.SectionHeader
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.pin.PinLockoutMessageType
 import com.strhodler.utxopocket.presentation.pin.PinSetupScreen
@@ -68,6 +83,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SecuritySettingsRoute(
     viewModel: SettingsViewModel,
@@ -92,6 +108,8 @@ fun SecuritySettingsRoute(
     var showPanicFinalConfirmation by rememberSaveable { mutableStateOf(false) }
     var isPanicInProgress by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    var showNetworkLogsInfoSheet by rememberSaveable { mutableStateOf(false) }
+    val networkLogsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LaunchedEffect(pinDisableLockoutExpiry, pinDisableLockoutType) {
         val expiry = pinDisableLockoutExpiry
@@ -166,6 +184,7 @@ fun SecuritySettingsRoute(
                 onPinAutoLockTimeoutSelected = viewModel::onPinAutoLockTimeoutSelected,
                 onConnectionIdleTimeoutSelected = viewModel::onConnectionIdleTimeoutSelected,
                 onNetworkLogsToggle = viewModel::onNetworkLogsToggled,
+                onNetworkLogsInfoClick = { showNetworkLogsInfoSheet = true },
                 onOpenNetworkLogs = onOpenNetworkLogs,
                 onTriggerPanicWipe = { showPanicFirstConfirmation = true },
                 panicEnabled = !isPanicInProgress,
@@ -343,6 +362,37 @@ fun SecuritySettingsRoute(
                 )
             }
 
+            if (showNetworkLogsInfoSheet) {
+                ModalBottomSheet(
+                    onDismissRequest = { showNetworkLogsInfoSheet = false },
+                    sheetState = networkLogsSheetState,
+                    dragHandle = { BottomSheetDefaults.DragHandle() }
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 24.dp, vertical = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.settings_network_logs_sheet_title),
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Text(
+                            text = stringResource(id = R.string.settings_network_logs_sheet_body),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = stringResource(id = R.string.settings_network_logs_sheet_guardrails),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
         }
     }
 }
@@ -355,6 +405,7 @@ private fun SecuritySettingsScreen(
     onPinAutoLockTimeoutSelected: (Int) -> Unit,
     onConnectionIdleTimeoutSelected: (Int) -> Unit,
     onNetworkLogsToggle: (Boolean) -> Unit,
+    onNetworkLogsInfoClick: () -> Unit,
     onOpenNetworkLogs: () -> Unit,
     onTriggerPanicWipe: () -> Unit,
     panicEnabled: Boolean,
@@ -402,192 +453,238 @@ private fun SecuritySettingsScreen(
         in 6..10 -> stringResource(id = R.string.settings_connection_timeout_tip_balanced)
         else -> stringResource(id = R.string.settings_connection_timeout_tip_long)
     }
+    val pinTimeoutMinutes = pinTimeoutSliderValue.roundToInt()
+        .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
+    val pinTimeoutLabel = if (pinTimeoutMinutes == 0) {
+        stringResource(id = R.string.settings_pin_timeout_immediately_label)
+    } else {
+        stringResource(
+            id = R.string.settings_pin_timeout_minutes_label,
+            pinTimeoutMinutes
+        )
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        ListItem(
-            headlineContent = {
-                Text(
-                    text = stringResource(id = R.string.settings_pin_title),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            },
-            supportingContent = {
-                Text(
-                    text = stringResource(id = R.string.settings_pin_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            trailingContent = {
-                Switch(
-                    checked = state.pinEnabled,
-                    onCheckedChange = onPinToggleRequested
-                )
-            },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-        )
-        if (state.pinEnabled) {
-            val pinTimeoutMinutes = pinTimeoutSliderValue.roundToInt()
-                .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
-            val pinTimeoutLabel = if (pinTimeoutMinutes == 0) {
-                stringResource(id = R.string.settings_pin_timeout_immediately_label)
-            } else {
-                stringResource(
-                    id = R.string.settings_pin_timeout_minutes_label,
-                    pinTimeoutMinutes
+        SectionCard(
+            title = stringResource(id = R.string.settings_pin_title)
+        ) {
+            item {
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            text = stringResource(id = R.string.settings_pin_title),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            text = stringResource(id = R.string.settings_pin_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingContent = {
+                        Switch(
+                            checked = state.pinEnabled,
+                            onCheckedChange = onPinToggleRequested,
+                            colors = SwitchDefaults.colors()
+                        )
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
             }
-            ListItem(
-                headlineContent = {
-                    Text(text = stringResource(id = R.string.settings_pin_shuffle_title))
-                },
-                supportingContent = {
-                    Text(
-                        text = stringResource(id = R.string.settings_pin_shuffle_subtitle),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+            if (state.pinEnabled) {
+                item {
+                    ListItem(
+                        headlineContent = {
+                            Text(text = stringResource(id = R.string.settings_pin_shuffle_title))
+                        },
+                        supportingContent = {
+                            Text(
+                                text = stringResource(id = R.string.settings_pin_shuffle_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = state.pinShuffleEnabled,
+                                onCheckedChange = onPinShuffleChanged,
+                                colors = SwitchDefaults.colors()
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
-                },
-                trailingContent = {
-                    Switch(
-                        checked = state.pinShuffleEnabled,
-                        onCheckedChange = onPinShuffleChanged
-                    )
-                },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = stringResource(id = R.string.settings_pin_timeout_title),
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Text(
-                    text = pinTimeoutLabel,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Slider(
-                    value = pinTimeoutSliderValue,
-                    onValueChange = { newValue ->
-                        pinTimeoutSliderValue = newValue
-                        val steppedValue = newValue.roundToInt()
-                            .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
-                        if (steppedValue != pinHapticStep) {
-                            pinHapticStep = steppedValue
-                            performSliderHaptic()
-                        }
-                    },
-                    onValueChangeFinished = {
-                        onPinAutoLockTimeoutSelected(pinTimeoutMinutes)
-                    },
-                    valueRange = MIN_PIN_AUTO_LOCK_MINUTES.toFloat()..MAX_PIN_AUTO_LOCK_MINUTES.toFloat(),
-                    steps = (MAX_PIN_AUTO_LOCK_MINUTES - MIN_PIN_AUTO_LOCK_MINUTES - 1).coerceAtLeast(0),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = stringResource(id = R.string.settings_connection_timeout_title),
-                style = MaterialTheme.typography.titleSmall
-            )
-            Text(
-                text = connectionTimeoutLabel,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Slider(
-                value = connectionTimeoutValue,
-                onValueChange = { newValue ->
-                    connectionTimeoutValue = newValue
-                    val steppedValue = newValue.roundToInt()
-                        .coerceIn(MIN_CONNECTION_IDLE_MINUTES, MAX_CONNECTION_IDLE_MINUTES)
-                    if (steppedValue != connectionHapticStep) {
-                        connectionHapticStep = steppedValue
-                        performSliderHaptic()
-                    }
-                },
-                onValueChangeFinished = {
-                    onConnectionIdleTimeoutSelected(connectionTimeoutMinutes)
-                },
-                valueRange = MIN_CONNECTION_IDLE_MINUTES.toFloat()..MAX_CONNECTION_IDLE_MINUTES.toFloat(),
-                steps = (MAX_CONNECTION_IDLE_MINUTES - MIN_CONNECTION_IDLE_MINUTES - 1).coerceAtLeast(0),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(
-                text = connectionTip,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = stringResource(id = R.string.settings_network_logs_title),
-                style = MaterialTheme.typography.titleSmall
-            )
-            Text(
-                text = stringResource(id = R.string.settings_network_logs_description),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (state.networkLogsEnabled) {
-                        stringResource(id = R.string.settings_network_logs_enabled_label)
-                    } else {
-                        stringResource(id = R.string.settings_network_logs_disabled_label)
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
-                )
-                Switch(
-                    checked = state.networkLogsEnabled,
-                    onCheckedChange = onNetworkLogsToggle
-                )
-            }
-            if (state.networkLogsEnabled) {
-                Text(
-                    text = stringResource(id = R.string.settings_network_logs_sanitized_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                TextButton(
-                    onClick = onOpenNetworkLogs,
-                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)
-                ) {
-                    Text(text = stringResource(id = R.string.settings_network_logs_open_viewer))
                 }
             }
         }
-        Text(
-            text = stringResource(id = R.string.settings_danger_zone_title),
-            style = MaterialTheme.typography.titleSmall
-        )
-        Text(
-            text = stringResource(id = R.string.settings_panic_description),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+
+        if (state.pinEnabled) {
+            ContentSection(
+                title = stringResource(id = R.string.settings_pin_timeout_title),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = pinTimeoutLabel,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Slider(
+                            value = pinTimeoutSliderValue,
+                            onValueChange = { newValue ->
+                                val quantized = newValue.roundToInt()
+                                    .coerceIn(MIN_PIN_AUTO_LOCK_MINUTES, MAX_PIN_AUTO_LOCK_MINUTES)
+                                    .toFloat()
+                                pinTimeoutSliderValue = quantized
+                                val steppedValue = quantized.toInt()
+                                if (steppedValue != pinHapticStep) {
+                                    pinHapticStep = steppedValue
+                                    performSliderHaptic()
+                                }
+                            },
+                            onValueChangeFinished = {
+                                onPinAutoLockTimeoutSelected(pinTimeoutMinutes)
+                            },
+                            valueRange = MIN_PIN_AUTO_LOCK_MINUTES.toFloat()..MAX_PIN_AUTO_LOCK_MINUTES.toFloat(),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+        }
+
+        ContentSection(
+            title = stringResource(id = R.string.settings_connection_timeout_title),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = connectionTimeoutLabel,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Slider(
+                        value = connectionTimeoutValue,
+                        onValueChange = { newValue ->
+                            val quantized = newValue.roundToInt()
+                                .coerceIn(MIN_CONNECTION_IDLE_MINUTES, MAX_CONNECTION_IDLE_MINUTES)
+                                .toFloat()
+                            connectionTimeoutValue = quantized
+                            val steppedValue = quantized.toInt()
+                            if (steppedValue != connectionHapticStep) {
+                                connectionHapticStep = steppedValue
+                                performSliderHaptic()
+                            }
+                        },
+                        onValueChangeFinished = {
+                            onConnectionIdleTimeoutSelected(connectionTimeoutMinutes)
+                        },
+                        valueRange = MIN_CONNECTION_IDLE_MINUTES.toFloat()..MAX_CONNECTION_IDLE_MINUTES.toFloat(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        text = connectionTip,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        SectionCard(
+            title = stringResource(id = R.string.settings_network_logs_header_title),
+            contentPadding = PaddingValues(vertical = 12.dp)
+        ) {
+            item {
+                ListItem(
+                    modifier = Modifier.fillMaxWidth(),
+                    headlineContent = {
+                        Text(
+                            text = stringResource(id = R.string.settings_network_logs_title),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            text = stringResource(id = R.string.settings_network_logs_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingContent = {
+                        Switch(
+                            checked = state.networkLogsEnabled,
+                            onCheckedChange = onNetworkLogsToggle,
+                            colors = SwitchDefaults.colors()
+                        )
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
+            if (state.networkLogsEnabled) {
+                item {
+                    ListItem(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onOpenNetworkLogs),
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.settings_network_logs_open_viewer),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = stringResource(id = R.string.settings_network_logs_description),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingContent = {
+                            Icon(
+                                imageVector = Icons.Outlined.DeleteForever,
+                                contentDescription = null,
+                                tint = Color.Transparent
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+            }
+        }
+
         Button(
             onClick = onTriggerPanicWipe,
             enabled = panicEnabled,
-            modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.error,
                 contentColor = MaterialTheme.colorScheme.onError
-            )
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = PanicCtaMinHeight)
         ) {
-            Text(text = stringResource(id = R.string.settings_panic_action))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.DeleteForever,
+                    contentDescription = null
+                )
+                Text(
+                    text = stringResource(id = R.string.settings_panic_action),
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
         }
     }
 }
@@ -607,3 +704,4 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 }
 
 private const val SliderHapticFeedback = HapticFeedbackConstants.KEYBOARD_TAP
+private val PanicCtaMinHeight = 64.dp

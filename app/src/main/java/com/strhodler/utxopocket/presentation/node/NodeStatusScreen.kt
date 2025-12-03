@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.presentation.node
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,17 +14,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.NetworkCheck
-import androidx.compose.material.icons.outlined.Wifi
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,7 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,9 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -61,11 +58,6 @@ import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.tor.TorStatusActionUiState
-import com.strhodler.utxopocket.presentation.wallets.components.WalletColorTheme
-import com.strhodler.utxopocket.presentation.wallets.components.onGradient
-import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
-import com.strhodler.utxopocket.presentation.wallets.components.walletCardBackground
-import com.strhodler.utxopocket.presentation.wallets.components.walletShimmer
 import java.text.DateFormat
 import java.util.Date
 import kotlinx.coroutines.launch
@@ -77,6 +69,8 @@ fun NodeStatusScreen(
     state: NodeStatusUiState,
     snackbarHostState: SnackbarHostState,
     torActionsState: TorStatusActionUiState,
+    interactionsLocked: Boolean,
+    onInteractionBlocked: () -> Unit,
     onOpenNetworkLogs: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
@@ -102,11 +96,20 @@ fun NodeStatusScreen(
     ) {
         state.activeNodeLabel()
     }
+    val selectedNodeEndpoint = remember(
+        state.selectedPublicNodeId,
+        state.selectedCustomNodeId,
+        state.publicNodes,
+        state.customNodes
+    ) {
+        state.activeNodeEndpoint()
+    }
     val heroTitleOverride = remember(status.nodeStatus, selectedNodeName) {
         when (status.nodeStatus) {
             NodeStatus.Synced,
             NodeStatus.Connecting,
             NodeStatus.WaitingForTor,
+            NodeStatus.Offline,
             is NodeStatus.Error -> selectedNodeName
             else -> null
         }
@@ -142,13 +145,13 @@ fun NodeStatusScreen(
                 NodeHeroHeader(
                     status = status,
                     nodeTitleOverride = heroTitleOverride,
-                    onDisconnect = onDisconnect,
+                    selectedEndpoint = selectedNodeEndpoint,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
             stickyHeader {
                 Surface(
-                    color = MaterialTheme.colorScheme.surface,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
                     tonalElevation = 1.dp,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -162,16 +165,15 @@ fun NodeStatusScreen(
                                 pagerState.animateScrollToPage(tab.ordinal)
                             }
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
-            item("tabs_spacing") {
-                Spacer(modifier = Modifier.height(NodeTabsContentSpacing))
-            }
             item("pager") {
+                val tabContentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp
+                )
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier
@@ -182,8 +184,9 @@ fun NodeStatusScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
+                            .padding(tabContentPadding)
                     ) {
+                        Spacer(modifier = Modifier.height(NodeContentSpacing))
                         when (tab) {
                             NodeStatusTab.Overview -> NodeOverviewContent(
                                 status = status,
@@ -209,6 +212,8 @@ fun NodeStatusScreen(
                                     isNetworkOnline = status.isNetworkOnline,
                                     state = state,
                                     modifier = Modifier.fillMaxWidth(),
+                                    interactionsLocked = interactionsLocked,
+                                    onInteractionBlocked = onInteractionBlocked,
                                     onNetworkSelected = onNetworkSelected,
                                     onPublicNodeSelected = onPublicNodeSelected,
                                     onCustomNodeSelected = onCustomNodeSelected,
@@ -217,6 +222,14 @@ fun NodeStatusScreen(
                                     onDisconnect = onDisconnect
                                 )
                             }
+
+                            NodeStatusTab.Tor -> NodeTorStatusSection(
+                                status = status,
+                                actionsState = torActionsState,
+                                onRenewIdentity = onRenewTorIdentity,
+                                onStartTor = onStartTor,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }
@@ -229,7 +242,8 @@ enum class NodeStatusTab(
     @StringRes val labelRes: Int
 ) {
     Management(R.string.node_overview_tab_management),
-    Overview(R.string.node_overview_tab_status)
+    Overview(R.string.node_overview_tab_status),
+    Tor(R.string.node_overview_tab_tor)
 }
 
 @Composable
@@ -241,9 +255,9 @@ private fun NodeStatusTabs(
 ) {
     TabRow(
         selectedTabIndex = pagerState.currentPage,
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.primary
+        modifier = modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         tabs.forEach { tab ->
             Tab(
@@ -259,21 +273,30 @@ private fun NodeStatusTabs(
 private fun NodeHeroHeader(
     status: StatusBarUiState,
     nodeTitleOverride: String? = null,
-    modifier: Modifier = Modifier,
-    onDisconnect: (() -> Unit)? = null
+    selectedEndpoint: String? = null,
+    modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val theme = remember(status.nodeStatus) { statusThemeFor(status.nodeStatus, colorScheme) }
-    val shimmerPhase = rememberWalletShimmerPhase(durationMillis = 3600, delayMillis = 200)
-    val primaryContentColor = theme.onGradient
+    val primaryContentColor = colorScheme.onSurface
+    val secondaryContentColor = colorScheme.onSurfaceVariant
     val message = nodeStatusMessage(status.nodeStatus)
+    val headlineMessage = if (status.nodeStatus == NodeStatus.Connecting) {
+        "$message…"
+    } else {
+        message
+    }
     val lastSync = status.nodeLastSync?.let { timestamp ->
         remember(timestamp) {
             DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(timestamp))
         }
     }
-    val endpoint = status.nodeEndpoint?.let { formatEndpoint(it) }
-    val networkLabel = networkLabel(status.network)
+    val endpointLabel = when {
+        status.nodeStatus == NodeStatus.Synced && !status.nodeEndpoint.isNullOrBlank() ->
+            formatEndpoint(status.nodeEndpoint)
+        !selectedEndpoint.isNullOrBlank() -> formatEndpoint(selectedEndpoint)
+        status.nodeStatus == NodeStatus.Idle -> stringResource(id = R.string.node_not_connected_label)
+        else -> stringResource(id = R.string.node_reconnect_select_node)
+    }
     val showReconnect = status.nodeStatus == NodeStatus.Idle ||
         status.nodeStatus == NodeStatus.WaitingForTor ||
         status.nodeStatus is NodeStatus.Error
@@ -291,178 +314,141 @@ private fun NodeHeroHeader(
             stringResource(id = R.string.node_reconnect_select_node)
         else -> null
     }
-
-    Column(
-        modifier = modifier
-            .walletCardBackground(theme, cornerRadius = 0.dp)
-            .walletShimmer(
-                phase = shimmerPhase,
-                cornerRadius = 0.dp,
-                shimmerAlpha = 0.18f,
-                highlightColor = primaryContentColor
-            )
-            .padding(horizontal = 24.dp, vertical = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        val nodeTitle = nodeTitleOverride?.takeIf { it.isNotBlank() }
-            ?: stringResource(id = R.string.status_node)
-        NodeStatusIcon(status.nodeStatus, tint = primaryContentColor)
-        Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = nodeTitle,
-                style = MaterialTheme.typography.titleLarge,
-                color = primaryContentColor,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = primaryContentColor.copy(alpha = 0.9f),
-                textAlign = TextAlign.Center
-            )
-        }
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            StatusBadge(
-                label = networkLabel,
-                contentColor = primaryContentColor
-            )
-        }
-
-        Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            lastSync?.let {
-                Text(
-                    text = stringResource(id = R.string.wallets_last_sync, it),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = primaryContentColor.copy(alpha = 0.85f),
-                    textAlign = TextAlign.Center
+    val successContainer = colorScheme.tertiary
+    val successContent = colorScheme.onTertiary
+    val statusChipContainer = when (status.nodeStatus) {
+        NodeStatus.Synced -> successContainer
+        is NodeStatus.Error -> colorScheme.errorContainer
+        else -> colorScheme.surfaceVariant
+    }
+    val statusChipContent = when (status.nodeStatus) {
+        NodeStatus.Synced -> successContent
+        is NodeStatus.Error -> colorScheme.onErrorContainer
+        else -> colorScheme.onSurfaceVariant
+    }
+    val statusBadgeLeading: (@Composable () -> Unit)? = when (status.nodeStatus) {
+        NodeStatus.Connecting -> {
+            {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = statusChipContent
                 )
             }
-            endpoint?.let {
+        }
+        NodeStatus.Synced -> {
+            { Icon(imageVector = Icons.Filled.Check, contentDescription = null, tint = statusChipContent, modifier = Modifier.size(16.dp)) }
+        }
+        is NodeStatus.Error -> {
+            { Icon(imageVector = Icons.Filled.ErrorOutline, contentDescription = null, tint = statusChipContent, modifier = Modifier.size(16.dp)) }
+        }
+        else -> null
+    }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = colorScheme.surfaceColorAtElevation(1.dp),
+        contentColor = primaryContentColor,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 36.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            val nodeTitle = nodeTitleOverride?.takeIf { it.isNotBlank() }
+                ?: stringResource(id = R.string.status_node)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Text(
-                    text = it,
+                    text = nodeTitle,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = primaryContentColor,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = endpointLabel,
                     style = MaterialTheme.typography.bodySmall,
-                    color = primaryContentColor.copy(alpha = 0.7f),
+                    color = secondaryContentColor,
                     textAlign = TextAlign.Center,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-        }
+            StatusBadge(
+                label = headlineMessage,
+                containerColor = statusChipContainer,
+                contentColor = statusChipContent,
+                leadingContent = statusBadgeLeading
+            )
 
-        if (showReconnect) {
-            when {
-                status.nodeStatus is NodeStatus.Error -> {
-                    val notice = status.nodeStatus.message.ifBlank {
-                        stringResource(id = R.string.wallets_state_error)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                lastSync?.let {
+                    Text(
+                        text = stringResource(id = R.string.wallets_last_sync, it),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = secondaryContentColor,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            if (showReconnect && status.nodeStatus != NodeStatus.Idle) {
+                when {
+                    status.nodeStatus is NodeStatus.Error -> {
+                        val notice = status.nodeStatus.message.ifBlank {
+                            stringResource(id = R.string.wallets_state_error)
+                        }
+                        Text(
+                            text = notice,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colorScheme.error,
+                            textAlign = TextAlign.Center
+                        )
                     }
-                    Text(
-                        text = notice,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = primaryContentColor,
-                        textAlign = TextAlign.Center
-                    )
-                }
 
-                reconnectInfoMessage != null -> {
-                    Text(
-                        text = reconnectInfoMessage,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = primaryContentColor,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                    reconnectInfoMessage != null -> {
+                        Text(
+                            text = reconnectInfoMessage,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = secondaryContentColor,
+                            textAlign = TextAlign.Center
+                        )
+                    }
 
-                else -> {
-                    Text(
-                        text = stringResource(id = R.string.node_manage_prompt),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = primaryContentColor,
-                        textAlign = TextAlign.Center
-                    )
+                    else -> {
+                        Text(
+                            text = stringResource(id = R.string.node_manage_prompt),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = primaryContentColor,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
         }
-        if (status.nodeStatus == NodeStatus.Synced && onDisconnect != null) {
-            TextButton(
-                onClick = onDisconnect,
-                colors = ButtonDefaults.textButtonColors(contentColor = primaryContentColor)
-            ) {
-                Text(text = stringResource(id = R.string.node_disconnect_action))
-            }
-        }
-    }
-}
-
-@Composable
-private fun NodeStatusIcon(
-    status: NodeStatus,
-    tint: Color
-) {
-    when (status) {
-        NodeStatus.Synced -> Icon(
-            imageVector = Icons.Outlined.Wifi,
-            contentDescription = null,
-            tint = tint,
-            modifier = Modifier.size(56.dp)
-        )
-
-        NodeStatus.Connecting,
-        NodeStatus.WaitingForTor -> {
-            androidx.compose.foundation.layout.Box(
-                modifier = Modifier.size(56.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.fillMaxSize(),
-                    strokeWidth = 4.dp,
-                    color = tint
-                )
-                Icon(
-                    imageVector = Icons.Outlined.Wifi,
-                    contentDescription = null,
-                    tint = tint,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-        }
-
-        NodeStatus.Idle -> Icon(
-            imageVector = Icons.Outlined.NetworkCheck,
-            contentDescription = null,
-            tint = tint,
-            modifier = Modifier.size(56.dp)
-        )
-
-        is NodeStatus.Error -> Icon(
-            imageVector = Icons.Outlined.Info,
-            contentDescription = null,
-            tint = tint,
-            modifier = Modifier.size(56.dp)
-        )
     }
 }
 
 @Composable
 private fun StatusBadge(
     label: String,
+    containerColor: Color,
     contentColor: Color,
-    leadingIcon: ImageVector? = null
+    leadingContent: (@Composable () -> Unit)? = null
 ) {
     Card(
         shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = 0.14f)
+            containerColor = containerColor
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier.padding(vertical = 4.dp)
@@ -472,13 +458,8 @@ private fun StatusBadge(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (leadingIcon != null) {
-                Icon(
-                    imageVector = leadingIcon,
-                    contentDescription = null,
-                    tint = contentColor,
-                    modifier = Modifier.size(16.dp)
-                )
+            if (leadingContent != null) {
+                leadingContent()
             }
             Text(
                 text = label,
@@ -489,41 +470,10 @@ private fun StatusBadge(
     }
 }
 
-private fun statusThemeFor(
-    status: NodeStatus,
-    colorScheme: androidx.compose.material3.ColorScheme
-): WalletColorTheme {
-    val connectedGradient = listOf(
-        Color(0xFFFF6B35),
-        Color(0xFFF7931A),
-        Color(0xFFFFB46B)
-    )
-    val greyGradient = listOf(
-        colorScheme.surfaceVariant,
-        colorScheme.surface,
-        colorScheme.outlineVariant
-    )
-    val errorGradient = listOf(
-        colorScheme.error,
-        colorScheme.errorContainer,
-        colorScheme.error.copy(alpha = 0.9f)
-    )
-    val (gradient, accent) = when (status) {
-        NodeStatus.Synced -> connectedGradient to Color(0xFFFFE0B2)
-        NodeStatus.Connecting,
-        NodeStatus.WaitingForTor -> greyGradient to colorScheme.onSurface
-        NodeStatus.Idle -> greyGradient to colorScheme.onSurface
-        is NodeStatus.Error -> errorGradient to colorScheme.onError
-    }
-    return WalletColorTheme(
-        gradient = gradient,
-        accent = accent
-    )
-}
-
 @Composable
 private fun nodeStatusMessage(status: NodeStatus): String = when (status) {
     NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
+    NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
     NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
     NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
     NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
@@ -543,5 +493,15 @@ private fun NodeStatusUiState.activeNodeLabel(): String? {
     return customLabel ?: publicLabel
 }
 
-private val NodeTabsContentSpacing = 12.dp
+private fun NodeStatusUiState.activeNodeEndpoint(): String? {
+    val customEndpoint = selectedCustomNodeId?.let { id ->
+        customNodes.firstOrNull { it.id == id }?.endpointLabel()
+    }?.takeUnless { it.isNullOrBlank() }
+    val publicEndpoint = selectedPublicNodeId?.let { id ->
+        publicNodes.firstOrNull { it.id == id }?.endpoint
+    }?.takeUnless { it.isNullOrBlank() }
+    return customEndpoint ?: publicEndpoint
+}
+
+internal val NodeContentSpacing = 12.dp
 private val NodePagerMinHeight = 200.dp

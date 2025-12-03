@@ -28,17 +28,27 @@ interface WalletRepository {
     fun observeSyncStatus(): Flow<SyncStatusSnapshot>
     fun pageWalletTransactions(
         id: Long,
-        sort: WalletTransactionSort
+        sort: WalletTransactionSort,
+        showLabeled: Boolean,
+        showUnlabeled: Boolean,
+        showReceived: Boolean,
+        showSent: Boolean
     ): Flow<PagingData<WalletTransaction>>
     fun pageWalletUtxos(
         id: Long,
-        sort: WalletUtxoSort
+        sort: WalletUtxoSort,
+        showLabeled: Boolean,
+        showUnlabeled: Boolean,
+        showSpendable: Boolean,
+        showNotSpendable: Boolean
     ): Flow<PagingData<WalletUtxo>>
     fun observeTransactionCount(id: Long): Flow<Int>
     fun observeUtxoCount(id: Long): Flow<Int>
     fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>>
     suspend fun refresh(network: BitcoinNetwork)
     suspend fun refreshWallet(walletId: Long)
+    suspend fun disconnect(network: BitcoinNetwork)
+    suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean
     suspend fun validateDescriptor(
         descriptor: String,
         changeDescriptor: String?,

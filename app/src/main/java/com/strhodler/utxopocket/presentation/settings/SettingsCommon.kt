@@ -19,9 +19,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Switch
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,7 +40,10 @@ import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 
 @Composable
 internal fun SettingsCard(
@@ -110,8 +112,7 @@ internal fun SettingsNavigationRow(
         androidx.compose.material3.Divider(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(dividerPadding),
-            color = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                .padding(dividerPadding)
         )
     }
 }
@@ -124,11 +125,8 @@ internal fun SettingsSwitchRow(
     enabled: Boolean = true,
     supportingText: String? = null
 ) {
-    val rowModifier = Modifier
-        .fillMaxWidth()
-        .alpha(if (enabled) 1f else 0.5f)
     ListItem(
-        modifier = rowModifier,
+        modifier = Modifier.fillMaxWidth(),
         headlineContent = {
             Text(text = title, style = androidx.compose.material3.MaterialTheme.typography.bodyLarge)
         },
@@ -145,7 +143,8 @@ internal fun SettingsSwitchRow(
             Switch(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
-                enabled = enabled
+                enabled = enabled,
+                colors = SwitchDefaults.colors()
             )
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -166,7 +165,7 @@ internal fun <T> SettingsSelectRow(
     var dropdownWidth by remember { mutableStateOf(Dp.Unspecified) }
     val density = LocalDensity.current
     val focusManager = LocalFocusManager.current
-    val textFieldColors = OutlinedTextFieldDefaults.colors(
+    val textFieldColors = TextFieldDefaults.colors(
         focusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
         unfocusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
         disabledContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface
@@ -178,7 +177,7 @@ internal fun <T> SettingsSelectRow(
             style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
         )
         Box {
-            OutlinedTextField(
+            TextField(
                 value = selectedLabel,
                 onValueChange = {},
                 readOnly = true,
@@ -291,5 +290,28 @@ internal fun rememberAnimationsLabeler(): (Boolean) -> String {
     val disabledLabel = stringResource(id = R.string.settings_option_disabled)
     return remember(enabledLabel, disabledLabel) {
         { enabled -> if (enabled) enabledLabel else disabledLabel }
+    }
+}
+
+@Composable
+internal fun rememberThemeProfileLabeler(): (ThemeProfile) -> String {
+    val standardLabel = stringResource(id = R.string.settings_theme_profile_standard)
+    val deuteranopiaLabel = stringResource(id = R.string.settings_theme_profile_deuteranopia)
+    val protanopiaLabel = stringResource(id = R.string.settings_theme_profile_protanopia)
+    val tritanopiaLabel = stringResource(id = R.string.settings_theme_profile_tritanopia)
+    return remember(
+        standardLabel,
+        deuteranopiaLabel,
+        protanopiaLabel,
+        tritanopiaLabel
+    ) {
+        { profile ->
+            when (profile) {
+                ThemeProfile.STANDARD -> standardLabel
+                ThemeProfile.DEUTERANOPIA -> deuteranopiaLabel
+                ThemeProfile.PROTANOPIA -> protanopiaLabel
+                ThemeProfile.TRITANOPIA -> tritanopiaLabel
+            }
+        }
     }
 }

@@ -19,9 +19,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -46,6 +49,7 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.common.generateQrBitmap
+import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
@@ -104,7 +108,7 @@ private fun AboutDeveloperContent(
     onLinkCopied: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val avatarPainter = painterResource(id = R.drawable.strhodler)
+    val avatarPainter = painterResource(id = R.drawable.logo_text_primary)
     val lightningUri = remember(lightningAddress) { lightningAddress }
     val qrBitmap = remember(lightningUri) { generateQrBitmap(lightningUri, size = 512) }
     val copyMessage = stringResource(id = R.string.about_sheet_copy_toast)
@@ -132,32 +136,37 @@ private fun AboutDeveloperContent(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            DeveloperLinkItem(
-                title = stringResource(id = R.string.about_sheet_link_lightning),
-                value = lightningAddress,
-                onCopy = { copyDeveloperLink(lightningAddress) }
-            )
-            DeveloperLinkItem(
-                title = stringResource(id = R.string.about_sheet_link_repository),
-                value = DEVELOPER_REPOSITORY_URL,
-                onOpen = onOpenRepository,
-                onCopy = { copyDeveloperLink(DEVELOPER_REPOSITORY_URL) }
-            )
-            DeveloperLinkItem(
-                title = stringResource(id = R.string.about_sheet_link_telegram),
-                value = TELEGRAM_CHANNEL_URL,
-                onOpen = onOpenTelegram,
-                onCopy = { copyDeveloperLink(TELEGRAM_CHANNEL_URL) }
-            )
-            DeveloperLinkItem(
-                title = stringResource(id = R.string.about_sheet_link_nostr),
-                value = DEVELOPER_NOSTR,
-                onCopy = { copyDeveloperLink(DEVELOPER_NOSTR) }
-            )
+        SectionCard {
+            item {
+                DeveloperLinkItem(
+                    title = stringResource(id = R.string.about_sheet_link_lightning),
+                    value = lightningAddress,
+                    onCopy = { copyDeveloperLink(lightningAddress) }
+                )
+            }
+            item {
+                DeveloperLinkItem(
+                    title = stringResource(id = R.string.about_sheet_link_repository),
+                    value = DEVELOPER_REPOSITORY_URL,
+                    onOpen = onOpenRepository,
+                    onCopy = { copyDeveloperLink(DEVELOPER_REPOSITORY_URL) }
+                )
+            }
+            item {
+                DeveloperLinkItem(
+                    title = stringResource(id = R.string.about_sheet_link_telegram),
+                    value = TELEGRAM_CHANNEL_URL,
+                    onOpen = onOpenTelegram,
+                    onCopy = { copyDeveloperLink(TELEGRAM_CHANNEL_URL) }
+                )
+            }
+            item {
+                DeveloperLinkItem(
+                    title = stringResource(id = R.string.about_sheet_link_nostr),
+                    value = DEVELOPER_NOSTR,
+                    onCopy = { copyDeveloperLink(DEVELOPER_NOSTR) }
+                )
+            }
         }
     }
 }
@@ -198,18 +207,6 @@ private fun DeveloperQrPreview(
                 }
             }
         }
-        Image(
-            painter = avatarPainter,
-            contentDescription = null,
-            modifier = Modifier
-                .size(72.dp)
-                .clip(CircleShape)
-                .border(
-                    width = 4.dp,
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = CircleShape
-                )
-        )
     }
 }
 
@@ -220,21 +217,18 @@ private fun DeveloperLinkItem(
     onCopy: (() -> Unit)? = null,
     onOpen: (() -> Unit)? = null
 ) {
-    val itemModifier = Modifier
-        .fillMaxWidth()
-        .clip(MaterialTheme.shapes.medium)
-        .let { base -> if (onOpen != null) base.clickable(onClick = onOpen) else base }
-
+    val itemModifier = Modifier.fillMaxWidth()
     ListItem(
         headlineContent = {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            Text(text = title, style = MaterialTheme.typography.bodyLarge)
         },
         supportingContent = {
             SelectionContainer {
                 Text(
                     text = value,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontFamily = FontFamily.Monospace
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
@@ -250,6 +244,7 @@ private fun DeveloperLinkItem(
                 }
             }
         },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = itemModifier
     )
 }

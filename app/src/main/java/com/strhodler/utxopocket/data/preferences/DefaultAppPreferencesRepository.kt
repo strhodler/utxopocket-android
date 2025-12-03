@@ -9,11 +9,14 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
+import com.strhodler.utxopocket.domain.model.BlockExplorerCatalog
+import com.strhodler.utxopocket.domain.model.BlockExplorerNetworkPreference
+import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
@@ -22,6 +25,7 @@ import com.strhodler.utxopocket.domain.node.EndpointScheme
 import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.ThemePreference
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import android.util.Base64
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
@@ -47,8 +51,8 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import kotlin.math.min
 
-private const val USER_PREFERENCES_NAME = "user_preferences"
-private val Context.userPreferencesDataStore by preferencesDataStore(name = USER_PREFERENCES_NAME)
+import com.strhodler.utxopocket.data.preferences.userPreferencesDataStore
+import com.strhodler.utxopocket.data.preferences.USER_PREFERENCES_NAME
 
 @Singleton
 class DefaultAppPreferencesRepository @Inject constructor(
@@ -91,6 +95,13 @@ class DefaultAppPreferencesRepository @Inject constructor(
             } ?: ThemePreference.SYSTEM
         }
 
+    override val themeProfile: Flow<ThemeProfile> =
+        dataStore.data.map { prefs ->
+            prefs[Keys.THEME_PROFILE]?.let { value ->
+                runCatching { ThemeProfile.valueOf(value) }.getOrNull()
+            } ?: ThemeProfile.DEFAULT
+        }
+
     override val appLanguage: Flow<AppLanguage> =
         dataStore.data.map { prefs ->
             prefs[Keys.APP_LANGUAGE]?.let { stored ->
@@ -108,9 +119,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
     override val balancesHidden: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.BALANCES_HIDDEN] ?: false }
 
-    override val walletAnimationsEnabled: Flow<Boolean> =
-        dataStore.data.map { prefs -> prefs[Keys.WALLET_ANIMATIONS_ENABLED] ?: true }
-
     override val hapticsEnabled: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.HAPTICS_ENABLED] ?: true }
 
@@ -118,7 +126,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         dataStore.data.map { prefs ->
             prefs[Keys.WALLET_BALANCE_RANGE]?.let { value ->
                 runCatching { BalanceRange.valueOf(value) }.getOrNull()
-            } ?: BalanceRange.LastYear
+            } ?: BalanceRange.All
         }
 
     override val showBalanceChart: Flow<Boolean> =
@@ -157,6 +165,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
         dataStore.data.map { prefs -> prefs[Keys.NETWORK_LOGS_ENABLED] ?: false }
     override val networkLogsInfoSeen: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.NETWORK_LOGS_INFO_SEEN] ?: false }
+    override val blockExplorerPreferences: Flow<BlockExplorerPreferences> =
+        dataStore.data.map { prefs -> prefs.toBlockExplorerPreferences() }
 
     override val transactionHealthParameters: Flow<TransactionHealthParameters> =
         dataStore.data.map { prefs ->
@@ -320,6 +330,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
         dataStore.edit { prefs -> prefs[Keys.THEME_PREFERENCE] = themePreference.name }
     }
 
+    override suspend fun setThemeProfile(themeProfile: ThemeProfile) {
+        dataStore.edit { prefs -> prefs[Keys.THEME_PROFILE] = themeProfile.name }
+    }
+
     override suspend fun setAppLanguage(language: AppLanguage) {
         dataStore.edit { prefs -> prefs[Keys.APP_LANGUAGE] = language.languageTag }
     }
@@ -346,10 +360,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs[Keys.BALANCE_UNIT] = nextUnit.name
             prefs[Keys.BALANCES_HIDDEN] = nextHidden
         }
-    }
-
-    override suspend fun setWalletAnimationsEnabled(enabled: Boolean) {
-        dataStore.edit { prefs -> prefs[Keys.WALLET_ANIMATIONS_ENABLED] = enabled }
     }
 
     override suspend fun setHapticsEnabled(enabled: Boolean) {
@@ -463,6 +473,36 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     override suspend fun setNetworkLogsInfoSeen(seen: Boolean) {
         dataStore.edit { prefs -> prefs[Keys.NETWORK_LOGS_INFO_SEEN] = seen }
+    }
+
+    override suspend fun setBlockExplorerBucket(network: BitcoinNetwork, bucket: BlockExplorerBucket) {
+        dataStore.edit { prefs ->
+            prefs[blockExplorerBucketKey(network)] = bucket.name
+        }
+    }
+
+    override suspend fun setBlockExplorerPreset(network: BitcoinNetwork, bucket: BlockExplorerBucket, presetId: String) {
+        dataStore.edit { prefs ->
+            prefs[blockExplorerPresetKey(network, bucket)] = presetId
+        }
+    }
+
+    override suspend fun setBlockExplorerCustom(network: BitcoinNetwork, bucket: BlockExplorerBucket, url: String?, name: String?) {
+        val trimmed = url?.trim().orEmpty()
+        val trimmedName = name?.trim().orEmpty()
+        dataStore.edit { prefs ->
+            if (trimmed.isBlank()) {
+                prefs.remove(blockExplorerCustomUrlKey(network, bucket))
+                prefs.remove(blockExplorerCustomNameKey(network, bucket))
+            } else {
+                prefs[blockExplorerCustomUrlKey(network, bucket)] = trimmed
+                if (trimmedName.isNotBlank()) {
+                    prefs[blockExplorerCustomNameKey(network, bucket)] = trimmedName
+                } else {
+                    prefs.remove(blockExplorerCustomNameKey(network, bucket))
+                }
+            }
+        }
     }
 
     override val nodeConfig: Flow<NodeConfig> =
@@ -661,6 +701,44 @@ class DefaultAppPreferencesRepository @Inject constructor(
         return AppLanguage.EN
     }
 
+    private fun Preferences.toBlockExplorerPreferences(): BlockExplorerPreferences {
+        val selections = BitcoinNetwork.entries.associateWith { network ->
+            val bucketName = this[blockExplorerBucketKey(network)]
+            val bucket = bucketName?.let { runCatching { BlockExplorerBucket.valueOf(it) }.getOrNull() }
+                ?: WalletDefaults.DEFAULT_BLOCK_EXPLORER_BUCKET
+            val normalPreset = this[blockExplorerPresetKey(network, BlockExplorerBucket.NORMAL)]
+                ?: BlockExplorerCatalog.defaultPresetId(network, BlockExplorerBucket.NORMAL)
+            val onionPreset = this[blockExplorerPresetKey(network, BlockExplorerBucket.ONION)]
+                ?: BlockExplorerCatalog.defaultPresetId(network, BlockExplorerBucket.ONION)
+            val customNormal = this[blockExplorerCustomUrlKey(network, BlockExplorerBucket.NORMAL)]
+            val customOnion = this[blockExplorerCustomUrlKey(network, BlockExplorerBucket.ONION)]
+            val customNormalName = this[blockExplorerCustomNameKey(network, BlockExplorerBucket.NORMAL)]
+            val customOnionName = this[blockExplorerCustomNameKey(network, BlockExplorerBucket.ONION)]
+            BlockExplorerNetworkPreference(
+                bucket = bucket,
+                normalPresetId = normalPreset,
+                onionPresetId = onionPreset,
+                customNormalUrl = customNormal,
+                customOnionUrl = customOnion,
+                customNormalName = customNormalName,
+                customOnionName = customOnionName
+            )
+        }
+        return BlockExplorerPreferences(selections)
+    }
+
+    private fun blockExplorerBucketKey(network: BitcoinNetwork) =
+        stringPreferencesKey("block_explorer_${network.name.lowercase()}_bucket")
+
+    private fun blockExplorerPresetKey(network: BitcoinNetwork, bucket: BlockExplorerBucket) =
+        stringPreferencesKey("block_explorer_${network.name.lowercase()}_preset_${bucket.name.lowercase()}")
+
+    private fun blockExplorerCustomUrlKey(network: BitcoinNetwork, bucket: BlockExplorerBucket) =
+        stringPreferencesKey("block_explorer_${network.name.lowercase()}_custom_${bucket.name.lowercase()}")
+
+    private fun blockExplorerCustomNameKey(network: BitcoinNetwork, bucket: BlockExplorerBucket) =
+        stringPreferencesKey("block_explorer_${network.name.lowercase()}_custom_${bucket.name.lowercase()}_name")
+
     private object Keys {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val PREFERRED_NETWORK = stringPreferencesKey("preferred_network")
@@ -682,10 +760,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val NODE_CUSTOM_LIST = stringPreferencesKey("node_custom_list")
         val NODE_CUSTOM_SELECTED_ID = stringPreferencesKey("node_custom_selected_id")
         val THEME_PREFERENCE = stringPreferencesKey("theme_preference")
+        val THEME_PROFILE = stringPreferencesKey("theme_profile")
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val BALANCE_UNIT = stringPreferencesKey("balance_unit")
         val BALANCES_HIDDEN = booleanPreferencesKey("balances_hidden")
-        val WALLET_ANIMATIONS_ENABLED = booleanPreferencesKey("wallet_animations_enabled")
         val HAPTICS_ENABLED = booleanPreferencesKey("haptics_enabled")
         val WALLET_BALANCE_RANGE = stringPreferencesKey("wallet_balance_range")
         val SHOW_BALANCE_CHART = booleanPreferencesKey("show_balance_chart")

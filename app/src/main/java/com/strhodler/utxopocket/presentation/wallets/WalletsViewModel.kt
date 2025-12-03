@@ -10,7 +10,9 @@ import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.NodeConfig
+import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
+import com.strhodler.utxopocket.domain.model.activeCustomNode
 import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
@@ -22,6 +24,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
@@ -37,8 +40,6 @@ class WalletsViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val selectedNetwork = MutableStateFlow(BitcoinNetwork.DEFAULT)
-    private val hasWallets = MutableStateFlow(false)
-    private var lastObservedNodeStatus: NodeStatus? = null
 
     private val walletData = selectedNetwork.flatMapLatest { network ->
         walletRepository.observeWalletSummaries(network)
@@ -70,43 +71,10 @@ class WalletsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             walletData.collect { data ->
-                hasWallets.value = data.wallets.isNotEmpty()
+                // No-op collector to keep snapshot flow active on network changes.
             }
         }
-        viewModelScope.launch {
-            combine(
-                walletRepository.observeNodeStatus(),
-                walletRepository.observeSyncStatus(),
-                selectedNetwork,
-                hasWallets
-            ) { nodeSnapshot, syncSnapshot, network, hasWallets ->
-                AutoRefreshSignal(
-                    nodeSnapshot = nodeSnapshot,
-                    syncSnapshot = syncSnapshot,
-                    selectedNetwork = network,
-                    hasWallets = hasWallets
-                )
-            }.collect { signal ->
-                val previousStatus = lastObservedNodeStatus
-                val currentStatus = signal.nodeSnapshot.status
-                val matchesNetwork = signal.nodeSnapshot.network == signal.selectedNetwork
-                val syncBusy = (
-                    signal.syncSnapshot.isRefreshing &&
-                        signal.syncSnapshot.network == signal.selectedNetwork
-                    ) || signal.syncSnapshot.refreshingWalletIds.isNotEmpty()
-                if (
-                    previousStatus != null &&
-                    previousStatus !is NodeStatus.Synced &&
-                    currentStatus is NodeStatus.Synced &&
-                    matchesNetwork &&
-                    signal.hasWallets &&
-                    !syncBusy
-                ) {
-                    walletRepository.refresh(signal.selectedNetwork)
-                }
-                lastObservedNodeStatus = currentStatus
-            }
-        }
+        // Removed auto-refresh on node connect; syncing is now user-driven or targeted.
         refresh()
     }
 
@@ -146,10 +114,7 @@ class WalletsViewModel @Inject constructor(
         )
     }
 
-    val uiState: StateFlow<WalletsUiState> = combine(
-        walletSnapshot,
-        appPreferencesRepository.walletAnimationsEnabled
-    ) { snapshot, animationsEnabled ->
+    val uiState: StateFlow<WalletsUiState> = walletSnapshot.map { snapshot ->
         val data = snapshot.data
         val nodeSnapshot = snapshot.nodeSnapshot
         val syncStatus = snapshot.syncStatus
@@ -171,6 +136,10 @@ class WalletsViewModel @Inject constructor(
             torError != null -> torError
             else -> null
         }
+        val connectedNodeLabel = resolveConnectedNodeLabel(
+            nodeConfig = snapshot.nodeConfig,
+            network = data.network
+        ) ?: snapshot.nodeSnapshot.endpoint?.substringAfter("://")?.trimEnd('/')
         WalletsUiState(
             isRefreshing = isRefreshing,
             wallets = data.wallets,
@@ -185,9 +154,11 @@ class WalletsViewModel @Inject constructor(
             blockHeight = if (snapshotMatchesNetwork) nodeSnapshot.blockHeight else null,
             feeRateSatPerVb = if (snapshotMatchesNetwork) nodeSnapshot.feeRateSatPerVb else null,
             errorMessage = errorMessage,
-            walletAnimationsEnabled = animationsEnabled,
             hasActiveNodeSelection = snapshot.nodeConfig.hasActiveSelection(data.network),
-            refreshingWalletIds = syncStatus.refreshingWalletIds
+            refreshingWalletIds = syncStatus.refreshingWalletIds,
+            activeWalletId = syncStatus.activeWalletId.takeIf { syncStatus.network == data.network },
+            queuedWalletIds = if (syncStatus.network == data.network) syncStatus.queuedWalletIds else emptyList(),
+            connectedNodeLabel = connectedNodeLabel
         )
     }.stateIn(
         scope = viewModelScope,
@@ -197,7 +168,11 @@ class WalletsViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
-            walletRepository.refresh(selectedNetwork.value)
+            val hasNode = nodeConfigurationRepository.nodeConfig.first()
+                .hasActiveSelection(selectedNetwork.value)
+            if (hasNode) {
+                walletRepository.refresh(selectedNetwork.value)
+            }
         }
     }
 
@@ -233,12 +208,18 @@ class WalletsViewModel @Inject constructor(
         val hapticsEnabled: Boolean
     )
 
-    private data class AutoRefreshSignal(
-        val nodeSnapshot: NodeStatusSnapshot,
-        val syncSnapshot: SyncStatusSnapshot,
-        val selectedNetwork: BitcoinNetwork,
-        val hasWallets: Boolean
-    )
+    private fun resolveConnectedNodeLabel(
+        nodeConfig: NodeConfig,
+        network: BitcoinNetwork
+    ): String? {
+        return when (nodeConfig.connectionOption) {
+            NodeConnectionOption.PUBLIC -> nodeConfig.selectedPublicNodeId?.let { id ->
+                nodeConfigurationRepository.publicNodesFor(network).firstOrNull { it.id == id }?.displayName
+            }
+
+            NodeConnectionOption.CUSTOM -> nodeConfig.activeCustomNode(network)?.displayLabel()
+        }
+    }
 }
 
 data class WalletsUiState(
@@ -255,7 +236,9 @@ data class WalletsUiState(
     val blockHeight: Long? = null,
     val feeRateSatPerVb: Double? = null,
     val errorMessage: String? = null,
-    val walletAnimationsEnabled: Boolean = true,
     val hasActiveNodeSelection: Boolean = false,
-    val refreshingWalletIds: Set<Long> = emptySet()
+    val refreshingWalletIds: Set<Long> = emptySet(),
+    val activeWalletId: Long? = null,
+    val queuedWalletIds: List<Long> = emptyList(),
+    val connectedNodeLabel: String? = null
 )

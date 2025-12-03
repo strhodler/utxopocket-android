@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -14,13 +15,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.ArrowDropUp
@@ -29,25 +33,23 @@ import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,16 +74,18 @@ import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
 import com.strhodler.utxopocket.domain.model.DescriptorWarning
 import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
-import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.common.UrMultiPartScanActivity
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBanner
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBannerStyle
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import kotlinx.coroutines.launch
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AddWalletScreen(
     state: AddWalletUiState,
@@ -113,14 +117,37 @@ fun AddWalletScreen(
         title = stringResource(id = R.string.add_wallet_title),
         onBackClick = onBack
     )
-    val scrollState = rememberScrollState()
+    val modes = remember { listOf(WalletImportMode.DESCRIPTOR, WalletImportMode.EXTENDED_KEY) }
+    val pagerState = rememberPagerState(
+        initialPage = modes.indexOf(state.importMode).coerceAtLeast(0),
+        pageCount = { modes.size }
+    )
+    val pagerScope = rememberCoroutineScope()
     val canSubmit =
         state.walletName.isNotBlank() && state.validation is DescriptorValidationResult.Valid && !state.isSaving
+
+    LaunchedEffect(state.importMode) {
+        val targetPage = modes.indexOf(state.importMode).coerceAtLeast(0)
+        if (targetPage != pagerState.currentPage) {
+            pagerState.animateScrollToPage(targetPage)
+        }
+    }
+    LaunchedEffect(pagerState.currentPage) {
+        val mode = modes[pagerState.currentPage]
+        if (mode != state.importMode) {
+            onImportModeSelected(mode)
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
-        contentWindowInsets = ScreenScaffoldInsets
+        contentWindowInsets = WindowInsets(
+            left = 0.dp,
+            top = 0.dp,
+            right = 0.dp,
+            bottom = 0.dp
+        )
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -128,43 +155,53 @@ fun AddWalletScreen(
                 .applyScreenPadding(paddingValues)
         ) {
             ImportModeTabs(
-                selectedMode = state.importMode,
-                onSelect = onImportModeSelected,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                modes = modes,
+                selectedIndex = pagerState.currentPage,
+                onSelectIndex = { index ->
+                    pagerScope.launch { pagerState.animateScrollToPage(index) }
+                },
+                modifier = Modifier.fillMaxWidth()
             )
-            Column(
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier
                     .weight(1f)
-                    .verticalScroll(scrollState)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                FormCard(
-                    state = state,
-                    snackbarHostState = snackbarHostState,
-                    onDescriptorChange = onDescriptorChange,
-                    onChangeDescriptorChange = onChangeDescriptorChange,
-                    onWalletNameChange = onWalletNameChange,
-                onToggleAdvanced = onToggleAdvanced,
-                onToggleExtendedAdvanced = onToggleExtendedAdvanced,
-                onExtendedKeyChange = onExtendedKeyChange,
-                onExtendedDerivationPathChange = onExtendedDerivationPathChange,
-                onExtendedFingerprintChange = onExtendedFingerprintChange,
-                    onExtendedScriptTypeChange = onExtendedScriptTypeChange,
-                    onExtendedIncludeChangeBranch = onExtendedIncludeChangeBranch
-                )
-                ValidationSummary(
-                    state = state,
-                    onDescriptorHelp = onDescriptorHelp
-                )
-                state.formError?.let { error ->
-                    Text(
-                        text = error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
+            ) { page ->
+                val pageMode = modes[page]
+                val pageScroll = rememberScrollState()
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(pageScroll)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    FormCard(
+                        state = state,
+                        importMode = pageMode,
+                        snackbarHostState = snackbarHostState,
+                        onDescriptorChange = onDescriptorChange,
+                        onChangeDescriptorChange = onChangeDescriptorChange,
+                        onWalletNameChange = onWalletNameChange,
+                    onToggleAdvanced = onToggleAdvanced,
+                    onToggleExtendedAdvanced = onToggleExtendedAdvanced,
+                    onExtendedKeyChange = onExtendedKeyChange,
+                    onExtendedDerivationPathChange = onExtendedDerivationPathChange,
+                    onExtendedFingerprintChange = onExtendedFingerprintChange,
+                        onExtendedScriptTypeChange = onExtendedScriptTypeChange,
+                        onExtendedIncludeChangeBranch = onExtendedIncludeChangeBranch
                     )
+                    ValidationSummary(
+                        state = state,
+                        onDescriptorHelp = onDescriptorHelp
+                    )
+                    state.formError?.let { error ->
+                        Text(
+                            text = error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
             ActionButtons(
@@ -175,6 +212,7 @@ fun AddWalletScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .navigationBarsPadding()
             )
         }
     }
@@ -272,6 +310,7 @@ fun AddWalletScreen(
 @Composable
 private fun FormCard(
     state: AddWalletUiState,
+    importMode: WalletImportMode,
     snackbarHostState: SnackbarHostState,
     onDescriptorChange: (String) -> Unit,
     onChangeDescriptorChange: (String) -> Unit,
@@ -317,49 +356,40 @@ private fun FormCard(
         }
     )
 
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            WalletNameInput(
-                value = state.walletName,
-                onChange = onWalletNameChange
-            )
-            when (state.importMode) {
-                WalletImportMode.DESCRIPTOR -> {
-                    DescriptorInputs(
-                        descriptor = state.descriptor,
-                        onDescriptorChange = onDescriptorChange,
-                        onScanDescriptor = startDescriptorScan
-                    )
-                }
-
-                WalletImportMode.EXTENDED_KEY -> {
-                    ExtendedKeyInputs(
-                        form = state.extendedForm,
-                        onExtendedKeyChange = onExtendedKeyChange,
-                        onScriptTypeChange = onExtendedScriptTypeChange,
-                        onIncludeChangeBranch = onExtendedIncludeChangeBranch,
-                        onScanExtendedKey = startExtendedScan
-                    )
-                }
-            }
-            when (state.importMode) {
-                WalletImportMode.DESCRIPTOR -> DescriptorAdvancedOptions(
+        WalletNameInput(
+            value = state.walletName,
+            onChange = onWalletNameChange
+        )
+        when (importMode) {
+            WalletImportMode.DESCRIPTOR -> {
+                DescriptorInputs(
+                    descriptor = state.descriptor,
+                    onDescriptorChange = onDescriptorChange,
+                    onScanDescriptor = startDescriptorScan
+                )
+                DescriptorAdvancedOptions(
                     showAdvanced = state.showAdvanced,
                     onToggleAdvanced = onToggleAdvanced,
                     changeDescriptor = state.changeDescriptor,
                     onChangeDescriptorChange = onChangeDescriptorChange,
                     selectedNetwork = state.selectedNetwork
                 )
+            }
 
-                WalletImportMode.EXTENDED_KEY -> ExtendedKeyAdvancedOptions(
+            WalletImportMode.EXTENDED_KEY -> {
+                ExtendedKeyInputs(
+                    form = state.extendedForm,
+                    onExtendedKeyChange = onExtendedKeyChange,
+                    onScriptTypeChange = onExtendedScriptTypeChange,
+                    onIncludeChangeBranch = onExtendedIncludeChangeBranch,
+                    onScanExtendedKey = startExtendedScan
+                )
+                ExtendedKeyAdvancedOptions(
                     showAdvanced = state.showExtendedAdvanced,
                     onToggleAdvanced = onToggleExtendedAdvanced,
                     derivationPath = state.extendedForm.derivationPath,
@@ -374,17 +404,16 @@ private fun FormCard(
 
 @Composable
 private fun ImportModeTabs(
-    selectedMode: WalletImportMode,
-    onSelect: (WalletImportMode) -> Unit,
+    modes: List<WalletImportMode>,
+    selectedIndex: Int,
+    onSelectIndex: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val modes = listOf(WalletImportMode.DESCRIPTOR, WalletImportMode.EXTENDED_KEY)
-    val selectedIndex = modes.indexOf(selectedMode).coerceAtLeast(0)
     TabRow(
         selectedTabIndex = selectedIndex,
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.primary
+        modifier = modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         modes.forEach { mode ->
             val label = when (mode) {
@@ -392,8 +421,8 @@ private fun ImportModeTabs(
                 WalletImportMode.EXTENDED_KEY -> R.string.add_wallet_tab_extended_key
             }
             Tab(
-                selected = selectedMode == mode,
-                onClick = { onSelect(mode) },
+                selected = selectedIndex == modes.indexOf(mode),
+                onClick = { onSelectIndex(modes.indexOf(mode)) },
                 text = { Text(text = stringResource(id = label)) }
             )
         }
@@ -409,7 +438,7 @@ private fun DescriptorInputs(
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        OutlinedTextField(
+        TextField(
             modifier = Modifier.fillMaxWidth(),
             value = descriptor,
             onValueChange = onDescriptorChange,
@@ -457,7 +486,7 @@ private fun DescriptorAdvancedOptions(
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                OutlinedTextField(
+                TextField(
                     modifier = Modifier.fillMaxWidth(),
                     value = changeDescriptor,
                     onValueChange = onChangeDescriptorChange,
@@ -491,7 +520,7 @@ private fun ExtendedKeyInputs(
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        OutlinedTextField(
+        TextField(
             modifier = Modifier.fillMaxWidth(),
             value = form.extendedKey,
             onValueChange = onExtendedKeyChange,
@@ -544,7 +573,8 @@ private fun ExtendedKeyInputs(
             Spacer(modifier = Modifier.width(12.dp))
             Switch(
                 checked = form.includeChangeBranch,
-                onCheckedChange = onIncludeChangeBranch
+                onCheckedChange = onIncludeChangeBranch,
+                colors = SwitchDefaults.colors()
             )
         }
         form.errorMessage?.let { error ->
@@ -580,7 +610,7 @@ private fun ExtendedKeyAdvancedOptions(
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                OutlinedTextField(
+                TextField(
                     modifier = Modifier.fillMaxWidth(),
                     value = derivationPath,
                     onValueChange = onDerivationPathChange,
@@ -593,7 +623,7 @@ private fun ExtendedKeyAdvancedOptions(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                OutlinedTextField(
+                TextField(
                     modifier = Modifier.fillMaxWidth(),
                     value = masterFingerprint,
                     onValueChange = onFingerprintChange,
@@ -628,7 +658,7 @@ private fun ExtendedKeyScriptTypeSelector(
     val interactionSource = remember { MutableInteractionSource() }
     Box(modifier = modifier.fillMaxWidth()) {
         val fieldValue = selectedType?.let { stringResource(id = extendedKeyScriptTypeLabel(it)) } ?: ""
-        OutlinedTextField(
+        TextField(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(
@@ -788,10 +818,10 @@ private fun defaultWalletScanOptions(): ScanOptions = ScanOptions().apply {
 @Composable
 private fun WalletNameInput(
     value: String,
-    onChange: (String) -> Unit
+        onChange: (String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
+        TextField(
             modifier = Modifier.fillMaxWidth(),
             value = value,
             onValueChange = onChange,
@@ -838,36 +868,25 @@ private fun ValidationSummary(
 
         state.validation is DescriptorValidationResult.Valid -> {
             val valid = state.validation
-            ElevatedCard(
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(
+                        id = R.string.add_wallet_descriptor_detected,
+                        stringResource(id = descriptorTypeLabel(valid.type))
+                    ),
+                    style = MaterialTheme.typography.bodyMedium
                 )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = stringResource(
-                            id = R.string.add_wallet_descriptor_detected,
-                            stringResource(id = descriptorTypeLabel(valid.type))
-                        ),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = if (valid.hasWildcard) {
-                            stringResource(id = R.string.add_wallet_descriptor_wildcard_yes)
-                        } else {
-                            stringResource(id = R.string.add_wallet_descriptor_wildcard_no)
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (valid.warnings.isNotEmpty()) {
-                        WarningList(warnings = valid.warnings)
-                    }
+                Text(
+                    text = if (valid.hasWildcard) {
+                        stringResource(id = R.string.add_wallet_descriptor_wildcard_yes)
+                    } else {
+                        stringResource(id = R.string.add_wallet_descriptor_wildcard_no)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (valid.warnings.isNotEmpty()) {
+                    WarningList(warnings = valid.warnings)
                 }
             }
         }
@@ -935,13 +954,13 @@ private fun ActionButtons(
                     strokeWidth = 2.dp,
                     color = MaterialTheme.colorScheme.onPrimary
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(12.dp))
             } else {
                 Icon(
                     imageVector = Icons.Outlined.Check,
                     contentDescription = null
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(12.dp))
             }
             Text(text = stringResource(id = R.string.add_wallet_submit))
         }

@@ -67,7 +67,7 @@ fun buildTransactionGraph(transaction: WalletTransaction): TransactionGraph {
             role = GraphRole.Input,
             valueSats = input.valueSats,
             address = input.address ?: formatOutPoint(input.prevTxid, input.prevVout),
-            isMine = input.isMine,
+            isMine = false,
             derivationPath = input.derivationPath
         )
     }

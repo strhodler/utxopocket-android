@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -88,10 +90,10 @@ private fun FeaturesScreen(onBack: () -> Unit) {
 
 @Composable
 private fun FeatureCard(feature: FeatureItem) {
-    Surface(
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        tonalElevation = 1.dp
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.elevatedCardColors()
     ) {
         Column(
             modifier = Modifier.padding(20.dp),

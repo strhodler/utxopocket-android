@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.strhodler.utxopocket.data.db.EncryptedSupportFactoryProvider
 import com.strhodler.utxopocket.data.db.UtxoPocketDatabase
+import com.strhodler.utxopocket.data.db.WalletMigrations
 import com.strhodler.utxopocket.data.db.WalletDao
 import dagger.Module
 import dagger.Provides
@@ -28,6 +29,7 @@ object DatabaseModule {
             UtxoPocketDatabase.NAME
         )
             .openHelperFactory(encryptedSupportFactoryProvider.create())
+            .addMigrations(*WalletMigrations.ALL)
             .fallbackToDestructiveMigration()
             .build()
 

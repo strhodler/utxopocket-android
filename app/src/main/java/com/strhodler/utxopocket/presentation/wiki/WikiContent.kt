@@ -152,7 +152,8 @@ private val wikiTopicKeywords: Map<String, List<String>> = mapOf(
         "Electrum",
         "Node health",
         "Onion services",
-        "Connectivity"
+        "Connectivity",
+        "UtxoPocket"
     ),
     "bitcoin-dev-kit" to listOf(
         "BDK",
@@ -201,6 +202,14 @@ private val wikiTopicKeywords: Map<String, List<String>> = mapOf(
         "Xpubs",
         "Derivation paths",
         "Accounts"
+    ),
+    "block-explorer-privacy" to listOf(
+        "Block explorer",
+        "Tor browser",
+        "Clearnet",
+        "Self-hosted",
+        "Onion",
+        "Mempool"
     ),
     "address-and-uri-standards" to listOf(
         "BIP21",
@@ -252,7 +261,8 @@ private val wikiTopicKeywords: Map<String, List<String>> = mapOf(
         "Indicators",
         "Health score",
         "Risk assessment",
-        "Alerts"
+        "Alerts",
+        "UtxoPocket"
     ),
     "wallet-health" to listOf(
         "Wallet score",
@@ -261,7 +271,8 @@ private val wikiTopicKeywords: Map<String, List<String>> = mapOf(
         "Monitoring",
         "Health score",
         "Optimization",
-        "Alerts"
+        "Alerts",
+        "UtxoPocket"
     ),
     "utxo-health" to listOf(
         "UTXO score",
@@ -269,7 +280,8 @@ private val wikiTopicKeywords: Map<String, List<String>> = mapOf(
         "Consolidation",
         "Coin hygiene",
         "Consolidation risk",
-        "Dust"
+        "Dust",
+        "UtxoPocket"
     ),
     "operational-security" to listOf(
         "OpSec",
@@ -304,6 +316,14 @@ private val wikiTopicKeywords: Map<String, List<String>> = mapOf(
         "Fedimint",
         "Ark",
         "Auction slots"
+    ),
+    "utxopocket-overview" to listOf(
+        "UtxoPocket",
+        "Watch-only",
+        "App operations",
+        "Tor",
+        "BDK",
+        "Descriptors"
     )
 )
 
@@ -313,6 +333,8 @@ object WikiContent {
     const val UtxoHealthTopicId: String = "utxo-health"
     const val WalletHealthTopicId: String = "wallet-health"
     const val NodeConnectivityTopicId: String = "node-connectivity"
+    const val PrivacyThreatModelsTopicId: String = "privacy-threat-models"
+    const val BlockExplorerPrivacyTopicId: String = "block-explorer-privacy"
     const val DescriptorCompatibilityTopicId: String = "descriptor-compatibility"
 
     val categories: List<WikiCategory> = listOf(
@@ -501,6 +523,11 @@ object WikiContent {
                                 "Because the system runs entirely on-device, no addresses, labels, or history are sent to external services. Re-enabling the feature recomputes scores from your stored wallet history so you can always rebuild the dataset."
                             )
                         )
+                    ),
+                    relatedTopicIds = listOf(
+                        UtxoHealthTopicId,
+                        WalletHealthTopicId,
+                        "utxopocket-overview"
                     )
                 ),
                 WikiTopic(
@@ -531,7 +558,7 @@ object WikiContent {
                             )
                         )
                     ),
-                    relatedTopicIds = listOf(TransactionHealthTopicId, UtxoHealthTopicId)
+                    relatedTopicIds = listOf(TransactionHealthTopicId, UtxoHealthTopicId, "utxopocket-overview")
                 ),
                 WikiTopic(
                     id = UtxoHealthTopicId,
@@ -566,6 +593,11 @@ object WikiContent {
                                 "The analyser runs entirely on-device. Re-enabling the feature recalculates scores from your stored UTXOs without contacting any external service." 
                             )
                         )
+                    ),
+                    relatedTopicIds = listOf(
+                        TransactionHealthTopicId,
+                        WalletHealthTopicId,
+                        "utxopocket-overview"
                     )
                 ),
                 WikiTopic(
@@ -587,6 +619,38 @@ object WikiContent {
                                 "When crossing borders, travel with watch-only descriptors and keep signing devices powered off. Memorise (or securely store separately) your passphrases so seizing one device does not grant full access."
                             )
                         )
+                    )
+                ),
+                WikiTopic(
+                    id = BlockExplorerPrivacyTopicId,
+                    title = "Block Explorer Privacy",
+                    summary = "Why self-hosted or Tor explorers keep your lookups private.",
+                    sections = listOf(
+                        WikiSection(
+                            title = "Prefer Your Own Explorer",
+                            paragraphs = listOf(
+                                "Public explorers log IPs, user agents, and queried txids. If you reuse the same explorer for every lookup, you hand an observer a map of your activity. Running your own explorer (for example, mempool) behind Tor or on your LAN keeps these logs under your control.",
+                                "Self-hosting also removes the risk of DNS hijacks or SSL interception that can modify responses. If you cannot run your own node yet, pick explorers you trust and rotate them sparingly."
+                            )
+                        ),
+                        WikiSection(
+                            title = "Use Onion URLs When Possible",
+                            paragraphs = listOf(
+                                "Onion explorers avoid exposing your home IP to third parties. They still see the txids you query, but they cannot trivially link them to your network. Pair this with watch-only wallets to keep signing keys offline.",
+                                "Always include the full /tx/ path when adding explorers in Settings so the app appends txids automatically and you avoid copying sensitive data between apps."
+                            )
+                        ),
+                        WikiSection(
+                            title = "Open Links with Tor Browser",
+                            paragraphs = listOf(
+                                "Install Tor Browser on your device so onion links and clearnet explorers both open through Tor. This keeps lookup traffic separate from your normal browsing profile and reduces IP-based clustering.",
+                                "If an explorer only offers clearnet, open it through Tor Browser anyway. Avoid mixing personal browsing and wallet lookups in the same browser profile."
+                            )
+                        )
+                    ),
+                    relatedTopicIds = listOf(
+                        PrivacyThreatModelsTopicId,
+                        NodeConnectivityTopicId
                     )
                 ),
                 WikiTopic(
@@ -706,7 +770,8 @@ object WikiContent {
                                 "Maintain at least one fallback server. If an onion host goes dark, switching to a known-good peer keeps watch-only monitoring online without exposing clearnet metadata."
                             )
                         )
-                    )
+                    ),
+                    relatedTopicIds = listOf("utxopocket-overview")
                 ),
                 WikiTopic(
                     id = "bitcoin-networking",
@@ -1300,12 +1365,25 @@ object WikiContent {
                             )
                         ),
                         WikiSection(
+                            title = "Descriptor Access Controls",
+                            paragraphs = listOf(
+                                "Descriptor exports live behind the overflow menu in Wallet detail. If a PIN lock is enabled, the app prompts for verification before revealing descriptors or their QR codes, honoring lockout timers and optional digit shuffling.",
+                                "The descriptors sheet shows external, change, and a combined multipath form (`/<0;1>/*`) so you can copy or scan the exact data your signer expects while keeping the warning banner in view."
+                            )
+                        ),
+                        WikiSection(
                             title = "Operations in Practice",
                             paragraphs = listOf(
                                 "Every network request routes through the embedded Tor client. The global status bar shows bootstrap progress and node health, and you can renew the Tor identity from Settings whenever you need a clean circuit.",
                                 "Balance cards warn about reused addresses, show scheduled full scans, and expose one-tap tooling to copy descriptors, display QR codes, or trigger a deep rescan. Watch-only operators get full visibility without risking signing keys."
                             )
                         )
+                    ),
+                    relatedTopicIds = listOf(
+                        TransactionHealthTopicId,
+                        UtxoHealthTopicId,
+                        WalletHealthTopicId,
+                        NodeConnectivityTopicId
                     )
                 )
             )

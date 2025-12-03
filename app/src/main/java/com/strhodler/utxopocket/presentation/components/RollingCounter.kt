@@ -13,7 +13,9 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,6 +27,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
@@ -36,6 +40,7 @@ import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.presentation.common.balanceUnitLabel
 import com.strhodler.utxopocket.presentation.common.balanceValue
 import java.util.Locale
+import kotlin.math.min
 import kotlin.random.Random
 private fun TextStyle.applyMonospace(monospace: Boolean): TextStyle =
     if (monospace) {
@@ -65,7 +70,7 @@ fun RollingCounter(
     modifier: Modifier = Modifier,
     style: TextStyle = MaterialTheme.typography.displaySmall,
     digitSpacing: Dp = 0.dp,
-    animationMillis: Int = 220,
+    animationMillis: Int = 0,
     easing: Easing = FastOutSlowInEasing,
     groupThousands: Boolean = true,
     prefix: String = "",
@@ -89,6 +94,15 @@ fun RollingCounter(
 
     val render = remember(value, prefix, suffix, valueFormatter) {
         buildRenderString(value, prefix, suffix, valueFormatter)
+    }
+
+    if (animationMillis <= 0) {
+        Text(
+            text = render,
+            style = textStyle,
+            modifier = modifier
+        )
+        return
     }
 
     Row(
@@ -180,35 +194,93 @@ fun RollingBalanceText(
     modifier: Modifier = Modifier,
     style: TextStyle = MaterialTheme.typography.displaySmall,
     digitSpacing: Dp = 0.dp,
-    animationMillis: Int = 220,
+    animationMillis: Int = 0,
     easing: Easing = FastOutSlowInEasing,
-    monospaced: Boolean = true
+    monospaced: Boolean = true,
+    autoScale: Boolean = true
 ) {
     val suffix = remember(unit) { " ${balanceUnitLabel(unit)}" }
     val textStyle = remember(style, monospaced) { style.applyMonospace(monospaced) }
-    if (hidden) {
-        val mask = remember(unit) { "*".repeat(Random.nextInt(4, 7)) }
-        Text(
-            text = mask + suffix,
-            modifier = modifier,
-            style = style
-        )
-        return
-    }
     val valueFormatter = remember(unit) {
         { value: Long -> balanceValue(value, unit) }
     }
-    RollingCounter(
-        value = balanceSats,
-        modifier = modifier,
-        style = textStyle,
-        digitSpacing = digitSpacing,
-        animationMillis = animationMillis,
-        easing = easing,
-        groupThousands = unit == BalanceUnit.SATS,
-        prefix = "",
-        suffix = suffix,
-        monospaced = monospaced,
-        valueFormatter = valueFormatter
-    )
+    val textMeasurer = rememberTextMeasurer()
+    val mask = remember(unit) { "*".repeat(Random.nextInt(4, 7)) }
+
+    if (!autoScale) {
+        if (hidden) {
+            Text(
+                text = mask,
+                modifier = modifier,
+                style = textStyle
+            )
+        } else {
+            RollingCounter(
+                value = balanceSats,
+                modifier = modifier,
+                style = textStyle,
+                digitSpacing = digitSpacing,
+                animationMillis = animationMillis,
+                easing = easing,
+                groupThousands = unit == BalanceUnit.SATS,
+                prefix = "",
+                suffix = suffix,
+                monospaced = monospaced,
+                valueFormatter = valueFormatter
+            )
+        }
+        return
+    }
+
+    BoxWithConstraints(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        val maxWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
+        val displayText = if (hidden) {
+            mask
+        } else {
+            valueFormatter(balanceSats) + suffix
+        }
+        val measuredWidthPx = remember(displayText, textStyle) {
+            textMeasurer.measure(
+                text = AnnotatedString(displayText),
+                style = textStyle
+            ).size.width.toFloat()
+        }
+        val scaleFactor = remember(maxWidthPx, measuredWidthPx) {
+            if (!maxWidthPx.isFinite() || maxWidthPx <= 0f || measuredWidthPx <= 0f) {
+                1f
+            } else {
+                min(1f, maxWidthPx / measuredWidthPx)
+            }
+        }
+        val scaledModifier = Modifier.graphicsLayer {
+            scaleX = scaleFactor
+            scaleY = scaleFactor
+            transformOrigin = TransformOrigin(0f, 0f)
+        }
+
+        if (hidden) {
+            Text(
+                text = displayText,
+                modifier = scaledModifier,
+                style = textStyle
+            )
+        } else {
+            RollingCounter(
+                value = balanceSats,
+                modifier = scaledModifier,
+                style = textStyle,
+                digitSpacing = digitSpacing,
+                animationMillis = animationMillis,
+                easing = easing,
+                groupThousands = unit == BalanceUnit.SATS,
+                prefix = "",
+                suffix = suffix,
+                monospaced = monospaced,
+                valueFormatter = valueFormatter
+            )
+        }
+    }
 }

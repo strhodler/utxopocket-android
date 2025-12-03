@@ -37,7 +37,14 @@ data class WalletEntity(
     @ColumnInfo(name = "full_scan_stop_gap") val fullScanStopGap: Int? = null,
     @ColumnInfo(name = "last_full_scan_time") val lastFullScanTime: Long? = null,
     @ColumnInfo(name = "view_only") val viewOnly: Boolean = false,
-    @ColumnInfo(name = "color") val color: String = WalletColor.DEFAULT.storageKey
+    @ColumnInfo(name = "color") val color: String = WalletColor.DEFAULT.storageKey,
+    @ColumnInfo(name = "sort_order") val sortOrder: Int = 0,
+    @ColumnInfo(name = "sync_session_id") val syncSessionId: String? = null,
+    @ColumnInfo(name = "sync_tip_height") val syncTipHeight: Long? = null,
+    @ColumnInfo(name = "sync_tip_hash") val syncTipHash: String? = null,
+    @ColumnInfo(name = "sync_applied") val syncApplied: Boolean = true,
+    @ColumnInfo(name = "sync_started_at") val syncStartedAt: Long? = null,
+    @ColumnInfo(name = "sync_completed_at") val syncCompletedAt: Long? = null
 )
 
 fun WalletEntity.toDomain(): WalletSummary =
@@ -55,7 +62,8 @@ fun WalletEntity.toDomain(): WalletSummary =
         fullScanStopGap = fullScanStopGap,
         sharedDescriptors = sharedDescriptors,
         lastFullScanTime = lastFullScanTime,
-        viewOnly = viewOnly
+        viewOnly = viewOnly,
+        sortOrder = sortOrder
     )
 
 fun WalletEntity.networkEnum(): BitcoinNetwork = BitcoinNetwork.valueOf(network)
@@ -291,6 +299,7 @@ fun WalletEntity.withSyncFailure(
 
 fun NodeStatus.toStorage(): Pair<String, String?> = when (this) {
     NodeStatus.Idle -> "IDLE" to null
+    NodeStatus.Offline -> "OFFLINE" to null
     NodeStatus.Connecting -> "CONNECTING" to null
     NodeStatus.WaitingForTor -> "WAITING_FOR_TOR" to null
     NodeStatus.Synced -> "SYNCED" to null
@@ -302,5 +311,6 @@ private fun String.toNodeStatus(error: String?): NodeStatus = when (uppercase())
     "WAITING_FOR_TOR" -> NodeStatus.WaitingForTor
     "SYNCED" -> NodeStatus.Synced
     "ERROR" -> NodeStatus.Error(error ?: "Unknown error")
+    "OFFLINE" -> NodeStatus.Offline
     else -> NodeStatus.Idle
 }

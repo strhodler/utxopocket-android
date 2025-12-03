@@ -5,6 +5,7 @@ import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
+import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.TorConfig
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.service.TorManager
@@ -35,7 +36,13 @@ class TorLifecycleControllerTest {
             refreshWallets = { network -> refreshCalls += network },
             nodeConfigFlow = configFlow,
             networkFlow = networkFlow,
-            networkStatusFlow = networkStatus
+            networkStatusFlow = networkStatus,
+            syncStatusFlow = MutableStateFlow(
+                SyncStatusSnapshot(
+                    isRefreshing = false,
+                    network = BitcoinNetwork.TESTNET
+                )
+            )
         )
 
         controller.start()

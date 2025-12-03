@@ -47,7 +47,7 @@ import com.strhodler.utxopocket.domain.model.AddressUsage
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.repository.WalletRepository
-import com.strhodler.utxopocket.presentation.common.SectionCard
+import com.strhodler.utxopocket.presentation.common.ContentSection
 import com.strhodler.utxopocket.presentation.common.generateQrBitmap
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
@@ -318,26 +318,34 @@ private fun AddressOverviewCard(
         )
     }
 
-    SectionCard(title = stringResource(id = R.string.address_detail_section_overview)) {
-        CopyableValueRow(
-            label = stringResource(id = R.string.address_detail_address_label),
-            value = detail.value,
-            copyContentDescription = stringResource(id = R.string.address_detail_copy_address)
-        ) {
-            copyHandler(it)
+    ContentSection(title = stringResource(id = R.string.address_detail_section_overview)) {
+        item {
+            CopyableValueRow(
+                label = stringResource(id = R.string.address_detail_address_label),
+                value = detail.value,
+                copyContentDescription = stringResource(id = R.string.address_detail_copy_address)
+            ) {
+                copyHandler(it)
+            }
         }
-        InfoTextRow(
-            label = stringResource(id = R.string.address_detail_path_label),
-            value = detail.derivationPath
-        )
-        InfoTextRow(
-            label = stringResource(id = R.string.address_detail_index_label),
-            value = detail.derivationIndex.toString()
-        )
-        InfoTextRow(
-            label = stringResource(id = R.string.address_detail_usage_label),
-            value = usageText
-        )
+        item {
+            InfoTextRow(
+                label = stringResource(id = R.string.address_detail_path_label),
+                value = detail.derivationPath
+            )
+        }
+        item {
+            InfoTextRow(
+                label = stringResource(id = R.string.address_detail_index_label),
+                value = detail.derivationIndex.toString()
+            )
+        }
+        item {
+            InfoTextRow(
+                label = stringResource(id = R.string.address_detail_usage_label),
+                value = usageText
+            )
+        }
     }
 }
 
@@ -352,20 +360,24 @@ private fun AddressScriptCard(
         onShowMessage = { message -> onShowMessage(message, SnackbarDuration.Short) }
     )
 
-    SectionCard(title = stringResource(id = R.string.address_detail_section_scripts)) {
-        CopyableTextBlock(
-            label = stringResource(id = R.string.address_detail_script_label),
-            value = detail.scriptPubKey,
-            copyContentDescription = stringResource(id = R.string.address_detail_copy_script)
-        ) {
-            copyHandler(it)
+    ContentSection(title = stringResource(id = R.string.address_detail_section_scripts)) {
+        item {
+            CopyableTextBlock(
+                label = stringResource(id = R.string.address_detail_script_label),
+                value = detail.scriptPubKey,
+                copyContentDescription = stringResource(id = R.string.address_detail_copy_script)
+            ) {
+                copyHandler(it)
+            }
         }
-        CopyableTextBlock(
-            label = stringResource(id = R.string.address_detail_descriptor_label),
-            value = detail.descriptor,
-            copyContentDescription = stringResource(id = R.string.address_detail_copy_descriptor)
-        ) {
-            copyHandler(it)
+        item {
+            CopyableTextBlock(
+                label = stringResource(id = R.string.address_detail_descriptor_label),
+                value = detail.descriptor,
+                copyContentDescription = stringResource(id = R.string.address_detail_copy_descriptor)
+            ) {
+                copyHandler(it)
+            }
         }
     }
 }

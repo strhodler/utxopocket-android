@@ -7,7 +7,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +32,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDownward
@@ -44,17 +45,16 @@ import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.ShowChart
 import androidx.compose.material.icons.outlined.QrCode
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.UnfoldMore
+import androidx.compose.material.icons.outlined.Sort
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -63,7 +63,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ScrollableTabRow
@@ -74,11 +73,11 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -86,6 +85,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -101,9 +101,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.compose.material3.RadioButton
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.itemKey
+import kotlinx.coroutines.launch
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BalanceRange
@@ -131,12 +133,9 @@ import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.common.transactionAmount
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
-import com.strhodler.utxopocket.presentation.wallets.components.onGradient
-import com.strhodler.utxopocket.presentation.wallets.components.rememberWalletShimmerPhase
-import com.strhodler.utxopocket.presentation.wallets.components.toTheme
+import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
+import com.strhodler.utxopocket.presentation.theme.WalletColorTheme
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
-import com.strhodler.utxopocket.presentation.wallets.components.walletCardBackground
-import com.strhodler.utxopocket.presentation.wallets.components.walletShimmer
 import com.strhodler.utxopocket.presentation.wallets.sanitizeWalletErrorMessage
 import java.text.DateFormat
 import java.text.NumberFormat
@@ -151,6 +150,7 @@ fun WalletDetailScreen(
     transactions: LazyPagingItems<WalletTransaction>,
     utxos: LazyPagingItems<WalletUtxo>,
     onTransactionSortChange: (WalletTransactionSort) -> Unit,
+    onTransactionLabelFilterChange: (TransactionLabelFilter) -> Unit,
     onUtxoSortChange: (WalletUtxoSort) -> Unit,
     onUtxoLabelFilterChange: (UtxoLabelFilter) -> Unit,
     onRefreshRequested: () -> Unit,
@@ -175,23 +175,12 @@ fun WalletDetailScreen(
     modifier: Modifier = Modifier
 ) {
     when {
-        state.isLoading -> {
+        state.summary == null && state.errorMessage != null -> {
             Box(
                 modifier = modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator()
-            }
-        }
-
-        state.summary == null -> {
-            Box(
-                modifier = modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                val errorText = when (state.errorMessage) {
-                    WalletDetailError.NotFound, null -> stringResource(id = R.string.wallet_detail_not_found)
-                }
+                val errorText = stringResource(id = R.string.wallet_detail_not_found)
                 Text(
                     text = errorText,
                     style = MaterialTheme.typography.bodyLarge
@@ -199,12 +188,35 @@ fun WalletDetailScreen(
             }
         }
 
+        state.summary == null -> {
+            Box(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(contentPadding)
+                    .padding(top = topContentPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+
         else -> {
+            val pullToRefreshState = rememberPullToRefreshState()
             RefreshableContent(
                 isRefreshing = state.isRefreshing,
                 onRefresh = {
                     if (!state.isRefreshing) {
                         onRefreshRequested()
+                    }
+                },
+                state = pullToRefreshState,
+                indicator = {
+                    if (!state.isRefreshing) {
+                        PullToRefreshDefaults.Indicator(
+                            modifier = Modifier.align(Alignment.TopCenter),
+                            isRefreshing = state.isRefreshing,
+                            state = pullToRefreshState
+                        )
                     }
                 },
                 modifier = modifier.fillMaxSize()
@@ -217,6 +229,7 @@ fun WalletDetailScreen(
                     selectedTab = selectedTab,
                     onTabSelected = onTabSelected,
                     onTransactionSortSelected = onTransactionSortChange,
+                    onTransactionLabelFilterChange = onTransactionLabelFilterChange,
                     onUtxoSortSelected = onUtxoSortChange,
                     onUtxoLabelFilterChange = onUtxoLabelFilterChange,
                 onTransactionSelected = onTransactionSelected,
@@ -252,6 +265,7 @@ private fun WalletDetailContent(
     selectedTab: WalletDetailTab,
     onTabSelected: (WalletDetailTab) -> Unit,
     onTransactionSortSelected: (WalletTransactionSort) -> Unit,
+    onTransactionLabelFilterChange: (TransactionLabelFilter) -> Unit,
     onUtxoSortSelected: (WalletUtxoSort) -> Unit,
     onUtxoLabelFilterChange: (UtxoLabelFilter) -> Unit,
     onTransactionSelected: (String) -> Unit,
@@ -280,7 +294,7 @@ private fun WalletDetailContent(
             else -> null
         }
     }
-    val walletTheme = remember(summary.color) { summary.color.toTheme() }
+    val walletTheme = rememberWalletColorTheme(summary.color)
     var descriptorForQr by remember { mutableStateOf<String?>(null) }
     var addressForQr by remember { mutableStateOf<WalletAddress?>(null) }
     val descriptorCopiedMessage =
@@ -378,6 +392,7 @@ private fun WalletDetailContent(
                 onRangeSelected = onBalanceRangeSelected,
                 showBalanceChart = state.showBalanceChart,
                 onShowBalanceChartChanged = onShowBalanceChartChanged,
+                isRefreshing = state.isRefreshing,
                 onRefreshRequested = onRefreshRequested,
                 onCycleBalanceDisplay = onCycleBalanceDisplay
             )
@@ -417,8 +432,8 @@ private fun WalletDetailContent(
         }
         stickyHeader {
             Surface(
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 1.dp,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                tonalElevation = 0.dp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .zIndex(1f)
@@ -430,9 +445,8 @@ private fun WalletDetailContent(
                         transactionsCount = state.transactionsCount,
                         utxosCount = state.utxosCount,
                         pagerState = pagerState,
-                        accentColor = walletTheme.accent,
+                        palette = walletTheme,
                         modifier = Modifier
-                            .padding(horizontal = 16.dp)
                             .padding(top = tabsTopPadding)
                     )
                 }
@@ -464,16 +478,30 @@ private fun WalletDetailContent(
                 ) {
                     when (tab) {
                         WalletDetailTab.Transactions -> {
-                            if (transactions.itemCount > 0) {
+                            val hasAnyTransactions = state.transactionsCount > 0 || transactions.itemCount > 0
+                            if (hasAnyTransactions) {
                                 item(key = "transactions_sort") {
-                                    SortRow(
-                                        current = transactionSort,
-                                        options = transactionSortOptions,
-                                        optionLabelRes = { it.labelRes() },
-                                        onOptionSelected = { selected ->
-                                            onTransactionSortSelected(selected)
-                                        }
-                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        SortRow(
+                                            current = transactionSort,
+                                            options = transactionSortOptions,
+                                            optionLabelRes = { it.labelRes() },
+                                            onOptionSelected = { selected ->
+                                                onTransactionSortSelected(selected)
+                                            },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        TransactionFilterRow(
+                                            filter = state.transactionLabelFilter,
+                                            counts = state.transactionFilterCounts,
+                                            visibleCount = state.visibleTransactionsCount,
+                                            onFilterChange = onTransactionLabelFilterChange,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
                                 }
                             }
                             val transactionLoadState = transactions.loadState.refresh
@@ -510,6 +538,7 @@ private fun WalletDetailContent(
                                                 balancesHidden = state.balancesHidden,
                                                 healthResult = state.transactionHealth[transaction.id],
                                                 analysisEnabled = state.transactionAnalysisEnabled,
+                                                palette = walletTheme,
                                                 onClick = { onTransactionSelected(transaction.id) }
                                             )
                                         }
@@ -552,6 +581,8 @@ private fun WalletDetailContent(
                                         )
                                         FilterRow(
                                             filter = state.utxoLabelFilter,
+                                            counts = state.utxoFilterCounts,
+                                            visibleCount = state.visibleUtxosCount,
                                             onFilterChange = onUtxoLabelFilterChange,
                                             modifier = Modifier.weight(1f)
                                         )
@@ -593,6 +624,7 @@ private fun WalletDetailContent(
                                                 dustThresholdSats = state.dustThresholdSats,
                                                 healthResult = state.utxoHealth["${utxo.txid}:${utxo.vout}"],
                                                 analysisEnabled = state.utxoHealthEnabled,
+                                                palette = walletTheme,
                                                 onClick = { onUtxoSelected(utxo.txid, utxo.vout) }
                                             )
                                         }
@@ -689,9 +721,6 @@ private fun WalletDetailContent(
             WalletDescriptorsBottomSheet(
                 descriptor = descriptor,
                 changeDescriptor = state.changeDescriptor,
-                fullScanScheduled = state.fullScanScheduled,
-                fullScanStopGap = state.fullScanStopGap,
-                lastFullScanTime = state.lastFullScanTime,
                 onCopyDescriptor = handleDescriptorCopy,
                 onShowDescriptorQr = { selected -> descriptorForQr = selected },
                 onDismiss = onDescriptorsSheetDismissed
@@ -737,6 +766,7 @@ private fun WalletSummaryHeader(
     onRangeSelected: (BalanceRange) -> Unit,
     showBalanceChart: Boolean,
     onShowBalanceChartChanged: (Boolean) -> Unit,
+    isRefreshing: Boolean,
     onRefreshRequested: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier = Modifier
@@ -753,38 +783,41 @@ private fun WalletSummaryHeader(
     } ?: lastSyncFormatted?.let { lastSync ->
         stringResource(id = R.string.wallets_last_sync, lastSync)
     }
-    val theme = remember(summary.color) { summary.color.toTheme() }
-    val shimmerPhase = rememberWalletShimmerPhase(durationMillis = 3800, delayMillis = 200)
-    val primaryContentColor = theme.onGradient
-    val secondaryTextColor = primaryContentColor.copy(alpha = 0.85f)
-    WalletDetailHeader(
-        summary = summary,
-        balanceSats = activeBalanceSats,
-        balanceUnit = state.balanceUnit,
-        balancesHidden = state.balancesHidden,
-        balancePoints = balancePoints,
-        infoText = infoText,
-        primaryContentColor = primaryContentColor,
-        secondaryTextColor = secondaryTextColor,
-        onSelectionChanged = onSelectionChanged,
-        availableRanges = availableRanges,
-        selectedRange = selectedRange,
-        showBalanceChart = showBalanceChart,
-        onShowBalanceChartChanged = onShowBalanceChartChanged,
-        onRefreshRequested = onRefreshRequested,
-        onRangeSelected = onRangeSelected,
-        onCycleBalanceDisplay = onCycleBalanceDisplay,
-        modifier = modifier
-            .fillMaxWidth()
-            .walletCardBackground(theme, cornerRadius = 0.dp)
-            .walletShimmer(
-                phase = shimmerPhase,
-                cornerRadius = 0.dp,
-                shimmerAlpha = 0.18f,
-                highlightColor = primaryContentColor
-            )
-            .padding(horizontal = 24.dp, vertical = 32.dp)
-    )
+    val theme = rememberWalletColorTheme(summary.color)
+    val accentColor = theme.primary
+    val primaryContentColor = MaterialTheme.colorScheme.onSurface
+    val secondaryTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+        contentColor = primaryContentColor,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        WalletDetailHeader(
+            summary = summary,
+            balanceSats = activeBalanceSats,
+            balanceUnit = state.balanceUnit,
+            balancesHidden = state.balancesHidden,
+            balancePoints = balancePoints,
+            infoText = infoText,
+            primaryContentColor = primaryContentColor,
+            secondaryTextColor = secondaryTextColor,
+            accentColor = accentColor,
+            onSelectionChanged = onSelectionChanged,
+            availableRanges = availableRanges,
+            selectedRange = selectedRange,
+            showBalanceChart = showBalanceChart,
+            onShowBalanceChartChanged = onShowBalanceChartChanged,
+            isRefreshing = isRefreshing,
+            onRefreshRequested = onRefreshRequested,
+            onRangeSelected = onRangeSelected,
+            onCycleBalanceDisplay = onCycleBalanceDisplay,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 36.dp)
+        )
+    }
 }
 
 
@@ -798,11 +831,13 @@ private fun WalletDetailHeader(
     infoText: String?,
     primaryContentColor: Color,
     secondaryTextColor: Color,
+    accentColor: Color,
     onSelectionChanged: (BalancePoint?) -> Unit,
     availableRanges: List<BalanceRange>,
     selectedRange: BalanceRange,
     showBalanceChart: Boolean,
     onShowBalanceChartChanged: (Boolean) -> Unit,
+    isRefreshing: Boolean,
     onRefreshRequested: () -> Unit,
     onRangeSelected: (BalanceRange) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
@@ -810,9 +845,13 @@ private fun WalletDetailHeader(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        WalletSummaryChip(
+            text = walletDescriptorTypeLabel(summary.descriptorType),
+            contentColor = primaryContentColor
+        )
         infoText?.let { info ->
             Text(
                 text = info,
@@ -826,23 +865,24 @@ private fun WalletDetailHeader(
             balanceSats = balanceSats,
             unit = balanceUnit,
             hidden = balancesHidden,
-            style = MaterialTheme.typography.displaySmall.copy(
-                fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.headlineLarge.copy(
+                fontWeight = FontWeight.Medium,
                 color = primaryContentColor
             ),
             monospaced = true,
+            autoScale = true,
             modifier = Modifier.clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onCycleBalanceDisplay
             )
         )
-        WalletSummaryChip(
-            text = walletDescriptorTypeLabel(summary.descriptorType),
-            contentColor = primaryContentColor
-        )
         val hasChartData = balancePoints.isNotEmpty()
-        val refreshLabel = stringResource(id = R.string.wallet_detail_pull_to_refresh_hint)
+        val refreshLabel = if (isRefreshing) {
+            stringResource(id = R.string.wallets_state_syncing)
+        } else {
+            stringResource(id = R.string.wallet_detail_pull_to_refresh_hint)
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
@@ -850,13 +890,21 @@ private fun WalletDetailHeader(
         ) {
             TextButton(
                 onClick = onRefreshRequested,
-                colors = ButtonDefaults.textButtonColors(contentColor = secondaryTextColor)
+                enabled = !isRefreshing,
+                contentPadding = ButtonDefaults.TextButtonWithIconContentPadding
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Refresh,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
+                if (isRefreshing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
                 Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
                 Text(
                     text = refreshLabel,
@@ -873,7 +921,7 @@ private fun WalletDetailHeader(
                 )
                 TextButton(
                     onClick = { onShowBalanceChartChanged(!showBalanceChart) },
-                    colors = ButtonDefaults.textButtonColors(contentColor = secondaryTextColor)
+                    contentPadding = ButtonDefaults.TextButtonWithIconContentPadding
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.ShowChart,
@@ -904,7 +952,7 @@ private fun WalletDetailHeader(
                 StepLineChart(
                     data = balancePoints,
                     modifier = Modifier.fillMaxWidth(),
-                    color = primaryContentColor,
+                    color = MaterialTheme.colorScheme.primary,
                     interactive = balancePoints.size > 1,
                     axisLabelColor = secondaryTextColor,
                     chartTrailingPadding = 16.dp,
@@ -916,6 +964,9 @@ private fun WalletDetailHeader(
                         horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val selectedContainer = MaterialTheme.colorScheme.secondaryContainer
+                        val selectedLabel = MaterialTheme.colorScheme.onSecondaryContainer
+                        val unselectedLabel = MaterialTheme.colorScheme.onSurfaceVariant
                         availableRanges.forEach { range ->
                             val isSelected = range == selectedRange
                             AssistChip(
@@ -928,10 +979,10 @@ private fun WalletDetailHeader(
                                 },
                                 border = null,
                                 colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = if (isSelected) primaryContentColor.copy(alpha = 0.22f) else Color.Transparent,
-                                    labelColor = primaryContentColor,
-                                    leadingIconContentColor = primaryContentColor,
-                                    trailingIconContentColor = primaryContentColor
+                                    containerColor = if (isSelected) selectedContainer else Color.Transparent,
+                                    labelColor = if (isSelected) selectedLabel else unselectedLabel,
+                                    leadingIconContentColor = if (isSelected) selectedLabel else unselectedLabel,
+                                    trailingIconContentColor = if (isSelected) selectedLabel else unselectedLabel
                                 )
                             )
                         }
@@ -1122,14 +1173,15 @@ private fun WalletHealthSheetContent(
 private fun WalletDescriptorsBottomSheet(
     descriptor: String,
     changeDescriptor: String?,
-    fullScanScheduled: Boolean,
-    fullScanStopGap: Int?,
-    lastFullScanTime: Long?,
     onCopyDescriptor: (String) -> Unit,
     onShowDescriptorQr: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val configuration = LocalConfiguration.current
+    val maxSheetHeight = remember(configuration.screenHeightDp) {
+        configuration.screenHeightDp.dp * 0.9f
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -1138,13 +1190,11 @@ private fun WalletDescriptorsBottomSheet(
         WalletDescriptorsSheetContent(
             descriptor = descriptor,
             changeDescriptor = changeDescriptor,
-            fullScanScheduled = fullScanScheduled,
-            fullScanStopGap = fullScanStopGap,
-            lastFullScanTime = lastFullScanTime,
             onCopyDescriptor = onCopyDescriptor,
             onShowDescriptorQr = onShowDescriptorQr,
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(max = maxSheetHeight)
                 .navigationBarsPadding()
                 .padding(horizontal = 24.dp, vertical = 24.dp)
         )
@@ -1155,21 +1205,19 @@ private fun WalletDescriptorsBottomSheet(
 private fun WalletDescriptorsSheetContent(
     descriptor: String,
     changeDescriptor: String?,
-    fullScanScheduled: Boolean,
-    fullScanStopGap: Int?,
-    lastFullScanTime: Long?,
     onCopyDescriptor: (String) -> Unit,
     onShowDescriptorQr: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val combinedDescriptor = remember(descriptor, changeDescriptor) {
+        combineDescriptorBranches(descriptor, changeDescriptor)
+    }
     Column(
-        modifier = modifier,
+        modifier = modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        Text(
-            text = stringResource(id = R.string.wallet_detail_descriptors_title),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
+        DescriptorWarningBanner(
+            message = stringResource(id = R.string.wallet_detail_descriptors_hint)
         )
         DescriptorEntry(
             label = stringResource(id = R.string.wallet_detail_descriptor_label),
@@ -1185,37 +1233,13 @@ private fun WalletDescriptorsSheetContent(
                 onShowQr = { onShowDescriptorQr(changeDescriptorValue) }
             )
         }
-        Text(
-            text = stringResource(id = R.string.wallet_detail_descriptors_hint),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-        val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT) }
-        val lastFullScanLabel = when {
-            fullScanScheduled -> stringResource(id = R.string.wallet_detail_full_scan_pending)
-            lastFullScanTime != null -> {
-                val formatted = dateFormat.format(Date(lastFullScanTime))
-                stringResource(id = R.string.wallet_detail_last_full_scan, formatted)
-            }
-            else -> stringResource(id = R.string.wallet_detail_last_full_scan_never)
-        }
-        val nextFullScanGapLabel = fullScanStopGap?.let {
-            stringResource(id = R.string.wallet_detail_next_full_scan_gap, it)
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = lastFullScanLabel,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        combinedDescriptor?.let { combined ->
+            DescriptorEntry(
+                label = stringResource(id = R.string.wallet_detail_combined_descriptor_label),
+                value = combined,
+                onCopy = { onCopyDescriptor(combined) },
+                onShowQr = { onShowDescriptorQr(combined) }
             )
-            nextFullScanGapLabel?.let { gapLabel ->
-                Text(
-                    text = gapLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
 }
@@ -1243,14 +1267,14 @@ private fun DescriptorEntry(
                     Icon(
                         imageVector = Icons.Outlined.ContentCopy,
                         contentDescription = stringResource(id = R.string.wallet_detail_descriptor_copy_action),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 IconButton(onClick = onShowQr) {
                     Icon(
                         imageVector = Icons.Outlined.QrCode,
                         contentDescription = stringResource(id = R.string.wallet_detail_descriptor_qr_action),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -1260,6 +1284,32 @@ private fun DescriptorEntry(
                 text = value,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun DescriptorWarningBanner(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer
             )
         }
     }
@@ -1285,7 +1335,7 @@ private fun WalletSummaryChip(
     contentColor: Color
 ) {
     Surface(
-        color = contentColor.copy(alpha = 0.2f),
+        color = MaterialTheme.colorScheme.surfaceVariant,
         contentColor = contentColor,
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -1596,30 +1646,30 @@ private fun WalletTabs(
     transactionsCount: Int,
     utxosCount: Int,
     pagerState: PagerState,
-    accentColor: Color,
+    palette: WalletColorTheme,
     modifier: Modifier = Modifier
 ) {
     val tabs = remember { WalletDetailTab.entries.toTypedArray() }
+    val selectedTextColor = MaterialTheme.colorScheme.onSurface
+    val unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     ScrollableTabRow(
         modifier = modifier.fillMaxWidth(),
         selectedTabIndex = selected.ordinal,
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         edgePadding = 0.dp,
         indicator = { tabPositions ->
-            if (tabPositions.isNotEmpty()) {
-                TabRowDefaults.Indicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[selected.ordinal]),
-                    color = accentColor
-                )
-            }
+            TabRowDefaults.SecondaryIndicator(
+                modifier = Modifier.tabIndicatorOffset(tabPositions[selected.ordinal]),
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     ) {
         tabs.forEach { tab ->
             Tab(
                 selected = selected == tab,
                 onClick = { onTabSelected(tab) },
-                selectedContentColor = accentColor,
-                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                selectedContentColor = selectedTextColor,
+                unselectedContentColor = unselectedTextColor,
                 text = {
                     Text(
                         text = when (tab) {
@@ -1665,7 +1715,7 @@ private fun WalletAddressListItem(
         Modifier
     }
 
-    val addressCardColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+    val addressCardColor = MaterialTheme.colorScheme.surfaceContainer
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -1674,7 +1724,7 @@ private fun WalletAddressListItem(
             containerColor = addressCardColor,
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         ListItem(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -1774,79 +1824,205 @@ private fun WalletUtxoSort.labelRes(): Int = when (this) {
     WalletUtxoSort.WORST_HEALTH -> R.string.wallet_detail_transactions_sort_worst_health
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FilterRow(
-    filter: UtxoLabelFilter,
-    onFilterChange: (UtxoLabelFilter) -> Unit,
+private fun TransactionFilterRow(
+    filter: TransactionLabelFilter,
+    counts: TransactionFilterCounts,
+    visibleCount: Int,
+    onFilterChange: (TransactionLabelFilter) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
-    val summaryRes = when {
-        filter.showLabeled && filter.showUnlabeled -> R.string.wallet_detail_utxos_filter_summary_all
-        filter.showLabeled -> R.string.wallet_detail_utxos_filter_summary_labeled
-        filter.showUnlabeled -> R.string.wallet_detail_utxos_filter_summary_unlabeled
-        else -> R.string.wallet_detail_utxos_filter_summary_none
+    val withCount: (String, Int) -> String = remember {
+        { label, count -> "$label ($count)" }
     }
-    Card(
-        onClick = { menuExpanded = true },
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = CardDefaults.shape
-    ) {
-        Box {
-            Row(
+    val presets = remember { transactionFilterPresets() }
+    val presetLabelRes = presets.firstOrNull { it.filter == filter }?.labelRes
+    val summaryText = buildString {
+        append(
+            presetLabelRes?.let { stringResource(id = it) }
+                ?: stringResource(id = R.string.wallet_detail_filters_custom)
+        )
+        append(" (")
+        append(visibleCount)
+        append(")")
+    }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showSheet by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    AssistChip(
+        onClick = { showSheet = true },
+        label = { Text(text = summaryText) },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.FilterList,
+                contentDescription = stringResource(
+                    id = R.string.wallet_detail_transactions_filter_expand_content_description
+                )
+            )
+        },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+            labelColor = LocalContentColor.current,
+            leadingIconContentColor = LocalContentColor.current
+        ),
+        modifier = modifier.heightIn(min = 48.dp)
+    )
+
+    if (showSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = stringResource(id = summaryRes),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = stringResource(id = R.string.wallet_detail_transactions_filter_expand_content_description),
+                    style = MaterialTheme.typography.titleMedium
                 )
-                Icon(
-                    imageVector = Icons.Outlined.ExpandMore,
-                    contentDescription = stringResource(
-                        id = R.string.wallet_detail_utxos_filter_expand_content_description
-                    ),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text(text = stringResource(id = R.string.wallet_detail_utxos_filter_labeled)) },
-                    leadingIcon = {
-                        Checkbox(
-                            checked = filter.showLabeled,
-                            onCheckedChange = null
-                        )
-                    },
-                    onClick = {
-                        onFilterChange(filter.copy(showLabeled = !filter.showLabeled))
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text(text = stringResource(id = R.string.wallet_detail_utxos_filter_unlabeled)) },
-                    leadingIcon = {
-                        Checkbox(
-                            checked = filter.showUnlabeled,
-                            onCheckedChange = null
-                        )
-                    },
-                    onClick = {
-                        onFilterChange(filter.copy(showUnlabeled = !filter.showUnlabeled))
-                    }
-                )
+                presets.forEach { preset ->
+                    val selected = preset.filter == filter
+                    val label = withCount(
+                        stringResource(id = preset.labelRes),
+                        preset.count(counts)
+                    )
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        },
+                        leadingContent = {
+                            RadioButton(
+                                selected = selected,
+                                onClick = null
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onFilterChange(preset.filter)
+                                scope.launch {
+                                    sheetState.hide()
+                                    showSheet = false
+                                }
+                            },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterRow(
+    filter: UtxoLabelFilter,
+    counts: UtxoFilterCounts,
+    visibleCount: Int,
+    onFilterChange: (UtxoLabelFilter) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val withCount: (String, Int) -> String = remember {
+        { label, count -> "$label ($count)" }
+    }
+    val presets = remember { utxoFilterPresets() }
+    val presetLabelRes = presets.firstOrNull { it.filter == filter }?.labelRes
+    val summaryText = buildString {
+        append(
+            presetLabelRes?.let { stringResource(id = it) }
+                ?: stringResource(id = R.string.wallet_detail_filters_custom)
+        )
+        append(" (")
+        append(visibleCount)
+        append(")")
+    }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showSheet by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    AssistChip(
+        onClick = { showSheet = true },
+        label = { Text(text = summaryText) },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.FilterList,
+                contentDescription = stringResource(
+                    id = R.string.wallet_detail_utxos_filter_expand_content_description
+                )
+            )
+        },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+            labelColor = LocalContentColor.current,
+            leadingIconContentColor = LocalContentColor.current
+        ),
+        modifier = modifier.heightIn(min = 48.dp)
+    )
+
+    if (showSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = stringResource(id = R.string.wallet_detail_utxos_filter_expand_content_description),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                presets.forEach { preset ->
+                    val selected = preset.filter == filter
+                    val label = withCount(
+                        stringResource(id = preset.labelRes),
+                        preset.count(counts)
+                    )
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        },
+                        leadingContent = {
+                            RadioButton(
+                                selected = selected,
+                                onClick = null
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onFilterChange(preset.filter)
+                                scope.launch {
+                                    sheetState.hide()
+                                    showSheet = false
+                                }
+                            },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun <T> SortRow(
     current: T,
@@ -1855,57 +2031,74 @@ private fun <T> SortRow(
     onOptionSelected: (T) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
-    Card(
-        onClick = { menuExpanded = true },
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = CardDefaults.shape
-    ) {
-        Box {
-            Row(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showSheet by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val summaryText = stringResource(id = optionLabelRes(current))
+
+    AssistChip(
+        onClick = { showSheet = true },
+        label = { Text(text = summaryText) },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Outlined.Sort,
+                contentDescription = stringResource(
+                    id = R.string.wallet_detail_transactions_sort_expand_content_description
+                )
+            )
+        },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+            labelColor = LocalContentColor.current,
+            leadingIconContentColor = LocalContentColor.current
+        ),
+        modifier = modifier.heightIn(min = 48.dp)
+    )
+
+    if (showSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            sheetState = sheetState,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = stringResource(id = optionLabelRes(current)),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = stringResource(id = R.string.wallet_detail_transactions_sort_label),
+                    style = MaterialTheme.typography.titleMedium
                 )
-                Icon(
-                    imageVector = Icons.Outlined.ExpandMore,
-                    contentDescription = stringResource(
-                        id = R.string.wallet_detail_transactions_sort_expand_content_description
-                    ),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false }
-            ) {
                 options.forEach { option ->
-                    DropdownMenuItem(
-                        onClick = {
-                            onOptionSelected(option)
-                            menuExpanded = false
+                    val selected = option == current
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = optionLabelRes(option)),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
                         },
-                        text = { Text(text = stringResource(id = optionLabelRes(option))) },
-                        trailingIcon = if (option == current) {
-                            {
-                                Icon(
-                                    imageVector = Icons.Outlined.Check,
-                                    contentDescription = null
-                                )
-                            }
-                        } else {
-                            null
-                        }
+                        leadingContent = {
+                            RadioButton(
+                                selected = selected,
+                                onClick = null
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onOptionSelected(option)
+                                scope.launch {
+                                    sheetState.hide()
+                                    showSheet = false
+                                }
+                            },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                 }
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }
@@ -1918,6 +2111,7 @@ private fun TransactionRow(
     balancesHidden: Boolean,
     healthResult: TransactionHealthResult?,
     analysisEnabled: Boolean,
+    palette: WalletColorTheme,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1927,10 +2121,79 @@ private fun TransactionRow(
         balancesHidden = balancesHidden,
         healthResult = healthResult,
         analysisEnabled = analysisEnabled,
+        palette = palette,
         onClick = onClick,
         modifier = modifier
     )
 }
+
+private data class TransactionFilterPreset(
+    val filter: TransactionLabelFilter,
+    val labelRes: Int,
+    val count: (TransactionFilterCounts) -> Int
+)
+
+private fun transactionFilterPresets(): List<TransactionFilterPreset> = listOf(
+    TransactionFilterPreset(
+        filter = TransactionLabelFilter(),
+        labelRes = R.string.wallet_detail_transactions_filter_summary_all,
+        count = { it.labeled + it.unlabeled }
+    ),
+    TransactionFilterPreset(
+        filter = TransactionLabelFilter(showSent = false),
+        labelRes = R.string.wallet_detail_transactions_filter_received,
+        count = { it.received }
+    ),
+    TransactionFilterPreset(
+        filter = TransactionLabelFilter(showReceived = false),
+        labelRes = R.string.wallet_detail_transactions_filter_sent,
+        count = { it.sent }
+    ),
+    TransactionFilterPreset(
+        filter = TransactionLabelFilter(showUnlabeled = false),
+        labelRes = R.string.wallet_detail_transactions_filter_summary_labeled,
+        count = { it.labeled }
+    ),
+    TransactionFilterPreset(
+        filter = TransactionLabelFilter(showLabeled = false),
+        labelRes = R.string.wallet_detail_transactions_filter_summary_unlabeled,
+        count = { it.unlabeled }
+    )
+)
+
+private data class UtxoFilterPreset(
+    val filter: UtxoLabelFilter,
+    val labelRes: Int,
+    val count: (UtxoFilterCounts) -> Int
+)
+
+private fun utxoFilterPresets(): List<UtxoFilterPreset> = listOf(
+    UtxoFilterPreset(
+        filter = UtxoLabelFilter(),
+        labelRes = R.string.wallet_detail_utxos_filter_summary_all,
+        count = { it.labeled + it.unlabeled }
+    ),
+    UtxoFilterPreset(
+        filter = UtxoLabelFilter(showUnlabeled = false),
+        labelRes = R.string.wallet_detail_utxos_filter_labeled,
+        count = { it.labeled }
+    ),
+    UtxoFilterPreset(
+        filter = UtxoLabelFilter(showLabeled = false),
+        labelRes = R.string.wallet_detail_utxos_filter_unlabeled,
+        count = { it.unlabeled }
+    ),
+    UtxoFilterPreset(
+        filter = UtxoLabelFilter(showNotSpendable = false),
+        labelRes = R.string.wallet_detail_utxos_filter_spendable,
+        count = { it.spendable }
+    ),
+    UtxoFilterPreset(
+        filter = UtxoLabelFilter(showSpendable = false),
+        labelRes = R.string.wallet_detail_utxos_filter_unspendable,
+        count = { it.notSpendable }
+    )
+)
 
 @Composable
 private fun UtxoRow(
@@ -1940,6 +2203,7 @@ private fun UtxoRow(
     dustThresholdSats: Long,
     healthResult: UtxoHealthResult?,
     analysisEnabled: Boolean,
+    palette: WalletColorTheme,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1950,6 +2214,7 @@ private fun UtxoRow(
         dustThresholdSats = dustThresholdSats,
         healthResult = healthResult,
         analysisEnabled = analysisEnabled,
+        palette = palette,
         onClick = onClick,
         modifier = modifier
     )
@@ -1962,6 +2227,7 @@ private fun TransactionDetailedCard(
     balancesHidden: Boolean,
     healthResult: TransactionHealthResult?,
     analysisEnabled: Boolean,
+    palette: WalletColorTheme,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1970,8 +2236,8 @@ private fun TransactionDetailedCard(
         TransactionType.SENT -> Icons.Outlined.ArrowUpward
     }
     val iconTint = when (transaction.type) {
-        TransactionType.RECEIVED -> MaterialTheme.colorScheme.primary
-        TransactionType.SENT -> MaterialTheme.colorScheme.tertiary
+        TransactionType.RECEIVED -> palette.success
+        TransactionType.SENT -> MaterialTheme.colorScheme.error
     }
     val amountText = transactionAmount(
         transaction.amountSats,
@@ -1987,9 +2253,9 @@ private fun TransactionDetailedCard(
     } ?: stringResource(id = R.string.transaction_detail_unknown_date)
     val confirmationText = confirmationLabel(transaction.confirmations)
     val displayTransactionId = remember(transaction.id) { ellipsizeMiddle(transaction.id) }
-    val healthScore = healthResult?.takeIf { analysisEnabled }?.finalScore
+    val healthScore: Int? = null
 
-    val utxoCardColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+    val utxoCardColor = MaterialTheme.colorScheme.surfaceContainer
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
@@ -1998,7 +2264,7 @@ private fun TransactionDetailedCard(
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -2011,27 +2277,20 @@ private fun TransactionDetailedCard(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
+                Box(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
                         text = amountText,
                         style = MaterialTheme.typography.titleMedium
                     )
-                    LabelOrPlaceholder(transaction.label)
                 }
                 Column(
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    healthScore?.let { score ->
-                        Text(
-                            text = stringResource(id = R.string.transaction_health_score_chip, score),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = healthTextColor(score)
-                        )
-                    }
+                    LabelOrPlaceholder(transaction.label, textAlign = TextAlign.End)
                     Text(
                         text = confirmationText,
                         style = MaterialTheme.typography.labelMedium,
@@ -2061,7 +2320,6 @@ private fun TransactionDetailedCard(
                         Text(
                             text = displayTransactionId,
                             style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -2100,12 +2358,13 @@ private fun UtxoDetailedCard(
     dustThresholdSats: Long,
     healthResult: UtxoHealthResult?,
     analysisEnabled: Boolean,
+    palette: WalletColorTheme,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val amountText = balanceText(utxo.valueSats, unit, hidden = balancesHidden)
     val confirmationText = confirmationLabel(utxo.confirmations)
-    val healthScore = healthResult?.takeIf { analysisEnabled }?.finalScore
+    val healthScore: Int? = null
     val displayAddress = remember(utxo.address) {
         utxo.address?.let { ellipsizeMiddle(it) }
     }
@@ -2118,7 +2377,7 @@ private fun UtxoDetailedCard(
     val dustThresholdLabel = remember(dustThresholdSats) {
         NumberFormat.getInstance().format(dustThresholdSats)
     }
-    val utxoCardColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+    val utxoCardColor = MaterialTheme.colorScheme.surfaceContainer
     val spendableIcon = if (utxo.spendable) Icons.Outlined.LockOpen else Icons.Outlined.Lock
     val spendableTint = if (utxo.spendable) {
         MaterialTheme.colorScheme.primary
@@ -2133,7 +2392,7 @@ private fun UtxoDetailedCard(
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -2146,27 +2405,20 @@ private fun UtxoDetailedCard(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
+                Box(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
                         text = amountText,
                         style = MaterialTheme.typography.titleMedium
                     )
-                    LabelOrPlaceholder(utxo.displayLabel)
                 }
                 Column(
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    healthScore?.let { score ->
-                        Text(
-                            text = stringResource(id = R.string.transaction_health_score_chip, score),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = healthTextColor(score)
-                        )
-                    }
+                    LabelOrPlaceholder(utxo.displayLabel, textAlign = TextAlign.End)
                     Text(
                         text = confirmationText,
                         style = MaterialTheme.typography.labelMedium,
@@ -2200,7 +2452,6 @@ private fun UtxoDetailedCard(
                         Text(
                             text = displayAddress ?: stringResource(id = R.string.wallet_detail_address_unknown),
                             style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -2221,7 +2472,6 @@ private fun UtxoDetailedCard(
                         Text(
                             text = outPointDisplay,
                             style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.End
@@ -2273,18 +2523,23 @@ private fun EmptyPlaceholder(
 }
 
 @Composable
-private fun LabelOrPlaceholder(label: String?, modifier: Modifier = Modifier) {
+private fun LabelOrPlaceholder(
+    label: String?,
+    modifier: Modifier = Modifier,
+    textAlign: TextAlign = TextAlign.Start
+) {
     val text = label?.takeIf { it.isNotBlank() }
     Text(
         text = text ?: stringResource(id = R.string.wallet_detail_no_label_placeholder),
         style = MaterialTheme.typography.bodySmall,
         color = if (text != null) {
-            MaterialTheme.colorScheme.primary
+            MaterialTheme.colorScheme.onSurface
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         },
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
+        textAlign = textAlign,
         modifier = modifier
     )
 }
@@ -2292,6 +2547,7 @@ private fun LabelOrPlaceholder(label: String?, modifier: Modifier = Modifier) {
 @Composable
 private fun nodeStatusLabel(status: NodeStatus): String = when (status) {
     NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
+    NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
     NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
     NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
     NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
@@ -2306,10 +2562,13 @@ private fun confirmationLabel(confirmations: Int): String = when {
 }
 
 @Composable
-private fun healthTextColor(score: Int): Color = when {
-    score >= 85 -> MaterialTheme.colorScheme.tertiary
-    score >= 60 -> MaterialTheme.colorScheme.secondary
-    else -> MaterialTheme.colorScheme.error
+private fun healthTextColor(score: Int, palette: WalletColorTheme): Color {
+    val scheme = MaterialTheme.colorScheme
+    return if (score >= 60) {
+        palette.success
+    } else {
+        scheme.error
+    }
 }
 
 enum class WalletDetailTab {

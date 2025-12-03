@@ -11,7 +11,8 @@
     <color name="tor_status_connecting">#FFFFC107</color>
     <color name="tor_status_disconnected">#FFF44336</color>
     <color name="tor_status_error">#FFFF5722</color>
-    <color name="splash_background">#FFF8F5</color>
-    <color name="splash_icon_background">#F4DED4</color>
-    <color name="splash_icon_primary">#8C4F27</color>
+    <color name="splash_background">#F9FAFB</color>
+    <color name="splash_icon_background">#E5E7EB</color>
+    <color name="splash_icon_primary">#F7931A</color>
+    <color name="splash_icon_tint">#1F2937</color>
 </resources>

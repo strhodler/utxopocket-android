@@ -5,7 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
+import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
@@ -43,11 +47,12 @@ class SettingsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             combine(
+                appPreferencesRepository.preferredNetwork,
                 appPreferencesRepository.pinLockEnabled,
                 appPreferencesRepository.themePreference,
+                appPreferencesRepository.themeProfile,
                 appPreferencesRepository.appLanguage,
                 appPreferencesRepository.balanceUnit,
-                appPreferencesRepository.walletAnimationsEnabled,
                 appPreferencesRepository.hapticsEnabled,
                 appPreferencesRepository.pinShuffleEnabled,
                 appPreferencesRepository.advancedMode,
@@ -59,38 +64,47 @@ class SettingsViewModel @Inject constructor(
                 networkErrorLogRepository.loggingEnabled,
                 appPreferencesRepository.dustThresholdSats,
                 appPreferencesRepository.transactionHealthParameters,
-                appPreferencesRepository.utxoHealthParameters
+                appPreferencesRepository.utxoHealthParameters,
+                appPreferencesRepository.blockExplorerPreferences
             ) { values: Array<Any?> ->
-                val pinEnabled = values[0] as Boolean
-                val themePreference = values[1] as ThemePreference
-                val appLanguage = values[2] as AppLanguage
-                val balanceUnit = values[3] as BalanceUnit
-                val walletAnimationsEnabled = values[4] as Boolean
-                val hapticsEnabled = values[5] as Boolean
-                val pinShuffleEnabled = values[6] as Boolean
-                val advancedMode = values[7] as Boolean
-                val pinAutoLockTimeoutMinutes = values[8] as Int
-                val connectionIdleTimeoutMinutes = values[9] as Int
-                val transactionAnalysisEnabled = values[10] as Boolean
-                val utxoHealthEnabled = values[11] as Boolean
-                val walletHealthEnabled = values[12] as Boolean
-                val networkLogsEnabled = values[13] as Boolean
-                val dustThreshold = values[14] as Long
-                val transactionParameters = values[15] as TransactionHealthParameters
-                val utxoParameters = values[16] as UtxoHealthParameters
+                val preferredNetwork = values[0] as BitcoinNetwork
+                val pinEnabled = values[1] as Boolean
+                val themePreference = values[2] as ThemePreference
+                val themeProfile = values[3] as ThemeProfile
+                val appLanguage = values[4] as AppLanguage
+                val balanceUnit = values[5] as BalanceUnit
+                val hapticsEnabled = values[6] as Boolean
+                val pinShuffleEnabled = values[7] as Boolean
+                val advancedMode = values[8] as Boolean
+                val pinAutoLockTimeoutMinutes = values[9] as Int
+                val connectionIdleTimeoutMinutes = values[10] as Int
+                val transactionAnalysisEnabled = values[11] as Boolean
+                val utxoHealthEnabled = values[12] as Boolean
+                val walletHealthEnabled = values[13] as Boolean
+                val networkLogsEnabled = values[14] as Boolean
+                val dustThreshold = values[15] as Long
+                val transactionParameters = values[16] as TransactionHealthParameters
+                val utxoParameters = values[17] as UtxoHealthParameters
+                val blockExplorerPrefs = values[18] as BlockExplorerPreferences
                 val previous = _uiState.value
 
                 val walletHealthToggleEnabled = transactionAnalysisEnabled && utxoHealthEnabled
                 val normalizedWalletHealthEnabled =
                     walletHealthEnabled && walletHealthToggleEnabled
+                val networkExplorerPrefs = blockExplorerPrefs.forNetwork(preferredNetwork)
+                val customNormal = networkExplorerPrefs.customNormalUrl.orEmpty()
+                val customOnion = networkExplorerPrefs.customOnionUrl.orEmpty()
+                val customNormalName = networkExplorerPrefs.customNormalName.orEmpty()
+                val customOnionName = networkExplorerPrefs.customOnionName.orEmpty()
 
                 previous.copy(
+                    preferredNetwork = preferredNetwork,
                     themePreference = themePreference,
+                    themeProfile = themeProfile,
                     appLanguage = appLanguage,
                     pinEnabled = pinEnabled,
                     preferredUnit = balanceUnit,
                     advancedMode = advancedMode,
-                    walletAnimationsEnabled = walletAnimationsEnabled,
                     hapticsEnabled = hapticsEnabled,
                     pinAutoLockTimeoutMinutes = pinAutoLockTimeoutMinutes,
                     pinShuffleEnabled = pinShuffleEnabled,
@@ -113,7 +127,11 @@ class SettingsViewModel @Inject constructor(
                         previous.utxoHealthInputs
                     } else {
                         UtxoHealthParameterInputs.from(utxoParameters)
-                    }
+                    },
+                    blockExplorerNormalCustomInput = customNormal,
+                    blockExplorerOnionCustomInput = customOnion,
+                    blockExplorerNormalCustomNameInput = customNormalName,
+                    blockExplorerOnionCustomNameInput = customOnionName
                 )
             }.collect { state ->
                 _uiState.value = state
@@ -142,10 +160,10 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun onWalletAnimationsToggled(enabled: Boolean) {
-        _uiState.update { it.copy(walletAnimationsEnabled = enabled) }
+    fun onThemeProfileSelected(themeProfile: ThemeProfile) {
+        _uiState.update { it.copy(themeProfile = themeProfile) }
         viewModelScope.launch {
-            appPreferencesRepository.setWalletAnimationsEnabled(enabled)
+            appPreferencesRepository.setThemeProfile(themeProfile)
         }
     }
 
@@ -236,6 +254,48 @@ class SettingsViewModel @Inject constructor(
         }
         viewModelScope.launch {
             appPreferencesRepository.setDustThresholdSats(threshold)
+        }
+    }
+
+    fun onBlockExplorerNormalChanged(name: String, url: String) {
+        updateBlockExplorerCustom(BlockExplorerBucket.NORMAL, name, url)
+    }
+
+    fun onBlockExplorerOnionChanged(name: String, url: String) {
+        updateBlockExplorerCustom(BlockExplorerBucket.ONION, name, url)
+    }
+
+    fun removeBlockExplorerNormal() {
+        updateBlockExplorerCustom(BlockExplorerBucket.NORMAL, "", "")
+    }
+
+    fun removeBlockExplorerOnion() {
+        updateBlockExplorerCustom(BlockExplorerBucket.ONION, "", "")
+    }
+
+    private fun updateBlockExplorerCustom(bucket: BlockExplorerBucket, name: String, url: String) {
+        val network = _uiState.value.preferredNetwork
+        val trimmedUrl = url.trim()
+        val trimmedName = name.trim()
+        _uiState.update { current ->
+            when (bucket) {
+                BlockExplorerBucket.NORMAL -> current.copy(
+                    blockExplorerNormalCustomInput = trimmedUrl,
+                    blockExplorerNormalCustomNameInput = trimmedName
+                )
+                BlockExplorerBucket.ONION -> current.copy(
+                    blockExplorerOnionCustomInput = trimmedUrl,
+                    blockExplorerOnionCustomNameInput = trimmedName
+                )
+            }
+        }
+        viewModelScope.launch {
+            appPreferencesRepository.setBlockExplorerCustom(
+                network,
+                bucket,
+                trimmedUrl.takeIf { it.isNotBlank() },
+                trimmedName.takeIf { it.isNotBlank() }
+            )
         }
     }
 

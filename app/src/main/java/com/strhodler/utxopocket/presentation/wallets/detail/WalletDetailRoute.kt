@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.ClickableText
@@ -17,6 +18,8 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
@@ -40,7 +43,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -53,11 +56,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -80,11 +85,19 @@ import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import android.view.HapticFeedbackConstants
+import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.presentation.wallets.detail.WalletDetailEvent
 import kotlin.math.roundToInt
+import com.strhodler.utxopocket.presentation.pin.PinLockoutMessageType
+import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
+import com.strhodler.utxopocket.presentation.pin.formatPinCountdownMessage
+import com.strhodler.utxopocket.presentation.pin.formatPinStaticError
+import kotlinx.coroutines.delay
 
 private const val WALLET_NAME_MAX_LENGTH = 64
 private const val FULL_SCAN_GAP_MAX = 500
@@ -127,6 +140,7 @@ fun WalletDetailRoute(
     val hapticFeedback = LocalHapticFeedback.current
     val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
+    val resourcesState = rememberUpdatedState(context.resources)
     val showSnackbar = remember(coroutineScope, snackbarHostState) {
         { message: String, duration: SnackbarDuration ->
             coroutineScope.launch {
@@ -137,6 +151,15 @@ fun WalletDetailRoute(
                 )
             }
             Unit
+        }
+    }
+    LaunchedEffect(Unit) {
+        viewModel.events.collectLatest { event ->
+            when (event) {
+                WalletDetailEvent.RefreshQueued -> {
+                    showSnackbar(context.getString(R.string.wallet_detail_refresh_enqueued), SnackbarDuration.Short)
+                }
+            }
         }
     }
     val deleteSuccessMessage = stringResource(id = R.string.wallet_detail_delete_success)
@@ -152,6 +175,10 @@ fun WalletDetailRoute(
     val listStates = remember {
         tabs.associateWith { LazyListState() }
     }
+    var showDescriptorPinPrompt by remember { mutableStateOf(false) }
+    var descriptorPinError by remember { mutableStateOf<String?>(null) }
+    var descriptorPinLockoutExpiry by remember { mutableStateOf<Long?>(null) }
+    var descriptorPinLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
     LaunchedEffect(resolvedName) {
         resolvedName?.let { topBarTitle = it }
     }
@@ -167,9 +194,39 @@ fun WalletDetailRoute(
         }
     }
 
+    LaunchedEffect(descriptorPinLockoutExpiry, descriptorPinLockoutType) {
+        val expiry = descriptorPinLockoutExpiry
+        val type = descriptorPinLockoutType
+        if (expiry == null || type == null) return@LaunchedEffect
+        while (true) {
+            val remaining = expiry - System.currentTimeMillis()
+            if (remaining <= 0L) {
+                descriptorPinError = null
+                descriptorPinLockoutExpiry = null
+                descriptorPinLockoutType = null
+                break
+            }
+            descriptorPinError = formatPinCountdownMessage(
+                resourcesState.value,
+                type,
+                remaining
+            )
+            delay(1_000)
+        }
+    }
+
     LaunchedEffect(state.summary) {
         if (state.summary == null && showDescriptorsSheet) {
             showDescriptorsSheet = false
+        }
+    }
+
+    LaunchedEffect(state.pinLockEnabled) {
+        if (!state.pinLockEnabled) {
+            showDescriptorPinPrompt = false
+            descriptorPinError = null
+            descriptorPinLockoutExpiry = null
+            descriptorPinLockoutType = null
         }
     }
 
@@ -282,7 +339,14 @@ fun WalletDetailRoute(
                         },
                         onClick = {
                             menuExpanded = false
-                            showDescriptorsSheet = true
+                            if (state.pinLockEnabled) {
+                                descriptorPinError = null
+                                descriptorPinLockoutExpiry = null
+                                descriptorPinLockoutType = null
+                                showDescriptorPinPrompt = true
+                            } else {
+                                showDescriptorsSheet = true
+                            }
                         }
                     )
                     DropdownMenuItem(
@@ -398,6 +462,7 @@ fun WalletDetailRoute(
                 transactions = transactionItems,
                 utxos = utxoItems,
                 onTransactionSortChange = viewModel::updateTransactionSort,
+                onTransactionLabelFilterChange = viewModel::setTransactionLabelFilter,
                 onUtxoSortChange = viewModel::updateUtxoSort,
                 onUtxoLabelFilterChange = viewModel::setUtxoLabelFilter,
                 onRefreshRequested = viewModel::refresh,
@@ -473,6 +538,65 @@ fun WalletDetailRoute(
         } else {
             showFullRescanSheet = false
         }
+    }
+
+    if (showDescriptorPinPrompt) {
+        PinVerificationScreen(
+            title = stringResource(id = R.string.wallet_detail_descriptor_pin_title),
+            description = stringResource(id = R.string.wallet_detail_descriptor_pin_description),
+            errorMessage = descriptorPinError,
+            onDismiss = {
+                showDescriptorPinPrompt = false
+                descriptorPinError = null
+                descriptorPinLockoutExpiry = null
+                descriptorPinLockoutType = null
+            },
+            onPinVerified = { pin ->
+                val resources = resourcesState.value
+                viewModel.verifyPin(pin) { result ->
+                    when (result) {
+                        PinVerificationResult.Success -> {
+                            descriptorPinError = null
+                            descriptorPinLockoutExpiry = null
+                            descriptorPinLockoutType = null
+                            showDescriptorPinPrompt = false
+                            showDescriptorsSheet = true
+                        }
+
+                        PinVerificationResult.InvalidFormat,
+                        PinVerificationResult.NotConfigured -> {
+                            descriptorPinLockoutExpiry = null
+                            descriptorPinLockoutType = null
+                            descriptorPinError = formatPinStaticError(resources, result)
+                        }
+
+                        is PinVerificationResult.Incorrect -> {
+                            val expiresAt = System.currentTimeMillis() + result.lockDurationMillis
+                            descriptorPinLockoutType = PinLockoutMessageType.Incorrect
+                            descriptorPinLockoutExpiry = expiresAt
+                            descriptorPinError = formatPinCountdownMessage(
+                                resources,
+                                PinLockoutMessageType.Incorrect,
+                                result.lockDurationMillis
+                            )
+                        }
+
+                        is PinVerificationResult.Locked -> {
+                            val expiresAt = System.currentTimeMillis() + result.remainingMillis
+                            descriptorPinLockoutType = PinLockoutMessageType.Locked
+                            descriptorPinLockoutExpiry = expiresAt
+                            descriptorPinError = formatPinCountdownMessage(
+                                resources,
+                                PinLockoutMessageType.Locked,
+                                result.remainingMillis
+                            )
+                        }
+                    }
+                }
+            },
+            hapticsEnabled = state.hapticsEnabled,
+            shuffleDigits = state.pinShuffleEnabled
+        )
     }
 
     if (showColorPicker) {
@@ -592,7 +716,7 @@ private fun RenameWalletDialog(
         title = { Text(text = stringResource(id = R.string.wallet_detail_rename_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
+                TextField(
                     value = name,
                     onValueChange = { input ->
                         name = if (input.length <= WALLET_NAME_MAX_LENGTH) {
@@ -666,12 +790,15 @@ private fun FullRescanBottomSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val configuration = LocalConfiguration.current
+    val maxSheetHeight = remember(configuration.screenHeightDp) {
+        configuration.screenHeightDp.dp * 0.9f
+    }
     var sliderValue by remember(gap) { mutableStateOf(gap.toFloat()) }
     LaunchedEffect(gap) {
         sliderValue = gap.toFloat()
     }
     val valueRange = minGap.toFloat()..maxGap.toFloat()
-    val sliderSteps = ((maxGap - minGap) / step - 1).coerceAtLeast(0)
     val clampedGap = gap.coerceIn(minGap, maxGap)
     val feedbackText = when {
         clampedGap <= minGap -> stringResource(id = R.string.wallet_detail_full_rescan_feedback_fast)
@@ -686,7 +813,9 @@ private fun FullRescanBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(max = maxSheetHeight)
                 .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
@@ -758,7 +887,6 @@ private fun FullRescanBottomSheet(
                         }
                     },
                     valueRange = valueRange,
-                    steps = sliderSteps,
                     enabled = !isSubmitting,
                     modifier = Modifier.fillMaxWidth()
                 )

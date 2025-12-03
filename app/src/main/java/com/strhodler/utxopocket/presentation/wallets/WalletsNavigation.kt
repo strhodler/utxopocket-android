@@ -30,7 +30,8 @@ object WalletsNavigation {
 
     enum class NodeStatusTabDestination(val argValue: String) {
         Overview("overview"),
-        Management("management")
+        Management("management"),
+        Tor("tor")
     }
 
     fun nodeStatusRoute(initialTab: NodeStatusTabDestination? = null): String {

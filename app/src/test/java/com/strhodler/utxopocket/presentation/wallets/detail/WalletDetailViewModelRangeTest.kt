@@ -6,9 +6,13 @@ import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
+import com.strhodler.utxopocket.domain.model.BlockExplorerNetworkPreference
+import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
@@ -64,13 +68,13 @@ class WalletDetailViewModelRangeTest {
     }
 
     @Test
-    fun defaultSelectedRangeIsLastYear() = runTest(dispatcher) {
+    fun defaultSelectedRangeIsAll() = runTest(dispatcher) {
         val harness = TestHarness()
         val viewModel = harness.createViewModel()
 
         advanceUntilIdle()
 
-        assertSame(BalanceRange.LastYear, viewModel.uiState.value.selectedRange)
+        assertSame(BalanceRange.All, viewModel.uiState.value.selectedRange)
     }
 
     @Test
@@ -169,12 +173,20 @@ class WalletDetailViewModelRangeTest {
 
         override fun pageWalletTransactions(
             id: Long,
-            sort: WalletTransactionSort
+            sort: WalletTransactionSort,
+            showLabeled: Boolean,
+            showUnlabeled: Boolean,
+            showReceived: Boolean,
+            showSent: Boolean
         ): Flow<PagingData<WalletTransaction>> = flowOf(PagingData.empty())
 
         override fun pageWalletUtxos(
             id: Long,
-            sort: WalletUtxoSort
+            sort: WalletUtxoSort,
+            showLabeled: Boolean,
+            showUnlabeled: Boolean,
+            showSpendable: Boolean,
+            showNotSpendable: Boolean
         ): Flow<PagingData<WalletUtxo>> = flowOf(PagingData.empty())
 
         override fun observeTransactionCount(id: Long): Flow<Int> = MutableStateFlow(detail.transactions.size)
@@ -187,6 +199,8 @@ class WalletDetailViewModelRangeTest {
         override suspend fun refresh(network: BitcoinNetwork) = Unit
 
         override suspend fun refreshWallet(walletId: Long) = Unit
+        override suspend fun disconnect(network: BitcoinNetwork) = Unit
+        override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
 
         override suspend fun validateDescriptor(
             descriptor: String,
@@ -336,16 +350,20 @@ class WalletDetailViewModelRangeTest {
         private val preferredNetworkState = MutableStateFlow(BitcoinNetwork.TESTNET)
         private val pinLockEnabledState = MutableStateFlow(false)
         private val themePreferenceState = MutableStateFlow(ThemePreference.SYSTEM)
+        private val themeProfileState = MutableStateFlow(ThemeProfile.DEFAULT)
         private val appLanguageState = MutableStateFlow(AppLanguage.EN)
         private val balanceUnitState = MutableStateFlow(BalanceUnit.DEFAULT)
         private val balancesHiddenState = MutableStateFlow(false)
-        private val walletAnimationsEnabledState = MutableStateFlow(true)
-        private val balanceRangeState = MutableStateFlow(BalanceRange.LastYear)
+        private val balanceRangeState = MutableStateFlow(BalanceRange.All)
         private val showBalanceChartState = MutableStateFlow(false)
         private val pinShuffleEnabledState = MutableStateFlow(false)
+        private val hapticsEnabledState = MutableStateFlow(false)
         private val advancedModeState = MutableStateFlow(false)
         private val pinAutoLockTimeoutMinutesState =
             MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
+        private val connectionIdleTimeoutMinutesState = MutableStateFlow(
+            AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES
+        )
         private val pinLastUnlockedState = MutableStateFlow<Long?>(null)
         private val dustThresholdState = MutableStateFlow(WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS)
         private val transactionAnalysisEnabledState = MutableStateFlow(false)
@@ -353,6 +371,9 @@ class WalletDetailViewModelRangeTest {
         private val walletHealthEnabledState = MutableStateFlow(false)
         private val transactionHealthParametersState = MutableStateFlow(TransactionHealthParameters())
         private val utxoHealthParametersState = MutableStateFlow(UtxoHealthParameters())
+        private val networkLogsEnabledState = MutableStateFlow(false)
+        private val networkLogsInfoSeenState = MutableStateFlow(false)
+        private val blockExplorerPreferencesState = MutableStateFlow(BlockExplorerPreferences())
 
         var lastSetBalanceRange: BalanceRange? = null
 
@@ -360,15 +381,17 @@ class WalletDetailViewModelRangeTest {
         override val preferredNetwork: Flow<BitcoinNetwork> = preferredNetworkState
         override val pinLockEnabled: Flow<Boolean> = pinLockEnabledState
         override val themePreference: Flow<ThemePreference> = themePreferenceState
+        override val themeProfile: Flow<ThemeProfile> = themeProfileState
         override val appLanguage: Flow<AppLanguage> = appLanguageState
         override val balanceUnit: Flow<BalanceUnit> = balanceUnitState
         override val balancesHidden: Flow<Boolean> = balancesHiddenState
-        override val walletAnimationsEnabled: Flow<Boolean> = walletAnimationsEnabledState
         override val walletBalanceRange: Flow<BalanceRange> = balanceRangeState
         override val showBalanceChart: Flow<Boolean> = showBalanceChartState
         override val pinShuffleEnabled: Flow<Boolean> = pinShuffleEnabledState
+        override val hapticsEnabled: Flow<Boolean> = hapticsEnabledState
         override val advancedMode: Flow<Boolean> = advancedModeState
         override val pinAutoLockTimeoutMinutes: Flow<Int> = pinAutoLockTimeoutMinutesState
+        override val connectionIdleTimeoutMinutes: Flow<Int> = connectionIdleTimeoutMinutesState
         override val pinLastUnlockedAt: Flow<Long?> = pinLastUnlockedState
         override val dustThresholdSats: Flow<Long> = dustThresholdState
         override val transactionAnalysisEnabled: Flow<Boolean> = transactionAnalysisEnabledState
@@ -376,6 +399,9 @@ class WalletDetailViewModelRangeTest {
         override val walletHealthEnabled: Flow<Boolean> = walletHealthEnabledState
         override val transactionHealthParameters: Flow<TransactionHealthParameters> = transactionHealthParametersState
         override val utxoHealthParameters: Flow<UtxoHealthParameters> = utxoHealthParametersState
+        override val networkLogsEnabled: Flow<Boolean> = networkLogsEnabledState
+        override val networkLogsInfoSeen: Flow<Boolean> = networkLogsInfoSeenState
+        override val blockExplorerPreferences: Flow<BlockExplorerPreferences> = blockExplorerPreferencesState
 
         override suspend fun setOnboardingCompleted(completed: Boolean) {
             onboardingCompletedState.value = completed
@@ -403,6 +429,10 @@ class WalletDetailViewModelRangeTest {
             this.themePreferenceState.value = themePreference
         }
 
+        override suspend fun setThemeProfile(themeProfile: ThemeProfile) {
+            themeProfileState.value = themeProfile
+        }
+
         override suspend fun setAppLanguage(language: AppLanguage) {
             appLanguageState.value = language
         }
@@ -413,6 +443,10 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun setBalancesHidden(hidden: Boolean) {
             balancesHiddenState.value = hidden
+        }
+
+        override suspend fun setHapticsEnabled(enabled: Boolean) {
+            hapticsEnabledState.value = enabled
         }
 
         override suspend fun cycleBalanceDisplayMode() {
@@ -428,10 +462,6 @@ class WalletDetailViewModelRangeTest {
             }
         }
 
-        override suspend fun setWalletAnimationsEnabled(enabled: Boolean) {
-            walletAnimationsEnabledState.value = enabled
-        }
-
         override suspend fun setWalletBalanceRange(range: BalanceRange) {
             lastSetBalanceRange = range
             balanceRangeState.value = range
@@ -443,6 +473,10 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun setPinShuffleEnabled(enabled: Boolean) {
             pinShuffleEnabledState.value = enabled
+        }
+
+        override suspend fun setConnectionIdleTimeoutMinutes(minutes: Int) {
+            connectionIdleTimeoutMinutesState.value = minutes
         }
 
         override suspend fun setAdvancedMode(enabled: Boolean) {
@@ -481,6 +515,64 @@ class WalletDetailViewModelRangeTest {
             utxoHealthParametersState.value = UtxoHealthParameters()
         }
 
+        override suspend fun setNetworkLogsEnabled(enabled: Boolean) {
+            networkLogsEnabledState.value = enabled
+        }
+
+        override suspend fun setNetworkLogsInfoSeen(seen: Boolean) {
+            networkLogsInfoSeenState.value = seen
+        }
+
+        override suspend fun setBlockExplorerBucket(network: BitcoinNetwork, bucket: BlockExplorerBucket) {
+            updateBlockExplorerPrefs(network) { current -> current.copy(bucket = bucket) }
+        }
+
+        override suspend fun setBlockExplorerPreset(
+            network: BitcoinNetwork,
+            bucket: BlockExplorerBucket,
+            presetId: String
+        ) {
+            updateBlockExplorerPrefs(network) { current ->
+                when (bucket) {
+                    BlockExplorerBucket.NORMAL -> current.copy(bucket = bucket, normalPresetId = presetId)
+                    BlockExplorerBucket.ONION -> current.copy(bucket = bucket, onionPresetId = presetId)
+                }
+            }
+        }
+
+        override suspend fun setBlockExplorerCustom(
+            network: BitcoinNetwork,
+            bucket: BlockExplorerBucket,
+            url: String?,
+            name: String?
+        ) {
+            updateBlockExplorerPrefs(network) { current ->
+                when (bucket) {
+                    BlockExplorerBucket.NORMAL -> current.copy(
+                        bucket = bucket,
+                        customNormalUrl = url,
+                        customNormalName = name
+                    )
+                    BlockExplorerBucket.ONION -> current.copy(
+                        bucket = bucket,
+                        customOnionUrl = url,
+                        customOnionName = name
+                    )
+                }
+            }
+        }
+
         override suspend fun wipeAll() = Unit
+
+        private fun updateBlockExplorerPrefs(
+            network: BitcoinNetwork,
+            block: (BlockExplorerNetworkPreference) -> BlockExplorerNetworkPreference
+        ) {
+            val current = blockExplorerPreferencesState.value
+            val updated = block(current.forNetwork(network))
+            blockExplorerPreferencesState.value = BlockExplorerPreferences(
+                current.selections + (network to updated)
+            )
+        }
     }
 }

@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,7 +20,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -31,7 +31,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
-import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,7 +55,12 @@ fun CustomNodeEditorScreen(
     BackHandler(onBack = onDismiss)
     val scrollState = rememberScrollState()
     Scaffold(
-        contentWindowInsets = ScreenScaffoldInsets
+        contentWindowInsets = WindowInsets(
+            left = 0.dp,
+            top = 0.dp,
+            right = 0.dp,
+            bottom = 0.dp
+        )
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -71,7 +75,7 @@ fun CustomNodeEditorScreen(
                     .verticalScroll(scrollState),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                OutlinedTextField(
+                TextField(
                     value = nameValue,
                     onValueChange = onNameChanged,
                     label = { Text(text = stringResource(id = R.string.node_custom_name_label)) },
@@ -90,7 +94,7 @@ fun CustomNodeEditorScreen(
                     onStartQrScan = onStartQrScan
                 )
 
-                OutlinedTextField(
+                TextField(
                     value = portValue,
                     onValueChange = {
                         onClearQrError()
@@ -113,7 +117,8 @@ fun CustomNodeEditorScreen(
             }
             Row(
                 modifier = Modifier
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .navigationBarsPadding(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 TextButton(
@@ -124,8 +129,12 @@ fun CustomNodeEditorScreen(
                     Text(text = stringResource(id = R.string.add_wallet_cancel))
                 }
                 Button(
-                    onClick = onPrimaryAction,
-                    enabled = isPrimaryActionEnabled && !isTesting,
+                    onClick = {
+                        if (!isTesting) {
+                            onPrimaryAction()
+                        }
+                    },
+                    enabled = isPrimaryActionEnabled,
                     modifier = Modifier.weight(1f)
                 ) {
                     if (isTesting) {
@@ -133,7 +142,8 @@ fun CustomNodeEditorScreen(
                             modifier = Modifier
                                 .size(18.dp)
                                 .padding(end = 8.dp),
-                            strokeWidth = 2.dp
+                            strokeWidth = 2.dp,
+                            color = androidx.compose.material3.LocalContentColor.current
                         )
                     }
                     Text(text = primaryActionLabel)
@@ -157,7 +167,7 @@ private fun OnionField(
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
-    OutlinedTextField(
+    TextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(stringResource(id = R.string.node_custom_endpoint_label)) },

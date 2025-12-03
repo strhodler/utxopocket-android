@@ -1,5 +1,6 @@
 package com.strhodler.utxopocket.presentation
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -10,6 +11,10 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -53,6 +58,7 @@ import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +68,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.graphics.graphicsLayer
@@ -97,11 +105,15 @@ import com.strhodler.utxopocket.presentation.navigation.rememberMainBottomBarVis
 import com.strhodler.utxopocket.presentation.navigation.rememberMainTopBarStateHolder
 import com.strhodler.utxopocket.presentation.more.MoreNavigation
 import com.strhodler.utxopocket.presentation.onboarding.OnboardingRoute
+import com.strhodler.utxopocket.presentation.motion.rememberReducedMotionEnabled
+import com.strhodler.utxopocket.presentation.motion.sharedAxisXEnter
+import com.strhodler.utxopocket.presentation.motion.sharedAxisXExit
 import com.strhodler.utxopocket.presentation.theme.UtxoPocketTheme
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiNavigation
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
+import androidx.core.view.WindowCompat
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -124,6 +136,7 @@ class MainActivity : AppCompatActivity() {
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             val obscure by obscureScreen.collectAsStateWithLifecycle()
+            val reducedMotion = rememberReducedMotionEnabled()
             LaunchedEffect(uiState.appLanguage) {
                 val desiredLocales = LocaleListCompat.forLanguageTags(uiState.appLanguage.languageTag)
                 val currentLocales = AppCompatDelegate.getApplicationLocales()
@@ -131,15 +144,30 @@ class MainActivity : AppCompatActivity() {
                     AppCompatDelegate.setApplicationLocales(desiredLocales)
                 }
             }
-            UtxoPocketTheme(themePreference = uiState.themePreference) {
-                when {
-                    !uiState.isReady -> {
-                        Surface(
-                            modifier = Modifier.fillMaxSize(),
-                            color = MaterialTheme.colorScheme.background
-                        ) {}
+            UtxoPocketTheme(
+                themePreference = uiState.themePreference,
+                themeProfile = uiState.themeProfile
+            ) {
+                val window = this.window
+                val statusBarColor = MaterialTheme.colorScheme.surface
+                val navigationBarColor = MaterialTheme.colorScheme.surfaceContainer
+                val useDarkStatusIcons = statusBarColor.luminance() > 0.5f
+                val useDarkNavigationIcons = navigationBarColor.luminance() > 0.5f
+                SideEffect {
+                    window.statusBarColor = statusBarColor.toArgb()
+                    window.navigationBarColor = navigationBarColor.toArgb()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        window.isNavigationBarContrastEnforced = false
                     }
+                    val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+                    insetsController.isAppearanceLightStatusBars = useDarkStatusIcons
+                    insetsController.isAppearanceLightNavigationBars = useDarkNavigationIcons
+                }
+                if (!uiState.isReady) {
+                    return@UtxoPocketTheme
+                }
 
+                when {
                     !uiState.onboardingCompleted -> {
                         OnboardingRoute(onFinished = { })
                     }
@@ -295,59 +323,75 @@ class MainActivity : AppCompatActivity() {
                                         )
                                     }
 
-                                    if (uiState.appLocked) {
-                                        PinVerificationScreen(
-                                            title = stringResource(id = R.string.pin_unlock_title),
-                                            description = stringResource(id = R.string.pin_unlock_description),
-                                            errorMessage = pinErrorMessage,
-                                            allowDismiss = false,
-                                            onDismiss = {},
-                                            onPinVerified = { pin ->
-                                                val resources = resourcesState.value
-                                                viewModel.unlockWithPin(pin) { result ->
-                                                    when (result) {
-                                                        PinVerificationResult.Success -> {
-                                                            pinErrorMessage = null
-                                                            pinLockoutExpiry = null
-                                                            pinLockoutType = null
-                                                        }
+                                    AnimatedContent(
+                                        targetState = uiState.appLocked,
+                                        transitionSpec = {
+                                            sharedAxisXEnter(
+                                                reducedMotion = reducedMotion,
+                                                forward = !targetState
+                                            ) togetherWith sharedAxisXExit(
+                                                reducedMotion = reducedMotion,
+                                                forward = !targetState
+                                            )
+                                        },
+                                        label = "pinOverlay"
+                                    ) { locked ->
+                                        if (locked) {
+                                            PinVerificationScreen(
+                                                title = stringResource(id = R.string.pin_unlock_title),
+                                                description = stringResource(id = R.string.pin_unlock_description),
+                                                errorMessage = pinErrorMessage,
+                                                allowDismiss = false,
+                                                onDismiss = {},
+                                                onPinVerified = { pin ->
+                                                    val resources = resourcesState.value
+                                                    viewModel.unlockWithPin(pin) { result ->
+                                                        when (result) {
+                                                            PinVerificationResult.Success -> {
+                                                                pinErrorMessage = null
+                                                                pinLockoutExpiry = null
+                                                                pinLockoutType = null
+                                                            }
 
-                                                        PinVerificationResult.InvalidFormat,
-                                                        PinVerificationResult.NotConfigured -> {
-                                                            pinLockoutExpiry = null
-                                                            pinLockoutType = null
-                                                            pinErrorMessage = formatPinStaticError(resources, result)
-                                                        }
+                                                            PinVerificationResult.InvalidFormat,
+                                                            PinVerificationResult.NotConfigured -> {
+                                                                pinLockoutExpiry = null
+                                                                pinLockoutType = null
+                                                                pinErrorMessage = formatPinStaticError(resources, result)
+                                                            }
 
-                                                        is PinVerificationResult.Incorrect -> {
-                                                            val expiresAt =
-                                                                System.currentTimeMillis() + result.lockDurationMillis
-                                                            pinLockoutType = PinLockoutMessageType.Incorrect
-                                                            pinLockoutExpiry = expiresAt
-                                                            pinErrorMessage = formatPinCountdownMessage(
-                                                                resources,
-                                                                PinLockoutMessageType.Incorrect,
-                                                                result.lockDurationMillis
-                                                            )
-                                                        }
+                                                            is PinVerificationResult.Incorrect -> {
+                                                                val expiresAt =
+                                                                    System.currentTimeMillis() + result.lockDurationMillis
+                                                                pinLockoutType = PinLockoutMessageType.Incorrect
+                                                                pinLockoutExpiry = expiresAt
+                                                                pinErrorMessage = formatPinCountdownMessage(
+                                                                    resources,
+                                                                    PinLockoutMessageType.Incorrect,
+                                                                    result.lockDurationMillis
+                                                                )
+                                                            }
 
-                                                        is PinVerificationResult.Locked -> {
-                                                            val expiresAt =
-                                                                System.currentTimeMillis() + result.remainingMillis
-                                                            pinLockoutType = PinLockoutMessageType.Locked
-                                                            pinLockoutExpiry = expiresAt
-                                                            pinErrorMessage = formatPinCountdownMessage(
-                                                                resources,
-                                                                PinLockoutMessageType.Locked,
-                                                                result.remainingMillis
-                                                            )
+                                                            is PinVerificationResult.Locked -> {
+                                                                val expiresAt =
+                                                                    System.currentTimeMillis() + result.remainingMillis
+                                                                pinLockoutType = PinLockoutMessageType.Locked
+                                                                pinLockoutExpiry = expiresAt
+                                                                pinErrorMessage = formatPinCountdownMessage(
+                                                                    resources,
+                                                                    PinLockoutMessageType.Locked,
+                                                                    result.remainingMillis
+                                                                )
+                                                            }
                                                         }
                                                     }
-                                                }
-                                            },
-                                            hapticsEnabled = uiState.hapticsEnabled,
-                                            shuffleDigits = uiState.pinShuffleEnabled
-                                        )
+                                                },
+                                                hapticsEnabled = uiState.hapticsEnabled,
+                                                shuffleDigits = uiState.pinShuffleEnabled
+                                            )
+                                        } else {
+                                            Box(modifier = Modifier.fillMaxSize())
+                                        }
                                     }
                                 }
                             }
@@ -396,6 +440,24 @@ private fun StatusBar(
     onNodeStatusClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+        val baseSubtitleColor = MaterialTheme.colorScheme.onSurfaceVariant
+        var lastSeenBlockHeight by remember(state.network) { mutableStateOf<Long?>(null) }
+        var highlightBlockHeight by remember { mutableStateOf(false) }
+        val subtitleColor by animateColorAsState(
+            targetValue = if (highlightBlockHeight) MaterialTheme.colorScheme.primary else baseSubtitleColor,
+            animationSpec = tween(durationMillis = 250),
+            label = "statusSubtitleColor"
+        )
+        LaunchedEffect(state.nodeBlockHeight, state.network) {
+            val currentHeight = state.nodeBlockHeight
+            val previousHeight = lastSeenBlockHeight
+            if (currentHeight != null && previousHeight != null && currentHeight > previousHeight) {
+                highlightBlockHeight = true
+                delay(900)
+                highlightBlockHeight = false
+            }
+            lastSeenBlockHeight = currentHeight
+        }
         val blockHeightLabel = state.nodeBlockHeight?.let { height ->
             val formattedHeight = remember(height) { formatBlockHeight(height) }
             stringResource(id = R.string.status_block_height_short, formattedHeight)
@@ -409,6 +471,7 @@ private fun StatusBar(
         }
         val fallbackSubtitle = when (val status = state.nodeStatus) {
             NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
+            NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
             NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
             NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
             NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
@@ -420,8 +483,8 @@ private fun StatusBar(
             else -> fallbackSubtitle
         }
         val topBarColors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            scrolledContainerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
             navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
             actionIconContentColor = MaterialTheme.colorScheme.onSurface
         )
@@ -429,8 +492,8 @@ private fun StatusBar(
             modifier = modifier,
             title = {
                 Column(
-                    horizontalAlignment = Alignment.Start,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.Start
                 ) {
                     Text(
                         text = stringResource(id = R.string.app_name),
@@ -440,7 +503,7 @@ private fun StatusBar(
                     Text(
                         text = subtitleText,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = subtitleColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Start
@@ -473,7 +536,7 @@ private fun StatusBar(
         contentColor: Color? = null,
         tonalElevation: Dp = 3.dp
     ) {
-        val resolvedContainer = containerColor ?: MaterialTheme.colorScheme.surface
+        val resolvedContainer = containerColor ?: MaterialTheme.colorScheme.surfaceContainer
         val resolvedContent = contentColor ?: contentColorFor(resolvedContainer)
         val resolvedElevation = if (containerColor != null && containerColor.alpha <= 0.01f) {
             0.dp

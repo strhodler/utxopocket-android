@@ -4,7 +4,10 @@ import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
+import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
@@ -15,10 +18,10 @@ interface AppPreferencesRepository {
     val preferredNetwork: Flow<BitcoinNetwork>
     val pinLockEnabled: Flow<Boolean>
     val themePreference: Flow<ThemePreference>
+    val themeProfile: Flow<ThemeProfile>
     val appLanguage: Flow<AppLanguage>
     val balanceUnit: Flow<BalanceUnit>
     val balancesHidden: Flow<Boolean>
-    val walletAnimationsEnabled: Flow<Boolean>
     val hapticsEnabled: Flow<Boolean>
     val walletBalanceRange: Flow<BalanceRange>
     val showBalanceChart: Flow<Boolean>
@@ -35,6 +38,7 @@ interface AppPreferencesRepository {
     val utxoHealthParameters: Flow<UtxoHealthParameters>
     val networkLogsEnabled: Flow<Boolean>
     val networkLogsInfoSeen: Flow<Boolean>
+    val blockExplorerPreferences: Flow<BlockExplorerPreferences>
 
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setPreferredNetwork(network: BitcoinNetwork)
@@ -44,11 +48,11 @@ interface AppPreferencesRepository {
     suspend fun setPinAutoLockTimeoutMinutes(minutes: Int)
     suspend fun markPinUnlocked(timestampMillis: Long = System.currentTimeMillis())
     suspend fun setThemePreference(themePreference: ThemePreference)
+    suspend fun setThemeProfile(themeProfile: ThemeProfile)
     suspend fun setAppLanguage(language: AppLanguage)
     suspend fun setBalanceUnit(unit: BalanceUnit)
     suspend fun setBalancesHidden(hidden: Boolean)
     suspend fun cycleBalanceDisplayMode()
-    suspend fun setWalletAnimationsEnabled(enabled: Boolean)
     suspend fun setHapticsEnabled(enabled: Boolean)
     suspend fun setWalletBalanceRange(range: BalanceRange)
     suspend fun setShowBalanceChart(show: Boolean)
@@ -65,6 +69,9 @@ interface AppPreferencesRepository {
     suspend fun resetUtxoHealthParameters()
     suspend fun setNetworkLogsEnabled(enabled: Boolean)
     suspend fun setNetworkLogsInfoSeen(seen: Boolean)
+    suspend fun setBlockExplorerBucket(network: BitcoinNetwork, bucket: BlockExplorerBucket)
+    suspend fun setBlockExplorerPreset(network: BitcoinNetwork, bucket: BlockExplorerBucket, presetId: String)
+    suspend fun setBlockExplorerCustom(network: BitcoinNetwork, bucket: BlockExplorerBucket, url: String?, name: String?)
     suspend fun wipeAll()
 
     companion object {
