@@ -616,6 +616,8 @@
     <string name="onboarding_slide_privacy_description">Cada sincronización viaja por Tor; usa presets curados o tu endpoint onion para custodiar los metadatos.</string>
     <string name="onboarding_slide_trust_title">No confíes, verifica</string>
     <string name="onboarding_slide_trust_description">Apunta UtxoPocket a tu propio nodo o a un peer onion para mantener a terceros fuera de tu validación.</string>
+    <string name="onboarding_slide_network_title">Elige tu red de Bitcoin</string>
+    <string name="onboarding_slide_network_description">Empieza en testnet, testnet4, signet o mainnet; podrás cambiarla cuando quieras desde Conexiones y red.</string>
 
     <!-- Settings: advanced + dust -->
     <string name="settings_advanced_mode">Modo avanzado</string>
@@ -1008,7 +1010,6 @@
     <string name="wallet_detail_descriptors_hint">Mantén estos descriptores privados y guarda un respaldo seguro. Cualquiera con ellos puede monitorear tu billetera.</string>
 
     <!-- Wiki CTA in wallets list -->
-    <string name="wallets_node_prompt_wiki_cta">Aprende a conectarte vía Tor</string>
     <string name="wallets_node_disconnected_banner">Sin conexión de nodo</string>
     <string name="wallets_node_connecting_banner">Conectando al nodo</string>
     <string name="wallets_node_connected_banner">Conectado al nodo</string>

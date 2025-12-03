@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.presentation.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -44,8 +45,14 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
+    fun onNetworkSelected(network: BitcoinNetwork) {
+        _uiState.update { it.copy(selectedNetwork = network) }
+    }
+
     fun complete(onFinished: () -> Unit) {
         viewModelScope.launch {
+            val preferredNetwork = _uiState.value.selectedNetwork
+            appPreferencesRepository.setPreferredNetwork(preferredNetwork)
             appPreferencesRepository.setOnboardingCompleted(true)
             onFinished()
         }
@@ -53,7 +60,8 @@ class OnboardingViewModel @Inject constructor(
 }
 
 data class OnboardingUiState(
-    val step: OnboardingStep = OnboardingStep.Welcome
+    val step: OnboardingStep = OnboardingStep.Welcome,
+    val selectedNetwork: BitcoinNetwork = BitcoinNetwork.DEFAULT
 )
 
 enum class OnboardingStep {
@@ -62,7 +70,8 @@ enum class OnboardingStep {
     SlideTwo,
     SlideThree,
     SlideFour,
-    SlideFive;
+    SlideFive,
+    SlideNetwork;
 
     fun next(): OnboardingStep = when (this) {
         Welcome -> SlideOne
@@ -70,7 +79,8 @@ enum class OnboardingStep {
         SlideTwo -> SlideThree
         SlideThree -> SlideFour
         SlideFour -> SlideFive
-        SlideFive -> SlideFive
+        SlideFive -> SlideNetwork
+        SlideNetwork -> SlideNetwork
     }
 
     fun previous(): OnboardingStep = when (this) {
@@ -80,6 +90,7 @@ enum class OnboardingStep {
         SlideThree -> SlideTwo
         SlideFour -> SlideThree
         SlideFive -> SlideFour
+        SlideNetwork -> SlideFive
     }
 
     fun toSlideIndex(): Int? = when (this) {
@@ -88,16 +99,18 @@ enum class OnboardingStep {
         SlideThree -> 2
         SlideFour -> 3
         SlideFive -> 4
+        SlideNetwork -> 5
         Welcome -> null
     }
 
     companion object {
-        fun fromSlideIndex(index: Int): OnboardingStep = when (index.coerceIn(0, 4)) {
+        fun fromSlideIndex(index: Int): OnboardingStep = when (index.coerceIn(0, 5)) {
             0 -> SlideOne
             1 -> SlideTwo
             2 -> SlideThree
             3 -> SlideFour
-            else -> SlideFive
+            4 -> SlideFive
+            else -> SlideNetwork
         }
     }
 }

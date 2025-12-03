@@ -392,8 +392,7 @@ private fun WalletsList(
                 banner?.let { it() }
                 if (showNodePrompt) {
                     NodeSelectionPrompt(
-                        onSelectNode = onSelectNode,
-                        onOpenWiki = { onOpenWikiTopic(WikiContent.NodeConnectivityTopicId) }
+                        onSelectNode = onSelectNode
                     )
                 } else {
                     EmptyState(
@@ -815,7 +814,6 @@ private fun networkLabelRes(network: BitcoinNetwork): Int = when (network) {
 @Composable
 private fun NodeSelectionPrompt(
     onSelectNode: () -> Unit,
-    onOpenWiki: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -823,6 +821,7 @@ private fun NodeSelectionPrompt(
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Spacer(modifier = Modifier.height(36.dp))
             Text(
                 text = stringResource(id = R.string.wallets_node_prompt_title),
                 style = MaterialTheme.typography.titleMedium
@@ -842,13 +841,6 @@ private fun NodeSelectionPrompt(
                     .widthIn(max = 360.dp)
                     .fillMaxWidth()
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            TextButton(onClick = onOpenWiki) {
-                Text(
-                    text = stringResource(id = R.string.wallets_node_prompt_wiki_cta),
-                    textAlign = TextAlign.Center
-                )
-            }
         }
     }
 }

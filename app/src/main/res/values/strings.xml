@@ -69,7 +69,6 @@
     <string name="wallets_node_prompt_title">Select a node to get started</string>
     <string name="wallets_node_prompt_description">Choose the node you want to sync with before adding descriptors.</string>
     <string name="wallets_node_prompt_action">Select node</string>
-    <string name="wallets_node_prompt_wiki_cta">Learn how to connect via Tor</string>
     <string name="wallets_node_disconnected_banner">No node connection</string>
     <string name="wallets_node_connecting_banner">Connecting to node</string>
     <string name="wallets_node_connected_banner">Connected to node</string>
@@ -876,6 +875,8 @@
     <string name="onboarding_slide_privacy_description">Every sync rides over Tor, and you can stick with curated Electrum presets or drop in your own onion endpoint when you need total custody of metadata.</string>
     <string name="onboarding_slide_trust_title">Don’t trust, verify</string>
     <string name="onboarding_slide_trust_description">Aim UtxoPocket at your own node or an onion peer to keep third parties out of your validation loop.</string>
+    <string name="onboarding_slide_network_title">Pick your Bitcoin network</string>
+    <string name="onboarding_slide_network_description">Start on testnet, testnet4, signet, or mainnet—switch anytime from Connections &amp; network when you’re ready.</string>
     <string name="onboarding_back">Back</string>
     <string name="onboarding_next">Next</string>
     <string name="onboarding_finish">Start</string>

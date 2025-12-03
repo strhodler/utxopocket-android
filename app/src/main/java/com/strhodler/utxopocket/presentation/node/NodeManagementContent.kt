@@ -16,35 +16,24 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -55,11 +44,10 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.PublicNode
-import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.common.ListSection
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import kotlinx.coroutines.launch
+import com.strhodler.utxopocket.presentation.common.SectionCard
+import com.strhodler.utxopocket.presentation.components.network.NetworkSelector
+import com.strhodler.utxopocket.presentation.components.network.networkLabel
 
 @Composable
 fun NodeManagementContent(
@@ -131,13 +119,7 @@ fun NodeConfigurationContent(
             selectedNetwork = network,
             enabled = isNetworkOnline,
             interactionsLocked = interactionsLocked,
-            onNetworkSelected = { selected ->
-                if (interactionsLocked) {
-                    onInteractionBlocked()
-                } else {
-                    onNetworkSelected(selected)
-                }
-            },
+            onNetworkSelected = onNetworkSelected,
             onInteractionBlocked = onInteractionBlocked
         )
 
@@ -163,7 +145,6 @@ fun NodeConfigurationContent(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NodeNetworkSelector(
     selectedNetwork: BitcoinNetwork,
@@ -172,100 +153,19 @@ private fun NodeNetworkSelector(
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onInteractionBlocked: () -> Unit
 ) {
-    val options = remember { BitcoinNetwork.entries }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var showSheet by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    val itemAlpha = if (enabled) 1f else 0.5f
-
     SectionCard(
         title = stringResource(id = R.string.network_section_title),
         contentPadding = PaddingValues(vertical = 8.dp),
         divider = false
     ) {
         item {
-            ListItem(
-                headlineContent = {
-                    Text(
-                        text = stringResource(id = R.string.network_select_title),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                },
-                supportingContent = {
-                    Text(
-                        text = networkLabel(selectedNetwork),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                trailingContent = {
-                    Icon(
-                        imageVector = Icons.Outlined.ArrowDropDown,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .alpha(itemAlpha)
-                    .clickable {
-                        if (!enabled || interactionsLocked) {
-                            onInteractionBlocked()
-                        } else {
-                            showSheet = true
-                        }
-                    },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            NetworkSelector(
+                selectedNetwork = selectedNetwork,
+                enabled = enabled,
+                interactionsLocked = interactionsLocked,
+                onNetworkSelected = onNetworkSelected,
+                onInteractionBlocked = onInteractionBlocked
             )
-        }
-    }
-
-    if (showSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showSheet = false },
-            sheetState = sheetState,
-            dragHandle = { BottomSheetDefaults.DragHandle() }
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = stringResource(id = R.string.network_select_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-                options.forEach { option ->
-                    val selected = option == selectedNetwork
-                    ListItem(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                scope.launch {
-                                    onNetworkSelected(option)
-                                    sheetState.hide()
-                                    showSheet = false
-                                }
-                            },
-                        leadingContent = {
-                            RadioButton(
-                                selected = selected,
-                                onClick = null
-                            )
-                        },
-                        headlineContent = {
-                            Text(
-                                text = networkLabel(option),
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-            }
         }
     }
 }
@@ -578,14 +478,6 @@ data class NodeTypeBadge(
     val containerColor: Color,
     val contentColor: Color
 )
-
-@Composable
-fun networkLabel(network: BitcoinNetwork): String = when (network) {
-    BitcoinNetwork.MAINNET -> stringResource(id = R.string.network_mainnet)
-    BitcoinNetwork.TESTNET -> stringResource(id = R.string.network_testnet)
-    BitcoinNetwork.TESTNET4 -> stringResource(id = R.string.network_testnet4)
-    BitcoinNetwork.SIGNET -> stringResource(id = R.string.network_signet)
-}
 
 private val AddCustomNodeButtonMinHeight = 64.dp
 private val AddCustomNodeButtonContentPadding =
