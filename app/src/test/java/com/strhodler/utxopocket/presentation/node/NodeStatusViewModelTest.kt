@@ -4,6 +4,9 @@ import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
+import com.strhodler.utxopocket.domain.model.BlockExplorerNetworkPreference
+import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
@@ -18,8 +21,11 @@ import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
+import com.strhodler.utxopocket.domain.model.NetworkEndpointType
 import com.strhodler.utxopocket.domain.model.NetworkErrorLog
 import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
+import com.strhodler.utxopocket.domain.model.NetworkNodeSource
+import com.strhodler.utxopocket.domain.model.NetworkTransport
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.model.WalletAddress
@@ -145,6 +151,7 @@ class NodeStatusViewModelTest {
         )
         private val _networkLogsEnabled = MutableStateFlow(false)
         private val _networkLogsInfoSeen = MutableStateFlow(false)
+        private val blockExplorerPreferencesState = MutableStateFlow(BlockExplorerPreferences())
         override val onboardingCompleted: StateFlow<Boolean> = MutableStateFlow(true)
         override val preferredNetwork: StateFlow<BitcoinNetwork> = _preferredNetwork
         override val pinLockEnabled: StateFlow<Boolean> = MutableStateFlow(false)
@@ -174,6 +181,7 @@ class NodeStatusViewModelTest {
             MutableStateFlow(UtxoHealthParameters())
         override val networkLogsEnabled: StateFlow<Boolean> = _networkLogsEnabled
         override val networkLogsInfoSeen: StateFlow<Boolean> = _networkLogsInfoSeen
+        override val blockExplorerPreferences: StateFlow<BlockExplorerPreferences> = blockExplorerPreferencesState
 
         override suspend fun setOnboardingCompleted(completed: Boolean) = Unit
 
@@ -235,7 +243,57 @@ class NodeStatusViewModelTest {
         override suspend fun setNetworkLogsInfoSeen(seen: Boolean) {
             _networkLogsInfoSeen.value = seen
         }
+
+        override suspend fun setBlockExplorerBucket(network: BitcoinNetwork, bucket: BlockExplorerBucket) {
+            updateBlockExplorerPrefs(network) { current -> current.copy(bucket = bucket) }
+        }
+
+        override suspend fun setBlockExplorerPreset(
+            network: BitcoinNetwork,
+            bucket: BlockExplorerBucket,
+            presetId: String
+        ) {
+            updateBlockExplorerPrefs(network) { current ->
+                when (bucket) {
+                    BlockExplorerBucket.NORMAL -> current.copy(bucket = bucket, normalPresetId = presetId)
+                    BlockExplorerBucket.ONION -> current.copy(bucket = bucket, onionPresetId = presetId)
+                }
+            }
+        }
+
+        override suspend fun setBlockExplorerCustom(
+            network: BitcoinNetwork,
+            bucket: BlockExplorerBucket,
+            url: String?,
+            name: String?
+        ) {
+            updateBlockExplorerPrefs(network) { current ->
+                when (bucket) {
+                    BlockExplorerBucket.NORMAL -> current.copy(
+                        bucket = bucket,
+                        customNormalUrl = url,
+                        customNormalName = name
+                    )
+                    BlockExplorerBucket.ONION -> current.copy(
+                        bucket = bucket,
+                        customOnionUrl = url,
+                        customOnionName = name
+                    )
+                }
+            }
+        }
         override suspend fun wipeAll() = Unit
+
+        private fun updateBlockExplorerPrefs(
+            network: BitcoinNetwork,
+            block: (BlockExplorerNetworkPreference) -> BlockExplorerNetworkPreference
+        ) {
+            val current = blockExplorerPreferencesState.value
+            val updated = block(current.forNetwork(network))
+            blockExplorerPreferencesState.value = BlockExplorerPreferences(
+                current.selections + (network to updated)
+            )
+        }
     }
 
     private class TestNodeConfigurationRepository : NodeConfigurationRepository {
@@ -386,9 +444,24 @@ class NodeStatusViewModelTest {
 
         override suspend fun record(event: NetworkErrorLogEvent) {
             logsState.value = logsState.value + NetworkErrorLog(
-                timestampMillis = event.timestampMillis,
-                message = event.message,
-                details = event.details
+                id = logsState.value.size.toLong(),
+                timestamp = System.currentTimeMillis(),
+                appVersion = "test",
+                androidVersion = "test",
+                networkType = event.networkType,
+                operation = event.operation,
+                endpointType = event.endpointTypeHint ?: NetworkEndpointType.Unknown,
+                transport = event.transport ?: NetworkTransport.Unknown,
+                hostMask = event.endpoint,
+                hostHash = null,
+                port = null,
+                usedTor = event.usedTor,
+                torBootstrapPercent = event.torStatus?.progress,
+                errorKind = event.error::class.simpleName,
+                errorMessage = event.error.message ?: "",
+                durationMs = event.durationMs,
+                retryCount = event.retryCount,
+                nodeSource = event.nodeSource ?: NetworkNodeSource.Unknown
             )
         }
 

@@ -210,7 +210,7 @@ fun RollingBalanceText(
     if (!autoScale) {
         if (hidden) {
             Text(
-                text = mask + suffix,
+                text = mask,
                 modifier = modifier,
                 style = textStyle
             )
@@ -238,7 +238,7 @@ fun RollingBalanceText(
     ) {
         val maxWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
         val displayText = if (hidden) {
-            mask + suffix
+            mask
         } else {
             valueFormatter(balanceSats) + suffix
         }

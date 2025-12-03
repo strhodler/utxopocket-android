@@ -1306,10 +1306,6 @@ private fun DescriptorWarningBanner(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Outlined.Warning,
-                contentDescription = null
-            )
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,

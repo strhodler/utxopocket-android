@@ -203,6 +203,14 @@ private val wikiTopicKeywords: Map<String, List<String>> = mapOf(
         "Derivation paths",
         "Accounts"
     ),
+    "block-explorer-privacy" to listOf(
+        "Block explorer",
+        "Tor browser",
+        "Clearnet",
+        "Self-hosted",
+        "Onion",
+        "Mempool"
+    ),
     "address-and-uri-standards" to listOf(
         "BIP21",
         "URI",
@@ -325,6 +333,8 @@ object WikiContent {
     const val UtxoHealthTopicId: String = "utxo-health"
     const val WalletHealthTopicId: String = "wallet-health"
     const val NodeConnectivityTopicId: String = "node-connectivity"
+    const val PrivacyThreatModelsTopicId: String = "privacy-threat-models"
+    const val BlockExplorerPrivacyTopicId: String = "block-explorer-privacy"
     const val DescriptorCompatibilityTopicId: String = "descriptor-compatibility"
 
     val categories: List<WikiCategory> = listOf(
@@ -609,6 +619,38 @@ object WikiContent {
                                 "When crossing borders, travel with watch-only descriptors and keep signing devices powered off. Memorise (or securely store separately) your passphrases so seizing one device does not grant full access."
                             )
                         )
+                    )
+                ),
+                WikiTopic(
+                    id = BlockExplorerPrivacyTopicId,
+                    title = "Block Explorer Privacy",
+                    summary = "Why self-hosted or Tor explorers keep your lookups private.",
+                    sections = listOf(
+                        WikiSection(
+                            title = "Prefer Your Own Explorer",
+                            paragraphs = listOf(
+                                "Public explorers log IPs, user agents, and queried txids. If you reuse the same explorer for every lookup, you hand an observer a map of your activity. Running your own explorer (for example, mempool) behind Tor or on your LAN keeps these logs under your control.",
+                                "Self-hosting also removes the risk of DNS hijacks or SSL interception that can modify responses. If you cannot run your own node yet, pick explorers you trust and rotate them sparingly."
+                            )
+                        ),
+                        WikiSection(
+                            title = "Use Onion URLs When Possible",
+                            paragraphs = listOf(
+                                "Onion explorers avoid exposing your home IP to third parties. They still see the txids you query, but they cannot trivially link them to your network. Pair this with watch-only wallets to keep signing keys offline.",
+                                "Always include the full /tx/ path when adding explorers in Settings so the app appends txids automatically and you avoid copying sensitive data between apps."
+                            )
+                        ),
+                        WikiSection(
+                            title = "Open Links with Tor Browser",
+                            paragraphs = listOf(
+                                "Install Tor Browser on your device so onion links and clearnet explorers both open through Tor. This keeps lookup traffic separate from your normal browsing profile and reduces IP-based clustering.",
+                                "If an explorer only offers clearnet, open it through Tor Browser anyway. Avoid mixing personal browsing and wallet lookups in the same browser profile."
+                            )
+                        )
+                    ),
+                    relatedTopicIds = listOf(
+                        PrivacyThreatModelsTopicId,
+                        NodeConnectivityTopicId
                     )
                 ),
                 WikiTopic(

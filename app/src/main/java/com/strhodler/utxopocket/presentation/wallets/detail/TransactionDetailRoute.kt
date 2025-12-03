@@ -42,6 +42,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -87,7 +88,6 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.TransactionHealthResult
 import com.strhodler.utxopocket.domain.model.TransactionHealthIndicatorType
-import com.strhodler.utxopocket.domain.model.TransactionHealthSeverity
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.TransactionStructure
 import com.strhodler.utxopocket.domain.model.TransactionType
@@ -109,7 +109,6 @@ import com.strhodler.utxopocket.domain.model.UtxoStatus
 import com.strhodler.utxopocket.domain.model.UtxoAnalysisContext
 import com.strhodler.utxopocket.domain.model.UtxoHealthIndicatorType
 import com.strhodler.utxopocket.domain.model.UtxoHealthResult
-import com.strhodler.utxopocket.domain.model.UtxoHealthSeverity
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.common.balanceValue
@@ -117,6 +116,7 @@ import com.strhodler.utxopocket.presentation.common.transactionAmount
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
+import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
@@ -257,7 +257,6 @@ fun TransactionDetailRoute(
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
-                .padding(bottom = 32.dp)
         )
     }
 }
@@ -346,7 +345,6 @@ fun UtxoDetailRoute(
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
-                .padding(bottom = 32.dp)
         )
     }
 }
@@ -1352,6 +1350,19 @@ private fun TransactionDetailContent(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    ActionableStatusBanner(
+                        title = stringResource(id = R.string.settings_block_explorer_privacy_warning),
+                        supporting = stringResource(id = R.string.settings_block_explorer_privacy_action),
+                        icon = Icons.Outlined.OpenInNew,
+                        iconTint = Color.Transparent,
+                        onClick = {
+                            explorerScope.launch { explorerSheetState.hide() }
+                                .invokeOnCompletion {
+                                    showExplorerSheet = false
+                                    onOpenWikiTopic(WikiContent.BlockExplorerPrivacyTopicId)
+                                }
+                        }
+                    )
                     if (explorerOptions.isEmpty()) {
                         Text(
                             text = stringResource(id = R.string.transaction_detail_explorer_missing),
@@ -1360,16 +1371,20 @@ private fun TransactionDetailContent(
                         )
                     } else {
                         explorerOptions.forEach { option ->
-                            val bucketLabel = if (option.bucket == BlockExplorerBucket.ONION) {
-                                stringResource(id = R.string.settings_block_explorer_bucket_onion)
-                            } else {
-                                stringResource(id = R.string.settings_block_explorer_bucket_normal)
+                            val bucketLabel = when (option.bucket) {
+                                BlockExplorerBucket.ONION -> stringResource(id = R.string.settings_block_explorer_bucket_onion)
+                                else -> stringResource(id = R.string.settings_block_explorer_bucket_normal)
                             }
-                            val behavior = if (option.requiresManualTxId) {
-                                stringResource(id = R.string.transaction_detail_explorer_manual_hint)
-                            } else {
-                                stringResource(id = R.string.transaction_detail_explorer_direct_hint)
+                            val descriptors = buildList {
+                                if (option.id.startsWith("custom")) {
+                                    add(stringResource(id = R.string.transaction_detail_explorer_custom_hint))
+                                }
+                                add(bucketLabel)
+                                if (option.requiresManualTxId) {
+                                    add(stringResource(id = R.string.transaction_detail_explorer_manual_hint))
+                                }
                             }
+                            val supportingText = descriptors.joinToString(" • ")
                             ListItem(
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                                 headlineContent = {
@@ -1380,7 +1395,7 @@ private fun TransactionDetailContent(
                                 },
                                 supportingContent = {
                                     Text(
-                                        text = "$bucketLabel • $behavior",
+                                        text = supportingText,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -2068,7 +2083,6 @@ private fun TransactionIoListItem(
             Text(
                 text = display.address,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -2188,15 +2202,14 @@ private fun CollapsibleHealthCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = onToggle),
+                    .clickable(onClick = onToggle)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -2220,7 +2233,9 @@ private fun CollapsibleHealthCard(
             if (expanded) {
                 content()
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onMoreInfo) {
@@ -2248,22 +2263,9 @@ private fun TransactionHealthSummaryCard(
         onMoreInfo = { onOpenWikiTopic(WikiContent.TransactionHealthTopicId) },
         modifier = modifier
     ) {
-        Text(
-            text = stringResource(
-                id = R.string.transaction_detail_health_indicator_count,
-                health.indicators.size
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(8.dp))
         if (health.badges.isNotEmpty()) {
-            Text(
-                text = stringResource(id = R.string.transaction_detail_health_badges_title),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             FlowRow(
+                modifier = Modifier.padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -2271,52 +2273,47 @@ private fun TransactionHealthSummaryCard(
                     FlowBadge(text = badge.label)
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
         }
         if (health.indicators.isEmpty()) {
             Text(
                 text = stringResource(id = R.string.transaction_detail_health_indicator_none),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
         } else {
-            health.indicators.forEach { indicator ->
-                val label = stringResource(id = indicator.type.labelRes())
-                val severityLabel = stringResource(id = indicator.severity.labelRes())
-                val deltaText = String.format(Locale.getDefault(), "%+d", indicator.delta)
-                val valueText = stringResource(
-                    id = R.string.transaction_detail_health_indicator_value,
-                    deltaText,
-                    severityLabel
-                )
-                val severityColor = when (indicator.severity) {
-                    TransactionHealthSeverity.LOW -> MaterialTheme.colorScheme.secondary
-                    TransactionHealthSeverity.MEDIUM -> MaterialTheme.colorScheme.tertiary
-                    TransactionHealthSeverity.HIGH -> MaterialTheme.colorScheme.error
-                }
-                ListItem(
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    headlineContent = {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    },
-                    supportingContent = {
-                        Text(
-                            text = valueText,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    trailingContent = {
-                        Text(
-                            text = severityLabel,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = severityColor
-                        )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                health.indicators.forEachIndexed { index, indicator ->
+                    if (index > 0) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
-                )
+                    val label = stringResource(id = indicator.type.labelRes())
+                    val deltaText = String.format(Locale.getDefault(), "%+d", indicator.delta)
+                    val pointsText = stringResource(
+                        id = R.string.transaction_health_points_format,
+                        deltaText
+                    )
+                    ListItem(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingContent = {
+                            Text(
+                                text = pointsText,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
+                }
             }
         }
     }
@@ -2338,22 +2335,9 @@ private fun UtxoHealthSummaryCard(
         onMoreInfo = { onOpenWikiTopic(WikiContent.UtxoHealthTopicId) },
         modifier = modifier
     ) {
-        Text(
-            text = stringResource(
-                id = R.string.utxo_detail_health_indicator_count,
-                health.indicators.size
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(8.dp))
         if (health.badges.isNotEmpty()) {
-            Text(
-                text = stringResource(id = R.string.utxo_detail_health_badges_title),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             FlowRow(
+                modifier = Modifier.padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -2361,63 +2345,54 @@ private fun UtxoHealthSummaryCard(
                     FlowBadge(text = badge.label)
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
         }
         if (health.indicators.isEmpty()) {
             Text(
                 text = stringResource(id = R.string.utxo_detail_health_indicator_none),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
         } else {
-            health.indicators.forEach { indicator ->
-                val label = when (indicator.type) {
-                    UtxoHealthIndicatorType.ADDRESS_REUSE -> stringResource(id = R.string.utxo_detail_health_reuse_label)
-                    UtxoHealthIndicatorType.DUST_UTXO -> stringResource(id = R.string.utxo_detail_health_dust_label)
-                    UtxoHealthIndicatorType.CHANGE_UNCONSOLIDATED -> stringResource(id = R.string.utxo_detail_health_change_label)
-                    UtxoHealthIndicatorType.MISSING_LABEL -> stringResource(id = R.string.utxo_detail_health_missing_label)
-                    UtxoHealthIndicatorType.LONG_INACTIVE -> stringResource(id = R.string.utxo_detail_health_long_inactive)
-                    UtxoHealthIndicatorType.WELL_DOCUMENTED_HIGH_VALUE -> stringResource(id = R.string.utxo_detail_health_well_documented)
-                }
-                val severityLabel = when (indicator.severity) {
-                    UtxoHealthSeverity.LOW -> stringResource(id = R.string.transaction_health_severity_low)
-                    UtxoHealthSeverity.MEDIUM -> stringResource(id = R.string.transaction_health_severity_medium)
-                    UtxoHealthSeverity.HIGH -> stringResource(id = R.string.transaction_health_severity_high)
-                }
-                val deltaText = String.format(Locale.getDefault(), "%+d", indicator.delta)
-                val valueText = stringResource(
-                    id = R.string.utxo_detail_health_indicator_value,
-                    deltaText,
-                    severityLabel
-                )
-                val severityColor = when (indicator.severity) {
-                    UtxoHealthSeverity.LOW -> MaterialTheme.colorScheme.secondary
-                    UtxoHealthSeverity.MEDIUM -> MaterialTheme.colorScheme.tertiary
-                    UtxoHealthSeverity.HIGH -> MaterialTheme.colorScheme.error
-                }
-                ListItem(
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    headlineContent = {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    },
-                    supportingContent = {
-                        Text(
-                            text = valueText,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    trailingContent = {
-                        Text(
-                            text = severityLabel,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = severityColor
-                        )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                health.indicators.forEachIndexed { index, indicator ->
+                    if (index > 0) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
-                )
+                    val label = when (indicator.type) {
+                        UtxoHealthIndicatorType.ADDRESS_REUSE -> stringResource(id = R.string.utxo_detail_health_reuse_label)
+                        UtxoHealthIndicatorType.DUST_UTXO -> stringResource(id = R.string.utxo_detail_health_dust_label)
+                        UtxoHealthIndicatorType.CHANGE_UNCONSOLIDATED -> stringResource(id = R.string.utxo_detail_health_change_label)
+                        UtxoHealthIndicatorType.MISSING_LABEL -> stringResource(id = R.string.utxo_detail_health_missing_label)
+                        UtxoHealthIndicatorType.LONG_INACTIVE -> stringResource(id = R.string.utxo_detail_health_long_inactive)
+                        UtxoHealthIndicatorType.WELL_DOCUMENTED_HIGH_VALUE -> stringResource(id = R.string.utxo_detail_health_well_documented)
+                    }
+                    val deltaText = String.format(Locale.getDefault(), "%+d", indicator.delta)
+                    val pointsText = stringResource(
+                        id = R.string.transaction_health_points_format,
+                        deltaText
+                    )
+                    ListItem(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingContent = {
+                            Text(
+                                text = pointsText,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
+                }
             }
         }
     }
@@ -2439,12 +2414,6 @@ private fun TransactionHealthIndicatorType.labelRes(): Int = when (this) {
     TransactionHealthIndicatorType.BATCHING -> R.string.transaction_health_indicator_batching
     TransactionHealthIndicatorType.SEGWIT_ADOPTION -> R.string.transaction_health_indicator_segwit
     TransactionHealthIndicatorType.CONSOLIDATION_HEALTH -> R.string.transaction_health_indicator_consolidation
-}
-
-private fun TransactionHealthSeverity.labelRes(): Int = when (this) {
-    TransactionHealthSeverity.LOW -> R.string.transaction_health_severity_low
-    TransactionHealthSeverity.MEDIUM -> R.string.transaction_health_severity_medium
-    TransactionHealthSeverity.HIGH -> R.string.transaction_health_severity_high
 }
 
 @Composable

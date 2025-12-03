@@ -379,30 +379,28 @@ private fun WalletsList(
     selectedNetwork: BitcoinNetwork
 ) {
     if (wallets.isEmpty()) {
-        Column(
+        Box(
             modifier = modifier
-                .fillMaxWidth()
-                .padding(horizontal = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .fillMaxSize()
+                .padding(horizontal = BalanceHeaderMetrics.CONTENT_HORIZONTAL_PADDING)
         ) {
-            banner?.let {
-                it()
-            }
-            Box(modifier = Modifier.fillMaxWidth()) {
-                val centerModifier = Modifier.align(Alignment.Center)
+            Column(
+                modifier = Modifier.align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                banner?.let { it() }
                 if (showNodePrompt) {
                     NodeSelectionPrompt(
                         onSelectNode = onSelectNode,
-                        onOpenWiki = { onOpenWikiTopic(WikiContent.NodeConnectivityTopicId) },
-                        modifier = centerModifier
+                        onOpenWiki = { onOpenWikiTopic(WikiContent.NodeConnectivityTopicId) }
                     )
                 } else {
                     EmptyState(
                         onOpenWiki = onOpenWiki,
                         onAddWallet = onAddWallet,
                         canAddWallet = canAddWallet,
-                        showPendingSyncHint = showPendingSyncHint,
-                        modifier = centerModifier
+                        showPendingSyncHint = showPendingSyncHint
                     )
                 }
             }
@@ -464,14 +462,6 @@ private fun WalletsList(
                 if (!canAddWallet) {
                     Text(
                         text = stringResource(id = R.string.wallets_add_wallet_disabled_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
-                    )
-                } else if (showPendingSyncHint) {
-                    Text(
-                        text = stringResource(id = R.string.wallets_add_wallet_pending_sync_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.fillMaxWidth(),
@@ -878,6 +868,7 @@ private fun EmptyState(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(36.dp))
             Text(
                 text = stringResource(id = R.string.wallets_empty_title),
                 style = MaterialTheme.typography.titleMedium
@@ -888,7 +879,7 @@ private fun EmptyState(
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(36.dp))
             AddDescriptorCtaButton(
                 enabled = canAddWallet,
                 onClick = onAddWallet,
@@ -900,17 +891,6 @@ private fun EmptyState(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = stringResource(id = R.string.wallets_add_wallet_disabled_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                )
-            } else if (showPendingSyncHint) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = stringResource(id = R.string.wallets_add_wallet_pending_sync_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

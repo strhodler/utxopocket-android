@@ -349,10 +349,10 @@
     <string name="utxo_detail_label">Etiqueta</string>
     <string name="utxo_detail_label_placeholder">Sin etiqueta</string>
     <string name="utxo_detail_label_placeholder_short">Etiqueta del UTXO</string>
-    <string name="utxo_detail_label_add_action">Añadir etiqueta al UTXO</string>
+    <string name="utxo_detail_label_add_action">Añadir etiqueta</string>
     <string name="utxo_detail_label_edit_action">Editar etiqueta</string>
-    <string name="utxo_detail_label_add_title">Añadir etiqueta al UTXO</string>
-    <string name="utxo_detail_label_edit_title">Editar etiqueta del UTXO</string>
+    <string name="utxo_detail_label_add_title">Añadir etiqueta</string>
+    <string name="utxo_detail_label_edit_title">Editar etiqueta</string>
     <string name="utxo_detail_label_field_label">Etiqueta</string>
     <string name="utxo_detail_label_hint">Déjalo vacío para eliminar la etiqueta.</string>
     <string name="utxo_detail_label_support">Caracteres restantes: %1$d</string>
@@ -626,8 +626,8 @@
     <string name="settings_dust_threshold_support">Marca salidas pequeñas para revisarlas antes de gastar; pon 0 para desactivar avisos de dust.</string>
     <string name="settings_block_explorer_title">Explorador %1$s</string>
     <string name="settings_block_explorer_support">Añade exploradores aquí; podrás elegir cuál abrir desde una hoja inferior en el detalle de transacción.</string>
-    <string name="settings_block_explorer_bucket_normal">Normal</string>
-    <string name="settings_block_explorer_bucket_onion">.onion</string>
+    <string name="settings_block_explorer_bucket_normal">Clearnet</string>
+    <string name="settings_block_explorer_bucket_onion">Tor</string>
     <string name="settings_block_explorer_presets_label">Exploradores integrados</string>
     <string name="settings_block_explorer_clearnet_title">Exploradores clearnet</string>
     <string name="settings_block_explorer_tor_title">Exploradores Tor</string>
@@ -984,6 +984,7 @@
     <string name="transaction_detail_health_badges_title">Insignias</string>
     <string name="transaction_detail_health_indicator_none">No se activó ninguna heurística.</string>
     <string name="transaction_detail_health_indicator_value">%1$s pts · %2$s</string>
+    <string name="transaction_health_points_format">%1$s pts</string>
     <string name="transaction_detail_health_disabled">El análisis de transacciones está desactivado. Actívalo en Ajustes para revisar privacidad y comisiones.</string>
     <string name="transaction_detail_health_unavailable">Las señales de salud no están disponibles para esta entrada.</string>
     <string name="transaction_health_indicator_batching">Pago en lote detectado</string>

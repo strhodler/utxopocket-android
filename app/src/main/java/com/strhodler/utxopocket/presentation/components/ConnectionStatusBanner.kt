@@ -139,11 +139,14 @@ fun ActionableStatusBanner(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint ?: contentColor
-            )
+            val resolvedIconTint = iconTint ?: contentColor
+            if (resolvedIconTint.alpha > 0f) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = resolvedIconTint
+                )
+            }
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp)

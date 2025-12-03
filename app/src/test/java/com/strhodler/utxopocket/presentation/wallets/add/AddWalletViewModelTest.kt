@@ -5,6 +5,9 @@ import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
+import com.strhodler.utxopocket.domain.model.BlockExplorerNetworkPreference
+import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
 import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
@@ -474,6 +477,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     )
     private val _networkLogsEnabled = MutableStateFlow(false)
     private val _networkLogsInfoSeen = MutableStateFlow(false)
+    private val blockExplorerPreferencesState = MutableStateFlow(BlockExplorerPreferences())
 
     override val onboardingCompleted: Flow<Boolean> = _onboardingCompleted
     override val preferredNetwork: Flow<BitcoinNetwork> = _preferredNetwork
@@ -500,6 +504,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val utxoHealthParameters: Flow<UtxoHealthParameters> = _utxoHealthParameters
     override val networkLogsEnabled: Flow<Boolean> = _networkLogsEnabled
     override val networkLogsInfoSeen: Flow<Boolean> = _networkLogsInfoSeen
+    override val blockExplorerPreferences: Flow<BlockExplorerPreferences> = blockExplorerPreferencesState
 
     val currentNetwork: BitcoinNetwork
         get() = _preferredNetwork.value
@@ -628,5 +633,55 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
         _utxoHealthParameters.value = UtxoHealthParameters()
     }
 
+    override suspend fun setBlockExplorerBucket(network: BitcoinNetwork, bucket: BlockExplorerBucket) {
+        updateBlockExplorerPrefs(network) { current -> current.copy(bucket = bucket) }
+    }
+
+    override suspend fun setBlockExplorerPreset(
+        network: BitcoinNetwork,
+        bucket: BlockExplorerBucket,
+        presetId: String
+    ) {
+        updateBlockExplorerPrefs(network) { current ->
+            when (bucket) {
+                BlockExplorerBucket.NORMAL -> current.copy(bucket = bucket, normalPresetId = presetId)
+                BlockExplorerBucket.ONION -> current.copy(bucket = bucket, onionPresetId = presetId)
+            }
+        }
+    }
+
+    override suspend fun setBlockExplorerCustom(
+        network: BitcoinNetwork,
+        bucket: BlockExplorerBucket,
+        url: String?,
+        name: String?
+    ) {
+        updateBlockExplorerPrefs(network) { current ->
+            when (bucket) {
+                BlockExplorerBucket.NORMAL -> current.copy(
+                    bucket = bucket,
+                    customNormalUrl = url,
+                    customNormalName = name
+                )
+                BlockExplorerBucket.ONION -> current.copy(
+                    bucket = bucket,
+                    customOnionUrl = url,
+                    customOnionName = name
+                )
+            }
+        }
+    }
+
     override suspend fun wipeAll() = Unit
+
+    private fun updateBlockExplorerPrefs(
+        network: BitcoinNetwork,
+        block: (BlockExplorerNetworkPreference) -> BlockExplorerNetworkPreference
+    ) {
+        val current = blockExplorerPreferencesState.value
+        val updated = block(current.forNetwork(network))
+        blockExplorerPreferencesState.value = BlockExplorerPreferences(
+            current.selections + (network to updated)
+        )
+    }
 }

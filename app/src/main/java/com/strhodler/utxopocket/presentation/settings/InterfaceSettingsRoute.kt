@@ -214,13 +214,6 @@ private fun InterfaceSettingsScreen(
                 )
             }
             item {
-                ThemeProfileRow(
-                    selected = state.themeProfile,
-                    selectedLabel = themeProfileLabel(state.themeProfile),
-                    onClick = onOpenThemeProfileSheet
-                )
-            }
-            item {
                 ListItem(
                     headlineContent = {
                         Text(text = stringResource(id = R.string.settings_haptics_title))

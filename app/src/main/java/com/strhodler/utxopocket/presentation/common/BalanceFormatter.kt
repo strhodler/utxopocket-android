@@ -27,7 +27,7 @@ fun balanceText(
     hidden: Boolean = false
 ): String =
     if (hidden) {
-        "$HiddenBalanceMask ${balanceUnitLabel(unit)}"
+        HiddenBalanceMask
     } else {
         "${balanceValue(balanceSats, unit, locale)} ${balanceUnitLabel(unit)}"
     }
@@ -44,7 +44,7 @@ fun transactionAmount(
         TransactionType.SENT -> "-"
     }
     if (hidden) {
-        return "$sign$HiddenBalanceMask ${balanceUnitLabel(unit)}"
+        return HiddenBalanceMask
     }
     val magnitude = balanceValue(amountSats.absoluteValue, unit, locale)
     return "$sign$magnitude ${balanceUnitLabel(unit)}"
