@@ -6,7 +6,6 @@ import android.app.NotificationManager
 import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.data.preferences.userPreferencesDataStore
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.tor.TorServiceActions

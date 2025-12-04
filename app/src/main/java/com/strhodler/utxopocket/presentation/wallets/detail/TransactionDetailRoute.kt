@@ -1014,26 +1014,21 @@ private fun TransactionDetailContent(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             when {
-                !state.transactionAnalysisEnabled -> {
-                    InfoBanner(
-                        text = stringResource(id = R.string.transaction_detail_health_disabled),
-                        iconTint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                state.transactionHealth != null -> {
+                state.transactionAnalysisEnabled && state.transactionHealth != null -> {
                     TransactionHealthSummaryCard(
                         health = state.transactionHealth,
                         onOpenWikiTopic = onOpenWikiTopic
                     )
                 }
 
-                else -> {
+                state.transactionAnalysisEnabled && state.transactionHealth == null -> {
                     InfoBanner(
                         text = stringResource(id = R.string.transaction_detail_health_unavailable),
                         iconTint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
+                else -> Unit
             }
             val feeLabel = transaction.feeSats?.let { sats ->
                 "${balanceValue(sats, BalanceUnit.SATS)} sats"
@@ -1737,26 +1732,21 @@ private fun UtxoDetailContent(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             when {
-                !state.utxoHealthEnabled -> {
-                    InfoBanner(
-                        text = stringResource(id = R.string.utxo_detail_health_disabled),
-                        iconTint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                state.utxoHealth != null -> {
+                state.utxoHealthEnabled && state.utxoHealth != null -> {
                     UtxoHealthSummaryCard(
                         health = state.utxoHealth,
                         onOpenWikiTopic = onOpenWikiTopic
                     )
                 }
 
-                else -> {
+                state.utxoHealthEnabled && state.utxoHealth == null -> {
                     InfoBanner(
                         text = stringResource(id = R.string.utxo_detail_health_unavailable),
                         iconTint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+
+                else -> Unit
             }
             SpendableToggleCard(
                 spendable = utxo.spendable,

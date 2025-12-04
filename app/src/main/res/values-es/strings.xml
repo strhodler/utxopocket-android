@@ -637,6 +637,9 @@
     <string name="settings_block_explorer_clearnet_subtitle">Se abre en tu navegador habitual; cambia el predeterminado cuando quieras.</string>
     <string name="settings_block_explorer_tor_title">Exploradores Tor</string>
     <string name="settings_block_explorer_tor_subtitle">Se enruta por Tor; ideal para privacidad.</string>
+    <string name="settings_block_explorer_presets_empty_title">Sin presets %1$s</string>
+    <string name="settings_block_explorer_presets_empty_support">Restaura los predeterminados o añade tu propia URL de explorador.</string>
+    <string name="settings_block_explorer_restore_presets">Restaurar presets</string>
     <string name="settings_block_explorer_add_clearnet">Añadir explorador clearnet</string>
     <string name="settings_block_explorer_add_tor">Añadir explorador Tor</string>
     <string name="settings_block_explorer_preset_support_txid">Preestablecido: añade el txid y abre en tu navegador.</string>

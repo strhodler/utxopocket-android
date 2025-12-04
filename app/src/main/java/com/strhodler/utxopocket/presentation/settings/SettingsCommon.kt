@@ -1,81 +1,26 @@
 package com.strhodler.utxopocket.presentation.settings
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.ArrowDropDown
-import androidx.compose.material.icons.outlined.ArrowDropUp
-import androidx.compose.material3.Card
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-
-@Composable
-internal fun SettingsCard(
-    title: String,
-    modifier: Modifier = Modifier,
-    headerAction: (@Composable () -> Unit)? = null,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Card(
-        modifier = modifier
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
-        ) {
-            androidx.compose.foundation.layout.Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-            ) {
-                Text(
-                    text = title,
-                    style = androidx.compose.material3.MaterialTheme.typography.titleMedium
-                )
-                headerAction?.invoke()
-            }
-            content()
-        }
-    }
-}
 
 @Composable
 internal fun SettingsNavigationRow(
@@ -90,7 +35,10 @@ internal fun SettingsNavigationRow(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         headlineContent = {
-            Text(text = title, style = androidx.compose.material3.MaterialTheme.typography.bodyLarge)
+            Text(
+                text = title,
+                style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
+            )
         },
         supportingContent = {
             Text(
@@ -114,125 +62,6 @@ internal fun SettingsNavigationRow(
                 .fillMaxWidth()
                 .padding(dividerPadding)
         )
-    }
-}
-
-@Composable
-internal fun SettingsSwitchRow(
-    title: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    enabled: Boolean = true,
-    supportingText: String? = null
-) {
-    ListItem(
-        modifier = Modifier.fillMaxWidth(),
-        headlineContent = {
-            Text(text = title, style = androidx.compose.material3.MaterialTheme.typography.bodyLarge)
-        },
-        supportingContent = supportingText?.let {
-            {
-                Text(
-                    text = it,
-                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        trailingContent = {
-            Switch(
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-                enabled = enabled,
-                colors = SwitchDefaults.colors()
-            )
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun <T> SettingsSelectRow(
-    title: String,
-    selectedLabel: String,
-    options: List<T>,
-    optionLabel: (T) -> String,
-    onOptionSelected: (T) -> Unit,
-    supportingText: String? = null
-) {
-    var expanded by remember { mutableStateOf(false) }
-    var dropdownWidth by remember { mutableStateOf(Dp.Unspecified) }
-    val density = LocalDensity.current
-    val focusManager = LocalFocusManager.current
-    val textFieldColors = TextFieldDefaults.colors(
-        focusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
-        unfocusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
-        disabledContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface
-    )
-
-    Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)) {
-        Text(
-            text = title,
-            style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
-        )
-        Box {
-            TextField(
-                value = selectedLabel,
-                onValueChange = {},
-                readOnly = true,
-                colors = textFieldColors,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onGloballyPositioned { coordinates ->
-                        dropdownWidth = with(density) { coordinates.size.width.toDp() }
-                    }
-                    .onFocusChanged { focusState ->
-                        expanded = focusState.isFocused
-                    },
-                trailingIcon = {
-                    Icon(
-                        imageVector = if (expanded) {
-                            Icons.Outlined.ArrowDropUp
-                        } else {
-                            Icons.Outlined.ArrowDropDown
-                        },
-                        contentDescription = null,
-                        tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            )
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = {
-                    expanded = false
-                    focusManager.clearFocus(force = true)
-                },
-                modifier = if (dropdownWidth != Dp.Unspecified) {
-                    Modifier.width(dropdownWidth)
-                } else {
-                    Modifier
-                }
-            ) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(text = optionLabel(option)) },
-                        onClick = {
-                            onOptionSelected(option)
-                            expanded = false
-                            focusManager.clearFocus(force = true)
-                        }
-                    )
-                }
-            }
-        }
-        supportingText?.let {
-            Text(
-                text = it,
-                style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
-                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
     }
 }
 
@@ -281,15 +110,6 @@ internal fun rememberThemePreferenceLabeler(): (ThemePreference) -> String {
                 ThemePreference.DARK -> darkLabel
             }
         }
-    }
-}
-
-@Composable
-internal fun rememberAnimationsLabeler(): (Boolean) -> String {
-    val enabledLabel = stringResource(id = R.string.settings_option_enabled)
-    val disabledLabel = stringResource(id = R.string.settings_option_disabled)
-    return remember(enabledLabel, disabledLabel) {
-        { enabled -> if (enabled) enabledLabel else disabledLabel }
     }
 }
 

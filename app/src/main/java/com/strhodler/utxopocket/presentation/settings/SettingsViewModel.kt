@@ -101,6 +101,8 @@ class SettingsViewModel @Inject constructor(
                 val onionPresetIds = BlockExplorerCatalog.presetsFor(preferredNetwork, BlockExplorerBucket.ONION).map { it.id }.toSet()
                 val hiddenNormal = networkExplorerPrefs.hiddenPresetIds.filter { it in normalPresetIds }.toSet()
                 val hiddenOnion = networkExplorerPrefs.hiddenPresetIds.filter { it in onionPresetIds }.toSet()
+                val removedNormal = networkExplorerPrefs.removedPresetIds.filter { it in normalPresetIds }.toSet()
+                val removedOnion = networkExplorerPrefs.removedPresetIds.filter { it in onionPresetIds }.toSet()
 
                 previous.copy(
                     preferredNetwork = preferredNetwork,
@@ -139,6 +141,8 @@ class SettingsViewModel @Inject constructor(
                     blockExplorerOnionPresetId = networkExplorerPrefs.onionPresetId,
                     blockExplorerNormalHidden = hiddenNormal,
                     blockExplorerOnionHidden = hiddenOnion,
+                    blockExplorerNormalRemoved = removedNormal,
+                    blockExplorerOnionRemoved = removedOnion,
                     blockExplorerNormalCustomInput = customNormal,
                     blockExplorerOnionCustomInput = customOnion,
                     blockExplorerNormalCustomNameInput = customNormalName,
@@ -307,6 +311,92 @@ class SettingsViewModel @Inject constructor(
         updateBlockExplorerCustom(BlockExplorerBucket.ONION, "", "")
     }
 
+    fun onRemoveBlockExplorerPreset(bucket: BlockExplorerBucket, presetId: String) {
+        val network = _uiState.value.preferredNetwork
+        var updatedState: SettingsUiState? = null
+        _uiState.update { current ->
+            val updated = when (bucket) {
+                BlockExplorerBucket.NORMAL -> current.copy(
+                    blockExplorerNormalRemoved = current.blockExplorerNormalRemoved + presetId,
+                    blockExplorerNormalHidden = current.blockExplorerNormalHidden + presetId
+                )
+                BlockExplorerBucket.ONION -> current.copy(
+                    blockExplorerOnionRemoved = current.blockExplorerOnionRemoved + presetId,
+                    blockExplorerOnionHidden = current.blockExplorerOnionHidden + presetId
+                )
+            }
+            updatedState = updated
+            updated
+        }
+        val stateAfterUpdate = updatedState ?: return
+        val needsFallback = when (bucket) {
+            BlockExplorerBucket.NORMAL -> stateAfterUpdate.blockExplorerNormalPresetId == presetId
+            BlockExplorerBucket.ONION -> stateAfterUpdate.blockExplorerOnionPresetId == presetId
+        }
+        val fallback = if (needsFallback) {
+            fallbackPresetIdForBucket(stateAfterUpdate, bucket)
+        } else {
+            null
+        }
+        fallback?.let { preset ->
+            _uiState.update { current ->
+                when (bucket) {
+                    BlockExplorerBucket.NORMAL -> current.copy(blockExplorerNormalPresetId = preset)
+                    BlockExplorerBucket.ONION -> current.copy(blockExplorerOnionPresetId = preset)
+                }
+            }
+        }
+        viewModelScope.launch {
+            appPreferencesRepository.setBlockExplorerRemoved(network, bucket, presetId, true)
+            appPreferencesRepository.setBlockExplorerVisibility(network, bucket, presetId, false)
+            fallback?.let { preset ->
+                appPreferencesRepository.setBlockExplorerPreset(network, bucket, preset)
+            }
+        }
+    }
+
+    fun onRestoreBlockExplorerPresets(bucket: BlockExplorerBucket) {
+        val network = _uiState.value.preferredNetwork
+        val presetIds = BlockExplorerCatalog.presetsFor(network, bucket)
+            .filterNot { BlockExplorerCatalog.isCustomPreset(it.id, bucket) }
+            .map { it.id }
+            .toSet()
+        _uiState.update { current ->
+            when (bucket) {
+                BlockExplorerBucket.NORMAL -> current.copy(
+                    blockExplorerNormalRemoved = current.blockExplorerNormalRemoved - presetIds,
+                    blockExplorerNormalHidden = current.blockExplorerNormalHidden - presetIds
+                )
+                BlockExplorerBucket.ONION -> current.copy(
+                    blockExplorerOnionRemoved = current.blockExplorerOnionRemoved - presetIds,
+                    blockExplorerOnionHidden = current.blockExplorerOnionHidden - presetIds
+                )
+            }
+        }
+        viewModelScope.launch {
+            presetIds.forEach { presetId ->
+                appPreferencesRepository.setBlockExplorerRemoved(network, bucket, presetId, false)
+                appPreferencesRepository.setBlockExplorerVisibility(network, bucket, presetId, true)
+            }
+            val currentSelection = when (bucket) {
+                BlockExplorerBucket.NORMAL -> _uiState.value.blockExplorerNormalPresetId
+                BlockExplorerBucket.ONION -> _uiState.value.blockExplorerOnionPresetId
+            }
+            val shouldNormalizeSelection = !presetIds.contains(currentSelection) &&
+                !BlockExplorerCatalog.isCustomPreset(currentSelection, bucket)
+            if (shouldNormalizeSelection) {
+                val defaultPreset = BlockExplorerCatalog.defaultPresetId(network, bucket)
+                _uiState.update { current ->
+                    when (bucket) {
+                        BlockExplorerBucket.NORMAL -> current.copy(blockExplorerNormalPresetId = defaultPreset)
+                        BlockExplorerBucket.ONION -> current.copy(blockExplorerOnionPresetId = defaultPreset)
+                    }
+                }
+                appPreferencesRepository.setBlockExplorerPreset(network, bucket, defaultPreset)
+            }
+        }
+    }
+
     fun onBlockExplorerVisibilityChanged(bucket: BlockExplorerBucket, presetId: String, enabled: Boolean) {
         val network = _uiState.value.preferredNetwork
         _uiState.update { current ->
@@ -326,6 +416,33 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             appPreferencesRepository.setBlockExplorerVisibility(network, bucket, presetId, enabled)
         }
+    }
+
+    private fun fallbackPresetIdForBucket(state: SettingsUiState, bucket: BlockExplorerBucket): String? {
+        val network = state.preferredNetwork
+        val removed = when (bucket) {
+            BlockExplorerBucket.NORMAL -> state.blockExplorerNormalRemoved
+            BlockExplorerBucket.ONION -> state.blockExplorerOnionRemoved
+        }
+        val hidden = when (bucket) {
+            BlockExplorerBucket.NORMAL -> state.blockExplorerNormalHidden
+            BlockExplorerBucket.ONION -> state.blockExplorerOnionHidden
+        }
+        val customUrl = when (bucket) {
+            BlockExplorerBucket.NORMAL -> state.blockExplorerNormalCustomInput
+            BlockExplorerBucket.ONION -> state.blockExplorerOnionCustomInput
+        }
+        val presets = BlockExplorerCatalog.presetsFor(network, bucket)
+            .filterNot { removed.contains(it.id) }
+            .filter { preset ->
+                if (BlockExplorerCatalog.isCustomPreset(preset.id, bucket)) {
+                    customUrl.isNotBlank()
+                } else {
+                    true
+                }
+            }
+        val enabledPresets = presets.filterNot { hidden.contains(it.id) }
+        return enabledPresets.firstOrNull()?.id ?: presets.firstOrNull()?.id
     }
 
     private fun updateBlockExplorerCustom(bucket: BlockExplorerBucket, name: String, url: String) {

@@ -25,7 +25,8 @@ data class BlockExplorerNetworkPreference(
     val customOnionUrl: String? = null,
     val customNormalName: String? = null,
     val customOnionName: String? = null,
-    val hiddenPresetIds: Set<String> = emptySet()
+    val hiddenPresetIds: Set<String> = emptySet(),
+    val removedPresetIds: Set<String> = emptySet()
 ) {
     fun presetIdFor(bucket: BlockExplorerBucket): String =
         when (bucket) {
@@ -45,7 +46,8 @@ data class BlockExplorerNetworkPreference(
             BlockExplorerBucket.ONION -> customOnionName
         }
 
-    fun isPresetEnabled(presetId: String): Boolean = !hiddenPresetIds.contains(presetId)
+    fun isPresetEnabled(presetId: String): Boolean =
+        !hiddenPresetIds.contains(presetId) && !removedPresetIds.contains(presetId)
 }
 
 data class BlockExplorerPreferences(
