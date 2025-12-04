@@ -14,5 +14,6 @@ This product bundles third-party components:
 - JBox2D (BSD 2-Clause)
 - Vico charts (Apache License 2.0)
 - Encode Sans & Encode Sans Expanded (SIL Open Font License 1.1)
+- BBQR codec derived from Sparrow Wallet (Apache License 2.0)
 
 Each library retains its original copyright and license.

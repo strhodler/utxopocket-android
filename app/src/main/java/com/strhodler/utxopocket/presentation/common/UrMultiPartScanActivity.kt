@@ -2,11 +2,12 @@ package com.strhodler.utxopocket.presentation.common
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Base64
 import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import com.google.zxing.client.android.Intents
 import com.google.zxing.BarcodeFormat
+import com.google.zxing.client.android.Intents
 import com.journeyapps.barcodescanner.BarcodeCallback
 import com.journeyapps.barcodescanner.BarcodeResult
 import com.journeyapps.barcodescanner.DecoratedBarcodeView
@@ -15,13 +16,16 @@ import com.sparrowwallet.hummingbird.ResultType
 import com.sparrowwallet.hummingbird.UR
 import com.sparrowwallet.hummingbird.URDecoder
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.qr.bbqr.BBQRDecoder
 
 class UrMultiPartScanActivity : AppCompatActivity() {
     private lateinit var barcodeView: DecoratedBarcodeView
     private lateinit var progressText: TextView
     private lateinit var hintText: TextView
 
-    private var decoder = URDecoder()
+    private var urDecoder = URDecoder()
+    private var bbqrDecoder = BBQRDecoder()
+    private var currentMode: ScanMode? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,26 +54,56 @@ class UrMultiPartScanActivity : AppCompatActivity() {
 
     private val callback = BarcodeCallback { result: BarcodeResult ->
         val contents = result.text ?: return@BarcodeCallback
-        if (!contents.startsWith(UR.UR_PREFIX, ignoreCase = true)) {
-            finishWith(contents)
-            return@BarcodeCallback
+        when {
+            contents.startsWith(UR.UR_PREFIX, ignoreCase = true) -> handleUr(contents)
+            BBQRDecoder.isBBQRFragment(contents) -> handleBbqr(contents)
+            else -> finishWith(contents)
         }
+    }
 
-        val accepted = decoder.receivePart(contents)
+    private fun handleUr(contents: String) {
+        prepareForMode(ScanMode.UR)
+        val accepted = urDecoder.receivePart(contents)
         if (!accepted) {
             hintText.text = getString(R.string.wallet_labels_import_scan_error)
-            return@BarcodeCallback
+            return
         }
 
         updateStatus()
-        val state = decoder.result ?: return@BarcodeCallback
+        val state = urDecoder.result ?: return
         when (state.type) {
             ResultType.SUCCESS -> finishWith(state.ur.toString())
             ResultType.FAILURE -> {
                 hintText.text = state.error ?: getString(R.string.wallet_labels_import_scan_error)
-                decoder = URDecoder()
+                urDecoder = URDecoder()
                 updateStatus()
             }
+        }
+    }
+
+    private fun handleBbqr(contents: String) {
+        prepareForMode(ScanMode.BBQR)
+        val accepted = bbqrDecoder.receivePart(contents)
+        if (!accepted) {
+            hintText.text = getString(R.string.wallet_labels_import_scan_error)
+            return
+        }
+
+        updateStatus()
+        val state = bbqrDecoder.result() ?: return
+        if (state.isSuccess) {
+            val payload = state.text ?: state.data?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
+            if (payload != null) {
+                finishWith(payload)
+            } else {
+                hintText.text = getString(R.string.wallet_labels_import_scan_error)
+                bbqrDecoder = BBQRDecoder()
+                updateStatus()
+            }
+        } else {
+            hintText.text = state.error ?: getString(R.string.wallet_labels_import_scan_error)
+            bbqrDecoder = BBQRDecoder()
+            updateStatus()
         }
     }
 
@@ -81,11 +115,33 @@ class UrMultiPartScanActivity : AppCompatActivity() {
         finish()
     }
 
+    private fun prepareForMode(mode: ScanMode) {
+        if (currentMode != mode) {
+            urDecoder = URDecoder()
+            bbqrDecoder = BBQRDecoder()
+            currentMode = mode
+        }
+    }
+
     private fun updateStatus() {
-        val expected = decoder.expectedPartCount
-        val received = decoder.receivedPartIndexes.size.coerceAtLeast(0)
-        val total = if (expected > 0) expected.toString() else "?"
-        progressText.text = getString(R.string.wallet_labels_import_scan_frames, received, total)
-        hintText.text = getString(R.string.wallet_labels_import_scan_hint)
+        when (currentMode) {
+            ScanMode.BBQR -> {
+                val percent = (bbqrDecoder.percentComplete() * 100).toInt().coerceIn(0, 100)
+                progressText.text = getString(R.string.wallet_labels_import_scan_progress, percent)
+                hintText.text = getString(R.string.wallet_labels_import_scan_hint)
+            }
+
+            else -> {
+                val expected = urDecoder.expectedPartCount
+                val received = urDecoder.receivedPartIndexes.size.coerceAtLeast(0)
+                val total = if (expected > 0) expected.toString() else "?"
+                progressText.text = getString(R.string.wallet_labels_import_scan_frames, received, total)
+                hintText.text = getString(R.string.wallet_labels_import_scan_hint)
+            }
+        }
+    }
+
+    private enum class ScanMode {
+        UR, BBQR
     }
 }
