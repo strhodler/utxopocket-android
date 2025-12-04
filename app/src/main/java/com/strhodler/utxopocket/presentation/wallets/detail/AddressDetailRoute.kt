@@ -3,7 +3,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,16 +23,19 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,11 +49,11 @@ import com.strhodler.utxopocket.domain.model.AddressUsage
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.repository.WalletRepository
-import com.strhodler.utxopocket.presentation.common.ContentSection
 import com.strhodler.utxopocket.presentation.common.generateQrBitmap
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
+import com.strhodler.utxopocket.presentation.common.ListSection
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
@@ -318,32 +320,91 @@ private fun AddressOverviewCard(
         )
     }
 
-    ContentSection(title = stringResource(id = R.string.address_detail_section_overview)) {
+    ListSection(
+        title = stringResource(id = R.string.address_detail_section_overview)
+    ) {
         item {
-            CopyableValueRow(
-                label = stringResource(id = R.string.address_detail_address_label),
-                value = detail.value,
-                copyContentDescription = stringResource(id = R.string.address_detail_copy_address)
-            ) {
-                copyHandler(it)
-            }
-        }
-        item {
-            InfoTextRow(
-                label = stringResource(id = R.string.address_detail_path_label),
-                value = detail.derivationPath
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.address_detail_address_label),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                supportingContent = {
+                    SelectionContainer {
+                        Text(
+                            text = detail.value,
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+                        )
+                    }
+                },
+                trailingContent = {
+                    IconButton(onClick = { copyHandler(detail.value) }) {
+                        Icon(
+                            imageVector = Icons.Outlined.ContentCopy,
+                            contentDescription = stringResource(id = R.string.address_detail_copy_address)
+                        )
+                    }
+                }
             )
         }
         item {
-            InfoTextRow(
-                label = stringResource(id = R.string.address_detail_index_label),
-                value = detail.derivationIndex.toString()
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.address_detail_path_label),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                supportingContent = {
+                    SelectionContainer {
+                        Text(
+                            text = detail.derivationPath,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
             )
         }
         item {
-            InfoTextRow(
-                label = stringResource(id = R.string.address_detail_usage_label),
-                value = usageText
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.address_detail_index_label),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        text = detail.derivationIndex.toString(),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            )
+        }
+        item {
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.address_detail_usage_label),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        text = usageText,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
             )
         }
     }
@@ -360,107 +421,65 @@ private fun AddressScriptCard(
         onShowMessage = { message -> onShowMessage(message, SnackbarDuration.Short) }
     )
 
-    ContentSection(title = stringResource(id = R.string.address_detail_section_scripts)) {
-        item {
-            CopyableTextBlock(
-                label = stringResource(id = R.string.address_detail_script_label),
-                value = detail.scriptPubKey,
-                copyContentDescription = stringResource(id = R.string.address_detail_copy_script)
-            ) {
-                copyHandler(it)
-            }
-        }
-        item {
-            CopyableTextBlock(
-                label = stringResource(id = R.string.address_detail_descriptor_label),
-                value = detail.descriptor,
-                copyContentDescription = stringResource(id = R.string.address_detail_copy_descriptor)
-            ) {
-                copyHandler(it)
-            }
-        }
-    }
-}
-
-@Composable
-private fun CopyableValueRow(
-    label: String,
-    value: String,
-    copyContentDescription: String,
-    onCopy: (String) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top
+    ListSection(
+        title = stringResource(id = R.string.address_detail_section_scripts)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            SelectionText(
-                value = value,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
-            )
-        }
-        IconButton(onClick = { onCopy(value) }) {
-            Icon(imageVector = Icons.Outlined.ContentCopy, contentDescription = copyContentDescription)
-        }
-    }
-}
-
-@Composable
-private fun CopyableTextBlock(
-    label: String,
-    value: String,
-    copyContentDescription: String,
-    onCopy: (String) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SelectionText(value = value, style = MaterialTheme.typography.bodyMedium)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = { onCopy(value) }) {
-                        Text(text = stringResource(id = R.string.address_detail_copy_action_label))
+        item {
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.address_detail_script_label),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                supportingContent = {
+                    SelectionContainer {
+                        Text(
+                            text = detail.scriptPubKey,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace)
+                        )
+                    }
+                },
+                trailingContent = {
+                    IconButton(onClick = { copyHandler(detail.scriptPubKey) }) {
+                        Icon(
+                            imageVector = Icons.Outlined.ContentCopy,
+                            contentDescription = stringResource(id = R.string.address_detail_copy_script)
+                        )
                     }
                 }
-            }
+            )
         }
-    }
-}
-
-@Composable
-private fun InfoTextRow(label: String, value: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium
-        )
+        item {
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.address_detail_descriptor_label),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                supportingContent = {
+                    SelectionContainer {
+                        Text(
+                            text = detail.descriptor,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace)
+                        )
+                    }
+                },
+                trailingContent = {
+                    IconButton(onClick = { copyHandler(detail.descriptor) }) {
+                        Icon(
+                            imageVector = Icons.Outlined.ContentCopy,
+                            contentDescription = stringResource(id = R.string.address_detail_copy_descriptor)
+                        )
+                    }
+                }
+            )
+        }
     }
 }
 

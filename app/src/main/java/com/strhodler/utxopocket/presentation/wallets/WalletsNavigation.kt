@@ -7,6 +7,8 @@ object WalletsNavigation {
     const val ListRoute: String = "wallets/list"
     const val AddRoute: String = "wallets/add"
     const val DetailRoute: String = "wallets/detail/{walletId}?walletName={walletName}"
+    const val DescriptorDetailRoute: String =
+        "wallets/detail/{walletId}/descriptors?walletName={walletName}"
     const val ExportLabelsRoute: String = "wallets/detail/{walletId}/labels/export?walletName={walletName}"
     const val ImportLabelsRoute: String = "wallets/detail/{walletId}/labels/import?walletName={walletName}"
     const val NodeStatusRoute: String = "wallets/node-status"
@@ -42,6 +44,11 @@ object WalletsNavigation {
     fun detailRoute(walletId: Long, walletName: String): String {
         val encodedName = Uri.encode(walletName)
         return "wallets/detail/$walletId?walletName=$encodedName"
+    }
+
+    fun descriptorDetailRoute(walletId: Long, walletName: String): String {
+        val encodedName = Uri.encode(walletName)
+        return "wallets/detail/$walletId/descriptors?walletName=$encodedName"
     }
 
     fun exportLabelsRoute(walletId: Long, walletName: String): String {

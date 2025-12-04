@@ -113,6 +113,7 @@ fun WalletDetailRoute(
     onOpenWikiTopic: (String) -> Unit,
     onOpenGlossaryEntry: (String) -> Unit,
     walletId: Long,
+    onOpenDescriptors: (Long, String) -> Unit,
     onOpenExportLabels: (Long, String) -> Unit,
     onOpenImportLabels: (Long, String) -> Unit,
     viewModel: WalletDetailViewModel = hiltViewModel()
@@ -128,7 +129,6 @@ fun WalletDetailRoute(
     var isDeleting by remember { mutableStateOf(false) }
     var deleteError by remember { mutableStateOf<String?>(null) }
     var showColorPicker by remember { mutableStateOf(false) }
-    var showDescriptorsSheet by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameInProgress by remember { mutableStateOf(false) }
     var renameErrorMessage by remember { mutableStateOf<String?>(null) }
@@ -212,12 +212,6 @@ fun WalletDetailRoute(
                 remaining
             )
             delay(1_000)
-        }
-    }
-
-    LaunchedEffect(state.summary) {
-        if (state.summary == null && showDescriptorsSheet) {
-            showDescriptorsSheet = false
         }
     }
 
@@ -345,7 +339,7 @@ fun WalletDetailRoute(
                                 descriptorPinLockoutType = null
                                 showDescriptorPinPrompt = true
                             } else {
-                                showDescriptorsSheet = true
+                                onOpenDescriptors(walletId, displayTitle)
                             }
                         }
                     )
@@ -481,8 +475,6 @@ fun WalletDetailRoute(
                 listStates = listStates,
                 contentPadding = contentPadding,
                 topContentPadding = topContentPadding,
-                showDescriptorsSheet = showDescriptorsSheet,
-                onDescriptorsSheetDismissed = { showDescriptorsSheet = false },
                 onShowMessage = showSnackbar,
                 modifier = Modifier.fillMaxSize()
             )
@@ -560,7 +552,7 @@ fun WalletDetailRoute(
                             descriptorPinLockoutExpiry = null
                             descriptorPinLockoutType = null
                             showDescriptorPinPrompt = false
-                            showDescriptorsSheet = true
+                            onOpenDescriptors(walletId, displayTitle)
                         }
 
                         PinVerificationResult.InvalidFormat,

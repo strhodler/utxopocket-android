@@ -142,8 +142,6 @@ import java.text.NumberFormat
 import java.util.Date
 import kotlin.math.absoluteValue
 
-private const val CLIPBOARD_CLEAR_DELAY_MS = 60_000L
-
 @Composable
 fun WalletDetailScreen(
     state: WalletDetailUiState,
@@ -169,8 +167,6 @@ fun WalletDetailScreen(
     listStates: Map<WalletDetailTab, LazyListState>,
     contentPadding: PaddingValues,
     topContentPadding: Dp,
-    showDescriptorsSheet: Boolean,
-    onDescriptorsSheetDismissed: () -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -232,21 +228,19 @@ fun WalletDetailScreen(
                     onTransactionLabelFilterChange = onTransactionLabelFilterChange,
                     onUtxoSortSelected = onUtxoSortChange,
                     onUtxoLabelFilterChange = onUtxoLabelFilterChange,
-                onTransactionSelected = onTransactionSelected,
-                onUtxoSelected = onUtxoSelected,
-                onAddressSelected = onAddressSelected,
-                onReceiveAddressCopied = onReceiveAddressCopied,
-                onBalanceRangeSelected = onBalanceRangeSelected,
-                onShowBalanceChartChanged = onShowBalanceChartChanged,
-                onCycleBalanceDisplay = onCycleBalanceDisplay,
-                onRefreshRequested = onRefreshRequested,
-                onOpenWikiTopic = onOpenWikiTopic,
-                pagerState = pagerState,
-                listStates = listStates,
-                contentPadding = contentPadding,
+                    onTransactionSelected = onTransactionSelected,
+                    onUtxoSelected = onUtxoSelected,
+                    onAddressSelected = onAddressSelected,
+                    onReceiveAddressCopied = onReceiveAddressCopied,
+                    onBalanceRangeSelected = onBalanceRangeSelected,
+                    onShowBalanceChartChanged = onShowBalanceChartChanged,
+                    onCycleBalanceDisplay = onCycleBalanceDisplay,
+                    onRefreshRequested = onRefreshRequested,
+                    onOpenWikiTopic = onOpenWikiTopic,
+                    pagerState = pagerState,
+                    listStates = listStates,
+                    contentPadding = contentPadding,
                     topContentPadding = topContentPadding,
-                    showDescriptorsSheet = showDescriptorsSheet,
-                    onDescriptorsSheetDismissed = onDescriptorsSheetDismissed,
                     onShowMessage = onShowMessage,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -281,8 +275,6 @@ private fun WalletDetailContent(
     listStates: Map<WalletDetailTab, LazyListState>,
     contentPadding: PaddingValues,
     topContentPadding: Dp,
-    showDescriptorsSheet: Boolean,
-    onDescriptorsSheetDismissed: () -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -295,18 +287,10 @@ private fun WalletDetailContent(
         }
     }
     val walletTheme = rememberWalletColorTheme(summary.color)
-    var descriptorForQr by remember { mutableStateOf<String?>(null) }
     var addressForQr by remember { mutableStateOf<WalletAddress?>(null) }
-    val descriptorCopiedMessage =
-        stringResource(id = R.string.wallet_detail_descriptor_copied_toast)
     val showShortMessage = remember(onShowMessage) {
         { message: String -> onShowMessage(message, SnackbarDuration.Short) }
     }
-    val handleDescriptorCopy = rememberCopyToClipboard(
-        successMessage = descriptorCopiedMessage,
-        onShowMessage = showShortMessage,
-        clearDelayMs = CLIPBOARD_CLEAR_DELAY_MS
-    )
     val addressCopyToast = stringResource(id = R.string.wallet_detail_address_copy_toast)
     val addressCopyAction = rememberCopyToClipboard(
         successMessage = addressCopyToast,
@@ -713,31 +697,6 @@ private fun WalletDetailContent(
             balanceUnit = state.balanceUnit,
             onOpenWikiTopic = onOpenWikiTopic,
             onDismiss = { showWalletHealthSheet = false }
-        )
-    }
-
-    if (showDescriptorsSheet) {
-        state.descriptor?.let { descriptor ->
-            WalletDescriptorsBottomSheet(
-                descriptor = descriptor,
-                changeDescriptor = state.changeDescriptor,
-                onCopyDescriptor = handleDescriptorCopy,
-                onShowDescriptorQr = { selected -> descriptorForQr = selected },
-                onDismiss = onDescriptorsSheetDismissed
-            )
-        }
-    }
-
-    descriptorForQr?.let { descriptorText ->
-        QrCodeDisplayDialog(
-            title = stringResource(id = R.string.wallet_detail_descriptor_qr_title),
-            value = descriptorText,
-            qrContentDescription = stringResource(id = R.string.wallet_detail_descriptor_qr_action),
-            errorText = stringResource(id = R.string.wallet_detail_descriptor_qr_error),
-            copyActionLabel = stringResource(id = R.string.wallet_detail_descriptor_copy_action),
-            closeActionLabel = stringResource(id = R.string.wallet_detail_descriptor_qr_close),
-            onCopy = { handleDescriptorCopy(descriptorText) },
-            onDismiss = { descriptorForQr = null }
         )
     }
 
@@ -1163,153 +1122,6 @@ private fun WalletHealthSheetContent(
                 dustBalanceSats = dustBalanceSats,
                 dustThresholdSats = dustThresholdSats,
                 balanceUnit = balanceUnit
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun WalletDescriptorsBottomSheet(
-    descriptor: String,
-    changeDescriptor: String?,
-    onCopyDescriptor: (String) -> Unit,
-    onShowDescriptorQr: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val configuration = LocalConfiguration.current
-    val maxSheetHeight = remember(configuration.screenHeightDp) {
-        configuration.screenHeightDp.dp * 0.9f
-    }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() }
-    ) {
-        WalletDescriptorsSheetContent(
-            descriptor = descriptor,
-            changeDescriptor = changeDescriptor,
-            onCopyDescriptor = onCopyDescriptor,
-            onShowDescriptorQr = onShowDescriptorQr,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = maxSheetHeight)
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 24.dp)
-        )
-    }
-}
-
-@Composable
-private fun WalletDescriptorsSheetContent(
-    descriptor: String,
-    changeDescriptor: String?,
-    onCopyDescriptor: (String) -> Unit,
-    onShowDescriptorQr: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val combinedDescriptor = remember(descriptor, changeDescriptor) {
-        combineDescriptorBranches(descriptor, changeDescriptor)
-    }
-    Column(
-        modifier = modifier.verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        DescriptorWarningBanner(
-            message = stringResource(id = R.string.wallet_detail_descriptors_hint)
-        )
-        DescriptorEntry(
-            label = stringResource(id = R.string.wallet_detail_descriptor_label),
-            value = descriptor,
-            onCopy = { onCopyDescriptor(descriptor) },
-            onShowQr = { onShowDescriptorQr(descriptor) }
-        )
-        changeDescriptor?.takeIf { it.isNotBlank() }?.let { changeDescriptorValue ->
-            DescriptorEntry(
-                label = stringResource(id = R.string.wallet_detail_change_descriptor_label),
-                value = changeDescriptorValue,
-                onCopy = { onCopyDescriptor(changeDescriptorValue) },
-                onShowQr = { onShowDescriptorQr(changeDescriptorValue) }
-            )
-        }
-        combinedDescriptor?.let { combined ->
-            DescriptorEntry(
-                label = stringResource(id = R.string.wallet_detail_combined_descriptor_label),
-                value = combined,
-                onCopy = { onCopyDescriptor(combined) },
-                onShowQr = { onShowDescriptorQr(combined) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun DescriptorEntry(
-    label: String,
-    value: String,
-    onCopy: () -> Unit,
-    onShowQr: () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                IconButton(onClick = onCopy) {
-                    Icon(
-                        imageVector = Icons.Outlined.ContentCopy,
-                        contentDescription = stringResource(id = R.string.wallet_detail_descriptor_copy_action),
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                IconButton(onClick = onShowQr) {
-                    Icon(
-                        imageVector = Icons.Outlined.QrCode,
-                        contentDescription = stringResource(id = R.string.wallet_detail_descriptor_qr_action),
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-        }
-        SelectionContainer {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun DescriptorWarningBanner(
-    message: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        color = MaterialTheme.colorScheme.errorContainer,
-        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        shape = RoundedCornerShape(12.dp),
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer
             )
         }
     }

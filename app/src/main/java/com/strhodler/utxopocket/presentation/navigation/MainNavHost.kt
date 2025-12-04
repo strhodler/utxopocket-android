@@ -50,6 +50,7 @@ import com.strhodler.utxopocket.presentation.wallets.add.AddWalletRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.AddressDetailRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.UtxoDetailRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.WalletDetailRoute
+import com.strhodler.utxopocket.presentation.wallets.detail.WalletDescriptorsRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.TransactionDetailRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.TransactionVisualizerRoute
 import com.strhodler.utxopocket.presentation.wallets.labels.WalletLabelExportRoute
@@ -264,6 +265,11 @@ fun MainNavHost(
                             launchSingleTop = true
                         }
                     },
+                    onOpenDescriptors = { targetWalletId, walletName ->
+                        navController.navigate(
+                            WalletsNavigation.descriptorDetailRoute(targetWalletId, walletName)
+                        )
+                    },
                     onOpenExportLabels = { targetWalletId, walletName ->
                         navController.navigate(
                             WalletsNavigation.exportLabelsRoute(targetWalletId, walletName)
@@ -274,6 +280,20 @@ fun MainNavHost(
                             WalletsNavigation.importLabelsRoute(targetWalletId, walletName)
                         )
                     }
+                )
+            }
+            composable(
+                route = WalletsNavigation.DescriptorDetailRoute,
+                arguments = listOf(
+                    navArgument(WalletsNavigation.WalletIdArg) { type = NavType.LongType },
+                    navArgument(WalletsNavigation.WalletNameArg) {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            ) {
+                WalletDescriptorsRoute(
+                    onBack = { navController.popBackStack() }
                 )
             }
             composable(
