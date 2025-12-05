@@ -228,6 +228,11 @@ class WalletDetailViewModelRangeTest {
             limit: Int
         ): List<com.strhodler.utxopocket.domain.model.WalletAddress> = emptyList()
 
+        override suspend fun revealNextAddress(
+            walletId: Long,
+            type: com.strhodler.utxopocket.domain.model.WalletAddressType
+        ): com.strhodler.utxopocket.domain.model.WalletAddress? = null
+
         override suspend fun getAddressDetail(
             walletId: Long,
             type: com.strhodler.utxopocket.domain.model.WalletAddressType,

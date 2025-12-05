@@ -28,7 +28,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Router
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
@@ -37,7 +36,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -62,7 +60,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -83,7 +80,6 @@ import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
 import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
-import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import java.text.DateFormat
 import java.text.NumberFormat
 import java.util.Date
@@ -211,7 +207,6 @@ private fun WalletsContent(
     val showDisconnectedBanner = !isNodeConnected &&
         state.nodeStatus !is NodeStatus.Connecting &&
         !state.isRefreshing
-    val showPendingSyncHint = canAddWallet && !isNodeConnected
 
     val banner: (@Composable () -> Unit)? = when {
         !isNetworkOnline -> {
@@ -331,7 +326,6 @@ private fun WalletsContent(
         WalletsList(
             wallets = state.wallets,
             onOpenWiki = onOpenWiki,
-            onOpenWikiTopic = onOpenWikiTopic,
             balanceUnit = state.balanceUnit,
             balancesHidden = state.balancesHidden,
             totalBalanceSats = state.totalBalanceSats,
@@ -339,7 +333,6 @@ private fun WalletsContent(
             onWalletSelected = onWalletSelected,
             onAddWallet = onAddWallet,
             canAddWallet = canAddWallet,
-            showPendingSyncHint = showPendingSyncHint,
             showNodePrompt = showNodePrompt,
             refreshingWalletIds = state.refreshingWalletIds,
             activeWalletId = state.activeWalletId,
@@ -358,7 +351,6 @@ private fun WalletsContent(
 private fun WalletsList(
     wallets: List<WalletSummary>,
     onOpenWiki: () -> Unit,
-    onOpenWikiTopic: (String) -> Unit,
     balanceUnit: BalanceUnit,
     balancesHidden: Boolean,
     totalBalanceSats: Long,
@@ -366,7 +358,6 @@ private fun WalletsList(
     onWalletSelected: (Long, String) -> Unit,
     onAddWallet: () -> Unit,
     canAddWallet: Boolean,
-    showPendingSyncHint: Boolean,
     showNodePrompt: Boolean,
     refreshingWalletIds: Set<Long> = emptySet(),
     activeWalletId: Long? = null,
@@ -398,8 +389,7 @@ private fun WalletsList(
                     EmptyState(
                         onOpenWiki = onOpenWiki,
                         onAddWallet = onAddWallet,
-                        canAddWallet = canAddWallet,
-                        showPendingSyncHint = showPendingSyncHint
+                        canAddWallet = canAddWallet
                     )
                 }
             }
@@ -850,7 +840,6 @@ private fun EmptyState(
     onOpenWiki: () -> Unit,
     onAddWallet: () -> Unit,
     canAddWallet: Boolean,
-    showPendingSyncHint: Boolean,
     modifier: Modifier = Modifier
 ) {
     Box(

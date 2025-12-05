@@ -64,6 +64,10 @@ interface WalletRepository {
         type: WalletAddressType,
         limit: Int
     ): List<WalletAddress>
+    suspend fun revealNextAddress(
+        walletId: Long,
+        type: WalletAddressType
+    ): WalletAddress?
     suspend fun getAddressDetail(
         walletId: Long,
         type: WalletAddressType,

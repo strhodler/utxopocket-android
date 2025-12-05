@@ -424,6 +424,11 @@ private class FakeWalletRepository : WalletRepository {
         limit: Int
     ): List<WalletAddress> = emptyList()
 
+    override suspend fun revealNextAddress(
+        walletId: Long,
+        type: WalletAddressType
+    ): WalletAddress? = null
+
     override suspend fun markAddressAsUsed(walletId: Long, type: WalletAddressType, derivationIndex: Int) = Unit
 
     override suspend fun getAddressDetail(

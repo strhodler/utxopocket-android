@@ -123,7 +123,6 @@ fun WalletDescriptorsRoute(
 
             else -> {
                 WalletDescriptorsContent(
-                    walletName = state.walletName,
                     descriptor = descriptor,
                     changeDescriptor = state.changeDescriptor,
                     onCopyDescriptor = handleCopyDescriptor,
@@ -150,7 +149,6 @@ fun WalletDescriptorsRoute(
 
 @Composable
 private fun WalletDescriptorsContent(
-    walletName: String,
     descriptor: String,
     changeDescriptor: String?,
     onCopyDescriptor: (String) -> Unit,

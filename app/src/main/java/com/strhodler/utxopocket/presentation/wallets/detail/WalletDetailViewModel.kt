@@ -16,7 +16,6 @@ import com.strhodler.utxopocket.domain.model.UtxoAnalysisContext
 import com.strhodler.utxopocket.domain.model.UtxoHealthResult
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.model.WalletHealthResult
-import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletColor
 import com.strhodler.utxopocket.domain.model.WalletDetail
@@ -80,7 +79,6 @@ class WalletDetailViewModel @Inject constructor(
         ?: savedStateHandle.get<String>(WalletsNavigation.WalletIdArg)?.toLongOrNull()
         ?: error("Wallet id is required")
 
-    private val addressState = MutableStateFlow(AddressLists())
     private val storedTransactionHealthState = transactionHealthRepository.stream(walletId)
     private val storedUtxoHealthState = utxoHealthRepository.stream(walletId)
     private val storedWalletHealthState = walletHealthRepository.stream(walletId)
@@ -272,21 +270,18 @@ class WalletDetailViewModel @Inject constructor(
 
     private val uiInputs = combine(
         baseState,
-        addressState,
         transactionSortState,
         utxoSortState,
         selectedBalanceRangeState,
         showBalanceChartState
     ) { values: Array<Any?> ->
         val baseSnapshot = values[0] as BaseSnapshot
-        val addresses = values[1] as AddressLists
-        val transactionSort = values[2] as WalletTransactionSort
-        val utxoSort = values[3] as WalletUtxoSort
-        val selectedRange = values[4] as BalanceRange
-        val showBalanceChart = values[5] as Boolean
+        val transactionSort = values[1] as WalletTransactionSort
+        val utxoSort = values[2] as WalletUtxoSort
+        val selectedRange = values[3] as BalanceRange
+        val showBalanceChart = values[4] as Boolean
         UiInputs(
             baseSnapshot = baseSnapshot,
-            addresses = addresses,
             transactionSort = transactionSort,
             utxoSort = utxoSort,
             selectedRange = selectedRange,
@@ -301,7 +296,6 @@ class WalletDetailViewModel @Inject constructor(
     ) { inputs, utxoLabelFilter, transactionLabelFilter ->
         buildUiState(
             baseSnapshot = inputs.baseSnapshot,
-            addresses = inputs.addresses,
             transactionSort = inputs.transactionSort,
             utxoSort = inputs.utxoSort,
             selectedRange = inputs.selectedRange,
@@ -317,7 +311,6 @@ class WalletDetailViewModel @Inject constructor(
 
     private fun buildUiState(
         baseSnapshot: BaseSnapshot,
-        addresses: AddressLists,
         transactionSort: WalletTransactionSort,
         utxoSort: WalletUtxoSort,
         selectedRange: BalanceRange,
@@ -366,8 +359,6 @@ class WalletDetailViewModel @Inject constructor(
                 nodeStatus = NodeStatus.Idle,
                 torStatus = baseSnapshot.torStatus,
                 errorMessage = WalletDetailError.NotFound,
-                receiveAddresses = emptyList(),
-                changeAddresses = emptyList(),
                 dustThresholdSats = baseSnapshot.dustThresholdSats,
                 transactionAnalysisEnabled = baseSnapshot.transactionAnalysisEnabled,
                 transactionHealth = emptyMap(),
@@ -437,8 +428,6 @@ class WalletDetailViewModel @Inject constructor(
                 nodeStatus = if (snapshotMatchesNetwork) baseSnapshot.nodeSnapshot.status else NodeStatus.Idle,
                 torStatus = baseSnapshot.torStatus,
                 errorMessage = null,
-                receiveAddresses = addresses.receive,
-                changeAddresses = addresses.change,
                 dustThresholdSats = baseSnapshot.dustThresholdSats,
                 transactionAnalysisEnabled = baseSnapshot.transactionAnalysisEnabled,
                 transactionHealth = if (baseSnapshot.transactionAnalysisEnabled) baseSnapshot.transactionHealth else emptyMap(),
@@ -513,7 +502,6 @@ class WalletDetailViewModel @Inject constructor(
     init {
         observeBalanceRangePreference()
         observeShowBalanceChartPreference()
-        refreshAddresses()
     }
 
     fun refresh() {
@@ -526,26 +514,11 @@ class WalletDetailViewModel @Inject constructor(
             walletRepository.refreshWallet(summary.id)
             _events.emit(WalletDetailEvent.RefreshQueued)
         }
-        refreshAddresses()
     }
 
     fun cycleBalanceDisplayMode() {
         viewModelScope.launch {
             appPreferencesRepository.cycleBalanceDisplayMode()
-        }
-    }
-
-    fun onReceiveAddressCopied(address: WalletAddress) {
-        viewModelScope.launch {
-            runCatching {
-                walletRepository.markAddressAsUsed(
-                    walletId = walletId,
-                    type = WalletAddressType.EXTERNAL,
-                    derivationIndex = address.derivationIndex
-                )
-            }.onSuccess {
-                refreshAddresses()
-            }
         }
     }
 
@@ -604,24 +577,6 @@ class WalletDetailViewModel @Inject constructor(
         }
     }
 
-    private fun refreshAddresses() {
-        viewModelScope.launch {
-            runCatching {
-                val receive = walletRepository.listUnusedAddresses(
-                    walletId = walletId,
-                    type = WalletAddressType.EXTERNAL,
-                    limit = ADDRESS_POOL_SIZE
-                )
-                val change = walletRepository.listUnusedAddresses(
-                    walletId = walletId,
-                    type = WalletAddressType.CHANGE,
-                    limit = ADDRESS_POOL_SIZE
-                )
-                AddressLists(receive = receive, change = change)
-            }.onSuccess { addressState.value = it }
-        }
-    }
-
     fun onBalanceRangeSelected(range: BalanceRange) {
         if (selectedBalanceRangeState.value == range) return
         selectedBalanceRangeState.value = range
@@ -647,14 +602,8 @@ class WalletDetailViewModel @Inject constructor(
         }
     }
 
-    private data class AddressLists(
-        val receive: List<WalletAddress> = emptyList(),
-        val change: List<WalletAddress> = emptyList()
-    )
-
     private data class UiInputs(
         val baseSnapshot: BaseSnapshot,
-        val addresses: AddressLists,
         val transactionSort: WalletTransactionSort,
         val utxoSort: WalletUtxoSort,
         val selectedRange: BalanceRange,
@@ -723,7 +672,6 @@ class WalletDetailViewModel @Inject constructor(
         }
 
     private companion object {
-        private const val ADDRESS_POOL_SIZE = 20
         private fun utxoKey(txid: String, vout: Int): String = "$txid:$vout"
     }
 }
@@ -747,8 +695,6 @@ data class WalletDetailUiState(
     val nodeStatus: NodeStatus = NodeStatus.Idle,
     val torStatus: TorStatus = TorStatus.Stopped,
     val errorMessage: WalletDetailError? = null,
-    val receiveAddresses: List<WalletAddress> = emptyList(),
-    val changeAddresses: List<WalletAddress> = emptyList(),
     val dustThresholdSats: Long = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS,
     val transactionAnalysisEnabled: Boolean = true,
     val transactionHealth: Map<String, TransactionHealthResult> = emptyMap(),

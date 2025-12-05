@@ -2398,6 +2398,37 @@ class DefaultWalletRepository @Inject constructor(
         }
     }
 
+    override suspend fun revealNextAddress(
+        walletId: Long,
+        type: WalletAddressType
+    ): WalletAddress? = withContext(ioDispatcher) {
+        val entity = walletDao.findById(walletId) ?: return@withContext null
+        if (type == WalletAddressType.CHANGE &&
+            (entity.viewOnly || !entity.hasChangeBranch())
+        ) {
+            return@withContext null
+        }
+        withWallet(entity, sealAfterUse = true) { wallet, persister, _ ->
+            val keychain = type.toKeychainKind()
+            val next = runCatching { wallet.revealNextAddress(keychain) }.getOrNull()
+                ?: return@withWallet null
+            try {
+                val addressValue = next.address.use { it.toString().trim() }
+                if (addressValue.isBlank()) return@withWallet null
+                val derivationIndex = next.index.toInt()
+                wallet.persist(persister)
+                WalletAddress(
+                    value = addressValue,
+                    type = type,
+                    derivationPath = derivationPath(type, derivationIndex),
+                    derivationIndex = derivationIndex
+                )
+            } finally {
+                next.destroy()
+            }
+        }
+    }
+
     override suspend fun getAddressDetail(
         walletId: Long,
         type: WalletAddressType,

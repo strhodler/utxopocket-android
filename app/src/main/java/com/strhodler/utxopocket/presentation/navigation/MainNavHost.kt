@@ -53,6 +53,7 @@ import com.strhodler.utxopocket.presentation.wallets.detail.WalletDetailRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.WalletDescriptorsRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.TransactionDetailRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.TransactionVisualizerRoute
+import com.strhodler.utxopocket.presentation.wallets.receive.ReceiveRoute
 import com.strhodler.utxopocket.presentation.wallets.labels.WalletLabelExportRoute
 import com.strhodler.utxopocket.presentation.wallets.labels.WalletLabelImportRoute
 import com.strhodler.utxopocket.presentation.wiki.WikiDetailRoute
@@ -248,9 +249,7 @@ fun MainNavHost(
                     onUtxoSelected = { txId, vout ->
                         navController.navigate(WalletsNavigation.utxoDetailRoute(walletIdArg, txId, vout))
                     },
-                    onAddressSelected = { address ->
-                        navController.navigate(WalletsNavigation.addressDetailRoute(walletIdArg, address))
-                    },
+                    onOpenReceive = { navController.navigate(WalletsNavigation.receiveRoute(walletIdArg)) },
                     onOpenWikiTopic = { topicId ->
                         navController.navigate(WikiNavigation.detailRoute(topicId)) {
                             popUpTo(navController.graph.findStartDestination().id) {
@@ -399,6 +398,19 @@ fun MainNavHost(
                 )
             ) {
                 AddressDetailRoute(
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = WalletsNavigation.ReceiveRoute,
+                arguments = listOf(
+                    navArgument(WalletsNavigation.WalletIdArg) { type = NavType.LongType }
+                )
+            ) { backStackEntry ->
+                val walletIdArg = backStackEntry.arguments?.getLong(WalletsNavigation.WalletIdArg)
+                    ?: backStackEntry.arguments?.getString(WalletsNavigation.WalletIdArg)?.toLongOrNull()
+                    ?: error("Wallet id is required")
+                ReceiveRoute(
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -664,6 +676,7 @@ private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackSta
         targetState.destination.route.matchesRoute(WalletsNavigation.TransactionVisualizerRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.UtxoDetailRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.AddressDetailRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.ReceiveRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.ExportLabelsRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.ImportLabelsRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.NodeStatusRoute) ->
@@ -683,6 +696,7 @@ private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackSta
         targetState.destination.route.matchesRoute(WalletsNavigation.TransactionVisualizerRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.UtxoDetailRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.AddressDetailRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.ReceiveRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.ExportLabelsRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.ImportLabelsRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.NodeStatusRoute) ->
@@ -702,6 +716,7 @@ private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackSta
         initialState.destination.route.matchesRoute(WalletsNavigation.TransactionVisualizerRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.UtxoDetailRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.AddressDetailRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.ReceiveRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.ExportLabelsRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.ImportLabelsRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.NodeStatusRoute) ->
@@ -721,6 +736,7 @@ private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackSta
         initialState.destination.route.matchesRoute(WalletsNavigation.TransactionVisualizerRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.UtxoDetailRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.AddressDetailRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.ReceiveRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.ExportLabelsRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.ImportLabelsRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.NodeStatusRoute) ->

@@ -147,8 +147,6 @@
     <string name="wallet_detail_transactions_tab_count">Transacciones (%1$d)</string>
     <string name="wallet_detail_utxos_tab">UTXOs</string>
     <string name="wallet_detail_utxos_tab_count">UTXOs (%1$d)</string>
-    <string name="wallet_detail_receive_addresses_tab">Recibir</string>
-    <string name="wallet_detail_change_addresses_tab">Cambio</string>
     <string name="wallet_detail_empty_transactions">Aún no hay transacciones.</string>
     <string name="wallet_detail_transactions_sort_label">Ordenar por</string>
     <string name="wallet_detail_transactions_sort_expand_content_description">Mostrar opciones de orden</string>
@@ -183,19 +181,26 @@
     <string name="wallet_detail_transactions_filter_summary_none">Sin transacciones seleccionadas</string>
     <string name="wallet_detail_transactions_filter_expand_content_description">Mostrar opciones de filtro de transacciones</string>
     <string name="wallet_detail_empty_utxos">No hay UTXOs disponibles.</string>
-    <string name="wallet_detail_receive_addresses_empty">No hay direcciones de recepción disponibles.</string>
-    <string name="wallet_detail_change_addresses_empty">No hay direcciones de cambio disponibles.</string>
+    <string name="wallet_detail_action_sync">Sincronizar ahora</string>
+    <string name="wallet_detail_action_receive">Recibir</string>
     <string name="wallet_detail_balance_history_title">Historial de balance</string>
-    <string name="wallet_detail_addresses_copy">Copiar dirección</string>
-    <string name="wallet_detail_addresses_qr">Mostrar QR de la dirección</string>
-    <string name="wallet_detail_address_copy_toast">Dirección copiada al portapapeles</string>
-    <string name="wallet_detail_address_derivation_index">Índice %1$d</string>
-    <string name="wallet_detail_address_reuse_icon_description">Alerta de reutilización de dirección</string>
+    <string name="receive_title">Recibir</string>
+    <string name="receive_copy_label">Copiar</string>
+    <string name="receive_share_label">Compartir</string>
+    <string name="receive_share_chooser_title">Compartir dirección</string>
+    <string name="receive_copy_success">Dirección copiada</string>
     <string name="wallet_detail_change_utxo_warning">Salida de cambio (sólo uso interno)</string>
     <string name="wallet_detail_dust_utxo_warning">Salida dust (&lt;= %1$s)</string>
     <string name="wallet_detail_transaction_id_label">Txid</string>
     <string name="wallet_detail_address_unknown">Dirección no disponible</string>
     <string name="wallet_detail_no_label_placeholder">Sin etiqueta</string>
+    <string name="receive_next_address">Siguiente dirección</string>
+    <string name="receive_next_address_loading">Cargando siguiente dirección…</string>
+    <string name="receive_open_details">Abrir detalles de la dirección</string>
+    <string name="receive_reuse_notice">Usa una dirección nueva para cada pago.</string>
+    <string name="receive_error_no_address">No hay direcciones sin uso disponibles. Inténtalo de nuevo.</string>
+    <string name="receive_error_generic">No se pudo cargar una dirección. Inténtalo en un momento.</string>
+    <string name="receive_retry">Reintentar</string>
 
     <!-- Address detail -->
     <string name="address_detail_title">Detalles de la dirección</string>
@@ -812,8 +817,8 @@
     <string name="wallet_detail_menu_overflow">Acciones de la billetera</string>
     <string name="wallet_detail_menu_edit">Editar billetera</string>
     <string name="wallet_detail_menu_color">Color</string>
-    <string name="wallet_detail_menu_export_labels">Exportar BIP-329</string>
-    <string name="wallet_detail_menu_import_labels">Importar BIP-329</string>
+    <string name="wallet_detail_menu_export_labels">Exportar etiquetas</string>
+    <string name="wallet_detail_menu_import_labels">Importar etiquetas</string>
     <string name="wallet_detail_menu_descriptors">Descriptores</string>
     <string name="wallet_detail_menu_force_rescan">Reescaneo completo</string>
     <string name="wallet_detail_menu_delete">Eliminar billetera</string>
@@ -1010,10 +1015,6 @@
     <string name="transaction_detail_show_more_outputs">Ver más salidas</string>
 
     <!-- Wallet address QR actions -->
-    <string name="wallet_detail_address_qr_title">QR de la dirección</string>
-    <string name="wallet_detail_address_qr_action">Código QR de la dirección</string>
-    <string name="wallet_detail_address_qr_error">No se pudo generar un código QR para esta dirección.</string>
-    <string name="wallet_detail_address_qr_close">Cerrar</string>
     <string name="wallet_detail_confirmations">%1$d confs</string>
     <string name="wallet_detail_single_confirmation">1 conf</string>
     <string name="wallet_detail_pending_confirmation">Pendiente</string>

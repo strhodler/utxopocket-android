@@ -996,8 +996,6 @@ private fun TransactionDetailContent(
         TransactionDetailHeader(
             broadcastInfo = broadcastInfoText,
             amountText = amountText,
-            feeRateLabel = feeRateLabel,
-            confirmationsLabel = confirmationsLabel,
             label = transaction.label,
             onEditLabel = { onEditTransactionLabel(transaction.label) },
             onCycleBalanceDisplay = onCycleBalanceDisplay,
@@ -1545,8 +1543,6 @@ private fun TransactionDetailContent(
 private fun TransactionDetailHeader(
     broadcastInfo: String,
     amountText: String,
-    feeRateLabel: String,
-    confirmationsLabel: String,
     label: String?,
     onEditLabel: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
@@ -1713,7 +1709,6 @@ private fun UtxoDetailContent(
     ) {
         UtxoDetailHeader(
             identiconSeed = fullOutpoint,
-            outpoint = displayOutpoint,
             depositInfo = depositInfoText,
             valueSats = utxo.valueSats,
             unit = state.balanceUnit,
@@ -1948,7 +1943,6 @@ private fun UtxoDetailContent(
 @Composable
 private fun UtxoDetailHeader(
     identiconSeed: String,
-    outpoint: String,
     depositInfo: String,
     valueSats: Long,
     unit: BalanceUnit,

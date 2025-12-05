@@ -32,19 +32,13 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.ShowChart
-import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.UnfoldMore
 import androidx.compose.material.icons.outlined.Sort
@@ -65,16 +59,13 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Divider
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.surfaceColorAtElevation
@@ -114,8 +105,6 @@ import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TransactionHealthResult
 import com.strhodler.utxopocket.domain.model.TransactionType
 import com.strhodler.utxopocket.domain.model.UtxoHealthResult
-import com.strhodler.utxopocket.domain.model.WalletAddress
-import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.displayLabel
@@ -154,10 +143,7 @@ fun WalletDetailScreen(
     onRefreshRequested: () -> Unit,
     onTransactionSelected: (String) -> Unit,
     onUtxoSelected: (String, Int) -> Unit,
-    onAddressSelected: (WalletAddress) -> Unit,
-    onReceiveAddressCopied: (WalletAddress) -> Unit,
     onBalanceRangeSelected: (BalanceRange) -> Unit,
-    onShowBalanceChartChanged: (Boolean) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     outerListState: LazyListState,
@@ -167,7 +153,6 @@ fun WalletDetailScreen(
     listStates: Map<WalletDetailTab, LazyListState>,
     contentPadding: PaddingValues,
     topContentPadding: Dp,
-    onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when {
@@ -197,54 +182,29 @@ fun WalletDetailScreen(
         }
 
         else -> {
-            val pullToRefreshState = rememberPullToRefreshState()
-            RefreshableContent(
-                isRefreshing = state.isRefreshing,
-                onRefresh = {
-                    if (!state.isRefreshing) {
-                        onRefreshRequested()
-                    }
-                },
-                state = pullToRefreshState,
-                indicator = {
-                    if (!state.isRefreshing) {
-                        PullToRefreshDefaults.Indicator(
-                            modifier = Modifier.align(Alignment.TopCenter),
-                            isRefreshing = state.isRefreshing,
-                            state = pullToRefreshState
-                        )
-                    }
-                },
+            WalletDetailContent(
+                state = state,
+                transactions = transactions,
+                utxos = utxos,
+                outerListState = outerListState,
+                selectedTab = selectedTab,
+                onTabSelected = onTabSelected,
+                onTransactionSortSelected = onTransactionSortChange,
+                onTransactionLabelFilterChange = onTransactionLabelFilterChange,
+                onUtxoSortSelected = onUtxoSortChange,
+                onUtxoLabelFilterChange = onUtxoLabelFilterChange,
+                onTransactionSelected = onTransactionSelected,
+                onUtxoSelected = onUtxoSelected,
+                onBalanceRangeSelected = onBalanceRangeSelected,
+                onCycleBalanceDisplay = onCycleBalanceDisplay,
+                onRefreshRequested = onRefreshRequested,
+                onOpenWikiTopic = onOpenWikiTopic,
+                pagerState = pagerState,
+                listStates = listStates,
+                contentPadding = contentPadding,
+                topContentPadding = topContentPadding,
                 modifier = modifier.fillMaxSize()
-            ) {
-                WalletDetailContent(
-                    state = state,
-                    transactions = transactions,
-                    utxos = utxos,
-                    outerListState = outerListState,
-                    selectedTab = selectedTab,
-                    onTabSelected = onTabSelected,
-                    onTransactionSortSelected = onTransactionSortChange,
-                    onTransactionLabelFilterChange = onTransactionLabelFilterChange,
-                    onUtxoSortSelected = onUtxoSortChange,
-                    onUtxoLabelFilterChange = onUtxoLabelFilterChange,
-                    onTransactionSelected = onTransactionSelected,
-                    onUtxoSelected = onUtxoSelected,
-                    onAddressSelected = onAddressSelected,
-                    onReceiveAddressCopied = onReceiveAddressCopied,
-                    onBalanceRangeSelected = onBalanceRangeSelected,
-                    onShowBalanceChartChanged = onShowBalanceChartChanged,
-                    onCycleBalanceDisplay = onCycleBalanceDisplay,
-                    onRefreshRequested = onRefreshRequested,
-                    onOpenWikiTopic = onOpenWikiTopic,
-                    pagerState = pagerState,
-                    listStates = listStates,
-                    contentPadding = contentPadding,
-                    topContentPadding = topContentPadding,
-                    onShowMessage = onShowMessage,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
+            )
         }
     }
 }
@@ -264,10 +224,7 @@ private fun WalletDetailContent(
     onUtxoLabelFilterChange: (UtxoLabelFilter) -> Unit,
     onTransactionSelected: (String) -> Unit,
     onUtxoSelected: (String, Int) -> Unit,
-    onAddressSelected: (WalletAddress) -> Unit,
-    onReceiveAddressCopied: (WalletAddress) -> Unit,
     onBalanceRangeSelected: (BalanceRange) -> Unit,
-    onShowBalanceChartChanged: (Boolean) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onRefreshRequested: () -> Unit,
@@ -275,7 +232,6 @@ private fun WalletDetailContent(
     listStates: Map<WalletDetailTab, LazyListState>,
     contentPadding: PaddingValues,
     topContentPadding: Dp,
-    onShowMessage: (String, SnackbarDuration) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val summary = requireNotNull(state.summary)
@@ -287,21 +243,6 @@ private fun WalletDetailContent(
         }
     }
     val walletTheme = rememberWalletColorTheme(summary.color)
-    var addressForQr by remember { mutableStateOf<WalletAddress?>(null) }
-    val showShortMessage = remember(onShowMessage) {
-        { message: String -> onShowMessage(message, SnackbarDuration.Short) }
-    }
-    val addressCopyToast = stringResource(id = R.string.wallet_detail_address_copy_toast)
-    val addressCopyAction = rememberCopyToClipboard(
-        successMessage = addressCopyToast,
-        onShowMessage = showShortMessage
-    )
-    val handleAddressCopy = remember(addressCopyAction, onReceiveAddressCopied) {
-        { address: WalletAddress ->
-            addressCopyAction(address.value)
-            onReceiveAddressCopied(address)
-        }
-    }
     var selectedBalancePoint by remember { mutableStateOf<BalancePoint?>(null) }
     LaunchedEffect(state.selectedRange) {
         selectedBalancePoint = null
@@ -375,9 +316,6 @@ private fun WalletDetailContent(
                 selectedRange = state.selectedRange,
                 onRangeSelected = onBalanceRangeSelected,
                 showBalanceChart = state.showBalanceChart,
-                onShowBalanceChartChanged = onShowBalanceChartChanged,
-                isRefreshing = state.isRefreshing,
-                onRefreshRequested = onRefreshRequested,
                 onCycleBalanceDisplay = onCycleBalanceDisplay
             )
         }
@@ -632,52 +570,6 @@ private fun WalletDetailContent(
                             }
                         }
 
-                        WalletDetailTab.ReceiveAddresses -> {
-                            val receiveAddresses = state.receiveAddresses
-                            if (receiveAddresses.isEmpty()) {
-                                item(key = "receive_empty") {
-                                    EmptyPlaceholder(
-                                        message = stringResource(id = R.string.wallet_detail_receive_addresses_empty)
-                                    )
-                                }
-                            } else {
-                                items(
-                                    items = receiveAddresses,
-                                    key = { it.value }
-                                ) { address ->
-                                    WalletAddressListItem(
-                                        address = address,
-                                        copyEnabled = true,
-                                        showQr = true,
-                                        onCopy = { handleAddressCopy(address) },
-                                        onShowQr = { addressForQr = address },
-                                        onClick = { onAddressSelected(address) }
-                                    )
-                                }
-                            }
-                        }
-
-                        WalletDetailTab.ChangeAddresses -> {
-                            val changeAddresses = state.changeAddresses
-                            if (changeAddresses.isEmpty()) {
-                                item(key = "change_empty") {
-                                    EmptyPlaceholder(
-                                        message = stringResource(id = R.string.wallet_detail_change_addresses_empty)
-                                    )
-                                }
-                            } else {
-                                items(
-                                    items = changeAddresses,
-                                    key = { it.value }
-                                ) { address ->
-                                    WalletAddressListItem(
-                                        address = address,
-                                        copyEnabled = false,
-                                        onClick = { onAddressSelected(address) }
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -699,19 +591,6 @@ private fun WalletDetailContent(
             onDismiss = { showWalletHealthSheet = false }
         )
     }
-
-    addressForQr?.let { address ->
-        QrCodeDisplayDialog(
-            title = stringResource(id = R.string.wallet_detail_address_qr_title),
-            value = address.value,
-            qrContentDescription = stringResource(id = R.string.wallet_detail_address_qr_action),
-            errorText = stringResource(id = R.string.wallet_detail_address_qr_error),
-            copyActionLabel = stringResource(id = R.string.wallet_detail_addresses_copy),
-            closeActionLabel = stringResource(id = R.string.wallet_detail_address_qr_close),
-            onCopy = { handleAddressCopy(address) },
-            onDismiss = { addressForQr = null }
-        )
-    }
 }
 
 @Composable
@@ -724,9 +603,6 @@ private fun WalletSummaryHeader(
     selectedRange: BalanceRange,
     onRangeSelected: (BalanceRange) -> Unit,
     showBalanceChart: Boolean,
-    onShowBalanceChartChanged: (Boolean) -> Unit,
-    isRefreshing: Boolean,
-    onRefreshRequested: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -767,9 +643,6 @@ private fun WalletSummaryHeader(
             availableRanges = availableRanges,
             selectedRange = selectedRange,
             showBalanceChart = showBalanceChart,
-            onShowBalanceChartChanged = onShowBalanceChartChanged,
-            isRefreshing = isRefreshing,
-            onRefreshRequested = onRefreshRequested,
             onRangeSelected = onRangeSelected,
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             modifier = Modifier
@@ -795,9 +668,6 @@ private fun WalletDetailHeader(
     availableRanges: List<BalanceRange>,
     selectedRange: BalanceRange,
     showBalanceChart: Boolean,
-    onShowBalanceChartChanged: (Boolean) -> Unit,
-    isRefreshing: Boolean,
-    onRefreshRequested: () -> Unit,
     onRangeSelected: (BalanceRange) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier
@@ -837,64 +707,6 @@ private fun WalletDetailHeader(
             )
         )
         val hasChartData = balancePoints.isNotEmpty()
-        val refreshLabel = if (isRefreshing) {
-            stringResource(id = R.string.wallets_state_syncing)
-        } else {
-            stringResource(id = R.string.wallet_detail_pull_to_refresh_hint)
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(
-                onClick = onRefreshRequested,
-                enabled = !isRefreshing,
-                contentPadding = ButtonDefaults.TextButtonWithIconContentPadding
-            ) {
-                if (isRefreshing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Outlined.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
-                Text(
-                    text = refreshLabel,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-            if (hasChartData) {
-                val chartToggleLabel = stringResource(
-                    id = if (showBalanceChart) {
-                        R.string.wallet_detail_hide_chart
-                    } else {
-                        R.string.wallet_detail_show_chart
-                    }
-                )
-                TextButton(
-                    onClick = { onShowBalanceChartChanged(!showBalanceChart) },
-                    contentPadding = ButtonDefaults.TextButtonWithIconContentPadding
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.ShowChart,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
-                    Text(
-                        text = chartToggleLabel,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        }
         val shouldShowChart = showBalanceChart && hasChartData
         if (shouldShowChart) {
             Column(
@@ -1464,11 +1276,10 @@ private fun WalletTabs(
     val tabs = remember { WalletDetailTab.entries.toTypedArray() }
     val selectedTextColor = MaterialTheme.colorScheme.onSurface
     val unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-    ScrollableTabRow(
+    TabRow(
         modifier = modifier.fillMaxWidth(),
         selectedTabIndex = selected.ordinal,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        edgePadding = 0.dp,
         indicator = { tabPositions ->
             TabRowDefaults.SecondaryIndicator(
                 modifier = Modifier.tabIndicatorOffset(tabPositions[selected.ordinal]),
@@ -1494,96 +1305,12 @@ private fun WalletTabs(
                                 id = R.string.wallet_detail_utxos_tab_count,
                                 utxosCount
                             )
-
-                            WalletDetailTab.ReceiveAddresses -> stringResource(id = R.string.wallet_detail_receive_addresses_tab)
-                            WalletDetailTab.ChangeAddresses -> stringResource(id = R.string.wallet_detail_change_addresses_tab)
                         },
                         maxLines = 1
                     )
                 }
             )
         }
-    }
-}
-
-@Composable
-private fun WalletAddressListItem(
-    address: WalletAddress,
-    copyEnabled: Boolean,
-    showQr: Boolean = false,
-    onCopy: (() -> Unit)? = null,
-    onShowQr: (() -> Unit)? = null,
-    onClick: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
-) {
-    val indexLabel = stringResource(
-        id = R.string.wallet_detail_address_derivation_index,
-        address.derivationIndex
-    )
-
-    val clickableModifier = if (onClick != null) {
-        Modifier.clickable(onClick = onClick)
-    } else {
-        Modifier
-    }
-
-    val addressCardColor = MaterialTheme.colorScheme.surfaceContainer
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(clickableModifier),
-        colors = CardDefaults.cardColors(
-            containerColor = addressCardColor,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        ListItem(
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            overlineContent = {
-                Text(
-                    text = indexLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            headlineContent = {
-                Text(
-                    text = address.value,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            },
-            trailingContent = {
-                if (copyEnabled || showQr) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        if (showQr) {
-                            IconButton(
-                                onClick = { onShowQr?.invoke() },
-                                enabled = onShowQr != null
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.QrCode,
-                                    contentDescription = stringResource(id = R.string.wallet_detail_addresses_qr)
-                                )
-                            }
-                        }
-                        if (copyEnabled) {
-                            IconButton(
-                                onClick = { onCopy?.invoke() }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.ContentCopy,
-                                    contentDescription = stringResource(id = R.string.wallet_detail_addresses_copy)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        )
     }
 }
 
@@ -2385,9 +2112,7 @@ private fun healthTextColor(score: Int, palette: WalletColorTheme): Color {
 
 enum class WalletDetailTab {
     Transactions,
-    Utxos,
-    ReceiveAddresses,
-    ChangeAddresses
+    Utxos
 }
 
 private val TabsHeight = 48.dp

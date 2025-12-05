@@ -26,6 +26,7 @@ object WalletsNavigation {
     const val UtxoVoutArg: String = "vout"
     const val AddressDetailRoute: String =
         "wallets/detail/{walletId}/address/{addressType}/{derivationIndex}?addressValue={addressValue}"
+    const val ReceiveRoute: String = "wallets/detail/{walletId}/receive"
     const val AddressTypeArg: String = "addressType"
     const val AddressIndexArg: String = "derivationIndex"
     const val AddressValueArg: String = "addressValue"
@@ -80,4 +81,6 @@ object WalletsNavigation {
         val encodedAddress = Uri.encode(address.value)
         return "wallets/detail/$walletId/address/${address.type.name}/${address.derivationIndex}?addressValue=$encodedAddress"
     }
+
+    fun receiveRoute(walletId: Long): String = "wallets/detail/$walletId/receive"
 }

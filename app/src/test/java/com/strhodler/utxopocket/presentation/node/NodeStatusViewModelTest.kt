@@ -433,6 +433,11 @@ class NodeStatusViewModelTest {
             limit: Int
         ): List<WalletAddress> = emptyList()
 
+        override suspend fun revealNextAddress(
+            walletId: Long,
+            type: WalletAddressType
+        ): WalletAddress? = null
+
         override suspend fun getAddressDetail(
             walletId: Long,
             type: WalletAddressType,

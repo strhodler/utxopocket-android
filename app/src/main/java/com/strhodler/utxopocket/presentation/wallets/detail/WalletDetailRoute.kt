@@ -6,18 +6,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -29,6 +29,8 @@ import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.QrCode
+import androidx.compose.material.icons.outlined.ShowChart
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Scaffold
@@ -43,6 +45,11 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.BottomAppBarDefaults
+import androidx.compose.material3.BottomAppBarScrollBehavior
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.TextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
@@ -67,18 +74,22 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.strhodler.utxopocket.R
-import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
@@ -93,6 +104,7 @@ import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsExcepti
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.presentation.wallets.detail.WalletDetailEvent
 import kotlin.math.roundToInt
+import kotlin.math.max
 import com.strhodler.utxopocket.presentation.pin.PinLockoutMessageType
 import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
 import com.strhodler.utxopocket.presentation.pin.formatPinCountdownMessage
@@ -103,13 +115,14 @@ private const val WALLET_NAME_MAX_LENGTH = 64
 private const val FULL_SCAN_GAP_MAX = 500
 private const val FULL_SCAN_GAP_STEP = 10
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WalletDetailRoute(
     onBack: () -> Unit,
     onWalletDeleted: (String) -> Unit,
     onTransactionSelected: (String) -> Unit,
     onUtxoSelected: (String, Int) -> Unit,
-    onAddressSelected: (WalletAddress) -> Unit,
+    onOpenReceive: (Long) -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onOpenGlossaryEntry: (String) -> Unit,
     walletId: Long,
@@ -170,6 +183,10 @@ fun WalletDetailRoute(
     val forceRescanErrorMessage = stringResource(id = R.string.wallet_detail_force_rescan_failed)
     val outerListState = rememberLazyListState()
     val tabs = remember { WalletDetailTab.entries.toTypedArray() }
+    val bottomBarScrollBehavior = BottomAppBarDefaults.exitAlwaysScrollBehavior()
+    var bottomBarHeightPx by remember { mutableStateOf(0f) }
+    var bottomBarVisibleHeightPx by remember { mutableStateOf(0f) }
+    val density = LocalDensity.current
     var selectedTab by rememberSaveable { mutableStateOf(WalletDetailTab.Transactions) }
     val pagerState = rememberPagerState(initialPage = selectedTab.ordinal) { tabs.size }
     val listStates = remember {
@@ -412,11 +429,17 @@ fun WalletDetailRoute(
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text(text = stringResource(id = R.string.wallet_detail_menu_delete)) },
+                        text = {
+                            Text(
+                                text = stringResource(id = R.string.wallet_detail_menu_delete),
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Outlined.Delete,
-                                contentDescription = null
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
                             )
                         },
                         onClick = {
@@ -430,10 +453,15 @@ fun WalletDetailRoute(
     )
 
     Scaffold(
+        modifier = Modifier.nestedScroll(bottomBarScrollBehavior.nestedScrollConnection),
         snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
-        contentWindowInsets = ScreenScaffoldInsets
+        contentWindowInsets = ScreenScaffoldInsets,
+        bottomBar = {}
     ) { paddingValues ->
-        val contentPadding = PaddingValues(bottom = 32.dp)
+        val dynamicBottomPadding = with(density) { bottomBarVisibleHeightPx.toDp() }
+        val contentPadding = PaddingValues(
+            bottom = if (dynamicBottomPadding > 32.dp) dynamicBottomPadding else 32.dp
+        )
         val topContentPadding = 0.dp
         val transactionItems = viewModel.pagedTransactions.collectAsLazyPagingItems()
         val utxoItems = viewModel.pagedUtxos.collectAsLazyPagingItems()
@@ -462,10 +490,7 @@ fun WalletDetailRoute(
                 onRefreshRequested = viewModel::refresh,
                 onTransactionSelected = onTransactionSelected,
                 onUtxoSelected = onUtxoSelected,
-                onAddressSelected = onAddressSelected,
-                onReceiveAddressCopied = viewModel::onReceiveAddressCopied,
                 onBalanceRangeSelected = viewModel::onBalanceRangeSelected,
-                onShowBalanceChartChanged = viewModel::setShowBalanceChart,
                 onCycleBalanceDisplay = cycleBalanceDisplay,
                 onOpenWikiTopic = onOpenWikiTopic,
                 outerListState = outerListState,
@@ -475,9 +500,26 @@ fun WalletDetailRoute(
                 listStates = listStates,
                 contentPadding = contentPadding,
                 topContentPadding = topContentPadding,
-                onShowMessage = showSnackbar,
                 modifier = Modifier.fillMaxSize()
             )
+            if (state.summary != null) {
+                WalletDetailBottomBar(
+                    isRefreshing = state.isRefreshing,
+                    hasChartData = state.displayBalancePoints.isNotEmpty(),
+                    showBalanceChart = state.showBalanceChart,
+                    onSyncClick = {
+                        if (!state.isRefreshing) {
+                            viewModel.refresh()
+                        }
+                    },
+                    onToggleChart = { viewModel.setShowBalanceChart(!state.showBalanceChart) },
+                    onReceiveClick = { onOpenReceive(walletId) },
+                    scrollBehavior = bottomBarScrollBehavior,
+                    onHeightChanged = { height -> bottomBarHeightPx = height },
+                    onVisibleHeightChanged = { visible -> bottomBarVisibleHeightPx = visible },
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                )
+            }
         }
     }
 
@@ -765,6 +807,136 @@ private fun RenameWalletDialog(
             }
         }
     )
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun WalletDetailBottomBar(
+    isRefreshing: Boolean,
+    hasChartData: Boolean,
+    showBalanceChart: Boolean,
+    onSyncClick: () -> Unit,
+    onToggleChart: () -> Unit,
+    onReceiveClick: () -> Unit,
+    scrollBehavior: BottomAppBarScrollBehavior,
+    onHeightChanged: (Float) -> Unit,
+    onVisibleHeightChanged: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var barHeightPx by remember { mutableStateOf(0f) }
+    LaunchedEffect(barHeightPx) {
+        if (barHeightPx > 0f) {
+            scrollBehavior.state.heightOffsetLimit = -barHeightPx
+            onHeightChanged(barHeightPx)
+        }
+    }
+
+    val itemColors = NavigationBarItemDefaults.colors(
+        selectedIconColor = MaterialTheme.colorScheme.primary,
+        selectedTextColor = MaterialTheme.colorScheme.primary,
+        indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    val heightOffset = scrollBehavior.state.heightOffset
+    val visibleHeightPx = remember(barHeightPx, heightOffset) {
+        (barHeightPx + heightOffset).coerceIn(0f, barHeightPx)
+    }
+    LaunchedEffect(visibleHeightPx) {
+        onVisibleHeightChanged(visibleHeightPx)
+    }
+
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 3.dp,
+        modifier = modifier
+            .onGloballyPositioned { layoutCoordinates ->
+                barHeightPx = layoutCoordinates.size.height.toFloat()
+            }
+            .navigationBarsPadding()
+            .graphicsLayer {
+                translationY = -heightOffset
+            }
+    ) {
+        NavigationBarItem(
+            selected = isRefreshing,
+            onClick = { if (!isRefreshing) onSyncClick() },
+            enabled = !isRefreshing,
+            icon = {
+                if (isRefreshing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.Refresh,
+                        contentDescription = null
+                    )
+                }
+            },
+            label = {
+                Text(
+                    text = if (isRefreshing) {
+                        stringResource(id = R.string.wallets_state_syncing)
+                    } else {
+                        stringResource(id = R.string.wallet_detail_action_sync)
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
+            colors = itemColors,
+            alwaysShowLabel = true,
+            modifier = Modifier.weight(1f)
+        )
+        NavigationBarItem(
+            selected = showBalanceChart,
+            onClick = onToggleChart,
+            enabled = hasChartData,
+            icon = {
+                Icon(
+                    imageVector = Icons.Outlined.ShowChart,
+                    contentDescription = null
+                )
+            },
+            label = {
+                Text(
+                    text = if (showBalanceChart) {
+                        "Hide chart"
+                    } else {
+                        "Show chart"
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
+            colors = itemColors,
+            alwaysShowLabel = true,
+            modifier = Modifier.weight(1f)
+        )
+        NavigationBarItem(
+            selected = false,
+            onClick = onReceiveClick,
+            icon = {
+                Icon(
+                    imageVector = Icons.Outlined.Download,
+                    contentDescription = null
+                )
+            },
+            label = {
+                Text(
+                    text = stringResource(id = R.string.wallet_detail_action_receive),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
+            colors = itemColors,
+            alwaysShowLabel = true,
+            modifier = Modifier.weight(1f)
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
