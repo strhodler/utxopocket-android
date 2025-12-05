@@ -212,6 +212,12 @@
     <string name="wallet_labels_export_empty">No labels are available to export yet.</string>
     <string name="wallet_labels_export_heading">Exporting %1$s: %2$d labels</string>
     <string name="wallet_labels_export_qr_caption">Scan to import BIP-329 labels</string>
+    <string name="wallet_labels_export_bbqr_caption">Scan BBQR to import BIP-329 labels</string>
+    <string name="wallet_labels_export_bbqr_helper">Compressed, Sparrow-compatible export for faster multi-frame scans.</string>
+    <string name="wallet_labels_export_ur_helper">Hummingbird UR export for broad wallet compatibility.</string>
+    <string name="wallet_labels_export_mode_label">QR format</string>
+    <string name="wallet_labels_export_mode_bbqr">BBQR (compressed)</string>
+    <string name="wallet_labels_export_mode_ur">UR (animated)</string>
     <string name="wallet_labels_export_multipart">Multi-part QR (%1$d frames)</string>
     <string name="wallet_labels_export_qr_error">QR unavailable (%1$s)</string>
     <string name="wallet_labels_export_download">Download file</string>

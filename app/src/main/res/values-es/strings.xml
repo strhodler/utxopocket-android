@@ -855,6 +855,12 @@
     <string name="wallet_labels_export_empty">Aún no hay etiquetas para exportar.</string>
     <string name="wallet_labels_export_heading">Exportando %1$s: %2$d etiquetas</string>
     <string name="wallet_labels_export_qr_caption">Escanea para importar etiquetas BIP-329</string>
+    <string name="wallet_labels_export_bbqr_caption">Escanea BBQR para importar etiquetas BIP-329</string>
+    <string name="wallet_labels_export_bbqr_helper">Exportación comprimida y compatible con Sparrow para escaneos multiparte más rápidos.</string>
+    <string name="wallet_labels_export_ur_helper">Exportación UR de Hummingbird para compatibilidad amplia con otras billeteras.</string>
+    <string name="wallet_labels_export_mode_label">Formato de QR</string>
+    <string name="wallet_labels_export_mode_bbqr">BBQR (comprimido)</string>
+    <string name="wallet_labels_export_mode_ur">UR (animado)</string>
     <string name="wallet_labels_export_multipart">QR multiparte (%1$d cuadros)</string>
     <string name="wallet_labels_export_qr_error">QR no disponible (%1$s)</string>
     <string name="wallet_labels_export_download">Descargar archivo</string>
