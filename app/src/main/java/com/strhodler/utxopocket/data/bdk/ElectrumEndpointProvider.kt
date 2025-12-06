@@ -104,7 +104,7 @@ class ElectrumEndpointProvider @Inject constructor(
     private fun syncPreferencesFor(network: BitcoinNetwork): ElectrumSyncPreferences =
         when (network) {
             BitcoinNetwork.MAINNET -> ElectrumSyncPreferences(
-                fullScanStopGap = 200,
+                fullScanStopGap = 50,
                 fullScanBatchSize = 64,
                 incrementalBatchSize = 24
             )
@@ -112,7 +112,7 @@ class ElectrumEndpointProvider @Inject constructor(
             BitcoinNetwork.TESTNET,
             BitcoinNetwork.TESTNET4,
             BitcoinNetwork.SIGNET -> ElectrumSyncPreferences(
-                fullScanStopGap = 120,
+                fullScanStopGap = 50,
                 fullScanBatchSize = 24,
                 incrementalBatchSize = 12
             )
@@ -183,7 +183,7 @@ data class ElectrumSyncPreferences(
 
     companion object {
         val DEFAULT = ElectrumSyncPreferences(
-            fullScanStopGap = 200,
+            fullScanStopGap = 50,
             fullScanBatchSize = 64,
             incrementalBatchSize = 24
         )

@@ -12,6 +12,7 @@ import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
+import com.strhodler.utxopocket.domain.model.IncomingTxPreferences
 
 data class SettingsUiState(
     val appLanguage: AppLanguage = AppLanguage.EN,
@@ -51,7 +52,10 @@ data class SettingsUiState(
     val utxoHealthInputs: UtxoHealthParameterInputs = UtxoHealthParameterInputs(),
     val utxoInputsDirty: Boolean = false,
     val healthParameterError: String? = null,
-    @StringRes val healthParameterMessageRes: Int? = null
+    @StringRes val healthParameterMessageRes: Int? = null,
+    val incomingDetectionEnabled: Boolean = true,
+    val incomingDetectionIntervalSeconds: Int = IncomingTxPreferences.DEFAULT_INTERVAL_SECONDS,
+    val incomingDetectionDialogEnabled: Boolean = true
 )
 
 data class TransactionHealthParameterInputs(

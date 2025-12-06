@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -72,6 +73,7 @@ import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
+import com.strhodler.utxopocket.domain.model.IncomingTxPreferences
 import kotlinx.coroutines.launch
 
 @Composable
@@ -136,6 +138,16 @@ fun WalletSettingsRoute(
         viewModel.removeBlockExplorerOnion()
     }
 
+    val handleIncomingDetectionToggle: (Boolean) -> Unit = { enabled ->
+        viewModel.onIncomingDetectionEnabledChanged(enabled)
+    }
+    val handleIncomingDetectionDialogToggle: (Boolean) -> Unit = { enabled ->
+        viewModel.onIncomingDetectionDialogChanged(enabled)
+    }
+    val handleIncomingDetectionIntervalChange: (Float) -> Unit = { value ->
+        viewModel.onIncomingDetectionIntervalChanged(value.toInt())
+    }
+
     SetSecondaryTopBar(
         title = stringResource(id = R.string.settings_section_wallet),
         onBackClick = onBack
@@ -163,6 +175,9 @@ fun WalletSettingsRoute(
                 onBlockExplorerOnionChanged = handleBlockExplorerOnionChanged,
                 onRemoveBlockExplorerNormal = handleRemoveBlockExplorerNormal,
                 onRemoveBlockExplorerOnion = handleRemoveBlockExplorerOnion,
+                onIncomingDetectionToggle = handleIncomingDetectionToggle,
+                onIncomingDetectionDialogToggle = handleIncomingDetectionDialogToggle,
+                onIncomingDetectionIntervalChange = handleIncomingDetectionIntervalChange,
                 onOpenWikiTopic = onOpenWikiTopic,
                 modifier = Modifier.fillMaxSize()
             )
@@ -245,6 +260,9 @@ private fun WalletSettingsScreen(
     onBlockExplorerOnionChanged: (String, String) -> Unit,
     onRemoveBlockExplorerNormal: () -> Unit,
     onRemoveBlockExplorerOnion: () -> Unit,
+    onIncomingDetectionToggle: (Boolean) -> Unit,
+    onIncomingDetectionDialogToggle: (Boolean) -> Unit,
+    onIncomingDetectionIntervalChange: (Float) -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -371,13 +389,106 @@ private fun WalletSettingsScreen(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
             }
-            if (!state.walletHealthToggleEnabled) {
-                item {
+        if (!state.walletHealthToggleEnabled) {
+            item {
+                Text(
+                    text = stringResource(id = R.string.settings_wallet_health_dependencies),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+            }
+        }
+    }
+
+        SectionCard(
+            title = stringResource(id = R.string.incoming_detection_title),
+            spacedContent = true,
+            divider = false
+        ) {
+            item {
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            text = stringResource(id = R.string.incoming_detection_enable_label),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            text = stringResource(id = R.string.incoming_detection_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingContent = {
+                        Switch(
+                            checked = state.incomingDetectionEnabled,
+                            onCheckedChange = onIncomingDetectionToggle
+                        )
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            text = stringResource(id = R.string.incoming_detection_dialog_label),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            text = stringResource(id = R.string.incoming_detection_dialog_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingContent = {
+                        Switch(
+                            checked = state.incomingDetectionDialogEnabled,
+                            onCheckedChange = onIncomingDetectionDialogToggle,
+                            enabled = state.incomingDetectionEnabled
+                        )
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(
-                        text = stringResource(id = R.string.settings_wallet_health_dependencies),
+                        text = stringResource(id = R.string.incoming_detection_interval_title),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = stringResource(id = R.string.incoming_detection_interval_subtitle),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = stringResource(
+                            id = R.string.incoming_detection_interval_label,
+                            state.incomingDetectionIntervalSeconds
+                        ),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Slider(
+                        value = state.incomingDetectionIntervalSeconds.toFloat(),
+                        onValueChange = onIncomingDetectionIntervalChange,
+                        valueRange = IncomingTxPreferences.MIN_INTERVAL_SECONDS.toFloat()..
+                            IncomingTxPreferences.MAX_INTERVAL_SECONDS.toFloat(),
+                        enabled = state.incomingDetectionEnabled
+                    )
+                    Text(
+                        text = stringResource(id = R.string.incoming_detection_interval_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

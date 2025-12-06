@@ -41,8 +41,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -82,6 +85,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
@@ -114,6 +118,7 @@ import com.strhodler.utxopocket.presentation.wiki.WikiNavigation
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import androidx.core.view.WindowCompat
+import java.text.NumberFormat
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -136,6 +141,7 @@ class MainActivity : AppCompatActivity() {
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             val obscure by obscureScreen.collectAsStateWithLifecycle()
+            val incomingDialog by viewModel.incomingDialog.collectAsStateWithLifecycle()
             val reducedMotion = rememberReducedMotionEnabled()
             LaunchedEffect(uiState.appLanguage) {
                 val desiredLocales = LocaleListCompat.forLanguageTags(uiState.appLanguage.languageTag)
@@ -201,6 +207,17 @@ class MainActivity : AppCompatActivity() {
                                 }
                             }
                         }
+                        val onIncomingTxClick = remember(navController) {
+                            {
+                                navController.navigate(MainDestination.Wallets.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        }
 
                         if (!uiState.appLocked && (pinErrorMessage != null || pinLockoutExpiry != null)) {
                             pinErrorMessage = null
@@ -255,6 +272,7 @@ class MainActivity : AppCompatActivity() {
                                                     StatusBar(
                                                         state = uiState.status,
                                                         onNodeStatusClick = onNodeStatusClick,
+                                                        onIncomingTxClick = onIncomingTxClick,
                                                         modifier = Modifier.windowInsetsPadding(
                                                             WindowInsets.safeDrawing.only(
                                                                 WindowInsetsSides.Top
@@ -393,6 +411,14 @@ class MainActivity : AppCompatActivity() {
                                             Box(modifier = Modifier.fillMaxSize())
                                         }
                                     }
+
+                                    incomingDialog?.let { dialog ->
+                                        IncomingTxDialog(
+                                            dialog = dialog,
+                                            onDismiss = { viewModel.dismissIncomingDialog() },
+                                            onRefresh = { viewModel.refreshFromIncomingDialog() }
+                                        )
+                                    }
                                 }
                             }
 
@@ -433,11 +459,53 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
+@Composable
+private fun IncomingTxDialog(
+    dialog: IncomingDialogState,
+    onDismiss: () -> Unit,
+    onRefresh: () -> Unit
+) {
+    val amountText = dialog.amountSats?.let { amount ->
+        NumberFormat.getInstance().format(amount)
+    }
+    val message = if (amountText != null) {
+        stringResource(
+            id = R.string.incoming_tx_dialog_message_with_amount,
+            amountText,
+            dialog.address
+        )
+    } else {
+        stringResource(
+            id = R.string.incoming_tx_dialog_message,
+            dialog.address
+        )
+    }
+    val title = dialog.walletName?.let { wallet ->
+        stringResource(id = R.string.incoming_tx_dialog_title_with_wallet, wallet)
+    } ?: stringResource(id = R.string.incoming_tx_dialog_title)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = title) },
+        text = { Text(text = message) },
+        confirmButton = {
+            TextButton(onClick = onRefresh) {
+                Text(text = stringResource(id = R.string.incoming_tx_dialog_refresh))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(id = R.string.incoming_tx_dialog_dismiss))
+            }
+        }
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StatusBar(
     state: StatusBarUiState,
     onNodeStatusClick: () -> Unit,
+    onIncomingTxClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
         val baseSubtitleColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -512,6 +580,16 @@ private fun StatusBar(
             },
             navigationIcon = {},
             actions = {
+                if (state.incomingTxCount > 0) {
+                    IncomingTxBadgeIcon(
+                        count = state.incomingTxCount,
+                        onClick = onIncomingTxClick,
+                        contentDescription = stringResource(
+                            id = R.string.status_incoming_tx_indicator_description,
+                            state.incomingTxCount
+                        )
+                    )
+                }
                 TopBarStatusActionIcon(
                     onClick = onNodeStatusClick,
                     indicatorColor = nodeStatusIndicatorColor(state.nodeStatus),
@@ -523,6 +601,35 @@ private fun StatusBar(
             colors = topBarColors,
             windowInsets = WindowInsets(left = 0.dp, top = 0.dp, right = 0.dp, bottom = 0.dp)
         )
+    }
+
+    @Composable
+    private fun IncomingTxBadgeIcon(
+        count: Int,
+        onClick: () -> Unit,
+        contentDescription: String
+    ) {
+        val badgeValue = count.coerceAtMost(99).toString()
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.size(48.dp)
+        ) {
+            BadgedBox(
+                badge = {
+                    Badge {
+                        Text(
+                            text = badgeValue,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Notifications,
+                    contentDescription = contentDescription
+                )
+            }
+        }
     }
 
     @OptIn(ExperimentalMaterial3Api::class)

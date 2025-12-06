@@ -5,6 +5,7 @@ import com.strhodler.utxopocket.data.bdk.WalletStorage
 import com.strhodler.utxopocket.data.node.DefaultNodeConnectionTester
 import com.strhodler.utxopocket.data.preferences.DefaultAppPreferencesRepository
 import com.strhodler.utxopocket.data.tor.DefaultTorManager
+import com.strhodler.utxopocket.data.preferences.DefaultIncomingTxPreferencesRepository
 import com.strhodler.utxopocket.data.transactionhealth.DefaultTransactionHealthAnalyzer
 import com.strhodler.utxopocket.data.wallet.DefaultWalletRepository
 import com.strhodler.utxopocket.data.wiki.DefaultWikiRepository
@@ -16,6 +17,7 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
+import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.TransactionHealthRepository
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.service.TransactionHealthAnalyzer
@@ -54,6 +56,12 @@ abstract class RepositoryModule {
     abstract fun bindAppPreferencesRepository(
         impl: DefaultAppPreferencesRepository
     ): AppPreferencesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindIncomingTxPreferencesRepository(
+        impl: DefaultIncomingTxPreferencesRepository
+    ): IncomingTxPreferencesRepository
 
     @Binds
     @Singleton

@@ -172,6 +172,15 @@ fun WalletDetailRoute(
                 WalletDetailEvent.RefreshQueued -> {
                     showSnackbar(context.getString(R.string.wallet_detail_refresh_enqueued), SnackbarDuration.Short)
                 }
+                is WalletDetailEvent.SyncCompleted -> {
+                    val name = event.walletName.ifBlank { resolvedName.orEmpty() }
+                    val message = context.getString(
+                        R.string.wallet_detail_sync_completed_new_txs,
+                        event.newTransactions,
+                        name.ifBlank { context.getString(R.string.wallet_detail_unknown_wallet_name) }
+                    )
+                    showSnackbar(message, SnackbarDuration.Short)
+                }
             }
         }
     }

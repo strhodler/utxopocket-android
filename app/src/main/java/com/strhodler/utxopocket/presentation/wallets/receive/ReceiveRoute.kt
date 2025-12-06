@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.IosShare
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
@@ -68,6 +69,8 @@ import com.strhodler.utxopocket.domain.model.AddressUsage
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.service.IncomingTxWatcher
+import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
@@ -135,12 +138,36 @@ fun ReceiveRoute(
                     viewModel.onAddressShared(detail)
                 }
             },
+            onCheckAddress = {
+                coroutineScope.launch {
+                    val resources = context.resources
+                    when (viewModel.checkAddress()) {
+                        ReceiveCheckResult.Detected -> showSnackbar(
+                            resources.getString(R.string.receive_check_address_detected),
+                            SnackbarDuration.Short
+                        )
+                        ReceiveCheckResult.NoActivity -> showSnackbar(
+                            resources.getString(R.string.receive_check_address_no_activity),
+                            SnackbarDuration.Short
+                        )
+                        ReceiveCheckResult.NoAddress -> showSnackbar(
+                            resources.getString(R.string.receive_error_no_address),
+                            SnackbarDuration.Short
+                        )
+                        ReceiveCheckResult.Error -> showSnackbar(
+                            resources.getString(R.string.receive_check_address_error),
+                            SnackbarDuration.Short
+                        )
+                    }
+                }
+            },
             onNextAddress = viewModel::nextAddress,
             onOpenDetails = { detail ->
                 selectedDetail = detail
                 showDetailsSheet = true
             },
             onRetry = viewModel::refresh,
+            isChecking = state.isChecking,
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
@@ -163,7 +190,9 @@ fun ReceiveRoute(
 @HiltViewModel
 class ReceiveViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val walletRepository: WalletRepository
+    private val walletRepository: WalletRepository,
+    private val incomingTxWatcher: IncomingTxWatcher,
+    private val incomingTxCoordinator: IncomingTxCoordinator
 ) : ViewModel() {
 
     private val walletId: Long =
@@ -189,6 +218,7 @@ class ReceiveViewModel @Inject constructor(
         ReceiveUiState(
             isLoading = state.isLoading,
             isAdvancing = state.isAdvancing,
+            isChecking = state.isChecking,
             address = state.address,
             walletSummary = summary,
             error = state.error
@@ -201,6 +231,14 @@ class ReceiveViewModel @Inject constructor(
 
     init {
         refresh()
+        viewModelScope.launch {
+            incomingTxCoordinator.detections.collect { detection ->
+                val current = internalState.value.address
+                if (detection.walletId == walletId && current != null && detection.address == current.value) {
+                    nextAddress()
+                }
+            }
+        }
     }
 
     fun refresh() {
@@ -220,6 +258,37 @@ class ReceiveViewModel @Inject constructor(
                     type = WalletAddressType.EXTERNAL
                 )
             }
+        }
+    }
+
+    suspend fun checkAddress(): ReceiveCheckResult {
+        val detail = internalState.value.address ?: return ReceiveCheckResult.NoAddress
+        internalState.update { it.copy(isChecking = true) }
+        return try {
+            val additional = walletRepository.listUnusedAddresses(
+                walletId = walletId,
+                type = WalletAddressType.EXTERNAL,
+                limit = 5
+            )
+                .filter { it.derivationIndex != detail.derivationIndex }
+                .mapNotNull { address ->
+                    walletRepository.getAddressDetail(
+                        walletId = walletId,
+                        type = WalletAddressType.EXTERNAL,
+                        derivationIndex = address.derivationIndex
+                    )
+                }
+            val detected = incomingTxWatcher.manualCheck(walletId, listOf(detail) + additional)
+            if (detected) {
+                nextAddress()
+                ReceiveCheckResult.Detected
+            } else {
+                ReceiveCheckResult.NoActivity
+            }
+        } catch (t: Throwable) {
+            ReceiveCheckResult.Error
+        } finally {
+            internalState.update { it.copy(isChecking = false) }
         }
     }
 
@@ -286,6 +355,7 @@ class ReceiveViewModel @Inject constructor(
 data class ReceiveUiState(
     val isLoading: Boolean = true,
     val isAdvancing: Boolean = false,
+    val isChecking: Boolean = false,
     val address: WalletAddressDetail? = null,
     val walletSummary: WalletSummary? = null,
     val error: ReceiveError? = null
@@ -294,9 +364,17 @@ data class ReceiveUiState(
 private data class ReceiveInternalState(
     val isLoading: Boolean = true,
     val isAdvancing: Boolean = false,
+    val isChecking: Boolean = false,
     val address: WalletAddressDetail? = null,
     val error: ReceiveError? = null
 )
+
+enum class ReceiveCheckResult {
+    Detected,
+    NoActivity,
+    NoAddress,
+    Error
+}
 
 sealed interface ReceiveError {
     data object NoAddress : ReceiveError
@@ -308,9 +386,11 @@ private fun ReceiveScreen(
     state: ReceiveUiState,
     onCopy: (WalletAddressDetail) -> Unit,
     onShare: (WalletAddressDetail) -> Unit,
+    onCheckAddress: () -> Unit,
     onNextAddress: () -> Unit,
     onOpenDetails: (WalletAddressDetail) -> Unit,
     onRetry: () -> Unit,
+    isChecking: Boolean,
     modifier: Modifier = Modifier
 ) {
     when {
@@ -331,9 +411,11 @@ private fun ReceiveScreen(
         else -> {
             ReceiveContent(
                 address = state.address,
+                isChecking = isChecking,
                 isAdvancing = state.isAdvancing,
                 onCopy = onCopy,
                 onShare = onShare,
+                onCheckAddress = onCheckAddress,
                 onNextAddress = onNextAddress,
                 onOpenDetails = onOpenDetails,
                 modifier = modifier
@@ -345,9 +427,11 @@ private fun ReceiveScreen(
 @Composable
 private fun ReceiveContent(
     address: WalletAddressDetail,
+    isChecking: Boolean,
     isAdvancing: Boolean,
     onCopy: (WalletAddressDetail) -> Unit,
     onShare: (WalletAddressDetail) -> Unit,
+    onCheckAddress: () -> Unit,
     onNextAddress: () -> Unit,
     onOpenDetails: (WalletAddressDetail) -> Unit,
     modifier: Modifier = Modifier
@@ -364,6 +448,26 @@ private fun ReceiveContent(
             onShare = { onShare(address) },
             onOpenDetails = { onOpenDetails(address) }
         )
+        FilledTonalButton(
+            onClick = onCheckAddress,
+            enabled = !isAdvancing && !isChecking,
+            modifier = Modifier
+                .fillMaxWidth(),
+            contentPadding = ButtonDefaults.ButtonWithIconContentPadding
+        ) {
+            if (isChecking) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                Text(text = stringResource(id = R.string.receive_check_address_loading))
+            } else {
+                Icon(imageVector = Icons.Outlined.Refresh, contentDescription = null)
+                Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                Text(text = stringResource(id = R.string.receive_check_address))
+            }
+        }
         Spacer(modifier = Modifier.weight(1f, fill = true))
         PrimaryCtaButton(
             text = if (isAdvancing) {
@@ -372,7 +476,7 @@ private fun ReceiveContent(
                 stringResource(id = R.string.receive_next_address)
             },
             onClick = onNextAddress,
-            enabled = !isAdvancing,
+            enabled = !isAdvancing && !isChecking,
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding(),

@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.UnfoldMore
 import androidx.compose.material.icons.outlined.Sort
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.BottomSheetDefaults
@@ -104,6 +105,7 @@ import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TransactionHealthResult
 import com.strhodler.utxopocket.domain.model.TransactionType
+import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
 import com.strhodler.utxopocket.domain.model.UtxoHealthResult
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletUtxo
@@ -130,6 +132,7 @@ import java.text.DateFormat
 import java.text.NumberFormat
 import java.util.Date
 import kotlin.math.absoluteValue
+import kotlin.math.roundToInt
 
 @Composable
 fun WalletDetailScreen(
@@ -400,7 +403,10 @@ private fun WalletDetailContent(
                 ) {
                     when (tab) {
                         WalletDetailTab.Transactions -> {
-                            val hasAnyTransactions = state.transactionsCount > 0 || transactions.itemCount > 0
+                            val placeholders = state.incomingPlaceholders
+                            val hasAnyTransactions = state.transactionsCount > 0 ||
+                                transactions.itemCount > 0 ||
+                                placeholders.isNotEmpty()
                             if (hasAnyTransactions) {
                                 item(key = "transactions_sort") {
                                     Row(
@@ -440,7 +446,9 @@ private fun WalletDetailContent(
                                     }
                                 }
 
-                                transactionLoadState is LoadState.NotLoading && transactions.itemCount == 0 -> {
+                                transactionLoadState is LoadState.NotLoading &&
+                                    transactions.itemCount == 0 &&
+                                    placeholders.isEmpty() -> {
                                     item(key = "transactions_empty") {
                                         EmptyPlaceholder(
                                             message = stringResource(id = R.string.wallet_detail_empty_transactions)
@@ -449,6 +457,19 @@ private fun WalletDetailContent(
                                 }
 
                                 else -> {
+                                    if (placeholders.isNotEmpty()) {
+                                        items(
+                                            items = placeholders,
+                                            key = { placeholder -> "incoming_placeholder_${placeholder.txid}" }
+                                        ) { placeholder ->
+                                            IncomingPlaceholderRow(
+                                                placeholder = placeholder,
+                                                unit = state.balanceUnit,
+                                                balancesHidden = state.balancesHidden,
+                                                palette = walletTheme
+                                            )
+                                        }
+                                    }
                                     items(
                                         count = transactions.itemCount,
                                         key = transactions.itemKey { transaction -> transaction.id }
@@ -1664,6 +1685,90 @@ private fun TransactionRow(
         onClick = onClick,
         modifier = modifier
     )
+}
+
+@Composable
+private fun IncomingPlaceholderRow(
+    placeholder: IncomingTxPlaceholder,
+    unit: BalanceUnit,
+    balancesHidden: Boolean,
+    palette: WalletColorTheme,
+    modifier: Modifier = Modifier
+) {
+    val amountText = placeholder.amountSats?.let {
+        balanceText(it, unit, hidden = balancesHidden)
+    } ?: stringResource(id = R.string.incoming_tx_placeholder_amount_pending)
+    val addressDisplay = remember(placeholder.address) { ellipsizeMiddle(placeholder.address) }
+    val txidDisplay = remember(placeholder.txid) { ellipsizeMiddle(placeholder.txid) }
+    val containerColor = MaterialTheme.colorScheme.surfaceContainer
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = containerColor,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = amountText,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = stringResource(id = R.string.wallet_detail_pending_confirmation),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Outlined.Schedule,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = txidDisplay,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Text(
+                    text = stringResource(id = R.string.receive_title),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = addressDisplay,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
 }
 
 private data class TransactionFilterPreset(

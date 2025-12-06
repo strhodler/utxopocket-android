@@ -552,10 +552,7 @@ private fun WalletCard(
     val accentColor = theme.primary
     val contentColor = MaterialTheme.colorScheme.onSurface
     val secondaryTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val statusColor = when {
-        isQueued -> accentColor.copy(alpha = 0.9f)
-        else -> secondaryTextColor
-    }
+    val statusColor = secondaryTextColor
     Card(
         onClick = onClick,
         modifier = modifier,

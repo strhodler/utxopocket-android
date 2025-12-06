@@ -14,7 +14,9 @@ import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
+import com.strhodler.utxopocket.domain.model.IncomingTxPreferences
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
+import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_CONNECTION_IDLE_MINUTES
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_PIN_AUTO_LOCK_MINUTES
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_CONNECTION_IDLE_MINUTES
@@ -38,6 +40,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val appPreferencesRepository: AppPreferencesRepository,
+    private val incomingTxPreferencesRepository: IncomingTxPreferencesRepository,
     private val walletRepository: WalletRepository,
     private val networkErrorLogRepository: NetworkErrorLogRepository
 ) : ViewModel() {
@@ -66,7 +69,8 @@ class SettingsViewModel @Inject constructor(
                 appPreferencesRepository.dustThresholdSats,
                 appPreferencesRepository.transactionHealthParameters,
                 appPreferencesRepository.utxoHealthParameters,
-                appPreferencesRepository.blockExplorerPreferences
+                appPreferencesRepository.blockExplorerPreferences,
+                incomingTxPreferencesRepository.globalPreferences()
             ) { values: Array<Any?> ->
                 val preferredNetwork = values[0] as BitcoinNetwork
                 val pinEnabled = values[1] as Boolean
@@ -87,6 +91,7 @@ class SettingsViewModel @Inject constructor(
                 val transactionParameters = values[16] as TransactionHealthParameters
                 val utxoParameters = values[17] as UtxoHealthParameters
                 val blockExplorerPrefs = values[18] as BlockExplorerPreferences
+                val incomingPrefs = values[19] as IncomingTxPreferences
                 val previous = _uiState.value
 
                 val walletHealthToggleEnabled = transactionAnalysisEnabled && utxoHealthEnabled
@@ -146,7 +151,10 @@ class SettingsViewModel @Inject constructor(
                     blockExplorerNormalCustomInput = customNormal,
                     blockExplorerOnionCustomInput = customOnion,
                     blockExplorerNormalCustomNameInput = customNormalName,
-                    blockExplorerOnionCustomNameInput = customOnionName
+                    blockExplorerOnionCustomNameInput = customOnionName,
+                    incomingDetectionEnabled = incomingPrefs.enabled,
+                    incomingDetectionIntervalSeconds = incomingPrefs.intervalSeconds,
+                    incomingDetectionDialogEnabled = incomingPrefs.showDialog
                 )
             }.collect { state ->
                 _uiState.value = state
@@ -237,6 +245,31 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(networkLogsEnabled = enabled) }
         viewModelScope.launch {
             networkErrorLogRepository.setLoggingEnabled(enabled)
+        }
+    }
+
+    fun onIncomingDetectionEnabledChanged(enabled: Boolean) {
+        _uiState.update { it.copy(incomingDetectionEnabled = enabled) }
+        viewModelScope.launch {
+            incomingTxPreferencesRepository.setGlobalEnabled(enabled)
+        }
+    }
+
+    fun onIncomingDetectionDialogChanged(enabled: Boolean) {
+        _uiState.update { it.copy(incomingDetectionDialogEnabled = enabled) }
+        viewModelScope.launch {
+            incomingTxPreferencesRepository.setGlobalShowDialog(enabled)
+        }
+    }
+
+    fun onIncomingDetectionIntervalChanged(seconds: Int) {
+        val clamped = seconds.coerceIn(
+            IncomingTxPreferences.MIN_INTERVAL_SECONDS,
+            IncomingTxPreferences.MAX_INTERVAL_SECONDS
+        )
+        _uiState.update { it.copy(incomingDetectionIntervalSeconds = clamped) }
+        viewModelScope.launch {
+            incomingTxPreferencesRepository.setGlobalIntervalSeconds(clamped)
         }
     }
 
