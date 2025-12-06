@@ -1284,7 +1284,6 @@ class DefaultWalletRepository @Inject constructor(
                         }.onFailure { error ->
                             SecureLog.w(TAG, error) { "Unable to record sync session start for $walletAlias" }
                         }
-                        val cancelledForDeletion = AtomicBoolean(false)
                         val syncResult = runCatching {
                             withWallet(entity, sealAfterUse = true) { wallet, persister, materializationSource ->
                                 ensureForeground()
@@ -1313,7 +1312,7 @@ class DefaultWalletRepository @Inject constructor(
                                     ?.coerceIn(1, MAX_FULL_SCAN_STOP_GAP)
                                 val hasChangeKeychain = !entity.viewOnly && entity.hasChangeBranch()
                                 val walletCancellationSignal = SyncCancellationSignal {
-                                    cancellationSignal.shouldCancel() || cancelledForDeletion.get()
+                                    cancellationSignal.shouldCancel() || isWalletDeletionPending(entity.id)
                                 }
                                 txBeforeForMetrics = entity.transactionCount
                                 try {
@@ -1334,7 +1333,7 @@ class DefaultWalletRepository @Inject constructor(
                                     }
                                     throw syncError
                                 }
-                                if (cancelledForDeletion.get() || isWalletDeletionPending(entity.id)) {
+                                if (isWalletDeletionPending(entity.id)) {
                                     SecureLog.d(TAG) {
                                         "Wallet ${entity.id} sync cancelled mid-flight because it is being deleted."
                                     }
@@ -1516,7 +1515,7 @@ class DefaultWalletRepository @Inject constructor(
                             if (metricsEnabled) {
                                 metricsError = error
                             }
-                            if (cancelledForDeletion.get() || isWalletDeletionPending(entity.id)) {
+                            if (isWalletDeletionPending(entity.id)) {
                                 SecureLog.d(TAG) { "Wallet $walletAlias sync aborted because it is being deleted." }
                                 return@forEach
                             }
@@ -2317,8 +2316,10 @@ class DefaultWalletRepository @Inject constructor(
             val network = BitcoinNetwork.valueOf(entity.network)
             removeFromSyncQueue(id, network)
             cancelSyncIfActive(id, network)
+            resetNetworkQueue(network)
             runCatching { walletFactory.removeStorage(id, network) }
             removeWalletFromDatabase(id)
+            reenqueueExistingWallets(network)
         } finally {
             clearWalletDeletionPending(id)
         }
@@ -2443,10 +2444,12 @@ class DefaultWalletRepository @Inject constructor(
     }
 
     private suspend fun cancelSyncIfActive(walletId: Long, network: BitcoinNetwork) {
+        var jobToCancel: Job? = null
         syncQueueMutex.withLock {
             val active = activeWalletByNetwork[network]
             if (active == walletId) {
-                runningSyncJobs[network]?.cancel()
+                jobToCancel = runningSyncJobs[network]
+                jobToCancel?.cancel()
                 runningSyncJobs.remove(network)
                 activeWalletByNetwork[network] = null
                 updateSyncStatusLocked(
@@ -2457,6 +2460,30 @@ class DefaultWalletRepository @Inject constructor(
                 )
             }
         }
+        jobToCancel?.join()
+    }
+
+    private suspend fun resetNetworkQueue(network: BitcoinNetwork) {
+        syncQueueMutex.withLock {
+            pendingWalletQueues.remove(network)
+            activeWalletByNetwork.remove(network)
+            runningSyncJobs[network]?.cancel()
+            runningSyncJobs.remove(network)
+            updateSyncStatusLocked(
+                network = network,
+                activeWalletId = null,
+                queue = emptyList(),
+                isRunning = false
+            )
+        }
+    }
+
+    private suspend fun reenqueueExistingWallets(network: BitcoinNetwork) {
+        val remaining = walletDao.getWalletsSnapshot(network.name).map { it.id }
+        if (remaining.isEmpty()) {
+            return
+        }
+        enqueueWalletsForSync(network, remaining)
     }
 
     override suspend fun revealNextAddress(

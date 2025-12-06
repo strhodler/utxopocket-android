@@ -893,6 +893,7 @@
     <string name="wallet_labels_import_scan_next">Escanea la siguiente parte para continuar.</string>
     <string name="wallet_labels_import_scan_frames">Partes: %1$d / %2$s</string>
     <string name="wallet_labels_import_scan_error">No se pudo leer el fragmento del QR.</string>
+    <string name="wallet_labels_import_permission_denied">Se necesita el permiso de cámara para importar etiquetas desde códigos QR.</string>
     <string name="wallet_labels_import_scan_action">Escanear QR</string>
     <string name="wallet_labels_import_file_action">Importar archivo</string>
     <string name="wallet_labels_import_result_title">Última importación</string>

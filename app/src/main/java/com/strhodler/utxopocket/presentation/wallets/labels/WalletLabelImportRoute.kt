@@ -1,5 +1,7 @@
 package com.strhodler.utxopocket.presentation.wallets.labels
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -41,6 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.content.ContextCompat
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.sparrowwallet.hummingbird.ResultType
@@ -49,12 +52,10 @@ import com.sparrowwallet.hummingbird.URDecoder
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
-import com.strhodler.utxopocket.presentation.common.PortraitCaptureActivity
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.common.UrMultiPartScanActivity
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -74,7 +75,6 @@ fun WalletLabelImportRoute(
     var scanError by remember { mutableStateOf<String?>(null) }
     var awaitingNextPart by remember { mutableStateOf(false) }
 
-    val startScan: () -> Unit
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         val contents = result.contents
         if (contents.isNullOrBlank()) {
@@ -127,17 +127,44 @@ fun WalletLabelImportRoute(
 
     }
 
-    startScan = {
-        scanError = null
-        val options = ScanOptions().apply {
-            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-            setBeepEnabled(false)
-            setBarcodeImageEnabled(false)
-            setOrientationLocked(true)
-            setPrompt("")
-            setCaptureActivity(UrMultiPartScanActivity::class.java)
+    val launchScan = remember(scanLauncher) {
+        {
+            scanError = null
+            decoder = URDecoder()
+            scanProgress = null
+            awaitingNextPart = false
+            val options = ScanOptions().apply {
+                setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                setBeepEnabled(false)
+                setBarcodeImageEnabled(false)
+                setOrientationLocked(true)
+                setPrompt("")
+                setCaptureActivity(UrMultiPartScanActivity::class.java)
+            }
+            scanLauncher.launch(options)
         }
-        scanLauncher.launch(options)
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            launchScan()
+        } else {
+            scanError = context.getString(R.string.wallet_labels_import_permission_denied)
+        }
+    }
+
+    val startScan = remember(context, launchScan, permissionLauncher) {
+        {
+            val permissionGranted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+            if (permissionGranted) {
+                launchScan()
+            } else {
+                permissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        }
     }
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
