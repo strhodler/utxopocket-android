@@ -2045,7 +2045,7 @@ class DefaultWalletRepository @Inject constructor(
             if (seconds > 0) seconds * 1000 else null
         }
 
-        is ChainPosition.Unconfirmed -> position.timestamp?.toLong()?.let { it * 1000 }
+        is ChainPosition.Unconfirmed -> null
     }
 
     private fun chainPositionBlockInfo(position: ChainPosition): BlockInfo? = when (position) {

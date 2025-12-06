@@ -138,14 +138,8 @@ fun WalletSettingsRoute(
         viewModel.removeBlockExplorerOnion()
     }
 
-    val handleIncomingDetectionToggle: (Boolean) -> Unit = { enabled ->
-        viewModel.onIncomingDetectionEnabledChanged(enabled)
-    }
     val handleIncomingDetectionDialogToggle: (Boolean) -> Unit = { enabled ->
         viewModel.onIncomingDetectionDialogChanged(enabled)
-    }
-    val handleIncomingDetectionIntervalChange: (Float) -> Unit = { value ->
-        viewModel.onIncomingDetectionIntervalChanged(value.toInt())
     }
 
     SetSecondaryTopBar(
@@ -175,9 +169,7 @@ fun WalletSettingsRoute(
                 onBlockExplorerOnionChanged = handleBlockExplorerOnionChanged,
                 onRemoveBlockExplorerNormal = handleRemoveBlockExplorerNormal,
                 onRemoveBlockExplorerOnion = handleRemoveBlockExplorerOnion,
-                onIncomingDetectionToggle = handleIncomingDetectionToggle,
                 onIncomingDetectionDialogToggle = handleIncomingDetectionDialogToggle,
-                onIncomingDetectionIntervalChange = handleIncomingDetectionIntervalChange,
                 onOpenWikiTopic = onOpenWikiTopic,
                 modifier = Modifier.fillMaxSize()
             )
@@ -260,9 +252,7 @@ private fun WalletSettingsScreen(
     onBlockExplorerOnionChanged: (String, String) -> Unit,
     onRemoveBlockExplorerNormal: () -> Unit,
     onRemoveBlockExplorerOnion: () -> Unit,
-    onIncomingDetectionToggle: (Boolean) -> Unit,
     onIncomingDetectionDialogToggle: (Boolean) -> Unit,
-    onIncomingDetectionIntervalChange: (Float) -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -410,30 +400,6 @@ private fun WalletSettingsScreen(
                 ListItem(
                     headlineContent = {
                         Text(
-                            text = stringResource(id = R.string.incoming_detection_enable_label),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    },
-                    supportingContent = {
-                        Text(
-                            text = stringResource(id = R.string.incoming_detection_subtitle),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    trailingContent = {
-                        Switch(
-                            checked = state.incomingDetectionEnabled,
-                            onCheckedChange = onIncomingDetectionToggle
-                        )
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                )
-            }
-            item {
-                ListItem(
-                    headlineContent = {
-                        Text(
                             text = stringResource(id = R.string.incoming_detection_dialog_label),
                             style = MaterialTheme.typography.bodyLarge
                         )
@@ -448,49 +414,11 @@ private fun WalletSettingsScreen(
                     trailingContent = {
                         Switch(
                             checked = state.incomingDetectionDialogEnabled,
-                            onCheckedChange = onIncomingDetectionDialogToggle,
-                            enabled = state.incomingDetectionEnabled
+                            onCheckedChange = onIncomingDetectionDialogToggle
                         )
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                 )
-            }
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.incoming_detection_interval_title),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Text(
-                        text = stringResource(id = R.string.incoming_detection_interval_subtitle),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = stringResource(
-                            id = R.string.incoming_detection_interval_label,
-                            state.incomingDetectionIntervalSeconds
-                        ),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Slider(
-                        value = state.incomingDetectionIntervalSeconds.toFloat(),
-                        onValueChange = onIncomingDetectionIntervalChange,
-                        valueRange = IncomingTxPreferences.MIN_INTERVAL_SECONDS.toFloat()..
-                            IncomingTxPreferences.MAX_INTERVAL_SECONDS.toFloat(),
-                        enabled = state.incomingDetectionEnabled
-                    )
-                    Text(
-                        text = stringResource(id = R.string.incoming_detection_interval_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
         }
 

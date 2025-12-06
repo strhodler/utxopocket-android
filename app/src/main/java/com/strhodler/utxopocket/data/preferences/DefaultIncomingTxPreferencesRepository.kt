@@ -41,39 +41,15 @@ class DefaultIncomingTxPreferencesRepository @Inject constructor(
     override fun globalPreferences(): Flow<IncomingTxPreferences> =
         dataStore.data.map { prefs ->
             IncomingTxPreferences(
-                enabled = prefs[GLOBAL_ENABLED_KEY] ?: true,
+                enabled = true,
                 intervalSeconds = clampInterval(prefs[GLOBAL_INTERVAL_KEY]),
                 showDialog = prefs[GLOBAL_DIALOG_KEY] ?: true
             )
         }
 
-    override suspend fun setEnabled(walletId: Long, enabled: Boolean) {
-        dataStore.edit { prefs ->
-            prefs[enabledKey(walletId)] = enabled
-        }
-    }
-
-    override suspend fun setIntervalSeconds(walletId: Long, intervalSeconds: Int) {
-        dataStore.edit { prefs ->
-            prefs[intervalKey(walletId)] = intervalSeconds
-        }
-    }
-
     override suspend fun setShowDialog(walletId: Long, enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[dialogKey(walletId)] = enabled
-        }
-    }
-
-    override suspend fun setGlobalEnabled(enabled: Boolean) {
-        dataStore.edit { prefs ->
-            prefs[GLOBAL_ENABLED_KEY] = enabled
-        }
-    }
-
-    override suspend fun setGlobalIntervalSeconds(intervalSeconds: Int) {
-        dataStore.edit { prefs ->
-            prefs[GLOBAL_INTERVAL_KEY] = intervalSeconds
         }
     }
 
@@ -84,21 +60,15 @@ class DefaultIncomingTxPreferencesRepository @Inject constructor(
     }
 
     private fun Preferences.toPreferences(walletId: Long): IncomingTxPreferences {
-        val enabled = this[enabledKey(walletId)] ?: true
-        val interval = this[intervalKey(walletId)]
         return IncomingTxPreferences(
-            enabled = enabled,
-            intervalSeconds = clampInterval(interval),
+            enabled = true,
+            intervalSeconds = DEFAULT_INTERVAL_SECONDS,
             showDialog = this[dialogKey(walletId)] ?: this[GLOBAL_DIALOG_KEY] ?: true
         )
     }
 
-    private fun clampInterval(value: Int?): Int = value
-        ?.coerceIn(
-            IncomingTxPreferences.MIN_INTERVAL_SECONDS,
-            IncomingTxPreferences.MAX_INTERVAL_SECONDS
-        )
-        ?: IncomingTxPreferences.DEFAULT_INTERVAL_SECONDS
+    private fun clampInterval(@Suppress("UNUSED_PARAMETER") value: Int?): Int =
+        IncomingTxPreferences.DEFAULT_INTERVAL_SECONDS
 
     private fun enabledKey(walletId: Long) =
         booleanPreferencesKey("$INCOMING_ENABLED_PREFIX$walletId")
@@ -122,5 +92,6 @@ class DefaultIncomingTxPreferencesRepository @Inject constructor(
         const val INCOMING_ENABLED_PREFIX = "incoming_tx_enabled_"
         const val INCOMING_INTERVAL_PREFIX = "incoming_tx_interval_"
         const val INCOMING_DIALOG_PREFIX = "incoming_tx_dialog_"
+        const val DEFAULT_INTERVAL_SECONDS = IncomingTxPreferences.DEFAULT_INTERVAL_SECONDS
     }
 }

@@ -22,9 +22,9 @@ data class IncomingTxPreferences(
     val showDialog: Boolean = true
 ) {
     companion object {
-        const val MIN_INTERVAL_SECONDS = 10
-        const val MAX_INTERVAL_SECONDS = 120
-        const val DEFAULT_INTERVAL_SECONDS = 20
+        const val MIN_INTERVAL_SECONDS = 30
+        const val MAX_INTERVAL_SECONDS = 30
+        const val DEFAULT_INTERVAL_SECONDS = 30
     }
 
     fun normalized(): IncomingTxPreferences = copy(

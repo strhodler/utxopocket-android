@@ -13,6 +13,7 @@ import java.io.OutputStreamWriter
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.Socket
+import java.net.SocketTimeoutException
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.atomic.AtomicInteger
@@ -27,6 +28,11 @@ data class ElectrumUnspent(
     val txid: String,
     val valueSats: Long,
     val height: Long?
+)
+
+data class ScriptHashNotification(
+    val scripthash: String,
+    val status: String?
 )
 
 class LightElectrumClient(
@@ -122,6 +128,60 @@ class LightElectrumClient(
             throw IOException("Electrum error $code: $messageText")
         }
         return response.opt("result")
+    }
+
+    fun subscribeBatch(scripthashes: List<String>): Boolean {
+        if (scripthashes.isEmpty()) return true
+        val result = call(
+            method = "blockchain.scripthashes.subscribe",
+            params = listOf(JSONArray(scripthashes))
+        )
+        return result != null
+    }
+
+    fun subscribeIndividual(scripthashes: List<String>): Boolean {
+        if (scripthashes.isEmpty()) return true
+        scripthashes.forEach { sh ->
+            call(
+                method = "blockchain.scripthash.subscribe",
+                params = listOf(sh)
+            )
+        }
+        return true
+    }
+
+    fun readNotifications(timeoutMs: Int): List<ScriptHashNotification> {
+        val originalTimeout = socket.soTimeout
+        socket.soTimeout = timeoutMs
+        val notifications = mutableListOf<ScriptHashNotification>()
+        while (true) {
+            val line = try {
+                reader.readLine()
+            } catch (timeout: SocketTimeoutException) {
+                break
+            }
+            if (line == null) {
+                break
+            }
+            val json = runCatching { JSONObject(line) }.getOrNull() ?: continue
+            val method = json.optString("method")
+            if (method.isNullOrBlank()) continue
+            val params = json.optJSONArray("params") ?: continue
+            if (params.length() < 2) continue
+            val scripthash = params.optString(0).orEmpty()
+            if (scripthash.isBlank()) continue
+            val status = params.optString(1, null)
+            if (method == "blockchain.scripthash.subscribe" ||
+                method == "blockchain.scripthashes.subscribe"
+            ) {
+                notifications += ScriptHashNotification(
+                    scripthash = scripthash,
+                    status = status
+                )
+            }
+        }
+        socket.soTimeout = originalTimeout
+        return notifications
     }
 
     private fun defaultPort(): Int = when (normalized.scheme) {

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
+import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.IncomingTxDetection
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeStatus
@@ -16,6 +17,7 @@ import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
 import com.strhodler.utxopocket.domain.model.requiresTor
+import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
 import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.domain.service.IncomingTxWatcher
@@ -57,7 +59,8 @@ data class StatusBarUiState(
     val network: BitcoinNetwork = BitcoinNetwork.DEFAULT,
     val torRequired: Boolean = false,
     val isNetworkOnline: Boolean = true,
-    val incomingTxCount: Int = 0
+    val incomingTxCount: Int = 0,
+    val incomingPlaceholderGroups: List<IncomingPlaceholderGroup> = emptyList()
 )
 
 data class AppEntryUiState(
@@ -67,6 +70,8 @@ data class AppEntryUiState(
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
     val themeProfile: ThemeProfile = ThemeProfile.DEFAULT,
     val appLanguage: AppLanguage = AppLanguage.EN,
+    val balanceUnit: BalanceUnit = BalanceUnit.BTC,
+    val balancesHidden: Boolean = false,
     val pinLockEnabled: Boolean = false,
     val hapticsEnabled: Boolean = true,
     val pinShuffleEnabled: Boolean = false,
@@ -80,6 +85,12 @@ data class IncomingDialogState(
     val txid: String,
     val amountSats: Long?,
     val detectedAt: Long
+)
+
+data class IncomingPlaceholderGroup(
+    val walletId: Long,
+    val walletName: String,
+    val placeholders: List<IncomingTxPlaceholder>
 )
 
 @HiltViewModel
@@ -120,8 +131,34 @@ class MainActivityViewModel @Inject constructor(
             started = SharingStarted.Eagerly,
             initialValue = true
         )
-    private val incomingPlaceholderCount = incomingTxCoordinator.placeholders
-        .map { placeholders -> placeholders.values.sumOf { it.size } }
+    private val walletSummariesByNetwork = appPreferencesRepository.preferredNetwork
+        .flatMapLatest { network ->
+            walletRepository.observeWalletSummaries(network)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = emptyList()
+        )
+    private val incomingPlaceholderGroups = incomingTxCoordinator.placeholders
+        .combine(walletSummariesByNetwork) { placeholders, summaries ->
+            summaries.mapNotNull { summary ->
+                val incoming = placeholders[summary.id].orEmpty()
+                if (incoming.isEmpty()) return@mapNotNull null
+                IncomingPlaceholderGroup(
+                    walletId = summary.id,
+                    walletName = summary.name,
+                    placeholders = incoming
+                )
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = emptyList()
+        )
+    private val incomingPlaceholderCount = incomingPlaceholderGroups
+        .map { groups -> groups.sumOf { it.placeholders.size } }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
@@ -201,7 +238,10 @@ class MainActivityViewModel @Inject constructor(
         networkStatusMonitor.isOnline,
         appPreferencesRepository.hapticsEnabled,
         appPreferencesRepository.pinShuffleEnabled,
-        incomingPlaceholderCount
+        appPreferencesRepository.balanceUnit,
+        appPreferencesRepository.balancesHidden,
+        incomingPlaceholderCount,
+        incomingPlaceholderGroups
     ) { values ->
         val onboarding = values[0] as Boolean
         val torStatus = values[1] as TorStatus
@@ -218,7 +258,10 @@ class MainActivityViewModel @Inject constructor(
         val isNetworkOnline = values[12] as Boolean
         val hapticsEnabled = values[13] as Boolean
         val pinShuffleEnabled = values[14] as Boolean
-        val incomingTxCount = values[15] as Int
+        val balanceUnit = values[15] as BalanceUnit
+        val balancesHidden = values[16] as Boolean
+        val incomingTxCount = values[17] as Int
+        val incomingGroups = values[18] as List<IncomingPlaceholderGroup>
 
         val snapshotMatchesNetwork = nodeSnapshot.network == network
         val effectiveNodeStatus = if (snapshotMatchesNetwork) {
@@ -249,15 +292,18 @@ class MainActivityViewModel @Inject constructor(
                 nodeFeeRateSatPerVb = nodeSnapshot.feeRateSatPerVb.takeIf { snapshotMatchesNetwork },
             nodeEndpoint = nodeSnapshot.endpoint.takeIf { snapshotMatchesNetwork },
             nodeServerInfo = nodeSnapshot.serverInfo.takeIf { snapshotMatchesNetwork },
-            nodeLastSync = nodeSnapshot.lastSyncCompletedAt.takeIf { snapshotMatchesNetwork },
-            network = network,
-            torRequired = torRequired,
-            isNetworkOnline = isNetworkOnline,
-            incomingTxCount = incomingTxCount
+                nodeLastSync = nodeSnapshot.lastSyncCompletedAt.takeIf { snapshotMatchesNetwork },
+                network = network,
+                torRequired = torRequired,
+                isNetworkOnline = isNetworkOnline,
+                incomingTxCount = incomingTxCount,
+                incomingPlaceholderGroups = incomingGroups
         ),
         themePreference = themePreference,
         themeProfile = themeProfile,
         appLanguage = appLanguage,
+        balanceUnit = balanceUnit,
+        balancesHidden = balancesHidden,
         pinLockEnabled = pinEnabled,
             hapticsEnabled = hapticsEnabled,
             pinShuffleEnabled = pinShuffleEnabled,

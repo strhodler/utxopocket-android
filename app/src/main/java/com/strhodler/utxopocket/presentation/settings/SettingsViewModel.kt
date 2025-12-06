@@ -152,8 +152,7 @@ class SettingsViewModel @Inject constructor(
                     blockExplorerOnionCustomInput = customOnion,
                     blockExplorerNormalCustomNameInput = customNormalName,
                     blockExplorerOnionCustomNameInput = customOnionName,
-                    incomingDetectionEnabled = incomingPrefs.enabled,
-                    incomingDetectionIntervalSeconds = incomingPrefs.intervalSeconds,
+                    incomingDetectionIntervalSeconds = IncomingTxPreferences.DEFAULT_INTERVAL_SECONDS,
                     incomingDetectionDialogEnabled = incomingPrefs.showDialog
                 )
             }.collect { state ->
@@ -248,28 +247,10 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun onIncomingDetectionEnabledChanged(enabled: Boolean) {
-        _uiState.update { it.copy(incomingDetectionEnabled = enabled) }
-        viewModelScope.launch {
-            incomingTxPreferencesRepository.setGlobalEnabled(enabled)
-        }
-    }
-
     fun onIncomingDetectionDialogChanged(enabled: Boolean) {
         _uiState.update { it.copy(incomingDetectionDialogEnabled = enabled) }
         viewModelScope.launch {
             incomingTxPreferencesRepository.setGlobalShowDialog(enabled)
-        }
-    }
-
-    fun onIncomingDetectionIntervalChanged(seconds: Int) {
-        val clamped = seconds.coerceIn(
-            IncomingTxPreferences.MIN_INTERVAL_SECONDS,
-            IncomingTxPreferences.MAX_INTERVAL_SECONDS
-        )
-        _uiState.update { it.copy(incomingDetectionIntervalSeconds = clamped) }
-        viewModelScope.launch {
-            incomingTxPreferencesRepository.setGlobalIntervalSeconds(clamped)
         }
     }
 

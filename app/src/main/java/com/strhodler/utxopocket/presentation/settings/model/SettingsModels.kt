@@ -53,7 +53,6 @@ data class SettingsUiState(
     val utxoInputsDirty: Boolean = false,
     val healthParameterError: String? = null,
     @StringRes val healthParameterMessageRes: Int? = null,
-    val incomingDetectionEnabled: Boolean = true,
     val incomingDetectionIntervalSeconds: Int = IncomingTxPreferences.DEFAULT_INTERVAL_SECONDS,
     val incomingDetectionDialogEnabled: Boolean = true
 )
