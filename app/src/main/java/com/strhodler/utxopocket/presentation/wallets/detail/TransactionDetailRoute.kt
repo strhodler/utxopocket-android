@@ -157,12 +157,12 @@ import android.net.Uri
 private const val UTXO_LABEL_MAX_LENGTH = 255
 
 private data class LabelDialogStrings(
-    @StringRes val addTitleRes: Int,
-    @StringRes val editTitleRes: Int,
-    @StringRes val fieldLabelRes: Int,
-    @StringRes val placeholderRes: Int,
-    @StringRes val supportTextRes: Int,
-    @StringRes val hintRes: Int
+    @param:StringRes val addTitleRes: Int,
+    @param:StringRes val editTitleRes: Int,
+    @param:StringRes val fieldLabelRes: Int,
+    @param:StringRes val placeholderRes: Int,
+    @param:StringRes val supportTextRes: Int,
+    @param:StringRes val hintRes: Int
 )
 
 private val UTXO_LABEL_DIALOG_STRINGS = LabelDialogStrings(

@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.map
 
 @Singleton
 class DefaultIncomingTxPreferencesRepository @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : IncomingTxPreferencesRepository {
 
     private val dataStore = context.userPreferencesDataStore

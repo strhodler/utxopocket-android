@@ -14,7 +14,7 @@ import kotlin.text.Charsets
 
 @Singleton
 class SqlCipherPassphraseProvider @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val tinkCrypto: TinkCrypto
 ) {
 

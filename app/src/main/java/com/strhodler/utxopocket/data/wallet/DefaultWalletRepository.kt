@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.strhodler.utxopocket.data.wallet
 
 import android.content.Context
@@ -149,8 +151,8 @@ class DefaultWalletRepository @Inject constructor(
     private val nodeConfigurationRepository: NodeConfigurationRepository,
     private val networkStatusMonitor: NetworkStatusMonitor,
     private val networkErrorLogRepository: NetworkErrorLogRepository,
-    @ApplicationContext private val applicationContext: Context,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:ApplicationContext private val applicationContext: Context,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : WalletRepository {
 
     companion object {

@@ -164,8 +164,8 @@ private fun WelcomeStep(
 }
 
 private data class TutorialSlide(
-    @StringRes val titleRes: Int,
-    @StringRes val descriptionRes: Int,
+    @param:StringRes val titleRes: Int,
+    @param:StringRes val descriptionRes: Int,
     val content: (@Composable () -> Unit)? = null
 )
 

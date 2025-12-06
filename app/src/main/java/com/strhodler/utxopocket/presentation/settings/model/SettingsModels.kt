@@ -52,7 +52,7 @@ data class SettingsUiState(
     val utxoHealthInputs: UtxoHealthParameterInputs = UtxoHealthParameterInputs(),
     val utxoInputsDirty: Boolean = false,
     val healthParameterError: String? = null,
-    @StringRes val healthParameterMessageRes: Int? = null,
+    @param:StringRes val healthParameterMessageRes: Int? = null,
     val incomingDetectionIntervalSeconds: Int = IncomingTxPreferences.DEFAULT_INTERVAL_SECONDS,
     val incomingDetectionDialogEnabled: Boolean = true
 )

@@ -1,9 +1,14 @@
 package com.strhodler.utxopocket.domain.service
 
+import com.strhodler.utxopocket.di.IoDispatcher
 import com.strhodler.utxopocket.domain.model.IncomingTxDetection
 import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
+import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,9 +16,15 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 @Singleton
-class IncomingTxCoordinator @Inject constructor() {
+class IncomingTxCoordinator @Inject constructor(
+    private val placeholderRepository: IncomingTxPlaceholderRepository,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+) {
+
+    private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
 
     private val _placeholders = MutableStateFlow<Map<Long, List<IncomingTxPlaceholder>>>(emptyMap())
     val placeholders: StateFlow<Map<Long, List<IncomingTxPlaceholder>>> = _placeholders.asStateFlow()
@@ -25,6 +36,14 @@ class IncomingTxCoordinator @Inject constructor() {
     val detections: SharedFlow<IncomingTxDetection> = _detections.asSharedFlow()
 
     private val lastDialogAt = mutableMapOf<Long, Long>()
+
+    init {
+        scope.launch {
+            placeholderRepository.placeholders.collect { stored ->
+                _placeholders.value = stored
+            }
+        }
+    }
 
     fun onDetection(event: IncomingTxDetection) {
         addPlaceholder(event)
@@ -48,8 +67,8 @@ class IncomingTxCoordinator @Inject constructor() {
     }
 
     private fun addPlaceholder(event: IncomingTxDetection) {
-        val next = _placeholders.value.toMutableMap()
-        val current = next[event.walletId].orEmpty()
+        val currentState = _placeholders.value
+        val current = currentState[event.walletId].orEmpty()
         if (current.any { it.txid == event.txid }) {
             return
         }
@@ -61,8 +80,7 @@ class IncomingTxCoordinator @Inject constructor() {
                 detectedAt = event.detectedAt
             )
         ) + current).sortedByDescending { it.detectedAt }
-        next[event.walletId] = updated
-        _placeholders.value = next
+        updatePlaceholders(event.walletId, updated)
     }
 
     private fun updatePlaceholders(walletId: Long, placeholders: List<IncomingTxPlaceholder>) {
@@ -73,6 +91,13 @@ class IncomingTxCoordinator @Inject constructor() {
             next[walletId] = placeholders
         }
         _placeholders.value = next
+        persistPlaceholders(walletId, placeholders)
+    }
+
+    private fun persistPlaceholders(walletId: Long, placeholders: List<IncomingTxPlaceholder>) {
+        scope.launch {
+            placeholderRepository.setPlaceholders(walletId, placeholders)
+        }
     }
 
     companion object {

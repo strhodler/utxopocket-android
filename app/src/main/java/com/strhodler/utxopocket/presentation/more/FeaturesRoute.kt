@@ -114,6 +114,6 @@ private fun FeatureCard(feature: FeatureItem) {
 }
 
 private data class FeatureItem(
-    @StringRes val titleRes: Int,
-    @StringRes val descriptionRes: Int
+    @param:StringRes val titleRes: Int,
+    @param:StringRes val descriptionRes: Int
 )

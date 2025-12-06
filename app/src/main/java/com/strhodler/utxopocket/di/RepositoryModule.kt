@@ -29,6 +29,8 @@ import com.strhodler.utxopocket.domain.repository.UtxoHealthRepository
 import com.strhodler.utxopocket.domain.repository.WalletHealthRepository
 import com.strhodler.utxopocket.domain.service.WalletHealthAggregator
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
+import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
+import com.strhodler.utxopocket.data.preferences.DefaultIncomingTxPlaceholderRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -62,6 +64,12 @@ abstract class RepositoryModule {
     abstract fun bindIncomingTxPreferencesRepository(
         impl: DefaultIncomingTxPreferencesRepository
     ): IncomingTxPreferencesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindIncomingTxPlaceholderRepository(
+        impl: DefaultIncomingTxPlaceholderRepository
+    ): IncomingTxPlaceholderRepository
 
     @Binds
     @Singleton

@@ -57,5 +57,5 @@ class TorStatusViewModel @Inject constructor(
 data class TorStatusActionUiState(
     val isRenewing: Boolean = false,
     val isStarting: Boolean = false,
-    @StringRes val errorMessageRes: Int? = null
+    @param:StringRes val errorMessageRes: Int? = null
 )

@@ -859,11 +859,11 @@ private fun WalletDetailBottomBar(
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         tonalElevation = 3.dp,
+        windowInsets = ScreenScaffoldInsets,
         modifier = modifier
             .onGloballyPositioned { layoutCoordinates ->
                 barHeightPx = layoutCoordinates.size.height.toFloat()
             }
-            .navigationBarsPadding()
             .graphicsLayer {
                 translationY = -heightOffset
             }

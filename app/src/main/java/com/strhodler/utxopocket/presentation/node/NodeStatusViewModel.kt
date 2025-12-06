@@ -672,6 +672,6 @@ private data class NodeConfigSnapshot(
 )
 
 sealed class NodeStatusEvent {
-    data class Info(@StringRes val message: Int) : NodeStatusEvent()
+    data class Info(@param:StringRes val message: Int) : NodeStatusEvent()
 }
 }

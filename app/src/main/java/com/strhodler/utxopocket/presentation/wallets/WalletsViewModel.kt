@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.strhodler.utxopocket.presentation.wallets
 
 import androidx.lifecycle.ViewModel

@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.strhodler.utxopocket.domain.service
 
 import com.strhodler.utxopocket.common.logging.SecureLog
@@ -41,7 +43,7 @@ class IncomingTxWatcher @Inject constructor(
     private val preferencesRepository: IncomingTxPreferencesRepository,
     private val appPreferencesRepository: AppPreferencesRepository,
     private val coordinator: IncomingTxCoordinator,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)

@@ -47,7 +47,7 @@ data class WalletMaterializationState(
 
 @Singleton
 class DefaultWalletStorage @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val tinkCrypto: TinkCrypto
 ) : WalletStorage {
 

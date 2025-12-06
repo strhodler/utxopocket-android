@@ -52,7 +52,7 @@ import kotlin.math.min
 
 @Singleton
 class DefaultAppPreferencesRepository @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : AppPreferencesRepository, NodeConfigurationRepository {
 
     private val dataStore = context.userPreferencesDataStore

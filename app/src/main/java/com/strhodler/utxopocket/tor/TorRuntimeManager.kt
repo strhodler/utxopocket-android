@@ -30,8 +30,8 @@ import javax.inject.Singleton
 
 @Singleton
 class TorRuntimeManager @Inject constructor(
-    @ApplicationContext private val context: Context,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:ApplicationContext private val context: Context,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) {
 
     enum class ConnectionState {
