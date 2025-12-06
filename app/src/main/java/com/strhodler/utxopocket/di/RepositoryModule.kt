@@ -5,6 +5,7 @@ import com.strhodler.utxopocket.data.bdk.WalletStorage
 import com.strhodler.utxopocket.data.node.DefaultNodeConnectionTester
 import com.strhodler.utxopocket.data.preferences.DefaultAppPreferencesRepository
 import com.strhodler.utxopocket.data.tor.DefaultTorManager
+import com.strhodler.utxopocket.data.preferences.DefaultIncomingTxPreferencesRepository
 import com.strhodler.utxopocket.data.transactionhealth.DefaultTransactionHealthAnalyzer
 import com.strhodler.utxopocket.data.wallet.DefaultWalletRepository
 import com.strhodler.utxopocket.data.wiki.DefaultWikiRepository
@@ -16,6 +17,7 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
+import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.TransactionHealthRepository
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.service.TransactionHealthAnalyzer
@@ -27,6 +29,8 @@ import com.strhodler.utxopocket.domain.repository.UtxoHealthRepository
 import com.strhodler.utxopocket.domain.repository.WalletHealthRepository
 import com.strhodler.utxopocket.domain.service.WalletHealthAggregator
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
+import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
+import com.strhodler.utxopocket.data.preferences.DefaultIncomingTxPlaceholderRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -54,6 +58,18 @@ abstract class RepositoryModule {
     abstract fun bindAppPreferencesRepository(
         impl: DefaultAppPreferencesRepository
     ): AppPreferencesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindIncomingTxPreferencesRepository(
+        impl: DefaultIncomingTxPreferencesRepository
+    ): IncomingTxPreferencesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindIncomingTxPlaceholderRepository(
+        impl: DefaultIncomingTxPlaceholderRepository
+    ): IncomingTxPlaceholderRepository
 
     @Binds
     @Singleton

@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.strhodler.utxopocket.presentation
 
 import androidx.lifecycle.ViewModel
@@ -5,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
+import com.strhodler.utxopocket.domain.model.BalanceUnit
+import com.strhodler.utxopocket.domain.model.IncomingTxDetection
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
@@ -15,12 +19,16 @@ import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
 import com.strhodler.utxopocket.domain.model.requiresTor
+import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
 import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
+import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
+import com.strhodler.utxopocket.domain.service.IncomingTxWatcher
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.DEFAULT_PIN_AUTO_LOCK_MINUTES
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MAX_PIN_AUTO_LOCK_MINUTES
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_PIN_AUTO_LOCK_MINUTES
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
+import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.presentation.tor.TorLifecycleController
@@ -29,9 +37,11 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -50,7 +60,9 @@ data class StatusBarUiState(
     val nodeLastSync: Long? = null,
     val network: BitcoinNetwork = BitcoinNetwork.DEFAULT,
     val torRequired: Boolean = false,
-    val isNetworkOnline: Boolean = true
+    val isNetworkOnline: Boolean = true,
+    val incomingTxCount: Int = 0,
+    val incomingPlaceholderGroups: List<IncomingPlaceholderGroup> = emptyList()
 )
 
 data class AppEntryUiState(
@@ -60,10 +72,27 @@ data class AppEntryUiState(
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
     val themeProfile: ThemeProfile = ThemeProfile.DEFAULT,
     val appLanguage: AppLanguage = AppLanguage.EN,
+    val balanceUnit: BalanceUnit = BalanceUnit.BTC,
+    val balancesHidden: Boolean = false,
     val pinLockEnabled: Boolean = false,
     val hapticsEnabled: Boolean = true,
     val pinShuffleEnabled: Boolean = false,
     val appLocked: Boolean = false
+)
+
+data class IncomingDialogState(
+    val walletId: Long,
+    val walletName: String?,
+    val address: String,
+    val txid: String,
+    val amountSats: Long?,
+    val detectedAt: Long
+)
+
+data class IncomingPlaceholderGroup(
+    val walletId: Long,
+    val walletName: String,
+    val placeholders: List<IncomingTxPlaceholder>
 )
 
 @HiltViewModel
@@ -72,7 +101,10 @@ class MainActivityViewModel @Inject constructor(
     private val torManager: TorManager,
     private val walletRepository: WalletRepository,
     private val nodeConfigurationRepository: NodeConfigurationRepository,
-    private val networkStatusMonitor: NetworkStatusMonitor
+    private val networkStatusMonitor: NetworkStatusMonitor,
+    private val incomingTxWatcher: IncomingTxWatcher,
+    private val incomingTxCoordinator: IncomingTxCoordinator,
+    private val incomingTxPreferencesRepository: IncomingTxPreferencesRepository
 ) : ViewModel() {
 
     private val pinEnabledState = appPreferencesRepository.pinLockEnabled.stateIn(
@@ -92,6 +124,56 @@ class MainActivityViewModel @Inject constructor(
     )
 
     private val lockState = MutableStateFlow(false)
+    private val _incomingDialog = MutableStateFlow<IncomingDialogState?>(null)
+    val incomingDialog: StateFlow<IncomingDialogState?> = _incomingDialog.asStateFlow()
+    private val incomingDialogEnabled = incomingTxPreferencesRepository.globalPreferences()
+        .map { prefs -> prefs.showDialog }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = true
+        )
+    private val walletSummariesByNetwork = appPreferencesRepository.preferredNetwork
+        .flatMapLatest { network ->
+            walletRepository.observeWalletSummaries(network)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = emptyList()
+        )
+    private val incomingPlaceholderGroups = incomingTxCoordinator.placeholders
+        .combine(walletSummariesByNetwork) { placeholders, summaries ->
+            summaries.mapNotNull { summary ->
+                val incoming = placeholders[summary.id].orEmpty()
+                if (incoming.isEmpty()) return@mapNotNull null
+                IncomingPlaceholderGroup(
+                    walletId = summary.id,
+                    walletName = summary.name,
+                    placeholders = incoming
+                )
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = emptyList()
+        )
+    private val incomingPlaceholderCount = incomingPlaceholderGroups
+        .map { groups -> groups.sumOf { it.placeholders.size } }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = 0
+        )
+    private val walletNames = appPreferencesRepository.preferredNetwork
+        .flatMapLatest { network -> walletRepository.observeWalletSummaries(network) }
+        .map { summaries -> summaries.associate { it.id to it.name } }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = emptyMap()
+        )
     private val torLifecycleController = TorLifecycleController(
         scope = viewModelScope,
         torManager = torManager,
@@ -132,6 +214,14 @@ class MainActivityViewModel @Inject constructor(
         }
         torLifecycleController.start()
         refreshLockState()
+        viewModelScope.launch {
+            incomingTxCoordinator.detections.collect { detection ->
+                if (incomingDialogEnabled.value) {
+                    val walletName = walletNames.value[detection.walletId]
+                    _incomingDialog.value = detection.toDialog(walletName)
+                }
+            }
+        }
     }
 
     val uiState: StateFlow<AppEntryUiState> = combine(
@@ -149,7 +239,11 @@ class MainActivityViewModel @Inject constructor(
         nodeConfigurationRepository.nodeConfig,
         networkStatusMonitor.isOnline,
         appPreferencesRepository.hapticsEnabled,
-        appPreferencesRepository.pinShuffleEnabled
+        appPreferencesRepository.pinShuffleEnabled,
+        appPreferencesRepository.balanceUnit,
+        appPreferencesRepository.balancesHidden,
+        incomingPlaceholderCount,
+        incomingPlaceholderGroups
     ) { values ->
         val onboarding = values[0] as Boolean
         val torStatus = values[1] as TorStatus
@@ -166,6 +260,10 @@ class MainActivityViewModel @Inject constructor(
         val isNetworkOnline = values[12] as Boolean
         val hapticsEnabled = values[13] as Boolean
         val pinShuffleEnabled = values[14] as Boolean
+        val balanceUnit = values[15] as BalanceUnit
+        val balancesHidden = values[16] as Boolean
+        val incomingTxCount = values[17] as Int
+        val incomingGroups = values[18] as List<IncomingPlaceholderGroup>
 
         val snapshotMatchesNetwork = nodeSnapshot.network == network
         val effectiveNodeStatus = if (snapshotMatchesNetwork) {
@@ -194,17 +292,21 @@ class MainActivityViewModel @Inject constructor(
                 isSyncing = isSyncing,
                 nodeBlockHeight = nodeSnapshot.blockHeight.takeIf { snapshotMatchesNetwork },
                 nodeFeeRateSatPerVb = nodeSnapshot.feeRateSatPerVb.takeIf { snapshotMatchesNetwork },
-                nodeEndpoint = nodeSnapshot.endpoint.takeIf { snapshotMatchesNetwork },
-                nodeServerInfo = nodeSnapshot.serverInfo.takeIf { snapshotMatchesNetwork },
+            nodeEndpoint = nodeSnapshot.endpoint.takeIf { snapshotMatchesNetwork },
+            nodeServerInfo = nodeSnapshot.serverInfo.takeIf { snapshotMatchesNetwork },
                 nodeLastSync = nodeSnapshot.lastSyncCompletedAt.takeIf { snapshotMatchesNetwork },
                 network = network,
                 torRequired = torRequired,
-                isNetworkOnline = isNetworkOnline
-            ),
-            themePreference = themePreference,
-            themeProfile = themeProfile,
-            appLanguage = appLanguage,
-            pinLockEnabled = pinEnabled,
+                isNetworkOnline = isNetworkOnline,
+                incomingTxCount = incomingTxCount,
+                incomingPlaceholderGroups = incomingGroups
+        ),
+        themePreference = themePreference,
+        themeProfile = themeProfile,
+        appLanguage = appLanguage,
+        balanceUnit = balanceUnit,
+        balancesHidden = balancesHidden,
+        pinLockEnabled = pinEnabled,
             hapticsEnabled = hapticsEnabled,
             pinShuffleEnabled = pinShuffleEnabled,
             appLocked = pinEnabled && locked && onboarding
@@ -223,6 +325,7 @@ class MainActivityViewModel @Inject constructor(
         skipNextLockRefresh = false
         wasBackgrounded = false
         walletRepository.setSyncForegroundState(true)
+        incomingTxWatcher.setForeground(true)
         viewModelScope.launch {
             resumeNodeIfNeeded()
             refreshNodeMetadataIfActive()
@@ -234,7 +337,20 @@ class MainActivityViewModel @Inject constructor(
         skipNextLockRefresh = fromConfigurationChange
         ignoreNextBackgroundEvent = fromConfigurationChange
         walletRepository.setSyncForegroundState(false)
+        incomingTxWatcher.setForeground(false)
         stopNodeMetadataPolling()
+    }
+
+    fun dismissIncomingDialog() {
+        _incomingDialog.value = null
+    }
+
+    fun refreshFromIncomingDialog() {
+        val dialog = _incomingDialog.value ?: return
+        viewModelScope.launch {
+            walletRepository.refreshWallet(dialog.walletId)
+            _incomingDialog.value = null
+        }
     }
 
     fun onAppSentToBackground() {
@@ -365,3 +481,13 @@ class MainActivityViewModel @Inject constructor(
         private const val NODE_METADATA_POLL_INTERVAL_MS = 60_000L
     }
 }
+
+private fun IncomingTxDetection.toDialog(walletName: String?): IncomingDialogState =
+    IncomingDialogState(
+        walletId = walletId,
+        walletName = walletName,
+        address = address,
+        txid = txid,
+        amountSats = amountSats,
+        detectedAt = detectedAt
+    )

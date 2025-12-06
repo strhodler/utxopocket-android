@@ -32,7 +32,7 @@ import java.security.MessageDigest
 class DefaultNetworkErrorLogRepository @Inject constructor(
     private val dao: NetworkErrorLogDao,
     private val appPreferencesRepository: AppPreferencesRepository,
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : NetworkErrorLogRepository {
 
     override val logs: Flow<List<NetworkErrorLog>> =

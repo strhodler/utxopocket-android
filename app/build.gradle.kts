@@ -14,8 +14,8 @@ android {
         applicationId = "com.strhodler.utxopocket"
         minSdk = 28
         targetSdk = 36
-        versionCode = 10
-        versionName = "0.9.0"
+        versionCode = 11
+        versionName = "0.10.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -92,6 +92,7 @@ dependencies {
     implementation(libs.androidx.sqlite.ktx)
     implementation(libs.sqlcipher)
     implementation(libs.androidx.security.crypto)
+    implementation(libs.google.tink.android)
 
     implementation(libs.bdk.android)
     implementation(libs.sparrow.hummingbird)

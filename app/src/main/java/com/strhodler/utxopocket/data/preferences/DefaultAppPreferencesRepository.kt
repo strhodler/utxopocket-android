@@ -40,7 +40,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
-import org.json.JSONException
 import org.json.JSONObject
 import java.io.File
 import java.security.GeneralSecurityException
@@ -51,12 +50,9 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import kotlin.math.min
 
-import com.strhodler.utxopocket.data.preferences.userPreferencesDataStore
-import com.strhodler.utxopocket.data.preferences.USER_PREFERENCES_NAME
-
 @Singleton
 class DefaultAppPreferencesRepository @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : AppPreferencesRepository, NodeConfigurationRepository {
 
     private val dataStore = context.userPreferencesDataStore
@@ -153,10 +149,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
         }
 
     override val transactionAnalysisEnabled: Flow<Boolean> =
-        dataStore.data.map { prefs -> prefs[Keys.TRANSACTION_ANALYSIS_ENABLED] ?: true }
+        dataStore.data.map { prefs -> prefs[Keys.TRANSACTION_ANALYSIS_ENABLED] ?: false }
 
     override val utxoHealthEnabled: Flow<Boolean> =
-        dataStore.data.map { prefs -> prefs[Keys.UTXO_HEALTH_ENABLED] ?: true }
+        dataStore.data.map { prefs -> prefs[Keys.UTXO_HEALTH_ENABLED] ?: false }
 
     override val walletHealthEnabled: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.WALLET_HEALTH_ENABLED] ?: false }
@@ -231,7 +227,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs[Keys.PIN_ENABLED] = true
             prefs[Keys.PIN_LAST_UNLOCKED_AT] = now
             if (prefs[Keys.PIN_AUTO_LOCK_MINUTES] == null) {
-                prefs[Keys.PIN_AUTO_LOCK_MINUTES] = AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES
+                prefs[Keys.PIN_AUTO_LOCK_MINUTES] =
+                    AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES
             }
         }
     }
@@ -281,11 +278,12 @@ class DefaultAppPreferencesRepository @Inject constructor(
             return PinVerificationResult.Success
         }
 
-        val baselineAttempts = if (lastFailure != null && now - lastFailure > PIN_FAILURE_RESET_WINDOW_MS) {
-            0
-        } else {
-            failedAttempts
-        }
+        val baselineAttempts =
+            if (lastFailure != null && now - lastFailure > PIN_FAILURE_RESET_WINDOW_MS) {
+                0
+            } else {
+                failedAttempts
+            }
         val nextAttempts = baselineAttempts + 1
         val backoffDuration = calculateBackoff(nextAttempts)
         val lockUntil = now + backoffDuration
@@ -412,8 +410,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     override suspend fun setWalletHealthEnabled(enabled: Boolean) {
         dataStore.edit { prefs ->
-            val txEnabled = prefs[Keys.TRANSACTION_ANALYSIS_ENABLED] ?: true
-            val utxoEnabled = prefs[Keys.UTXO_HEALTH_ENABLED] ?: true
+            val txEnabled = prefs[Keys.TRANSACTION_ANALYSIS_ENABLED] ?: false
+            val utxoEnabled = prefs[Keys.UTXO_HEALTH_ENABLED] ?: false
             prefs[Keys.WALLET_HEALTH_ENABLED] = enabled && txEnabled && utxoEnabled
         }
     }
@@ -424,7 +422,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs[Keys.TX_CHANGE_RATIO_MEDIUM] = parameters.changeExposureMediumRatio
             prefs[Keys.TX_LOW_FEE_THRESHOLD] = parameters.lowFeeRateThresholdSatPerVb
             prefs[Keys.TX_HIGH_FEE_THRESHOLD] = parameters.highFeeRateThresholdSatPerVb
-            prefs[Keys.TX_CONSOLIDATION_FEE_THRESHOLD] = parameters.consolidationFeeRateThresholdSatPerVb
+            prefs[Keys.TX_CONSOLIDATION_FEE_THRESHOLD] =
+                parameters.consolidationFeeRateThresholdSatPerVb
             prefs[Keys.TX_CONSOLIDATION_HIGH_FEE_THRESHOLD] =
                 parameters.consolidationHighFeeRateThresholdSatPerVb
         }
@@ -475,19 +474,31 @@ class DefaultAppPreferencesRepository @Inject constructor(
         dataStore.edit { prefs -> prefs[Keys.NETWORK_LOGS_INFO_SEEN] = seen }
     }
 
-    override suspend fun setBlockExplorerBucket(network: BitcoinNetwork, bucket: BlockExplorerBucket) {
+    override suspend fun setBlockExplorerBucket(
+        network: BitcoinNetwork,
+        bucket: BlockExplorerBucket
+    ) {
         dataStore.edit { prefs ->
             prefs[blockExplorerBucketKey(network)] = bucket.name
         }
     }
 
-    override suspend fun setBlockExplorerPreset(network: BitcoinNetwork, bucket: BlockExplorerBucket, presetId: String) {
+    override suspend fun setBlockExplorerPreset(
+        network: BitcoinNetwork,
+        bucket: BlockExplorerBucket,
+        presetId: String
+    ) {
         dataStore.edit { prefs ->
             prefs[blockExplorerPresetKey(network, bucket)] = presetId
         }
     }
 
-    override suspend fun setBlockExplorerCustom(network: BitcoinNetwork, bucket: BlockExplorerBucket, url: String?, name: String?) {
+    override suspend fun setBlockExplorerCustom(
+        network: BitcoinNetwork,
+        bucket: BlockExplorerBucket,
+        url: String?,
+        name: String?
+    ) {
         val trimmed = url?.trim().orEmpty()
         val trimmedName = name?.trim().orEmpty()
         dataStore.edit { prefs ->
@@ -502,6 +513,58 @@ class DefaultAppPreferencesRepository @Inject constructor(
                     prefs.remove(blockExplorerCustomNameKey(network, bucket))
                 }
             }
+        }
+    }
+
+    override suspend fun setBlockExplorerVisibility(
+        network: BitcoinNetwork,
+        bucket: BlockExplorerBucket,
+        presetId: String,
+        enabled: Boolean
+    ) {
+        dataStore.edit { prefs ->
+            val key = blockExplorerHiddenKey(network, bucket)
+            val current =
+                prefs[key]?.split(",")?.filter { it.isNotBlank() }?.toMutableSet() ?: mutableSetOf()
+            if (enabled) {
+                current.remove(presetId)
+            } else {
+                current.add(presetId)
+            }
+            if (current.isEmpty()) {
+                prefs.remove(key)
+            } else {
+                prefs[key] = current.joinToString(",")
+            }
+        }
+    }
+
+    override suspend fun setBlockExplorerRemoved(
+        network: BitcoinNetwork,
+        bucket: BlockExplorerBucket,
+        presetId: String,
+        removed: Boolean
+    ) {
+        dataStore.edit { prefs ->
+            val key = blockExplorerRemovedKey(network, bucket)
+            val current =
+                prefs[key]?.split(",")?.filter { it.isNotBlank() }?.toMutableSet() ?: mutableSetOf()
+            if (removed) {
+                current.add(presetId)
+            } else {
+                current.remove(presetId)
+            }
+            if (current.isEmpty()) {
+                prefs.remove(key)
+            } else {
+                prefs[key] = current.joinToString(",")
+            }
+        }
+    }
+
+    override suspend fun setBlockExplorerEnabled(network: BitcoinNetwork, enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[blockExplorerEnabledKey(network)] = enabled
         }
     }
 
@@ -703,29 +766,51 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     private fun Preferences.toBlockExplorerPreferences(): BlockExplorerPreferences {
         val selections = BitcoinNetwork.entries.associateWith { network ->
+            val enabled = this[blockExplorerEnabledKey(network)] ?: true
             val bucketName = this[blockExplorerBucketKey(network)]
-            val bucket = bucketName?.let { runCatching { BlockExplorerBucket.valueOf(it) }.getOrNull() }
-                ?: WalletDefaults.DEFAULT_BLOCK_EXPLORER_BUCKET
+            val bucket =
+                bucketName?.let { runCatching { BlockExplorerBucket.valueOf(it) }.getOrNull() }
+                    ?: WalletDefaults.DEFAULT_BLOCK_EXPLORER_BUCKET
             val normalPreset = this[blockExplorerPresetKey(network, BlockExplorerBucket.NORMAL)]
                 ?: BlockExplorerCatalog.defaultPresetId(network, BlockExplorerBucket.NORMAL)
             val onionPreset = this[blockExplorerPresetKey(network, BlockExplorerBucket.ONION)]
                 ?: BlockExplorerCatalog.defaultPresetId(network, BlockExplorerBucket.ONION)
             val customNormal = this[blockExplorerCustomUrlKey(network, BlockExplorerBucket.NORMAL)]
             val customOnion = this[blockExplorerCustomUrlKey(network, BlockExplorerBucket.ONION)]
-            val customNormalName = this[blockExplorerCustomNameKey(network, BlockExplorerBucket.NORMAL)]
-            val customOnionName = this[blockExplorerCustomNameKey(network, BlockExplorerBucket.ONION)]
+            val customNormalName =
+                this[blockExplorerCustomNameKey(network, BlockExplorerBucket.NORMAL)]
+            val customOnionName =
+                this[blockExplorerCustomNameKey(network, BlockExplorerBucket.ONION)]
+            val hiddenNormal =
+                this[blockExplorerHiddenKey(network, BlockExplorerBucket.NORMAL)]?.split(",")
+                    ?.filter { it.isNotBlank() }?.toSet().orEmpty()
+            val hiddenOnion =
+                this[blockExplorerHiddenKey(network, BlockExplorerBucket.ONION)]?.split(",")
+                    ?.filter { it.isNotBlank() }?.toSet().orEmpty()
+            val removedNormal =
+                this[blockExplorerRemovedKey(network, BlockExplorerBucket.NORMAL)]?.split(",")
+                    ?.filter { it.isNotBlank() }?.toSet().orEmpty()
+            val removedOnion =
+                this[blockExplorerRemovedKey(network, BlockExplorerBucket.ONION)]?.split(",")
+                    ?.filter { it.isNotBlank() }?.toSet().orEmpty()
             BlockExplorerNetworkPreference(
+                enabled = enabled,
                 bucket = bucket,
                 normalPresetId = normalPreset,
                 onionPresetId = onionPreset,
                 customNormalUrl = customNormal,
                 customOnionUrl = customOnion,
                 customNormalName = customNormalName,
-                customOnionName = customOnionName
+                customOnionName = customOnionName,
+                hiddenPresetIds = hiddenNormal + hiddenOnion,
+                removedPresetIds = removedNormal + removedOnion
             )
         }
         return BlockExplorerPreferences(selections)
     }
+
+    private fun blockExplorerEnabledKey(network: BitcoinNetwork) =
+        booleanPreferencesKey("block_explorer_${network.name.lowercase()}_enabled")
 
     private fun blockExplorerBucketKey(network: BitcoinNetwork) =
         stringPreferencesKey("block_explorer_${network.name.lowercase()}_bucket")
@@ -738,6 +823,12 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     private fun blockExplorerCustomNameKey(network: BitcoinNetwork, bucket: BlockExplorerBucket) =
         stringPreferencesKey("block_explorer_${network.name.lowercase()}_custom_${bucket.name.lowercase()}_name")
+
+    private fun blockExplorerHiddenKey(network: BitcoinNetwork, bucket: BlockExplorerBucket) =
+        stringPreferencesKey("block_explorer_${network.name.lowercase()}_hidden_${bucket.name.lowercase()}")
+
+    private fun blockExplorerRemovedKey(network: BitcoinNetwork, bucket: BlockExplorerBucket) =
+        stringPreferencesKey("block_explorer_${network.name.lowercase()}_removed_${bucket.name.lowercase()}")
 
     private object Keys {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")

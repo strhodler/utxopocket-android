@@ -72,6 +72,9 @@ interface AppPreferencesRepository {
     suspend fun setBlockExplorerBucket(network: BitcoinNetwork, bucket: BlockExplorerBucket)
     suspend fun setBlockExplorerPreset(network: BitcoinNetwork, bucket: BlockExplorerBucket, presetId: String)
     suspend fun setBlockExplorerCustom(network: BitcoinNetwork, bucket: BlockExplorerBucket, url: String?, name: String?)
+    suspend fun setBlockExplorerVisibility(network: BitcoinNetwork, bucket: BlockExplorerBucket, presetId: String, enabled: Boolean)
+    suspend fun setBlockExplorerRemoved(network: BitcoinNetwork, bucket: BlockExplorerBucket, presetId: String, removed: Boolean)
+    suspend fun setBlockExplorerEnabled(network: BitcoinNetwork, enabled: Boolean)
     suspend fun wipeAll()
 
     companion object {

@@ -108,7 +108,6 @@ private fun AboutDeveloperContent(
     onLinkCopied: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val avatarPainter = painterResource(id = R.drawable.logo_text_primary)
     val lightningUri = remember(lightningAddress) { lightningAddress }
     val qrBitmap = remember(lightningUri) { generateQrBitmap(lightningUri, size = 512) }
     val copyMessage = stringResource(id = R.string.about_sheet_copy_toast)
@@ -126,7 +125,6 @@ private fun AboutDeveloperContent(
     ) {
         DeveloperQrPreview(
             qrBitmap = qrBitmap,
-            avatarPainter = avatarPainter,
             contentDescription = stringResource(id = R.string.about_sheet_qr_caption),
             modifier = Modifier.fillMaxWidth(0.8f)
         )
@@ -174,7 +172,6 @@ private fun AboutDeveloperContent(
 @Composable
 private fun DeveloperQrPreview(
     qrBitmap: ImageBitmap?,
-    avatarPainter: Painter,
     contentDescription: String,
     modifier: Modifier = Modifier.fillMaxWidth()
 ) {

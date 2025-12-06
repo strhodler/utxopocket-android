@@ -11,12 +11,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Download
@@ -28,6 +28,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,11 +40,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -62,7 +62,6 @@ fun WalletLabelExportRoute(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
-    val scrollState = rememberScrollState()
     val screenWalletName = viewModel.walletName.ifBlank { stringResource(id = R.string.wallet_detail_title) }
 
     val downloadLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -95,87 +94,159 @@ fun WalletLabelExportRoute(
         snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
         contentWindowInsets = ScreenScaffoldInsets
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .applyScreenPadding(innerPadding)
-                .verticalScroll(scrollState)
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             when (exportState) {
                 LabelExportState.Idle, LabelExportState.Loading -> {
-                    Spacer(modifier = Modifier.size(8.dp))
-                    CircularProgressIndicator()
-                    Text(
-                        text = stringResource(id = R.string.wallet_labels_export_loading),
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Spacer(modifier = Modifier.size(8.dp))
+                        CircularProgressIndicator()
+                        Text(
+                            text = stringResource(id = R.string.wallet_labels_export_loading),
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
 
                 is LabelExportState.Error -> {
-                    val message = (exportState as LabelExportState.Error).message
-                        ?: stringResource(id = R.string.wallet_detail_export_error)
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                        textAlign = TextAlign.Center
-                    )
-                    TextButton(onClick = { viewModel.loadExport() }) {
-                        Text(text = stringResource(id = R.string.wallet_labels_export_retry))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        val message = (exportState as LabelExportState.Error).message
+                            ?: stringResource(id = R.string.wallet_detail_export_error)
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center
+                        )
+                        TextButton(onClick = { viewModel.loadExport() }) {
+                            Text(text = stringResource(id = R.string.wallet_labels_export_retry))
+                        }
                     }
                 }
 
                 LabelExportState.Empty -> {
-                    Text(
-                        text = stringResource(id = R.string.wallet_labels_export_empty),
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.wallet_labels_export_empty),
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
 
                 is LabelExportState.Ready -> {
                     val export = (exportState as LabelExportState.Ready).export
                     val payload = remember(export) { export.toJsonBytes() }
-                    val qrState by rememberBip329QrState(payload)
-                    Bip329QrCard(
-                        qrState = qrState,
-                        caption = stringResource(id = R.string.wallet_labels_export_qr_caption),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    val modes = remember { LabelQrMode.values().toList() }
+                    val pagerState = rememberPagerState(
+                        initialPage = modes.indexOf(LabelQrMode.BBQR).coerceAtLeast(0)
+                    ) {
+                        modes.size
+                    }
+                    val qrMode = modes.getOrElse(pagerState.currentPage) { LabelQrMode.BBQR }
+                    val qrState by rememberBip329QrState(payload = payload, mode = qrMode)
 
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(bottom = 96.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Text(
-                            text = stringResource(
-                                id = R.string.wallet_labels_export_heading,
-                                screenWalletName,
-                                export.entries.size
-                            ),
-                            style = MaterialTheme.typography.titleMedium,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        qrState.error?.let { error ->
-                            Text(
-                                text = stringResource(id = R.string.wallet_labels_export_qr_error, error),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                        TabRow(selectedTabIndex = pagerState.currentPage) {
+                            modes.forEachIndexed { index, mode ->
+                                val label = when (mode) {
+                                    LabelQrMode.BBQR -> stringResource(id = R.string.wallet_labels_export_mode_bbqr)
+                                    LabelQrMode.UR -> stringResource(id = R.string.wallet_labels_export_mode_ur)
+                                }
+                                Tab(
+                                    selected = pagerState.currentPage == index,
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            pagerState.animateScrollToPage(index)
+                                        }
+                                    },
+                                    text = { Text(text = label) }
+                                )
+                            }
+                        }
+
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                        ) { _ ->
+                            val pageScroll = rememberScrollState()
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                                    .verticalScroll(pageScroll),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Bip329QrCard(
+                                    qrState = qrState,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = stringResource(
+                                            id = R.string.wallet_labels_export_heading,
+                                            screenWalletName,
+                                            export.entries.size
+                                        ),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    qrState.error?.let { error ->
+                                        Text(
+                                            text = stringResource(id = R.string.wallet_labels_export_qr_error, error),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
 
                     Row(
                         modifier = Modifier
-                            .fillMaxWidth(),
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                            .navigationBarsPadding(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         TextButton(
@@ -216,7 +287,6 @@ fun WalletLabelExportRoute(
 @Composable
 private fun Bip329QrCard(
     qrState: Bip329QrState,
-    caption: String,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -233,7 +303,7 @@ private fun Bip329QrCard(
             if (qrState.bitmap != null) {
                 Image(
                     painter = BitmapPainter(qrState.bitmap),
-                    contentDescription = caption,
+                    contentDescription = null,
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
@@ -244,14 +314,6 @@ private fun Bip329QrCard(
                 ) {}
             }
         }
-
-        Text(
-            text = caption,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
 
         if (qrState.isMultiPart && qrState.total > 1) {
             Text(

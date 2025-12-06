@@ -6,9 +6,9 @@ import com.strhodler.utxopocket.R
 
 data class HealthParameterDescriptor<Field>(
     val field: Field,
-    @StringRes val labelRes: Int,
-    @StringRes val supportingTextRes: Int? = null,
-    @StringRes val suffixRes: Int? = null,
+    @param:StringRes val labelRes: Int,
+    @param:StringRes val supportingTextRes: Int? = null,
+    @param:StringRes val suffixRes: Int? = null,
     val keyboardType: KeyboardType
 )
 

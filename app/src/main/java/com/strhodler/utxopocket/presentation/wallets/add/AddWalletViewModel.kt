@@ -43,7 +43,7 @@ private const val EXTENDED_KEY_SCRIPT_TYPE_REQUIRED_ERROR =
 class AddWalletViewModel @Inject constructor(
     private val walletRepository: WalletRepository,
     private val appPreferencesRepository: AppPreferencesRepository,
-    @ApplicationScope private val applicationScope: CoroutineScope
+    @param:ApplicationScope private val applicationScope: CoroutineScope
 ) : ViewModel() {
 
     private val descriptorInput = MutableStateFlow(DescriptorInput())

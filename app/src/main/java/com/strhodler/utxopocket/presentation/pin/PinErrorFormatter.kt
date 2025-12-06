@@ -7,7 +7,7 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import kotlin.math.max
 
-enum class PinLockoutMessageType(@StringRes val stringRes: Int) {
+enum class PinLockoutMessageType(@param:StringRes val stringRes: Int) {
     Incorrect(R.string.pin_error_incorrect_backoff),
     Locked(R.string.pin_error_locked)
 }

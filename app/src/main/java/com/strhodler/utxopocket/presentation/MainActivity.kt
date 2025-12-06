@@ -36,21 +36,33 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.SheetState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.TopAppBar
@@ -63,6 +75,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,13 +95,18 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
+import com.strhodler.utxopocket.presentation.IncomingPlaceholderGroup
 import com.strhodler.utxopocket.presentation.pin.PinLockoutMessageType
 import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
 import com.strhodler.utxopocket.presentation.pin.formatPinCountdownMessage
 import com.strhodler.utxopocket.presentation.pin.formatPinStaticError
+import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.components.TopBarNodeStatusIcon
 import com.strhodler.utxopocket.presentation.components.TopBarStatusActionIcon
 import com.strhodler.utxopocket.presentation.components.nodeStatusIndicatorColor
@@ -114,8 +132,12 @@ import com.strhodler.utxopocket.presentation.wiki.WikiNavigation
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import androidx.core.view.WindowCompat
+import java.text.DateFormat
+import java.util.Date
+import java.text.NumberFormat
 
 @AndroidEntryPoint
+@OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : AppCompatActivity() {
 
     private val viewModel: MainActivityViewModel by viewModels()
@@ -136,6 +158,7 @@ class MainActivity : AppCompatActivity() {
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             val obscure by obscureScreen.collectAsStateWithLifecycle()
+            val incomingDialog by viewModel.incomingDialog.collectAsStateWithLifecycle()
             val reducedMotion = rememberReducedMotionEnabled()
             LaunchedEffect(uiState.appLanguage) {
                 val desiredLocales = LocaleListCompat.forLanguageTags(uiState.appLanguage.languageTag)
@@ -192,12 +215,30 @@ class MainActivity : AppCompatActivity() {
                             currentRoute != null &&
                                 currentRoute in bottomBarVisibleRoutes &&
                                 bottomBarVisibilityController.isVisible
+                        var showIncomingSheet by rememberSaveable { mutableStateOf(false) }
+                        val incomingGroups = uiState.status.incomingPlaceholderGroups
+                        val modalIncomingSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
                         val onNodeStatusClick = remember(navController) {
                             {
                                 navController.navigate(
                                     WalletsNavigation.nodeStatusRoute()
                                 ) {
                                     launchSingleTop = true
+                                }
+                            }
+                        }
+                        val onIncomingTxClick = remember(navController, incomingGroups) {
+                            {
+                                if (incomingGroups.isNotEmpty()) {
+                                    showIncomingSheet = true
+                                } else {
+                                    navController.navigate(MainDestination.Wallets.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
                                 }
                             }
                         }
@@ -255,6 +296,7 @@ class MainActivity : AppCompatActivity() {
                                                     StatusBar(
                                                         state = uiState.status,
                                                         onNodeStatusClick = onNodeStatusClick,
+                                                        onIncomingTxClick = onIncomingTxClick,
                                                         modifier = Modifier.windowInsetsPadding(
                                                             WindowInsets.safeDrawing.only(
                                                                 WindowInsetsSides.Top
@@ -320,6 +362,31 @@ class MainActivity : AppCompatActivity() {
                                                     bottom = bottomPadding
                                                 ),
                                             statusBarState = uiState.status
+                                        )
+                                    }
+
+                                    if (showIncomingSheet && incomingGroups.isNotEmpty()) {
+                                        IncomingTxSheet(
+                                            groups = incomingGroups,
+                                            balanceUnit = uiState.balanceUnit,
+                                            balancesHidden = uiState.balancesHidden,
+                                            onDismiss = { showIncomingSheet = false },
+                                            sheetState = modalIncomingSheetState,
+                                            onOpenWallet = { walletId, walletName ->
+                                                showIncomingSheet = false
+                                                navController.navigate(
+                                                    WalletsNavigation.detailRoute(
+                                                        walletId = walletId,
+                                                        walletName = walletName
+                                                    )
+                                                ) {
+                                                    popUpTo(navController.graph.findStartDestination().id) {
+                                                        saveState = true
+                                                    }
+                                                    launchSingleTop = true
+                                                    restoreState = true
+                                                }
+                                            }
                                         )
                                     }
 
@@ -393,6 +460,14 @@ class MainActivity : AppCompatActivity() {
                                             Box(modifier = Modifier.fillMaxSize())
                                         }
                                     }
+
+                                    incomingDialog?.let { dialog ->
+                                        IncomingTxDialog(
+                                            dialog = dialog,
+                                            onDismiss = { viewModel.dismissIncomingDialog() },
+                                            onRefresh = { viewModel.refreshFromIncomingDialog() }
+                                        )
+                                    }
                                 }
                             }
 
@@ -433,11 +508,60 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
+private fun ellipsizeMiddle(value: String, head: Int = 8, tail: Int = 4): String {
+    if (value.length <= head + tail + 3) return value
+    val prefix = value.take(head)
+    val suffix = value.takeLast(tail)
+    return "$prefix...$suffix"
+}
+
+@Composable
+private fun IncomingTxDialog(
+    dialog: IncomingDialogState,
+    onDismiss: () -> Unit,
+    onRefresh: () -> Unit
+) {
+    val amountText = dialog.amountSats?.let { amount ->
+        NumberFormat.getInstance().format(amount)
+    }
+    val message = if (amountText != null) {
+        stringResource(
+            id = R.string.incoming_tx_dialog_message_with_amount,
+            amountText,
+            dialog.address
+        )
+    } else {
+        stringResource(
+            id = R.string.incoming_tx_dialog_message,
+            dialog.address
+        )
+    }
+    val title = dialog.walletName?.let { wallet ->
+        stringResource(id = R.string.incoming_tx_dialog_title_with_wallet, wallet)
+    } ?: stringResource(id = R.string.incoming_tx_dialog_title)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = title) },
+        text = { Text(text = message) },
+        confirmButton = {
+            TextButton(onClick = onRefresh) {
+                Text(text = stringResource(id = R.string.incoming_tx_dialog_refresh))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(id = R.string.incoming_tx_dialog_dismiss))
+            }
+        }
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StatusBar(
     state: StatusBarUiState,
     onNodeStatusClick: () -> Unit,
+    onIncomingTxClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
         val baseSubtitleColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -512,6 +636,16 @@ private fun StatusBar(
             },
             navigationIcon = {},
             actions = {
+                if (state.incomingTxCount > 0) {
+                    IncomingTxBadgeIcon(
+                        count = state.incomingTxCount,
+                        onClick = onIncomingTxClick,
+                        contentDescription = stringResource(
+                            id = R.string.status_incoming_tx_indicator_description,
+                            state.incomingTxCount
+                        )
+                    )
+                }
                 TopBarStatusActionIcon(
                     onClick = onNodeStatusClick,
                     indicatorColor = nodeStatusIndicatorColor(state.nodeStatus),
@@ -523,6 +657,224 @@ private fun StatusBar(
             colors = topBarColors,
             windowInsets = WindowInsets(left = 0.dp, top = 0.dp, right = 0.dp, bottom = 0.dp)
         )
+    }
+
+    @Composable
+    private fun IncomingTxBadgeIcon(
+        count: Int,
+        onClick: () -> Unit,
+        contentDescription: String
+    ) {
+        val badgeValue = count.coerceAtMost(99).toString()
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.size(48.dp)
+        ) {
+            BadgedBox(
+                badge = {
+                    Badge {
+                        Text(
+                            text = badgeValue,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Download,
+                    contentDescription = contentDescription
+                )
+            }
+        }
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    private fun IncomingTxSheet(
+        groups: List<IncomingPlaceholderGroup>,
+        balanceUnit: BalanceUnit,
+        balancesHidden: Boolean,
+        onDismiss: () -> Unit,
+        sheetState: SheetState,
+        onOpenWallet: (Long, String) -> Unit
+    ) {
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = stringResource(id = R.string.incoming_detection_title),
+                    style = MaterialTheme.typography.titleLarge
+                )
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    groups.forEach { group ->
+                        item(key = "incoming_group_${group.walletId}") {
+                            Text(
+                                text = group.walletName,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                        items(
+                            items = group.placeholders,
+                            key = { placeholder -> "${group.walletId}_${placeholder.txid}" }
+                        ) { placeholder ->
+                            IncomingPlaceholderListItem(
+                                placeholder = placeholder,
+                                balanceUnit = balanceUnit,
+                                balancesHidden = balancesHidden,
+                                onClick = { onOpenWallet(group.walletId, group.walletName) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun IncomingPlaceholderListItem(
+        placeholder: IncomingTxPlaceholder,
+        balanceUnit: BalanceUnit,
+        balancesHidden: Boolean,
+        onClick: () -> Unit,
+        modifier: Modifier = Modifier
+    ) {
+        val amountText = placeholder.amountSats?.let {
+            balanceText(it, balanceUnit, hidden = balancesHidden)
+        } ?: stringResource(id = R.string.incoming_tx_placeholder_amount_pending)
+        val detectedText = remember(placeholder.detectedAt) {
+            val dateFormat = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+            dateFormat.format(Date(placeholder.detectedAt))
+        }
+        val txidDisplay = remember(placeholder.txid) { ellipsizeMiddle(placeholder.txid) }
+        val addressDisplay = remember(placeholder.address) { ellipsizeMiddle(placeholder.address) }
+        Card(
+            onClick = onClick,
+            modifier = modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ),
+            shape = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = amountText,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.incoming_tx_placeholder_title),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = stringResource(id = R.string.wallet_detail_pending_confirmation),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ArrowDownward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.wallet_detail_transaction_id_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = txidDisplay,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.address_detail_address_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.End
+                        )
+                        Text(
+                            text = addressDisplay,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.End
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.incoming_tx_placeholder_detected_at),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = detectedText,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.End
+                    )
+                }
+            }
+        }
     }
 
     @OptIn(ExperimentalMaterial3Api::class)

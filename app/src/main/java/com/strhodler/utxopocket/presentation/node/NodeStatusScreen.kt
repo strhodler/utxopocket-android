@@ -239,7 +239,7 @@ fun NodeStatusScreen(
 }
 
 enum class NodeStatusTab(
-    @StringRes val labelRes: Int
+    @param:StringRes val labelRes: Int
 ) {
     Management(R.string.node_overview_tab_management),
     Overview(R.string.node_overview_tab_status),

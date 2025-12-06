@@ -10,7 +10,7 @@ import com.strhodler.utxopocket.data.security.SqlCipherPassphraseProvider
 
 @Singleton
 class EncryptedSupportFactoryProvider @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val passphraseProvider: SqlCipherPassphraseProvider
 ) {
 

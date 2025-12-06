@@ -24,7 +24,7 @@ data class NodeStatusUiState(
     val isCustomNodeEditorVisible: Boolean = false,
     val isTestingCustomNode: Boolean = false,
     val customNodeError: String? = null,
-    @StringRes val customNodeSuccessMessage: Int? = null,
+    @param:StringRes val customNodeSuccessMessage: Int? = null,
     val selectionNotice: NodeSelectionNotice? = null,
     val customNodeHasChanges: Boolean = false,
     val customNodeFormValid: Boolean = false
@@ -36,6 +36,6 @@ data class NodeStatusUiState(
 }
 
 data class NodeSelectionNotice(
-    @StringRes val messageRes: Int = R.string.settings_node_selection_feedback,
+    @param:StringRes val messageRes: Int = R.string.settings_node_selection_feedback,
     val argument: String
 )

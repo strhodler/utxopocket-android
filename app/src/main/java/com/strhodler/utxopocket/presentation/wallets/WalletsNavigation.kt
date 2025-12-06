@@ -7,6 +7,8 @@ object WalletsNavigation {
     const val ListRoute: String = "wallets/list"
     const val AddRoute: String = "wallets/add"
     const val DetailRoute: String = "wallets/detail/{walletId}?walletName={walletName}"
+    const val DescriptorDetailRoute: String =
+        "wallets/detail/{walletId}/descriptors?walletName={walletName}"
     const val ExportLabelsRoute: String = "wallets/detail/{walletId}/labels/export?walletName={walletName}"
     const val ImportLabelsRoute: String = "wallets/detail/{walletId}/labels/import?walletName={walletName}"
     const val NodeStatusRoute: String = "wallets/node-status"
@@ -24,6 +26,7 @@ object WalletsNavigation {
     const val UtxoVoutArg: String = "vout"
     const val AddressDetailRoute: String =
         "wallets/detail/{walletId}/address/{addressType}/{derivationIndex}?addressValue={addressValue}"
+    const val ReceiveRoute: String = "wallets/detail/{walletId}/receive"
     const val AddressTypeArg: String = "addressType"
     const val AddressIndexArg: String = "derivationIndex"
     const val AddressValueArg: String = "addressValue"
@@ -42,6 +45,11 @@ object WalletsNavigation {
     fun detailRoute(walletId: Long, walletName: String): String {
         val encodedName = Uri.encode(walletName)
         return "wallets/detail/$walletId?walletName=$encodedName"
+    }
+
+    fun descriptorDetailRoute(walletId: Long, walletName: String): String {
+        val encodedName = Uri.encode(walletName)
+        return "wallets/detail/$walletId/descriptors?walletName=$encodedName"
     }
 
     fun exportLabelsRoute(walletId: Long, walletName: String): String {
@@ -73,4 +81,6 @@ object WalletsNavigation {
         val encodedAddress = Uri.encode(address.value)
         return "wallets/detail/$walletId/address/${address.type.name}/${address.derivationIndex}?addressValue=$encodedAddress"
     }
+
+    fun receiveRoute(walletId: Long): String = "wallets/detail/$walletId/receive"
 }

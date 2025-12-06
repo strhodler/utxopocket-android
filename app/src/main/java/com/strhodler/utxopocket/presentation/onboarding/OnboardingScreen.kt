@@ -1,5 +1,6 @@
 package com.strhodler.utxopocket.presentation.onboarding
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,7 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -32,8 +32,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.presentation.components.network.NetworkSelector
 
-private const val TutorialSlideCount = 5
+private const val TutorialSlideCount = 6
 private val SlideTextMaxWidth = 520.dp
 
 @Composable
@@ -49,7 +51,8 @@ fun OnboardingRoute(
         onNext = viewModel::onNext,
         onPrevious = viewModel::onPrevious,
         onComplete = { viewModel.complete(onFinished) },
-        onSlideChanged = viewModel::onSlideIndexSelected
+        onSlideChanged = viewModel::onSlideIndexSelected,
+        onNetworkSelected = viewModel::onNetworkSelected
     )
 }
 
@@ -61,7 +64,8 @@ private fun OnboardingScreen(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onComplete: () -> Unit,
-    onSlideChanged: (Int) -> Unit
+    onSlideChanged: (Int) -> Unit,
+    onNetworkSelected: (BitcoinNetwork) -> Unit
 ) {
     Surface(modifier = Modifier.fillMaxSize()) {
         when (state.step) {
@@ -70,12 +74,14 @@ private fun OnboardingScreen(
             OnboardingStep.SlideTwo,
             OnboardingStep.SlideThree,
             OnboardingStep.SlideFour,
-            OnboardingStep.SlideFive -> TutorialStep(
+            OnboardingStep.SlideFive,
+            OnboardingStep.SlideNetwork -> TutorialStep(
                 state = state,
                 onNext = onNext,
                 onPrevious = onPrevious,
                 onComplete = onComplete,
-                onSlideChanged = onSlideChanged
+                onSlideChanged = onSlideChanged,
+                onNetworkSelected = onNetworkSelected
             )
         }
     }
@@ -158,8 +164,9 @@ private fun WelcomeStep(
 }
 
 private data class TutorialSlide(
-    val titleRes: Int,
-    val descriptionRes: Int
+    @param:StringRes val titleRes: Int,
+    @param:StringRes val descriptionRes: Int,
+    val content: (@Composable () -> Unit)? = null
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -169,32 +176,50 @@ private fun TutorialStep(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onComplete: () -> Unit,
-    onSlideChanged: (Int) -> Unit
+    onSlideChanged: (Int) -> Unit,
+    onNetworkSelected: (BitcoinNetwork) -> Unit
 ) {
-    val slides = remember {
-        listOf(
-            TutorialSlide(
-                titleRes = R.string.onboarding_slide_watch_title,
-                descriptionRes = R.string.onboarding_slide_watch_description
-            ),
-            TutorialSlide(
-                titleRes = R.string.onboarding_slide_descriptors_title,
-                descriptionRes = R.string.onboarding_slide_descriptors_description
-            ),
-            TutorialSlide(
-                titleRes = R.string.onboarding_slide_bips_title,
-                descriptionRes = R.string.onboarding_slide_bips_description
-            ),
-            TutorialSlide(
-                titleRes = R.string.onboarding_slide_privacy_title,
-                descriptionRes = R.string.onboarding_slide_privacy_description
-            ),
-            TutorialSlide(
-                titleRes = R.string.onboarding_slide_trust_title,
-                descriptionRes = R.string.onboarding_slide_trust_description
-            )
+    val slides = listOf(
+        TutorialSlide(
+            titleRes = R.string.onboarding_slide_watch_title,
+            descriptionRes = R.string.onboarding_slide_watch_description
+        ),
+        TutorialSlide(
+            titleRes = R.string.onboarding_slide_descriptors_title,
+            descriptionRes = R.string.onboarding_slide_descriptors_description
+        ),
+        TutorialSlide(
+            titleRes = R.string.onboarding_slide_bips_title,
+            descriptionRes = R.string.onboarding_slide_bips_description
+        ),
+        TutorialSlide(
+            titleRes = R.string.onboarding_slide_privacy_title,
+            descriptionRes = R.string.onboarding_slide_privacy_description
+        ),
+        TutorialSlide(
+            titleRes = R.string.onboarding_slide_trust_title,
+            descriptionRes = R.string.onboarding_slide_trust_description
+        ),
+        TutorialSlide(
+            titleRes = R.string.onboarding_slide_network_title,
+            descriptionRes = R.string.onboarding_slide_network_description,
+            content = {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = SlideTextMaxWidth),
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    NetworkSelector(
+                        selectedNetwork = state.selectedNetwork,
+                        onNetworkSelected = onNetworkSelected,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         )
-    }
+    )
     val index = state.step.toSlideIndex() ?: 0
     val pagerState = rememberPagerState(
         initialPage = index,
@@ -250,6 +275,10 @@ private fun TutorialStep(
                         .fillMaxWidth()
                         .widthIn(max = SlideTextMaxWidth)
                 )
+                slide.content?.let { content ->
+                    Spacer(modifier = Modifier.height(24.dp))
+                    content()
+                }
             }
         }
         val currentPage = pagerState.currentPage

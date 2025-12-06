@@ -147,8 +147,6 @@
     <string name="wallet_detail_transactions_tab_count">Transacciones (%1$d)</string>
     <string name="wallet_detail_utxos_tab">UTXOs</string>
     <string name="wallet_detail_utxos_tab_count">UTXOs (%1$d)</string>
-    <string name="wallet_detail_receive_addresses_tab">Recibir</string>
-    <string name="wallet_detail_change_addresses_tab">Cambio</string>
     <string name="wallet_detail_empty_transactions">Aún no hay transacciones.</string>
     <string name="wallet_detail_transactions_sort_label">Ordenar por</string>
     <string name="wallet_detail_transactions_sort_expand_content_description">Mostrar opciones de orden</string>
@@ -183,19 +181,45 @@
     <string name="wallet_detail_transactions_filter_summary_none">Sin transacciones seleccionadas</string>
     <string name="wallet_detail_transactions_filter_expand_content_description">Mostrar opciones de filtro de transacciones</string>
     <string name="wallet_detail_empty_utxos">No hay UTXOs disponibles.</string>
-    <string name="wallet_detail_receive_addresses_empty">No hay direcciones de recepción disponibles.</string>
-    <string name="wallet_detail_change_addresses_empty">No hay direcciones de cambio disponibles.</string>
+    <string name="wallet_detail_action_sync">Sincronizar ahora</string>
+    <string name="wallet_detail_action_receive">Recibir</string>
     <string name="wallet_detail_balance_history_title">Historial de balance</string>
-    <string name="wallet_detail_addresses_copy">Copiar dirección</string>
-    <string name="wallet_detail_addresses_qr">Mostrar QR de la dirección</string>
-    <string name="wallet_detail_address_copy_toast">Dirección copiada al portapapeles</string>
-    <string name="wallet_detail_address_derivation_index">Índice %1$d</string>
-    <string name="wallet_detail_address_reuse_icon_description">Alerta de reutilización de dirección</string>
+    <string name="receive_title">Recibir</string>
+    <string name="receive_copy_label">Copiar</string>
+    <string name="receive_share_label">Compartir</string>
+    <string name="receive_share_chooser_title">Compartir dirección</string>
+    <string name="receive_copy_success">Dirección copiada</string>
+    <string name="receive_check_address">Comprobar dirección</string>
+    <string name="receive_check_address_loading">Comprobando…</string>
+    <string name="receive_check_address_detected">Se detectó una transacción entrante. Mostramos la siguiente dirección.</string>
+    <string name="receive_check_address_no_activity">Sin actividad en esta dirección.</string>
+    <string name="receive_check_address_error">No se puede comprobar la dirección ahora.</string>
     <string name="wallet_detail_change_utxo_warning">Salida de cambio (sólo uso interno)</string>
     <string name="wallet_detail_dust_utxo_warning">Salida dust (&lt;= %1$s)</string>
     <string name="wallet_detail_transaction_id_label">Txid</string>
+    <string name="incoming_tx_dialog_title">Transacción entrante detectada</string>
+    <string name="incoming_tx_dialog_title_with_wallet">Transacción entrante detectada en %1$s</string>
+    <string name="incoming_tx_dialog_message">Actividad detectada en %1$s.\nActualiza la wallet para cargar los detalles.</string>
+    <string name="incoming_tx_dialog_message_with_amount">%1$s sats detectados hacia %2$s.\nActualiza la wallet para cargar los detalles.</string>
+    <string name="incoming_tx_dialog_refresh">Actualizar wallet</string>
+    <string name="incoming_tx_dialog_dismiss">Ahora no</string>
+    <string name="incoming_tx_placeholder_title">Transacción entrante detectada</string>
+    <string name="incoming_tx_placeholder_detected_at">Detectada a las</string>
+    <string name="incoming_tx_placeholder_subtitle">Actualiza la wallet para reemplazar este placeholder con los detalles completos.</string>
+    <string name="incoming_tx_placeholder_amount_pending">Importe pendiente</string>
+    <string name="incoming_detection_title">Transacciones</string>
+    <string name="incoming_detection_subtitle">Muestra un diálogo cuando se detecta un pago entrante.</string>
+    <string name="incoming_detection_dialog_label">Mostrar diálogo para nuevas transacciones</string>
+    <string name="incoming_detection_dialog_subtitle">Muestra un pop-up cuando se detecte un pago entrante.</string>
     <string name="wallet_detail_address_unknown">Dirección no disponible</string>
     <string name="wallet_detail_no_label_placeholder">Sin etiqueta</string>
+    <string name="receive_next_address">Siguiente dirección</string>
+    <string name="receive_next_address_loading">Cargando siguiente dirección…</string>
+    <string name="receive_open_details">Abrir detalles de la dirección</string>
+    <string name="receive_reuse_notice">Usa una dirección nueva para cada pago.</string>
+    <string name="receive_error_no_address">No hay direcciones sin uso disponibles. Inténtalo de nuevo.</string>
+    <string name="receive_error_generic">No se pudo cargar una dirección. Inténtalo en un momento.</string>
+    <string name="receive_retry">Reintentar</string>
 
     <!-- Address detail -->
     <string name="address_detail_title">Detalles de la dirección</string>
@@ -283,6 +307,9 @@
     <string name="transaction_detail_open_in_explorer">Explorador de bloques</string>
     <string name="transaction_detail_explorer_onion_snackbar">Explorador abierto. Pega el txid en la página.</string>
     <string name="transaction_detail_explorer_missing">Añade un explorador en Ajustes para abrir esta transacción.</string>
+    <string name="transaction_detail_explorer_disabled">Activa un explorador en Ajustes para abrir transacciones.</string>
+    <string name="transaction_detail_id_copied">Txid copiado al portapapeles.</string>
+    <string name="transaction_detail_copy_txid_action">Copiar txid</string>
     <string name="transaction_detail_explorer_sheet_title">Elige un explorador</string>
     <string name="transaction_detail_explorer_sheet_subtitle">Selecciona un explorador y lo abriremos enseguida.</string>
     <string name="transaction_detail_explorer_manual_hint">Abre la página base; pega el txid manualmente.</string>
@@ -466,6 +493,7 @@
     <string name="settings_haptics_title">Vibración</string>
     <string name="settings_haptics_description">Activa o desactiva la vibración en la app.</string>
     <string name="status_node_action_description">Mostrar el estado del nodo</string>
+    <string name="status_incoming_tx_indicator_description">%1$d transacciones entrantes</string>
     <string name="tor_overview_title">Estado de Tor</string>
     <string name="tor_overview_details_title">Detalles de conexión</string>
     <string name="tor_overview_status_label">Estado</string>
@@ -616,6 +644,8 @@
     <string name="onboarding_slide_privacy_description">Cada sincronización viaja por Tor; usa presets curados o tu endpoint onion para custodiar los metadatos.</string>
     <string name="onboarding_slide_trust_title">No confíes, verifica</string>
     <string name="onboarding_slide_trust_description">Apunta UtxoPocket a tu propio nodo o a un peer onion para mantener a terceros fuera de tu validación.</string>
+    <string name="onboarding_slide_network_title">Elige tu red de Bitcoin</string>
+    <string name="onboarding_slide_network_description">Empieza en testnet, testnet4, signet o mainnet; podrás cambiarla cuando quieras desde Conexiones y red.</string>
 
     <!-- Settings: advanced + dust -->
     <string name="settings_advanced_mode">Modo avanzado</string>
@@ -624,25 +654,35 @@
     <string name="settings_dust_threshold_placeholder">Introduce sats</string>
     <string name="settings_dust_threshold_support">Marca salidas pequeñas para revisarlas antes de gastar; pon 0 para desactivar avisos de dust.</string>
     <string name="settings_block_explorer_title">Explorador %1$s</string>
-    <string name="settings_block_explorer_support">Añade exploradores aquí; podrás elegir cuál abrir desde una hoja inferior en el detalle de transacción.</string>
+    <string name="settings_block_explorer_support">Gestiona aquí exploradores clearnet/Tor y elige cuál se abre por defecto.</string>
     <string name="settings_block_explorer_bucket_normal">Clearnet</string>
     <string name="settings_block_explorer_bucket_onion">Tor</string>
     <string name="settings_block_explorer_presets_label">Exploradores integrados</string>
     <string name="settings_block_explorer_clearnet_title">Exploradores clearnet</string>
+    <string name="settings_block_explorer_clearnet_subtitle">Se abre en tu navegador habitual; cambia el predeterminado cuando quieras.</string>
     <string name="settings_block_explorer_tor_title">Exploradores Tor</string>
+    <string name="settings_block_explorer_tor_subtitle">Se enruta por Tor; ideal para privacidad.</string>
+    <string name="settings_block_explorer_presets_empty_title">Sin presets %1$s</string>
+    <string name="settings_block_explorer_presets_empty_support">Restaura los predeterminados o añade tu propia URL de explorador.</string>
+    <string name="settings_block_explorer_restore_presets">Restaurar presets</string>
     <string name="settings_block_explorer_add_clearnet">Añadir explorador clearnet</string>
     <string name="settings_block_explorer_add_tor">Añadir explorador Tor</string>
-    <string name="settings_block_explorer_preset_support_txid">Añade el txid a la URL.</string>
-    <string name="settings_block_explorer_preset_onion_hint">Abre solo la página base; pega el txid manualmente.</string>
+    <string name="settings_block_explorer_preset_support_txid">Preestablecido: añade el txid y abre en tu navegador.</string>
+    <string name="settings_block_explorer_preset_onion_hint">Preestablecido .onion: añade el txid y abre con Tor Browser si está.</string>
     <string name="settings_block_explorer_custom_name_label">Nombre del explorador</string>
     <string name="settings_block_explorer_custom_name_tor_label">Nombre del explorador Tor</string>
     <string name="settings_block_explorer_add_info_clearnet">Añade un explorador para %1$s. Usa URLs http/https; la app añadirá el txid cuando sea posible.</string>
     <string name="settings_block_explorer_add_info_tor">Añade un explorador Tor para %1$s. Los enlaces .onion abren la página base para que pegues el txid.</string>
     <string name="settings_block_explorer_custom_url_label">URL base personalizada</string>
-    <string name="settings_block_explorer_custom_url_placeholder">https://ejemplo.com/tx/</string>
+    <string name="settings_block_explorer_custom_url_placeholder">https://ejemplo.com/testnet/tx/</string>
     <string name="settings_block_explorer_custom_onion_label">Explorador .onion personalizado</string>
-    <string name="settings_block_explorer_custom_onion_placeholder">http://ejemplo.onion</string>
-    <string name="settings_block_explorer_custom_support">Usa http/https. Los enlaces .onion abren solo la base; pega el txid tú mismo.</string>
+    <string name="settings_block_explorer_custom_onion_placeholder">http://ejemplo.onion/testnet/tx/</string>
+    <string name="settings_block_explorer_custom_support">Incluye /tx/ y la red en la URL para que se añada el txid automáticamente. Si no, tendrás que pegar el txid en la página.</string>
+    <string name="settings_block_explorer_enabled_label">Explorador de bloques activado</string>
+    <string name="settings_block_explorer_enabled_support">Desactiva para evitar abrir transacciones en el navegador.</string>
+    <string name="settings_block_explorer_default_label">Predeterminado</string>
+    <string name="settings_block_explorer_error_required">Introduce una URL.</string>
+    <string name="settings_block_explorer_error_scheme">Introduce una URL http o https válida.</string>
 
     <!-- Settings: health parameters -->
     <string name="settings_health_parameters_cta">Ajustes avanzados de salud</string>
@@ -797,8 +837,8 @@
     <string name="wallet_detail_menu_overflow">Acciones de la billetera</string>
     <string name="wallet_detail_menu_edit">Editar billetera</string>
     <string name="wallet_detail_menu_color">Color</string>
-    <string name="wallet_detail_menu_export_labels">Exportar BIP-329</string>
-    <string name="wallet_detail_menu_import_labels">Importar BIP-329</string>
+    <string name="wallet_detail_menu_export_labels">Exportar etiquetas</string>
+    <string name="wallet_detail_menu_import_labels">Importar etiquetas</string>
     <string name="wallet_detail_menu_descriptors">Descriptores</string>
     <string name="wallet_detail_menu_force_rescan">Reescaneo completo</string>
     <string name="wallet_detail_menu_delete">Eliminar billetera</string>
@@ -835,6 +875,12 @@
     <string name="wallet_labels_export_empty">Aún no hay etiquetas para exportar.</string>
     <string name="wallet_labels_export_heading">Exportando %1$s: %2$d etiquetas</string>
     <string name="wallet_labels_export_qr_caption">Escanea para importar etiquetas BIP-329</string>
+    <string name="wallet_labels_export_bbqr_caption">Escanea BBQR para importar etiquetas BIP-329</string>
+    <string name="wallet_labels_export_bbqr_helper">Exportación comprimida y compatible con Sparrow para escaneos multiparte más rápidos.</string>
+    <string name="wallet_labels_export_ur_helper">Exportación UR de Hummingbird para compatibilidad amplia con otras billeteras.</string>
+    <string name="wallet_labels_export_mode_label">Formato de QR</string>
+    <string name="wallet_labels_export_mode_bbqr">BBQR (comprimido)</string>
+    <string name="wallet_labels_export_mode_ur">UR (animado)</string>
     <string name="wallet_labels_export_multipart">QR multiparte (%1$d cuadros)</string>
     <string name="wallet_labels_export_qr_error">QR no disponible (%1$s)</string>
     <string name="wallet_labels_export_download">Descargar archivo</string>
@@ -867,6 +913,8 @@
     <string name="wallet_detail_last_full_scan_never">Aún no se completa un reescaneo completo.</string>
     <string name="wallet_detail_full_scan_pending">Rescan completo en cola</string>
     <string name="wallet_detail_refresh_enqueued">Refresco en cola. Espera a que terminen las sincronizaciones previas.</string>
+    <string name="wallet_detail_sync_completed_new_txs">%1$d transacciones nuevas añadidas a %2$s.</string>
+    <string name="wallet_detail_unknown_wallet_name">billetera</string>
     <string name="wallet_detail_delete_confirm_title">¿Eliminar billetera?</string>
     <string name="wallet_detail_delete_confirm_message">¿Quieres eliminar "%1$s" de UtxoPocket?</string>
     <string name="wallet_detail_delete_continue">Continuar</string>
@@ -995,10 +1043,6 @@
     <string name="transaction_detail_show_more_outputs">Ver más salidas</string>
 
     <!-- Wallet address QR actions -->
-    <string name="wallet_detail_address_qr_title">QR de la dirección</string>
-    <string name="wallet_detail_address_qr_action">Código QR de la dirección</string>
-    <string name="wallet_detail_address_qr_error">No se pudo generar un código QR para esta dirección.</string>
-    <string name="wallet_detail_address_qr_close">Cerrar</string>
     <string name="wallet_detail_confirmations">%1$d confs</string>
     <string name="wallet_detail_single_confirmation">1 conf</string>
     <string name="wallet_detail_pending_confirmation">Pendiente</string>
@@ -1008,7 +1052,6 @@
     <string name="wallet_detail_descriptors_hint">Mantén estos descriptores privados y guarda un respaldo seguro. Cualquiera con ellos puede monitorear tu billetera.</string>
 
     <!-- Wiki CTA in wallets list -->
-    <string name="wallets_node_prompt_wiki_cta">Aprende a conectarte vía Tor</string>
     <string name="wallets_node_disconnected_banner">Sin conexión de nodo</string>
     <string name="wallets_node_connecting_banner">Conectando al nodo</string>
     <string name="wallets_node_connected_banner">Conectado al nodo</string>

@@ -10,7 +10,7 @@ import javax.inject.Singleton
 
 @Singleton
 class MarkdownWikiDataSource @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
 
     fun loadTopics(): List<MarkdownTopic> {

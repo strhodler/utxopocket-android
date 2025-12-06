@@ -9,7 +9,7 @@ import javax.inject.Singleton
 
 @Singleton
 class MarkdownGlossaryDataSource @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
 
     fun loadEntries(): List<GlossaryEntry> {
@@ -154,4 +154,3 @@ class MarkdownGlossaryDataSource @Inject constructor(
         private val LINK_REGEX = Regex("\\[(.*?)]\\((.*?)\\)")
     }
 }
-

@@ -4,12 +4,15 @@ import androidx.annotation.StringRes
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
+import com.strhodler.utxopocket.domain.model.BlockExplorerCatalog
 import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
+import com.strhodler.utxopocket.domain.model.IncomingTxPreferences
 
 data class SettingsUiState(
     val appLanguage: AppLanguage = AppLanguage.EN,
@@ -18,8 +21,8 @@ data class SettingsUiState(
     val themeProfile: ThemeProfile = ThemeProfile.DEFAULT,
     val hapticsEnabled: Boolean = true,
     val advancedMode: Boolean = false,
-    val transactionAnalysisEnabled: Boolean = true,
-    val utxoHealthEnabled: Boolean = true,
+    val transactionAnalysisEnabled: Boolean = false,
+    val utxoHealthEnabled: Boolean = false,
     val walletHealthEnabled: Boolean = false,
     val walletHealthToggleEnabled: Boolean = true,
     val networkLogsEnabled: Boolean = false,
@@ -30,6 +33,14 @@ data class SettingsUiState(
     val dustThresholdSats: Long = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS,
     val dustThresholdInput: String = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS.toString(),
     val preferredNetwork: BitcoinNetwork = BitcoinNetwork.DEFAULT,
+    val blockExplorerEnabled: Boolean = true,
+    val blockExplorerBucket: BlockExplorerBucket = BlockExplorerBucket.NORMAL,
+    val blockExplorerNormalPresetId: String = BlockExplorerCatalog.defaultPresetId(BitcoinNetwork.DEFAULT, BlockExplorerBucket.NORMAL),
+    val blockExplorerOnionPresetId: String = BlockExplorerCatalog.defaultPresetId(BitcoinNetwork.DEFAULT, BlockExplorerBucket.ONION),
+    val blockExplorerNormalHidden: Set<String> = emptySet(),
+    val blockExplorerOnionHidden: Set<String> = emptySet(),
+    val blockExplorerNormalRemoved: Set<String> = emptySet(),
+    val blockExplorerOnionRemoved: Set<String> = emptySet(),
     val blockExplorerNormalCustomInput: String = "",
     val blockExplorerOnionCustomInput: String = "",
     val blockExplorerNormalCustomNameInput: String = "",
@@ -41,7 +52,9 @@ data class SettingsUiState(
     val utxoHealthInputs: UtxoHealthParameterInputs = UtxoHealthParameterInputs(),
     val utxoInputsDirty: Boolean = false,
     val healthParameterError: String? = null,
-    @StringRes val healthParameterMessageRes: Int? = null
+    @param:StringRes val healthParameterMessageRes: Int? = null,
+    val incomingDetectionIntervalSeconds: Int = IncomingTxPreferences.DEFAULT_INTERVAL_SECONDS,
+    val incomingDetectionDialogEnabled: Boolean = true
 )
 
 data class TransactionHealthParameterInputs(

@@ -12,7 +12,7 @@ import com.strhodler.utxopocket.R
 sealed class MainDestination(
     val route: String,
     val icon: ImageVector,
-    @StringRes val labelRes: Int
+    @param:StringRes val labelRes: Int
 ) {
     data object Wallets : MainDestination(
         route = "wallets",

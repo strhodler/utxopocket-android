@@ -13,8 +13,8 @@ lifecycleRuntimeKtx = "2.10.0"
 lifecycleRuntimeCompose = "2.10.0"
 lifecycleViewModelCompose = "2.10.0"
 lifecycleProcess = "2.10.0"
-activityCompose = "1.12.0"
-composeBom = "2025.11.01"
+activityCompose = "1.12.1"
+composeBom = "2025.12.00"
 material = "1.13.0"
 navigationCompose = "2.9.6"
 hilt = "2.57.2"
@@ -25,9 +25,10 @@ bdkAndroid = "2.2.0"
 sqlcipher = "4.5.4"
 sqliteKtx = "2.6.2"
 securityCrypto = "1.1.0"
-torAndroid = "0.4.8.19"
+torAndroid = "0.4.8.21"
 torBinary = "0.4.8.18"
-slf4j = "1.7.36"
+slf4j = "2.0.17"
+slf4jAndroid = "2.0.17-0"
 datastore = "1.2.0"
 rxjava = "2.2.21"
 rxandroid = "2.1.1"
@@ -37,6 +38,7 @@ splashscreen = "1.2.0"
 paging = "3.3.6"
 jbox2d = "2.2.1.1"
 identikon = "1.0.0"
+tink = "1.13.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -82,7 +84,7 @@ androidx-security-crypto = { group = "androidx.security", name = "security-crypt
 tor-android = { group = "info.guardianproject", name = "tor-android", version.ref = "torAndroid" }
 tor-android-binary = { group = "org.torproject", name = "tor-android-binary", version.ref = "torBinary" }
 slf4j-api = { group = "org.slf4j", name = "slf4j-api", version.ref = "slf4j" }
-slf4j-android = { group = "org.slf4j", name = "slf4j-android", version.ref = "slf4j" }
+slf4j-android = { group = "uk.uuid.slf4j", name = "slf4j-android", version.ref = "slf4jAndroid" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 reactivex-rxjava = { group = "io.reactivex.rxjava2", name = "rxjava", version.ref = "rxjava" }
 reactivex-rxandroid = { group = "io.reactivex.rxjava2", name = "rxandroid", version.ref = "rxandroid" }
@@ -95,6 +97,7 @@ androidx-paging-compose = { group = "androidx.paging", name = "paging-compose", 
 sparrow-hummingbird = { group = "com.sparrowwallet", name = "hummingbird", version.ref = "hummingbird" }
 jbox2d-library = { group = "org.jbox2d", name = "jbox2d-library", version.ref = "jbox2d" }
 identikon = { group = "io.github.thibseisel.identikon", name = "identikon", version.ref = "identikon" }
+google-tink-android = { group = "com.google.crypto.tink", name = "tink-android", version.ref = "tink" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

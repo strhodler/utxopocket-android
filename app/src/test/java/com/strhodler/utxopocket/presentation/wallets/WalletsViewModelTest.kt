@@ -199,6 +199,11 @@ private class TestWalletRepository : WalletRepository {
         limit: Int
     ): List<WalletAddress> = emptyList()
 
+    override suspend fun revealNextAddress(
+        walletId: Long,
+        type: WalletAddressType
+    ): WalletAddress? = null
+
     override suspend fun getAddressDetail(
         walletId: Long,
         type: WalletAddressType,
@@ -409,6 +414,44 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
                 )
             }
         }
+    }
+
+    override suspend fun setBlockExplorerVisibility(
+        network: BitcoinNetwork,
+        bucket: BlockExplorerBucket,
+        presetId: String,
+        enabled: Boolean
+    ) {
+        updateBlockExplorerPrefs(network) { current ->
+            val updatedHidden = current.hiddenPresetIds.toMutableSet()
+            if (enabled) {
+                updatedHidden.remove(presetId)
+            } else {
+                updatedHidden.add(presetId)
+            }
+            current.copy(hiddenPresetIds = updatedHidden)
+        }
+    }
+
+    override suspend fun setBlockExplorerRemoved(
+        network: BitcoinNetwork,
+        bucket: BlockExplorerBucket,
+        presetId: String,
+        removed: Boolean
+    ) {
+        updateBlockExplorerPrefs(network) { current ->
+            val updatedRemoved = current.removedPresetIds.toMutableSet()
+            if (removed) {
+                updatedRemoved.add(presetId)
+            } else {
+                updatedRemoved.remove(presetId)
+            }
+            current.copy(removedPresetIds = updatedRemoved)
+        }
+    }
+
+    override suspend fun setBlockExplorerEnabled(network: BitcoinNetwork, enabled: Boolean) {
+        updateBlockExplorerPrefs(network) { current -> current.copy(enabled = enabled) }
     }
 
     override suspend fun wipeAll() = Unit
