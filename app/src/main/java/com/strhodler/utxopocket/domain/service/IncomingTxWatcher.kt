@@ -216,6 +216,11 @@ class IncomingTxWatcher @Inject constructor(
                         return@use
                     }
                     capabilityCache[capabilityKey] = capability
+                    runCatching {
+                        pollWalletOnce(wallet.id, network, lastSeen)
+                    }.onFailure { error ->
+                        SecureLog.w(TAG) { "IncomingTx initial poll failed for $walletAlias: ${error.message}" }
+                    }
                     while (isActive) {
                         val notifications = client.readNotifications(delayMillis.toInt())
                         if (notifications.isEmpty()) {

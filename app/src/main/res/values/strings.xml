@@ -249,6 +249,7 @@
     <string name="wallet_labels_import_scan_next">Scan the next part to continue.</string>
     <string name="wallet_labels_import_scan_frames">Parts: %1$d / %2$s</string>
     <string name="wallet_labels_import_scan_error">Could not read the QR fragment.</string>
+    <string name="wallet_labels_import_permission_denied">Camera permission is required to import labels from QR codes.</string>
     <string name="wallet_labels_import_scan_action">Scan QR</string>
     <string name="wallet_labels_import_file_action">Import file</string>
     <string name="wallet_labels_import_result_title">Last import</string>
