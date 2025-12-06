@@ -3,6 +3,8 @@ package com.strhodler.utxopocket.data.bdk
 import android.content.Context
 import androidx.security.crypto.EncryptedFile
 import androidx.security.crypto.MasterKey
+import com.strhodler.utxopocket.common.logging.SecureLog
+import com.strhodler.utxopocket.data.security.TinkCrypto
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.BufferedInputStream
@@ -19,6 +21,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import kotlin.jvm.Volatile
+import kotlin.text.Charsets
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -44,7 +47,8 @@ data class WalletMaterializationState(
 
 @Singleton
 class DefaultWalletStorage @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val tinkCrypto: TinkCrypto
 ) : WalletStorage {
 
     private val masterKey by lazy {
@@ -131,19 +135,8 @@ class DefaultWalletStorage @Inject constructor(
 
     private fun persistSession(session: WalletSession) {
         if (!session.workingDir.exists()) return
-        val encryptedFile = EncryptedFile.Builder(
-            context,
-            session.encryptedBundle,
-            masterKey,
-            EncryptedFile.FileEncryptionScheme.AES256_GCM_HKDF_4KB
-        ).build()
-        encryptedFile.openFileOutput().use { output ->
-            ZipOutputStream(BufferedOutputStream(output)).use { zip ->
-                writeEntry(zip, session.databaseFile, DB_ENTRY)
-                writeEntry(zip, session.walFile, WAL_ENTRY)
-                writeEntry(zip, session.shmFile, SHM_ENTRY)
-            }
-        }
+        val encrypted = encryptBundle(session)
+        if (!encrypted) return
         listOf(session.databaseFile, session.walFile, session.shmFile).forEach { secureDelete(it) }
         session.workingDir.deleteRecursively()
         listOf(
@@ -158,6 +151,31 @@ class DefaultWalletStorage @Inject constructor(
     }
 
     private fun decryptBundle(session: WalletSession) {
+        val tinkSucceeded = decryptBundleWithTink(session)
+        if (!tinkSucceeded) {
+            decryptBundleWithLegacy(session)
+        }
+        ensureFileExists(session.databaseFile)
+    }
+
+    private fun decryptBundleWithTink(session: WalletSession): Boolean {
+        val streamingAead = tinkCrypto.streamingAeadOrNull() ?: return false
+        return runCatching {
+            FileInputStream(session.encryptedBundle).use { input ->
+                streamingAead.newDecryptingStream(input, associatedData(session)).use { cipherIn ->
+                    ZipInputStream(BufferedInputStream(cipherIn)).use { zip ->
+                        unzipEntries(session, zip)
+                    }
+                }
+            }
+        }.onSuccess {
+            SecureLog.d(TAG) { "Decrypted bundle with Tink for wallet=${session.walletId} network=${session.network}" }
+        }.onFailure {
+            SecureLog.w(TAG, it) { "Failed to decrypt bundle with Tink for wallet=${session.walletId} network=${session.network}" }
+        }.isSuccess
+    }
+
+    private fun decryptBundleWithLegacy(session: WalletSession) {
         val encryptedFile = EncryptedFile.Builder(
             context,
             session.encryptedBundle,
@@ -166,27 +184,90 @@ class DefaultWalletStorage @Inject constructor(
         ).build()
         encryptedFile.openFileInput().use { input ->
             ZipInputStream(BufferedInputStream(input)).use { zip ->
-                var entry: ZipEntry? = zip.nextEntry
-                while (entry != null) {
-                    val target = when (entry.name) {
-                        DB_ENTRY -> session.databaseFile
-                        WAL_ENTRY -> session.walFile
-                        SHM_ENTRY -> session.shmFile
-                        else -> null
-                    }
-                    if (target != null) {
-                        target.parentFile?.mkdirs()
-                        FileOutputStream(target).use { output ->
-                            zip.copyTo(output)
-                        }
-                    }
-                    zip.closeEntry()
-                    entry = zip.nextEntry
-                }
+                unzipEntries(session, zip)
             }
         }
-        ensureFileExists(session.databaseFile)
     }
+
+    private fun encryptBundle(session: WalletSession): Boolean {
+        if (encryptBundleWithTink(session)) return true
+        return encryptBundleWithLegacy(session)
+    }
+
+    private fun encryptBundleWithTink(session: WalletSession): Boolean {
+        val streamingAead = tinkCrypto.streamingAeadOrNull() ?: return false
+        val tempFile = File("${session.encryptedBundle.absolutePath}.tmp")
+        return runCatching {
+            tempFile.parentFile?.mkdirs()
+            FileOutputStream(tempFile).use { raw ->
+                streamingAead.newEncryptingStream(raw, associatedData(session)).use { cipherOut ->
+                    ZipOutputStream(BufferedOutputStream(cipherOut)).use { zip ->
+                        writeEntry(zip, session.databaseFile, DB_ENTRY)
+                        writeEntry(zip, session.walFile, WAL_ENTRY)
+                        writeEntry(zip, session.shmFile, SHM_ENTRY)
+                    }
+                }
+            }
+            if (session.encryptedBundle.exists()) {
+                session.encryptedBundle.delete()
+            }
+            if (!tempFile.renameTo(session.encryptedBundle)) {
+                throw IllegalStateException("Unable to move encrypted bundle into place")
+            }
+        }.onSuccess {
+            SecureLog.d(TAG) { "Encrypted bundle with Tink for wallet=${session.walletId} network=${session.network}" }
+        }.onFailure {
+            tempFile.delete()
+            SecureLog.w(TAG, it) { "Failed to encrypt bundle with Tink for wallet=${session.walletId} network=${session.network}" }
+        }.isSuccess
+    }
+
+    private fun encryptBundleWithLegacy(session: WalletSession): Boolean =
+        runCatching {
+            if (session.encryptedBundle.exists()) {
+                session.encryptedBundle.delete()
+            }
+            val encryptedFile = EncryptedFile.Builder(
+                context,
+                session.encryptedBundle,
+                masterKey,
+                EncryptedFile.FileEncryptionScheme.AES256_GCM_HKDF_4KB
+            ).build()
+            encryptedFile.openFileOutput().use { output ->
+                ZipOutputStream(BufferedOutputStream(output)).use { zip ->
+                    writeEntry(zip, session.databaseFile, DB_ENTRY)
+                    writeEntry(zip, session.walFile, WAL_ENTRY)
+                    writeEntry(zip, session.shmFile, SHM_ENTRY)
+                }
+            }
+        }.onSuccess {
+            SecureLog.d(TAG) { "Encrypted bundle with legacy EncryptedFile for wallet=${session.walletId} network=${session.network}" }
+        }.onFailure {
+            SecureLog.w(TAG, it) { "Failed to encrypt bundle with legacy EncryptedFile for wallet=${session.walletId} network=${session.network}" }
+        }.isSuccess
+
+    private fun unzipEntries(session: WalletSession, zip: ZipInputStream) {
+        var entry: ZipEntry? = zip.nextEntry
+        while (entry != null) {
+            val target = when (entry.name) {
+                DB_ENTRY -> session.databaseFile
+                WAL_ENTRY -> session.walFile
+                SHM_ENTRY -> session.shmFile
+                else -> null
+            }
+            if (target != null) {
+                target.parentFile?.mkdirs()
+                FileOutputStream(target).use { output ->
+                    zip.copyTo(output)
+                }
+            }
+            zip.closeEntry()
+            entry = zip.nextEntry
+        }
+    }
+
+    private fun associatedData(session: WalletSession): ByteArray =
+        "wallet-${session.walletId}-${session.network.name}".toByteArray(Charsets.UTF_8)
 
     private fun migrateLegacyPlaintext(session: WalletSession) {
         ensureFileExists(session.databaseFile)
@@ -252,6 +333,8 @@ class DefaultWalletStorage @Inject constructor(
     private fun createSession(walletId: Long, network: BitcoinNetwork): WalletSession {
         val databaseFile = File(workingDir(walletId, network), walletFilename(walletId))
         return WalletSession(
+            walletId = walletId,
+            network = network,
             encryptedBundle = encryptedBundleFile(walletId, network),
             workingDir = databaseFile.parentFile!!,
             databaseFile = databaseFile,
@@ -302,6 +385,8 @@ class DefaultWalletStorage @Inject constructor(
     private fun walletFilename(walletId: Long): String = "$walletId.sqlite"
 
     private data class WalletSession(
+        val walletId: Long,
+        val network: BitcoinNetwork,
         val encryptedBundle: File,
         val workingDir: File,
         val databaseFile: File,
@@ -320,5 +405,6 @@ class DefaultWalletStorage @Inject constructor(
         private const val DB_ENTRY = "db"
         private const val WAL_ENTRY = "wal"
         private const val SHM_ENTRY = "shm"
+        private const val TAG = "WalletStorage"
     }
 }

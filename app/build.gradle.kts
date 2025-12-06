@@ -92,6 +92,7 @@ dependencies {
     implementation(libs.androidx.sqlite.ktx)
     implementation(libs.sqlcipher)
     implementation(libs.androidx.security.crypto)
+    implementation(libs.google.tink.android)
 
     implementation(libs.bdk.android)
     implementation(libs.sparrow.hummingbird)
