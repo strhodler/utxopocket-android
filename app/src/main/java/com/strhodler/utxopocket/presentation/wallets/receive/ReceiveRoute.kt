@@ -232,9 +232,9 @@ class ReceiveViewModel @Inject constructor(
     init {
         refresh()
         viewModelScope.launch {
-            incomingTxCoordinator.detections.collect { detection ->
-                val current = internalState.value.address
-                if (detection.walletId == walletId && current != null && detection.address == current.value) {
+            incomingTxCoordinator.sheetTriggers.collect { detection ->
+                val current = internalState.value.address ?: return@collect
+                if (detection.walletId == walletId && detection.address == current.value) {
                     nextAddress()
                 }
             }

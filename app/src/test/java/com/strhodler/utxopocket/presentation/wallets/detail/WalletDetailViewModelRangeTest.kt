@@ -19,6 +19,7 @@ import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.TransactionType
 import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
+import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
 import com.strhodler.utxopocket.domain.model.WalletDetail
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
@@ -27,14 +28,17 @@ import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
+import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
 import com.strhodler.utxopocket.domain.repository.TransactionHealthFilter
 import com.strhodler.utxopocket.domain.repository.TransactionHealthRepository
 import com.strhodler.utxopocket.domain.repository.UtxoHealthRepository
 import com.strhodler.utxopocket.domain.repository.UtxoHealthFilter
 import com.strhodler.utxopocket.domain.repository.WalletHealthRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.service.TransactionHealthAnalyzer
+import com.strhodler.utxopocket.domain.service.UtxoVisualizationCalculator
 import com.strhodler.utxopocket.domain.service.WalletHealthAggregator
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import kotlin.test.AfterTest
@@ -48,6 +52,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -100,6 +105,12 @@ class WalletDetailViewModelRangeTest {
         private val walletHealthRepository = StaticWalletHealthRepository()
         private val transactionHealthAnalyzer = StaticTransactionHealthAnalyzer()
         private val walletHealthAggregator = StaticWalletHealthAggregator()
+        private val incomingPlaceholders = InMemoryIncomingTxPlaceholderRepository()
+        private val incomingTxCoordinator = IncomingTxCoordinator(
+            incomingPlaceholders,
+            UnconfinedTestDispatcher()
+        )
+        private val utxoVisualizationCalculator = UtxoVisualizationCalculator()
 
         fun createViewModel(): WalletDetailViewModel {
             val savedStateHandle = SavedStateHandle(
@@ -114,8 +125,25 @@ class WalletDetailViewModelRangeTest {
                 transactionHealthRepository = transactionHealthRepository,
                 utxoHealthRepository = utxoHealthRepository,
                 walletHealthRepository = walletHealthRepository,
-                walletHealthAggregator = walletHealthAggregator
+                walletHealthAggregator = walletHealthAggregator,
+                incomingTxCoordinator = incomingTxCoordinator,
+                utxoVisualizationCalculator = utxoVisualizationCalculator
             )
+        }
+    }
+
+    private class InMemoryIncomingTxPlaceholderRepository : IncomingTxPlaceholderRepository {
+        private val state = MutableStateFlow<Map<Long, List<IncomingTxPlaceholder>>>(emptyMap())
+        override val placeholders: Flow<Map<Long, List<IncomingTxPlaceholder>>> = state
+
+        override suspend fun setPlaceholders(walletId: Long, placeholders: List<IncomingTxPlaceholder>) {
+            val next = state.value.toMutableMap()
+            if (placeholders.isEmpty()) {
+                next.remove(walletId)
+            } else {
+                next[walletId] = placeholders
+            }
+            state.value = next
         }
     }
 

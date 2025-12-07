@@ -6,7 +6,7 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [NetworkErrorLogEntity::class],
     version = 2,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class NetworkErrorLogDatabase : RoomDatabase() {
     abstract fun networkErrorLogDao(): NetworkErrorLogDao

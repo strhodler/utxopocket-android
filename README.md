@@ -53,6 +53,7 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 - Private-by-default networking over Tor with curated nodes and custom onion endpoints. Tor remains mandatory; direct LAN/IP hosts and SSL toggles have been removed to keep behavior consistent.
 - Multi-network support (Mainnet, Testnet3/4, Signet) with per-network presets.
 - On-device health insights for transactions and UTXOs to spot reuse, dust, and risk.
+- Per-wallet Analysis section with age distribution and hold-wave views to assess how long coins have been sitting and where value concentrates.
 - Fast onboarding and descriptor import (paste or QR), plus a searchable offline wiki.
 - Safety controls: PIN lock with backoff, panic wipe, and encrypted local storage.
 - Modern Compose UI (Material 3), responsive and accessible across screen sizes.

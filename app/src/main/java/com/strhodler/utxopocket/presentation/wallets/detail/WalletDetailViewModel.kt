@@ -31,6 +31,11 @@ import com.strhodler.utxopocket.domain.model.displayLabel
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import com.strhodler.utxopocket.domain.model.WalletLabelExport
 import com.strhodler.utxopocket.domain.model.Bip329ImportResult
+import com.strhodler.utxopocket.domain.model.UtxoAgeBucket
+import com.strhodler.utxopocket.domain.model.UtxoAgeBucketSlice
+import com.strhodler.utxopocket.domain.model.UtxoAgeHistogram
+import com.strhodler.utxopocket.domain.model.UtxoHoldWaves
+import com.strhodler.utxopocket.domain.service.UtxoVisualizationCalculator
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.TransactionHealthRepository
@@ -75,7 +80,8 @@ class WalletDetailViewModel @Inject constructor(
     private val utxoHealthRepository: UtxoHealthRepository,
     private val walletHealthRepository: WalletHealthRepository,
     private val walletHealthAggregator: WalletHealthAggregator,
-    private val incomingTxCoordinator: IncomingTxCoordinator
+    private val incomingTxCoordinator: IncomingTxCoordinator,
+    private val utxoVisualizationCalculator: UtxoVisualizationCalculator
 ) : ViewModel() {
 
     val initialWalletName: String? =
@@ -93,6 +99,7 @@ class WalletDetailViewModel @Inject constructor(
     private val utxoSortState = MutableStateFlow(WalletUtxoSort.LARGEST_AMOUNT)
     private val transactionLabelFilterState = MutableStateFlow(TransactionLabelFilter())
     private val utxoLabelFilterState = MutableStateFlow(UtxoLabelFilter())
+    private val utxoHistogramModeState = MutableStateFlow(UtxoHistogramMode.Count)
     private val selectedBalanceRangeState = MutableStateFlow(BalanceRange.All)
     private val showBalanceChartState = MutableStateFlow(false)
     private val balanceHistoryReducer = BalanceHistoryReducer()
@@ -313,8 +320,9 @@ class WalletDetailViewModel @Inject constructor(
     val uiState: StateFlow<WalletDetailUiState> = combine(
         uiInputs,
         utxoLabelFilterState,
-        transactionLabelFilterState
-    ) { inputs, utxoLabelFilter, transactionLabelFilter ->
+        transactionLabelFilterState,
+        utxoHistogramModeState
+    ) { inputs, utxoLabelFilter, transactionLabelFilter, utxoHistogramMode ->
         buildUiState(
             baseSnapshot = inputs.baseSnapshot,
             transactionSort = inputs.transactionSort,
@@ -323,7 +331,8 @@ class WalletDetailViewModel @Inject constructor(
             utxoLabelFilter = utxoLabelFilter,
             transactionLabelFilter = transactionLabelFilter,
             showBalanceChart = inputs.showBalanceChart,
-            incomingPlaceholders = inputs.incomingPlaceholders
+            incomingPlaceholders = inputs.incomingPlaceholders,
+            utxoHistogramMode = utxoHistogramMode
         )
     }.stateIn(
         scope = viewModelScope,
@@ -336,11 +345,12 @@ class WalletDetailViewModel @Inject constructor(
         transactionSort: WalletTransactionSort,
         utxoSort: WalletUtxoSort,
         selectedRange: BalanceRange,
-        utxoLabelFilter: UtxoLabelFilter,
-        transactionLabelFilter: TransactionLabelFilter,
-        showBalanceChart: Boolean,
-        incomingPlaceholders: List<IncomingTxPlaceholder>
-    ): WalletDetailUiState {
+    utxoLabelFilter: UtxoLabelFilter,
+    transactionLabelFilter: TransactionLabelFilter,
+    showBalanceChart: Boolean,
+    incomingPlaceholders: List<IncomingTxPlaceholder>,
+    utxoHistogramMode: UtxoHistogramMode
+): WalletDetailUiState {
         val detail = baseSnapshot.detail
         val availableTransactionSorts = availableTransactionSorts(baseSnapshot.transactionAnalysisEnabled)
         val resolvedTransactionSort = if (transactionSort in availableTransactionSorts) {
@@ -402,7 +412,10 @@ class WalletDetailViewModel @Inject constructor(
                 utxoFilterCounts = UtxoFilterCounts(),
                 transactionLabelFilter = transactionLabelFilter,
                 transactionFilterCounts = TransactionFilterCounts(),
-                incomingPlaceholders = incomingPlaceholders
+                incomingPlaceholders = incomingPlaceholders,
+                utxoAgeHistogram = EMPTY_UTXO_HISTOGRAM,
+                utxoHistogramMode = utxoHistogramMode,
+                utxoHoldWaves = EMPTY_UTXO_HOLD_WAVES
             )
         } else {
             val summary = detail.summary
@@ -436,7 +449,8 @@ class WalletDetailViewModel @Inject constructor(
             val utxoFilterCounts = computeUtxoFilterCounts(detail.utxos)
             val transactionFilterCounts = computeTransactionFilterCounts(detail.transactions)
             val visibleTransactionsCount = detail.transactions.count { transactionLabelFilter.matches(it) }
-            val visibleUtxosCount = detail.utxos.count { utxoLabelFilter.matches(it) }
+            val filteredUtxos = detail.utxos.filter { utxoLabelFilter.matches(it) }
+            val visibleUtxosCount = filteredUtxos.size
             val filteredPlaceholders = incomingPlaceholders.filterNot { placeholder ->
                 detail.transactions.any { it.id == placeholder.txid }
             }
@@ -444,9 +458,15 @@ class WalletDetailViewModel @Inject constructor(
                 incomingPlaceholders
                     .filter { placeholder -> detail.transactions.any { it.id == placeholder.txid } }
                     .forEach { resolved ->
-                        incomingTxCoordinator.markResolved(walletId, resolved.txid)
-                    }
+                    incomingTxCoordinator.markResolved(walletId, resolved.txid)
+                }
             }
+            val histogram = utxoVisualizationCalculator.buildSnapshot(
+                utxos = filteredUtxos,
+                transactions = detail.transactions,
+                currentBlockHeight = baseSnapshot.nodeSnapshot.blockHeight
+            )
+            val holdWaves = utxoVisualizationCalculator.buildHoldWaves(histogram)
             WalletDetailUiState(
                 isLoading = false,
                 isRefreshing = isSyncing,
@@ -495,7 +515,10 @@ class WalletDetailViewModel @Inject constructor(
                 utxoFilterCounts = utxoFilterCounts,
                 transactionLabelFilter = transactionLabelFilter,
                 transactionFilterCounts = transactionFilterCounts,
-                incomingPlaceholders = filteredPlaceholders
+                incomingPlaceholders = filteredPlaceholders,
+                utxoAgeHistogram = histogram,
+                utxoHistogramMode = utxoHistogramMode,
+                utxoHoldWaves = holdWaves
             )
         }
     }
@@ -515,6 +538,12 @@ class WalletDetailViewModel @Inject constructor(
     fun setUtxoLabelFilter(filter: UtxoLabelFilter) {
         if (utxoLabelFilterState.value != filter) {
             utxoLabelFilterState.value = filter
+        }
+    }
+
+    fun setUtxoHistogramMode(mode: UtxoHistogramMode) {
+        if (utxoHistogramModeState.value != mode) {
+            utxoHistogramModeState.value = mode
         }
     }
 
@@ -804,7 +833,10 @@ data class WalletDetailUiState(
     val transactionFilterCounts: TransactionFilterCounts = TransactionFilterCounts(),
     val utxoLabelFilter: UtxoLabelFilter = UtxoLabelFilter(),
     val utxoFilterCounts: UtxoFilterCounts = UtxoFilterCounts(),
-    val incomingPlaceholders: List<IncomingTxPlaceholder> = emptyList()
+    val incomingPlaceholders: List<IncomingTxPlaceholder> = emptyList(),
+    val utxoAgeHistogram: UtxoAgeHistogram = EMPTY_UTXO_HISTOGRAM,
+    val utxoHistogramMode: UtxoHistogramMode = UtxoHistogramMode.Count,
+    val utxoHoldWaves: UtxoHoldWaves = EMPTY_UTXO_HOLD_WAVES
 )
 
 sealed interface WalletDetailError {
@@ -878,4 +910,22 @@ data class TransactionFilterCounts(
     val unlabeled: Int = 0,
     val received: Int = 0,
     val sent: Int = 0
+)
+
+enum class UtxoHistogramMode {
+    Count,
+    Value
+}
+
+private val EMPTY_UTXO_HISTOGRAM: UtxoAgeHistogram = UtxoAgeHistogram(
+    slices = UtxoAgeBucket.entries.map { bucket ->
+        UtxoAgeBucketSlice(bucket = bucket, count = 0, valueSats = 0)
+    },
+    totalCount = 0,
+    totalValueSats = 0
+)
+
+private val EMPTY_UTXO_HOLD_WAVES: UtxoHoldWaves = UtxoHoldWaves(
+    points = emptyList(),
+    dataAvailable = false
 )

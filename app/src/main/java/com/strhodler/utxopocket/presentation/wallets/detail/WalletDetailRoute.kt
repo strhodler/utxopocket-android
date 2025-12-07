@@ -129,6 +129,7 @@ fun WalletDetailRoute(
     onOpenDescriptors: (Long, String) -> Unit,
     onOpenExportLabels: (Long, String) -> Unit,
     onOpenImportLabels: (Long, String) -> Unit,
+    onOpenUtxoVisualizer: (Long, String) -> Unit,
     viewModel: WalletDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -523,6 +524,12 @@ fun WalletDetailRoute(
                     },
                     onToggleChart = { viewModel.setShowBalanceChart(!state.showBalanceChart) },
                     onReceiveClick = { onOpenReceive(walletId) },
+                    onOpenWalletAnalysis = {
+                        val summary = state.summary ?: return@WalletDetailBottomBar
+                        val walletNameArg = summary.name.ifBlank { viewModel.initialWalletName }
+                            ?: summary.name
+                        onOpenUtxoVisualizer(summary.id, walletNameArg)
+                    },
                     scrollBehavior = bottomBarScrollBehavior,
                     onHeightChanged = { height -> bottomBarHeightPx = height },
                     onVisibleHeightChanged = { visible -> bottomBarVisibleHeightPx = visible },
@@ -827,6 +834,7 @@ private fun WalletDetailBottomBar(
     onSyncClick: () -> Unit,
     onToggleChart: () -> Unit,
     onReceiveClick: () -> Unit,
+    onOpenWalletAnalysis: () -> Unit,
     scrollBehavior: BottomAppBarScrollBehavior,
     onHeightChanged: (Float) -> Unit,
     onVisibleHeightChanged: (Float) -> Unit,
@@ -917,6 +925,26 @@ private fun WalletDetailBottomBar(
                     } else {
                         "Show chart"
                     },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
+            colors = itemColors,
+            alwaysShowLabel = true,
+            modifier = Modifier.weight(1f)
+        )
+        NavigationBarItem(
+            selected = false,
+            onClick = onOpenWalletAnalysis,
+            icon = {
+                Icon(
+                    imageVector = Icons.Outlined.ShowChart,
+                    contentDescription = null
+                )
+            },
+            label = {
+                Text(
+                    text = stringResource(id = R.string.wallet_detail_action_analysis),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
