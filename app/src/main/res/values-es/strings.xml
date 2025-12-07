@@ -186,7 +186,7 @@
     <string name="wallet_utxo_band_six_months_one_year">6 – 12 meses</string>
     <string name="wallet_utxo_band_one_year_two_years">1 – 2 años</string>
     <string name="wallet_utxo_band_over_two_years">Más de 2 años</string>
-    <string name="wallet_utxo_visualizer_title">Visualizador de UTXOs</string>
+    <string name="wallet_utxo_visualizer_title">Análisis</string>
     <string name="wallet_utxo_visualizer_subtitle">Explora instantáneas y hold waves de este monedero.</string>
     <string name="wallet_utxo_visualizer_cta">Abrir</string>
     <string name="wallet_utxo_visualization_tab_histogram">Instantánea</string>

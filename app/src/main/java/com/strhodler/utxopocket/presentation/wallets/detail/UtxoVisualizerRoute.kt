@@ -30,7 +30,7 @@ fun UtxoVisualizerRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     SetSecondaryTopBar(
-        title = stringResource(id = R.string.wallet_utxo_visualizer_title),
+            title = stringResource(id = R.string.wallet_utxo_visualizer_title),
         onBackClick = onBack
     )
 
@@ -76,7 +76,6 @@ fun UtxoVisualizerRoute(
                 ) {
                     UtxoVisualizationSection(
                         state = state,
-                        onHistogramModeChange = viewModel::setUtxoHistogramMode,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

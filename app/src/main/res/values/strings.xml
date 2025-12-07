@@ -130,7 +130,7 @@
     <string name="wallet_utxo_band_six_months_one_year">6 – 12 months</string>
     <string name="wallet_utxo_band_one_year_two_years">1 – 2 years</string>
     <string name="wallet_utxo_band_over_two_years">Over 2 years</string>
-    <string name="wallet_utxo_visualizer_title">UTXO visualizer</string>
+    <string name="wallet_utxo_visualizer_title">Analysis</string>
     <string name="wallet_utxo_visualizer_subtitle">Inspect age snapshots and hold waves for this wallet.</string>
     <string name="wallet_utxo_visualizer_cta">Open</string>
     <string name="wallet_utxo_visualization_tab_histogram">Snapshot</string>

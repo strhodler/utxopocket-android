@@ -6,19 +6,18 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.LazyListState
@@ -29,23 +28,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -55,6 +49,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -73,7 +68,6 @@ import com.strhodler.utxopocket.R
 import io.github.koalaplot.core.pie.DefaultSlice
 import io.github.koalaplot.core.pie.PieChart
 import io.github.koalaplot.core.util.ExperimentalKoalaPlotApi
-import io.github.koalaplot.core.util.generateHueColorPalette
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.UtxoAgeBucket
 import com.strhodler.utxopocket.domain.model.UtxoAgeHistogram
@@ -82,8 +76,6 @@ import com.strhodler.utxopocket.presentation.common.balanceText
 import java.text.NumberFormat
 import java.util.Locale
 import kotlinx.coroutines.launch
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
 
 private enum class UtxoVisualizationPage {
     Histogram,
@@ -94,7 +86,6 @@ private enum class UtxoVisualizationPage {
 @Composable
 fun UtxoVisualizationSection(
     state: WalletDetailUiState,
-    onHistogramModeChange: (UtxoHistogramMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val pages = remember { UtxoVisualizationPage.entries.toTypedArray() }
@@ -159,9 +150,7 @@ fun UtxoVisualizationSection(
                     ) {
                         HistogramPage(
                             histogram = state.utxoAgeHistogram,
-                            histogramMode = state.utxoHistogramMode,
-                            balanceUnit = state.balanceUnit,
-                            onHistogramModeChange = onHistogramModeChange
+                            balanceUnit = state.balanceUnit
                         )
                     }
 
@@ -190,9 +179,7 @@ fun UtxoVisualizationSection(
 @Composable
 private fun HistogramPage(
     histogram: UtxoAgeHistogram,
-    histogramMode: UtxoHistogramMode,
-    balanceUnit: BalanceUnit,
-    onHistogramModeChange: (UtxoHistogramMode) -> Unit
+    balanceUnit: BalanceUnit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -214,7 +201,20 @@ private fun HistogramPage(
             EmptyHistogramPlaceholder()
         } else {
             val slices = histogram.slices
-            val sliceColors = remember(slices) { generateHueColorPalette(slices.size) }
+            val colorScheme = MaterialTheme.colorScheme
+            val sliceColors = remember(
+                slices,
+                colorScheme.primary,
+                colorScheme.primaryContainer,
+                colorScheme.secondary,
+                colorScheme.secondaryContainer,
+                colorScheme.tertiary,
+                colorScheme.tertiaryContainer,
+                colorScheme.inversePrimary,
+                colorScheme.onPrimaryContainer
+            ) {
+                buildSliceColors(colorScheme, slices.size)
+            }
             var selectedSliceIndex by remember(histogram) { mutableStateOf<Int?>(null) }
             val legendListState = rememberLazyListState()
             val scope = rememberCoroutineScope()
@@ -229,18 +229,12 @@ private fun HistogramPage(
             }
             UtxoDonutChart(
                 histogram = histogram,
-                histogramMode = histogramMode,
                 sliceColors = sliceColors,
                 selectedIndex = selectedSliceIndex,
                 onSliceSelected = onSliceSelected
             )
-            HistogramModeSelector(
-                selected = histogramMode,
-                onSelected = onHistogramModeChange
-            )
             HistogramLegend(
                 histogram = histogram,
-                histogramMode = histogramMode,
                 balanceUnit = balanceUnit,
                 sliceColors = sliceColors,
                 selectedIndex = selectedSliceIndex,
@@ -255,7 +249,6 @@ private fun HistogramPage(
 @OptIn(ExperimentalLayoutApi::class)
 private fun HistogramLegend(
     histogram: UtxoAgeHistogram,
-    histogramMode: UtxoHistogramMode,
     balanceUnit: BalanceUnit,
     sliceColors: List<Color>,
     selectedIndex: Int?,
@@ -288,12 +281,21 @@ private fun HistogramLegend(
             val label = context.getString(bucketLabelRes(slice.bucket))
             val countLabel = numberFormatter.format(slice.count)
             val balanceLabel = balanceText(slice.valueSats, balanceUnit)
-            val descriptor = when (histogramMode) {
-                UtxoHistogramMode.Count -> "$countLabel · $balanceLabel"
-                UtxoHistogramMode.Value -> "$balanceLabel · $countLabel"
+            val valuePercent = slice.valueSats.toDouble() / histogram.totalValueSats.toDouble()
+            val countPercent = if (histogram.totalCount > 0) {
+                slice.count.toDouble() / histogram.totalCount.toDouble()
+            } else {
+                0.0
             }
+            val percentLabel = String.format(
+                Locale.getDefault(),
+                "%.1f%% value · %.1f%% UTXOs",
+                valuePercent * 100,
+                countPercent * 100
+            )
             val sliceColor = sliceColors.getOrElse(index) { MaterialTheme.colorScheme.primary }
             val isSelected = selectedIndex == index
+            val activeHighlightColor = MaterialTheme.colorScheme.primary
             Card(
                 modifier = Modifier
                     .heightIn(min = 72.dp)
@@ -304,7 +306,7 @@ private fun HistogramLegend(
                     )
                 ),
                 border = if (isSelected) {
-                    BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    BorderStroke(1.dp, activeHighlightColor)
                 } else {
                     null
                 },
@@ -313,7 +315,8 @@ private fun HistogramLegend(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                        .alpha(if (selectedIndex != null && !isSelected) 0.5f else 1f),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Row(
@@ -335,121 +338,27 @@ private fun HistogramLegend(
                         )
                     }
                     Text(
-                        text = descriptor,
+                        text = "$countLabel UTXOs",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = balanceLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = percentLabel,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun HistogramModeSelector(
-    selected: UtxoHistogramMode,
-    onSelected: (UtxoHistogramMode) -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var showSheet by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    val label = stringResource(id = R.string.wallet_utxo_histogram_analysis_method)
-    val selectedLabel = when (selected) {
-        UtxoHistogramMode.Count -> stringResource(id = R.string.wallet_utxo_histogram_toggle_count)
-        UtxoHistogramMode.Value -> stringResource(id = R.string.wallet_utxo_histogram_toggle_value)
-    }
-
-    ListItem(
-        headlineContent = {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyLarge
-            )
-        },
-        supportingContent = {
-            Text(
-                text = selectedLabel,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        trailingContent = {
-            Icon(
-                imageVector = Icons.Outlined.ArrowDropDown,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { showSheet = true },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
-
-    if (showSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showSheet = false },
-            sheetState = sheetState,
-            dragHandle = { BottomSheetDefaults.DragHandle() }
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-                UtxoHistogramMode.entries.forEach { mode ->
-                    val isSelected = mode == selected
-                    val optionLabel = when (mode) {
-                        UtxoHistogramMode.Count -> stringResource(id = R.string.wallet_utxo_histogram_toggle_count)
-                        UtxoHistogramMode.Value -> stringResource(id = R.string.wallet_utxo_histogram_toggle_value)
-                    }
-                    ListItem(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                scope.launch {
-                                    onSelected(mode)
-                                    sheetState.hide()
-                                    showSheet = false
-                                }
-                            },
-                        headlineContent = {
-                            Text(
-                                text = optionLabel,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        },
-                        supportingContent = {
-                            val helper = when (mode) {
-                                UtxoHistogramMode.Count -> stringResource(
-                                    id = R.string.wallet_utxo_histogram_toggle_count_helper
-                                )
-                                UtxoHistogramMode.Value -> stringResource(
-                                    id = R.string.wallet_utxo_histogram_toggle_value_helper
-                                )
-                            }
-                            Text(
-                                text = helper,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        leadingContent = {
-                            RadioButton(selected = isSelected, onClick = null)
-                        },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                    )
-                }
-                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }
@@ -483,17 +392,13 @@ private fun EmptyHistogramPlaceholder() {
 @Composable
 private fun UtxoDonutChart(
     histogram: UtxoAgeHistogram,
-    histogramMode: UtxoHistogramMode,
     sliceColors: List<Color>,
     selectedIndex: Int?,
     onSliceSelected: (Int) -> Unit
 ) {
-    val values = remember(histogram, histogramMode) {
+    val values = remember(histogram) {
         histogram.slices.map { slice ->
-            when (histogramMode) {
-                UtxoHistogramMode.Count -> slice.count.toFloat()
-                UtxoHistogramMode.Value -> slice.valueSats.toFloat()
-            }
+            slice.valueSats.toFloat()
         }
     }
     val total = remember(values) { values.sum().coerceAtLeast(0f) }
@@ -517,9 +422,10 @@ private fun UtxoDonutChart(
                 val isSelected = selectedIndex == index
                 val sliceColor =
                     if (selectedIndex == null || isSelected) baseColor else baseColor.copy(alpha = 0.55f)
+                val activeHighlightColor = MaterialTheme.colorScheme.primary
                 DefaultSlice(
                     color = sliceColor,
-                    border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.onSurface) else null,
+                    border = if (isSelected) BorderStroke(2.dp, activeHighlightColor) else null,
                     hoverExpandFactor = if (isSelected) 1.06f else 1.02f,
                     clickable = true,
                     onClick = { onSliceSelected(index) }
@@ -674,4 +580,19 @@ private fun bucketLabelRes(bucket: UtxoAgeBucket): Int = when (bucket) {
     UtxoAgeBucket.SixMonthsToOneYear -> R.string.wallet_utxo_band_six_months_one_year
     UtxoAgeBucket.OneYearToTwoYears -> R.string.wallet_utxo_band_one_year_two_years
     UtxoAgeBucket.MoreThanTwoYears -> R.string.wallet_utxo_band_over_two_years
+}
+
+private fun buildSliceColors(colorScheme: ColorScheme, count: Int): List<Color> {
+    if (count <= 0) return emptyList()
+    val baseColors = listOf(
+        colorScheme.primary,
+        colorScheme.primaryContainer,
+        colorScheme.secondary,
+        colorScheme.secondaryContainer,
+        colorScheme.tertiary,
+        colorScheme.tertiaryContainer,
+        colorScheme.inversePrimary,
+        colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+    )
+    return List(count) { index -> baseColors[index % baseColors.size] }
 }
