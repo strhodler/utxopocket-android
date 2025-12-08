@@ -67,6 +67,28 @@ data class UtxoAgeHistogram(
     val totalValueSats: Long
 )
 
+enum class UtxoSpendabilityBucket {
+    Spendable,
+    NotSpendable
+}
+
+data class UtxoSizeBucket(
+    val id: String,
+    val range: LongRange
+)
+
+data class UtxoBucketSlice<B>(
+    val bucket: B,
+    val count: Int,
+    val valueSats: Long
+)
+
+data class UtxoBucketDistribution<B>(
+    val slices: List<UtxoBucketSlice<B>>,
+    val totalCount: Int,
+    val totalValueSats: Long
+)
+
 data class UtxoHoldWavePoint(
     val timestamp: Long,
     val percentages: Map<UtxoAgeBucket, Double>,

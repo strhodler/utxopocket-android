@@ -190,10 +190,18 @@
     <string name="wallet_utxo_visualizer_subtitle">Explora instantáneas de antigüedad y mira lo que viene después.</string>
     <string name="wallet_utxo_visualizer_cta">Abrir</string>
     <string name="wallet_utxo_visualization_tab_histogram">Distribución por antigüedad</string>
+    <string name="wallet_utxo_visualization_tab_spendability">Gastables</string>
+    <string name="wallet_utxo_visualization_tab_size">Bandas de valor</string>
     <string name="wallet_utxo_visualization_tab_treemap">Treemap</string>
     <string name="wallet_utxo_visualization_tab_hold_waves">Hold waves</string>
     <string name="wallet_utxo_hold_waves_title">Hold waves</string>
     <string name="wallet_utxo_hold_waves_placeholder">Las ondas históricas aparecerán cuando haya marcas de tiempo de creación y gasto disponibles.</string>
+    <string name="wallet_utxo_spendability_title">Gastables</string>
+    <string name="wallet_utxo_spendability_subtitle">Separación de UTXOs entre gastables y bloqueados.</string>
+    <string name="wallet_utxo_spendability_label_spendable">Gastables</string>
+    <string name="wallet_utxo_spendability_label_locked">Bloqueados</string>
+    <string name="wallet_utxo_size_title">Bandas de valor</string>
+    <string name="wallet_utxo_size_subtitle">UTXOs agrupados por bandas de valor redondeadas.</string>
     <string name="wallet_utxo_treemap_title">Treemap de UTXO</string>
     <string name="wallet_utxo_treemap_subtitle">Los mosaicos escalan por valor y usan color para la antigüedad. Sin etiquetas en el lienzo: toca para ver detalle.</string>
     <string name="wallet_utxo_treemap_reset_range">Reiniciar rango</string>
@@ -508,6 +516,8 @@
     <string name="feature_connectivity_description">Encamina cada sincronización por Tor, alterna entre servidores Electrum curados o añade tu propio endpoint onion para tener control total.</string>
     <string name="feature_health_title">Insights de UTXO y transacciones</string>
     <string name="feature_health_description">Puntúa UTXOs y transacciones para detectar reutilización de direcciones, dust y clusters de riesgo antes de transmitir.</string>
+    <string name="feature_analysis_title">Visualizaciones de análisis</string>
+    <string name="feature_analysis_description">Donuts por antigüedad más desglose por gastables y bandas de valor, con treemap interactivo para inspeccionar UTXOs rápido.</string>
     <string name="wiki_detail_related_glossary_label">Glosario relacionado</string>
     <string name="glossary_detail_related_wiki_label">Wiki relacionada</string>
     <string name="more_item_disclaimer">Descargo de responsabilidad</string>

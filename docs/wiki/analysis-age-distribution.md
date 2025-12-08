@@ -11,8 +11,10 @@ keywords: [analysis, utxo age, histogram, donut, privacy]
 ---
 
 ## What the screen shows
-The Analysis tab inside each wallet detail exposes two views over the same wallet snapshot:
+The Analysis tab inside each wallet detail now offers multiple breakdowns over the same wallet snapshot:
 - **Age distribution (donut)** — groups every UTXO into age buckets (from `<1 day` up to `>2 years`) and shows their relative share. You can toggle between **Count** and **Value** to see how many UTXOs or how much balance sits in each bucket.
+- **Spendability split** — a donut that separates spendable vs. locked/unspendable outputs so you know what is actionable.
+- **Value bands** — a donut that buckets UTXOs by rounded value bands (1k, 10k, 100k, 1M, 10M, 100M, 1B sats) matching the treemap shortcuts.
 - **Hold waves** — a time series of the same buckets to spot aging trends. Empty wallets show a placeholder; data appears once the node finishes syncing descriptors.
 
 ## How to read the donut
@@ -21,9 +23,9 @@ The Analysis tab inside each wallet detail exposes two views over the same walle
 - Switch between **Count** and **Value** to catch imbalances (e.g., few old UTXOs holding most of the value).
 
 ### Treemap (UTXO-map)
-- Shows every UTXO as a tile sized by value; color can switch between dust risk or the same age buckets as the histogram. No text labels on the canvas—tap a tile to open details.
-- Use the dual-handle slider to focus on a value range; the layout reflows instantly and tiny UTXOs are aggregated into a single tappable bin per color.
-- The treemap lives alongside the snapshot tab inside Analysis so you can move between distribution views without leaving the wallet.
+- Shows every UTXO as a tile sized by value; color is fixed to age buckets for clarity. No text labels on the canvas—tap a tile to open details.
+- Use quick presets (aligned to the value bands above) or the dual-handle slider to focus on a value range; the layout reflows instantly and tiny UTXOs are aggregated into a single tappable bin per color.
+- The treemap lives alongside the other distribution tabs inside Analysis so you can move between views without leaving the wallet.
 
 ## Privacy and security notes
 - Everything is computed locally from the synced watch‑only data; no metrics are sent out of the app.

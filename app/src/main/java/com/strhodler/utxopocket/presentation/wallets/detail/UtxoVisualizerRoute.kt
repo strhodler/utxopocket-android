@@ -75,6 +75,8 @@ fun UtxoVisualizerRoute(
                 ) {
                     UtxoAnalysisSection(
                         histogram = state.utxoAgeHistogram,
+                        spendabilityDistribution = state.utxoSpendabilityDistribution,
+                        sizeDistribution = state.utxoSizeDistribution,
                         treemapData = state.utxoTreemap,
                         onTreemapRangeChange = viewModel::setUtxoTreemapRange,
                         onTreemapRequested = viewModel::requestUtxoTreemap,

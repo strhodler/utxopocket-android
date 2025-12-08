@@ -8,7 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -38,7 +37,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.surfaceColorAtElevation
@@ -51,7 +50,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -65,6 +63,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
@@ -72,6 +71,9 @@ import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.UtxoAgeBucket
 import com.strhodler.utxopocket.domain.model.UtxoAgeHistogram
 import com.strhodler.utxopocket.domain.model.UtxoHealthSeverity
+import com.strhodler.utxopocket.domain.model.UtxoBucketDistribution
+import com.strhodler.utxopocket.domain.model.UtxoSizeBucket
+import com.strhodler.utxopocket.domain.model.UtxoSpendabilityBucket
 import com.strhodler.utxopocket.domain.model.UtxoTreemapColor
 import com.strhodler.utxopocket.domain.model.UtxoTreemapData
 import com.strhodler.utxopocket.domain.model.UtxoTreemapTile
@@ -88,12 +90,29 @@ import kotlin.math.min
 
 private enum class UtxoAgeDistributionTab {
     Histogram,
+    Spendability,
+    Size,
     Treemap
 }
+
+private data class UiDistributionSlice(
+    val id: String,
+    val label: String,
+    val count: Int,
+    val valueSats: Long
+)
+
+private data class UiDistribution(
+    val slices: List<UiDistributionSlice>,
+    val totalCount: Int,
+    val totalValueSats: Long
+)
 
 @Composable
 fun UtxoAnalysisSection(
     histogram: UtxoAgeHistogram,
+    spendabilityDistribution: UtxoBucketDistribution<UtxoSpendabilityBucket>,
+    sizeDistribution: UtxoBucketDistribution<UtxoSizeBucket>,
     treemapData: UtxoTreemapData,
     onTreemapRangeChange: (LongRange) -> Unit,
     onTreemapRequested: () -> Unit,
@@ -102,6 +121,8 @@ fun UtxoAnalysisSection(
 ) {
     UtxoAgeDistributionCard(
         histogram = histogram,
+        spendabilityDistribution = spendabilityDistribution,
+        sizeDistribution = sizeDistribution,
         treemapData = treemapData,
         onTreemapRangeChange = onTreemapRangeChange,
         onTreemapRequested = onTreemapRequested,
@@ -114,6 +135,8 @@ fun UtxoAnalysisSection(
 @Composable
 private fun UtxoAgeDistributionCard(
     histogram: UtxoAgeHistogram,
+    spendabilityDistribution: UtxoBucketDistribution<UtxoSpendabilityBucket>,
+    sizeDistribution: UtxoBucketDistribution<UtxoSizeBucket>,
     treemapData: UtxoTreemapData,
     onTreemapRangeChange: (LongRange) -> Unit,
     onTreemapRequested: () -> Unit,
@@ -134,16 +157,19 @@ private fun UtxoAgeDistributionCard(
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            TabRow(
+            ScrollableTabRow(
                 selectedTabIndex = pagerState.currentPage,
                 containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onSurface,
-                divider = {}
+                divider = {},
+                edgePadding = 12.dp
             ) {
                 tabs.forEach { tab ->
                     val selected = pagerState.currentPage == tab.ordinal
                     val label = when (tab) {
                         UtxoAgeDistributionTab.Histogram -> stringResource(id = R.string.wallet_utxo_visualization_tab_histogram)
+                        UtxoAgeDistributionTab.Spendability -> stringResource(id = R.string.wallet_utxo_visualization_tab_spendability)
+                        UtxoAgeDistributionTab.Size -> stringResource(id = R.string.wallet_utxo_visualization_tab_size)
                         UtxoAgeDistributionTab.Treemap -> stringResource(id = R.string.wallet_utxo_visualization_tab_treemap)
                     }
                     Tab(
@@ -156,8 +182,7 @@ private fun UtxoAgeDistributionCard(
                         text = {
                             Text(
                                 text = label,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                maxLines = 1
                             )
                         }
                     )
@@ -191,6 +216,32 @@ private fun UtxoAgeDistributionCard(
                         )
                     }
 
+                    UtxoAgeDistributionTab.Spendability -> Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .verticalScroll(pageScroll),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        SpendabilityPage(
+                            distribution = spendabilityDistribution,
+                            balanceUnit = balanceUnit
+                        )
+                    }
+
+                    UtxoAgeDistributionTab.Size -> Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .verticalScroll(pageScroll),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        SizePage(
+                            distribution = sizeDistribution,
+                            balanceUnit = balanceUnit
+                        )
+                    }
+
                     UtxoAgeDistributionTab.Treemap -> Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -219,18 +270,6 @@ private fun HistogramPage(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = stringResource(id = R.string.wallet_utxo_histogram_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = stringResource(id = R.string.wallet_utxo_histogram_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
         if (histogram.totalCount == 0) {
             EmptyHistogramPlaceholder()
         } else {
@@ -280,6 +319,268 @@ private fun HistogramPage(
 }
 
 @Composable
+private fun SpendabilityPage(
+    distribution: UtxoBucketDistribution<UtxoSpendabilityBucket>,
+    balanceUnit: BalanceUnit
+) {
+    val context = LocalContext.current
+    val uiDistribution = remember(distribution) {
+        distribution.toUiDistribution { bucket ->
+            when (bucket) {
+                UtxoSpendabilityBucket.Spendable -> context.getString(R.string.wallet_utxo_spendability_label_spendable)
+                UtxoSpendabilityBucket.NotSpendable -> context.getString(R.string.wallet_utxo_spendability_label_locked)
+            }
+        }
+    }
+    DistributionPage(
+        title = stringResource(id = R.string.wallet_utxo_spendability_title),
+        subtitle = stringResource(id = R.string.wallet_utxo_spendability_subtitle),
+        distribution = uiDistribution,
+        balanceUnit = balanceUnit
+    )
+}
+
+@Composable
+private fun SizePage(
+    distribution: UtxoBucketDistribution<UtxoSizeBucket>,
+    balanceUnit: BalanceUnit
+) {
+    val uiDistribution = remember(distribution) {
+        distribution.toUiDistribution { bucket ->
+            formatRangeLabel(bucket.range)
+        }
+    }
+    DistributionPage(
+        title = stringResource(id = R.string.wallet_utxo_size_title),
+        subtitle = stringResource(id = R.string.wallet_utxo_size_subtitle),
+        distribution = uiDistribution,
+        balanceUnit = balanceUnit
+    )
+}
+
+@Composable
+private fun DistributionPage(
+    title: String,
+    subtitle: String,
+    distribution: UiDistribution,
+    balanceUnit: BalanceUnit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (distribution.totalCount == 0 || distribution.slices.isEmpty()) {
+            EmptyHistogramPlaceholder()
+        } else {
+            val colorScheme = MaterialTheme.colorScheme
+            val sliceColors = remember(
+                distribution.slices,
+                colorScheme.primary,
+                colorScheme.primaryContainer,
+                colorScheme.secondary,
+                colorScheme.secondaryContainer,
+                colorScheme.tertiary,
+                colorScheme.tertiaryContainer,
+                colorScheme.inversePrimary,
+                colorScheme.onPrimaryContainer
+            ) {
+                buildSliceColors(colorScheme, distribution.slices.size)
+            }
+            var selectedSliceIndex by remember(distribution) { mutableStateOf<Int?>(null) }
+            val legendListState = rememberLazyListState()
+            val scope = rememberCoroutineScope()
+            val onSliceSelected: (Int) -> Unit = slice@{ index ->
+                if (distribution.slices.isEmpty()) return@slice
+                val safeIndex = index.coerceIn(0, distribution.slices.lastIndex)
+                val nextSelection = if (selectedSliceIndex == safeIndex) null else safeIndex
+                selectedSliceIndex = nextSelection
+                if (nextSelection != null) {
+                    scope.launch { legendListState.animateScrollToItem(nextSelection) }
+                }
+            }
+            DistributionDonut(
+                distribution = distribution,
+                sliceColors = sliceColors,
+                selectedIndex = selectedSliceIndex,
+                onSliceSelected = onSliceSelected
+            )
+            DistributionLegend(
+                distribution = distribution,
+                balanceUnit = balanceUnit,
+                sliceColors = sliceColors,
+                selectedIndex = selectedSliceIndex,
+                onSliceSelected = onSliceSelected,
+                listState = legendListState
+            )
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalKoalaPlotApi::class)
+private fun DistributionDonut(
+    distribution: UiDistribution,
+    sliceColors: List<Color>,
+    selectedIndex: Int?,
+    onSliceSelected: (Int) -> Unit
+) {
+    val values = remember(distribution) {
+        distribution.slices.map { slice -> slice.valueSats.toFloat() }
+    }
+    val total = remember(values) { values.sum().coerceAtLeast(0f) }
+    if (total <= 0.0) {
+        EmptyHistogramPlaceholder()
+        return
+    }
+    PieChart(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 400.dp),
+        values = values,
+        slice = { index ->
+            val baseColor = sliceColors.getOrElse(index) { MaterialTheme.colorScheme.primary }
+            val isSelected = selectedIndex == index
+            val sliceColor =
+                if (selectedIndex == null || isSelected) baseColor else baseColor.copy(alpha = 0.55f)
+            val activeHighlightColor = MaterialTheme.colorScheme.primary
+            DefaultSlice(
+                color = sliceColor,
+                border = if (isSelected) BorderStroke(2.dp, activeHighlightColor) else null,
+                hoverExpandFactor = if (isSelected) 1.06f else 1.02f,
+                clickable = true,
+                onClick = { onSliceSelected(index) }
+            )
+        },
+        label = {},
+        labelConnector = { },
+        holeSize = 0.5f
+    )
+}
+
+@Composable
+private fun DistributionLegend(
+    distribution: UiDistribution,
+    balanceUnit: BalanceUnit,
+    sliceColors: List<Color>,
+    selectedIndex: Int?,
+    onSliceSelected: (Int) -> Unit,
+    listState: LazyListState
+) {
+    val numberFormatter = remember { NumberFormat.getInstance(Locale.getDefault()) }
+    val totalBalance = remember(distribution.totalValueSats, balanceUnit) {
+        balanceText(distribution.totalValueSats, balanceUnit)
+    }
+    Text(
+        text = stringResource(
+            id = R.string.wallet_utxo_histogram_total,
+            distribution.totalCount,
+            totalBalance
+        ),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth()
+    )
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        state = listState,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        itemsIndexed(
+            items = distribution.slices,
+            key = { _, slice -> slice.id }
+        ) { index, slice ->
+            val label = slice.label
+            val countLabel = numberFormatter.format(slice.count)
+            val balanceLabel = balanceText(slice.valueSats, balanceUnit)
+            val valuePercent = if (distribution.totalValueSats > 0) {
+                slice.valueSats.toDouble() / distribution.totalValueSats.toDouble()
+            } else {
+                0.0
+            }
+            val countPercent = if (distribution.totalCount > 0) {
+                slice.count.toDouble() / distribution.totalCount.toDouble()
+            } else {
+                0.0
+            }
+            val percentLabel = String.format(
+                Locale.getDefault(),
+                "%.1f%% value · %.1f%% UTXOs",
+                valuePercent * 100,
+                countPercent * 100
+            )
+            val sliceColor = sliceColors.getOrElse(index) { MaterialTheme.colorScheme.primary }
+            val isSelected = selectedIndex == index
+            val activeHighlightColor = MaterialTheme.colorScheme.primary
+            Card(
+                modifier = Modifier
+                    .heightIn(min = 72.dp)
+                    .fillMaxWidth(fraction = 0.55f),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(
+                        if (isSelected) 3.dp else 1.dp
+                    )
+                ),
+                border = if (isSelected) {
+                    BorderStroke(1.dp, activeHighlightColor)
+                } else {
+                    null
+                },
+                onClick = { onSliceSelected(index) }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                        .alpha(if (selectedIndex != null && !isSelected) 0.5f else 1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(sliceColor)
+                        )
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Text(
+                        text = "$countLabel UTXOs",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = balanceLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = percentLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun TreemapPage(
     treemapData: UtxoTreemapData,
@@ -291,18 +592,6 @@ private fun TreemapPage(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = stringResource(id = R.string.wallet_utxo_treemap_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = stringResource(id = R.string.wallet_utxo_treemap_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
         if (treemapData.filteredCount == 0 || treemapData.tiles.isEmpty()) {
             EmptyTreemapPlaceholder()
         } else {
@@ -347,13 +636,21 @@ private fun TreemapControls(
             rangeToSlider(availableRange, selectedRange)
         )
     }
-    val valueFormatter = remember { { value: Long -> formatSatsShort(value) } }
+    val valueFormatter = remember(balanceUnit) {
+        { value: Long -> formatValueForUnit(value, balanceUnit) }
+    }
+
+    val updateRange: (LongRange) -> Unit = { range ->
+        val sanitized = sanitizeRange(range, availableRange)
+        sliderPosition = rangeToSlider(availableRange, sanitized)
+        onTreemapRangeChange(sanitized)
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         TreemapRangeShortcuts(
             availableRange = availableRange,
             selectedRange = selectedRange,
-            onTreemapRangeChange = onTreemapRangeChange,
+            onTreemapRangeChange = updateRange,
             valueFormatter = valueFormatter
         )
         if (span > 0 && availableRange.first != availableRange.last) {
@@ -362,7 +659,7 @@ private fun TreemapControls(
                 onValueChange = { sliderPosition = it },
                 onValueChangeFinished = {
                     val newRange = sliderToRange(sliderPosition, availableRange)
-                    onTreemapRangeChange(newRange)
+                    updateRange(newRange)
                 },
                 valueRange = 0f..1f,
                 steps = 0
@@ -372,18 +669,11 @@ private fun TreemapControls(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = stringResource(id = R.string.wallet_utxo_treemap_range_label),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "${valueFormatter(selectedRange.first)} – ${valueFormatter(selectedRange.last)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                Text(
+                    text = "${valueFormatter(selectedRange.first)} – ${valueFormatter(selectedRange.last)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
                 Text(
                     text = stringResource(
                         id = R.string.wallet_utxo_treemap_counts,
@@ -450,11 +740,6 @@ private fun TreemapRangeShortcuts(
     }.distinctBy { it.second }
     if (presets.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = stringResource(id = R.string.wallet_utxo_treemap_range_presets_label),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -643,14 +928,14 @@ private fun EmptyTreemapPlaceholder() {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 240.dp),
+            .heightIn(min = 400.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -736,6 +1021,36 @@ private fun formatSatsShort(value: Long): String {
     }
 }
 
+private fun formatValueForUnit(value: Long, unit: BalanceUnit): String {
+    return when (unit) {
+        BalanceUnit.SATS -> formatSatsShort(value)
+        BalanceUnit.BTC -> balanceText(value, BalanceUnit.BTC)
+    }
+}
+
+private fun <B> UtxoBucketDistribution<B>.toUiDistribution(
+    labelProvider: (B) -> String
+): UiDistribution {
+    return UiDistribution(
+        slices = slices.map { slice ->
+            UiDistributionSlice(
+                id = slice.bucket.toString(),
+                label = labelProvider(slice.bucket),
+                count = slice.count,
+                valueSats = slice.valueSats
+            )
+        },
+        totalCount = totalCount,
+        totalValueSats = totalValueSats
+    )
+}
+
+private fun formatRangeLabel(range: LongRange): String {
+    val startLabel = formatSatsShort(range.first)
+    val endLabel = formatSatsShort(range.last)
+    return "$startLabel – $endLabel"
+}
+
 private fun rangeToSlider(bounds: LongRange, selected: LongRange): ClosedFloatingPointRange<Float> {
     val span = (bounds.last - bounds.first).coerceAtLeast(1)
     val startFraction = (selected.first - bounds.first).toFloat() / span.toFloat()
@@ -774,7 +1089,9 @@ private fun HistogramLegend(
             totalBalance
         ),
         style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth()
     )
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
@@ -824,7 +1141,7 @@ private fun HistogramLegend(
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 10.dp)
                         .alpha(if (selectedIndex != null && !isSelected) 0.5f else 1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -913,38 +1230,29 @@ private fun UtxoDonutChart(
         EmptyHistogramPlaceholder()
         return
     }
-    BoxWithConstraints(
+    PieChart(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
-    ) {
-        val maxDiameter = (maxWidth * 0.85f).coerceAtMost(320.dp)
-        PieChart(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
-            values = values,
-            slice = { index ->
-                val baseColor = sliceColors.getOrElse(index) { MaterialTheme.colorScheme.primary }
-                val isSelected = selectedIndex == index
-                val sliceColor =
-                    if (selectedIndex == null || isSelected) baseColor else baseColor.copy(alpha = 0.55f)
-                val activeHighlightColor = MaterialTheme.colorScheme.primary
-                DefaultSlice(
-                    color = sliceColor,
-                    border = if (isSelected) BorderStroke(2.dp, activeHighlightColor) else null,
-                    hoverExpandFactor = if (isSelected) 1.06f else 1.02f,
-                    clickable = true,
-                    onClick = { onSliceSelected(index) }
-                )
-            },
-            label = {},
-            labelConnector = { },
-            holeSize = 0.5f,
-            maxPieDiameter = maxDiameter,
-            forceCenteredPie = true
-        )
-    }
+            .heightIn(min = 360.dp),
+        values = values,
+        slice = { index ->
+            val baseColor = sliceColors.getOrElse(index) { MaterialTheme.colorScheme.primary }
+            val isSelected = selectedIndex == index
+            val sliceColor =
+                if (selectedIndex == null || isSelected) baseColor else baseColor.copy(alpha = 0.55f)
+            val activeHighlightColor = MaterialTheme.colorScheme.primary
+            DefaultSlice(
+                color = sliceColor,
+                border = if (isSelected) BorderStroke(2.dp, activeHighlightColor) else null,
+                hoverExpandFactor = if (isSelected) 1.06f else 1.02f,
+                clickable = true,
+                onClick = { onSliceSelected(index) }
+            )
+        },
+        label = {},
+        labelConnector = { },
+        holeSize = 0.5f
+    )
 }
 
 private fun bucketLabelRes(bucket: UtxoAgeBucket): Int = when (bucket) {

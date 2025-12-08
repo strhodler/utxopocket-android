@@ -35,6 +35,10 @@ import com.strhodler.utxopocket.domain.model.UtxoAgeBucket
 import com.strhodler.utxopocket.domain.model.UtxoAgeBucketSlice
 import com.strhodler.utxopocket.domain.model.UtxoAgeHistogram
 import com.strhodler.utxopocket.domain.model.UtxoHoldWaves
+import com.strhodler.utxopocket.domain.model.UtxoBucketDistribution
+import com.strhodler.utxopocket.domain.model.UtxoBucketSlice
+import com.strhodler.utxopocket.domain.model.UtxoSizeBucket
+import com.strhodler.utxopocket.domain.model.UtxoSpendabilityBucket
 import com.strhodler.utxopocket.domain.service.UtxoVisualizationCalculator
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.UtxoTreemapColorMode
@@ -488,6 +492,8 @@ class WalletDetailViewModel @Inject constructor(
                 currentBlockHeight = baseSnapshot.nodeSnapshot.blockHeight
             )
             val holdWaves = utxoVisualizationCalculator.buildHoldWaves(histogram)
+            val spendabilityDistribution = buildSpendabilityDistribution(filteredUtxos)
+            val sizeDistribution = buildSizeDistribution(filteredUtxos)
             val treemapRangeBounds = resolveTreemapRangeBounds(filteredUtxos)
             val resolvedTreemapRange = resolveTreemapRange(treemapRangeBounds, utxoTreemapRange)
             if (utxoTreemapRange != resolvedTreemapRange) {
@@ -564,6 +570,8 @@ class WalletDetailViewModel @Inject constructor(
                 utxoAgeHistogram = histogram,
                 utxoHistogramMode = utxoHistogramMode,
                 utxoHoldWaves = holdWaves,
+                utxoSpendabilityDistribution = spendabilityDistribution,
+                utxoSizeDistribution = sizeDistribution,
                 utxoTreemap = treemapData,
                 utxoTreemapColorMode = utxoTreemapColorMode
             )
@@ -763,6 +771,81 @@ class WalletDetailViewModel @Inject constructor(
         }
     }
 
+    private fun buildSpendabilityDistribution(
+        utxos: List<WalletUtxo>
+    ): UtxoBucketDistribution<UtxoSpendabilityBucket> {
+        if (utxos.isEmpty()) {
+            return EMPTY_UTXO_SPENDABILITY_DISTRIBUTION
+        }
+        val spendableUtxos = utxos.filter { it.spendable }
+        val notSpendableUtxos = utxos.filterNot { it.spendable }
+        val slices = listOf(
+            UtxoBucketSlice(
+                bucket = UtxoSpendabilityBucket.Spendable,
+                count = spendableUtxos.size,
+                valueSats = spendableUtxos.sumOf { it.valueSats }
+            ),
+            UtxoBucketSlice(
+                bucket = UtxoSpendabilityBucket.NotSpendable,
+                count = notSpendableUtxos.size,
+                valueSats = notSpendableUtxos.sumOf { it.valueSats }
+            )
+        ).filter { it.count > 0 }
+        return UtxoBucketDistribution(
+            slices = slices,
+            totalCount = utxos.size,
+            totalValueSats = utxos.sumOf { it.valueSats }
+        )
+    }
+
+    private fun buildSizeDistribution(
+        utxos: List<WalletUtxo>
+    ): UtxoBucketDistribution<UtxoSizeBucket> {
+        if (utxos.isEmpty()) {
+            return EMPTY_UTXO_SIZE_DISTRIBUTION
+        }
+        val minValue = utxos.minOf { it.valueSats }
+        val maxValue = utxos.maxOf { it.valueSats }
+        val bounds = minValue..maxValue
+        val edges = (listOf(minValue) + TREEMAP_SHORTCUT_THRESHOLDS.filter { it in bounds } + listOf(maxValue))
+            .distinct()
+            .sorted()
+            .filter { it in bounds }
+        val ranges = edges.zipWithNext()
+            .mapNotNull { (start, end) ->
+                if (end <= start) return@mapNotNull null
+                start..end
+            }
+        val slices = ranges.mapNotNull { range ->
+            val bucketUtxos = utxos.filter { it.valueSats in range }
+            if (bucketUtxos.isEmpty()) return@mapNotNull null
+            UtxoBucketSlice(
+                bucket = UtxoSizeBucket(
+                    id = "range_${range.first}_${range.last}",
+                    range = range
+                ),
+                count = bucketUtxos.size,
+                valueSats = bucketUtxos.sumOf { it.valueSats }
+            )
+        }.ifEmpty {
+            listOf(
+                UtxoBucketSlice(
+                    bucket = UtxoSizeBucket(
+                        id = "range_${bounds.first}_${bounds.last}",
+                        range = bounds
+                    ),
+                    count = utxos.size,
+                    valueSats = utxos.sumOf { it.valueSats }
+                )
+            )
+        }
+        return UtxoBucketDistribution(
+            slices = slices,
+            totalCount = utxos.size,
+            totalValueSats = utxos.sumOf { it.valueSats }
+        )
+    }
+
     private fun observeShowBalanceChartPreference() {
         viewModelScope.launch {
             appPreferencesRepository.showBalanceChart.collect { show ->
@@ -878,6 +961,15 @@ class WalletDetailViewModel @Inject constructor(
         }
 
     private companion object {
+        private val TREEMAP_SHORTCUT_THRESHOLDS = listOf(
+            1_000L,
+            10_000L,
+            100_000L,
+            1_000_000L,
+            10_000_000L,
+            100_000_000L,
+            1_000_000_000L
+        )
         private fun utxoKey(txid: String, vout: Int): String = "$txid:$vout"
     }
 }
@@ -939,6 +1031,8 @@ data class WalletDetailUiState(
     val utxoAgeHistogram: UtxoAgeHistogram = EMPTY_UTXO_HISTOGRAM,
     val utxoHistogramMode: UtxoHistogramMode = UtxoHistogramMode.Count,
     val utxoHoldWaves: UtxoHoldWaves = EMPTY_UTXO_HOLD_WAVES,
+    val utxoSpendabilityDistribution: UtxoBucketDistribution<UtxoSpendabilityBucket> = EMPTY_UTXO_SPENDABILITY_DISTRIBUTION,
+    val utxoSizeDistribution: UtxoBucketDistribution<UtxoSizeBucket> = EMPTY_UTXO_SIZE_DISTRIBUTION,
     val utxoTreemap: UtxoTreemapData = UtxoTreemapData.Empty,
     val utxoTreemapColorMode: UtxoTreemapColorMode = UtxoTreemapColorMode.DustRisk
 )
@@ -1033,3 +1127,17 @@ private val EMPTY_UTXO_HOLD_WAVES: UtxoHoldWaves = UtxoHoldWaves(
     points = emptyList(),
     dataAvailable = false
 )
+
+private val EMPTY_UTXO_SPENDABILITY_DISTRIBUTION: UtxoBucketDistribution<UtxoSpendabilityBucket> =
+    UtxoBucketDistribution(
+        slices = emptyList(),
+        totalCount = 0,
+        totalValueSats = 0
+    )
+
+private val EMPTY_UTXO_SIZE_DISTRIBUTION: UtxoBucketDistribution<UtxoSizeBucket> =
+    UtxoBucketDistribution(
+        slices = emptyList(),
+        totalCount = 0,
+        totalValueSats = 0
+    )

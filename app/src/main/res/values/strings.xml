@@ -47,6 +47,8 @@
     <string name="feature_connectivity_description">Route every sync over Tor, switch between curated Electrum servers, or add your own onion endpoint for full control.</string>
     <string name="feature_health_title">UTXO + transaction insights</string>
     <string name="feature_health_description">Score UTXOs and transactions to catch address reuse, dust, and high-risk clusters before you broadcast.</string>
+    <string name="feature_analysis_title">Analysis visuals</string>
+    <string name="feature_analysis_description">Age donuts plus spendability and value-band breakdowns, with an interactive treemap for fast UTXO inspection.</string>
     <string name="wiki_detail_related_glossary_label">Related glossary</string>
     <string name="glossary_detail_related_wiki_label">Related wiki</string>
     <string name="disclaimer_intro">UtxoPocket is a watch-only wallet. Please read this disclaimer:</string>
@@ -134,10 +136,18 @@
     <string name="wallet_utxo_visualizer_subtitle">Inspect age snapshots and see what\'s coming next.</string>
     <string name="wallet_utxo_visualizer_cta">Open</string>
     <string name="wallet_utxo_visualization_tab_histogram">Age distribution</string>
+    <string name="wallet_utxo_visualization_tab_spendability">Spendability</string>
+    <string name="wallet_utxo_visualization_tab_size">Value buckets</string>
     <string name="wallet_utxo_visualization_tab_treemap">Treemap</string>
     <string name="wallet_utxo_visualization_tab_hold_waves">Hold waves</string>
     <string name="wallet_utxo_hold_waves_title">Hold waves</string>
     <string name="wallet_utxo_hold_waves_placeholder">Historical waves will appear once creation and spend timestamps are available.</string>
+    <string name="wallet_utxo_spendability_title">Spendability</string>
+    <string name="wallet_utxo_spendability_subtitle">Split UTXOs between spendable and locked outputs.</string>
+    <string name="wallet_utxo_spendability_label_spendable">Spendable</string>
+    <string name="wallet_utxo_spendability_label_locked">Locked</string>
+    <string name="wallet_utxo_size_title">Value buckets</string>
+    <string name="wallet_utxo_size_subtitle">UTXOs grouped by rounded value bands.</string>
     <string name="wallet_utxo_treemap_title">UTXO treemap</string>
     <string name="wallet_utxo_treemap_subtitle">Tiles are scaled by value and color-coded by age. No labels on the canvas—tap to inspect.</string>
     <string name="wallet_utxo_treemap_reset_range">Reset range</string>
