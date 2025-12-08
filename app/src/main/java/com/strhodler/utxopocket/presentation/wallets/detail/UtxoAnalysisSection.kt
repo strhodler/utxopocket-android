@@ -1,9 +1,11 @@
 package com.strhodler.utxopocket.presentation.wallets.detail
 
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -15,28 +17,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.border
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoAwesomeMosaic
-import androidx.compose.material.icons.outlined.Layers
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RangeSlider
@@ -44,9 +40,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,8 +51,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -63,23 +60,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
-import android.util.Log
+import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.UtxoAgeBucket
 import com.strhodler.utxopocket.domain.model.UtxoAgeHistogram
-import com.strhodler.utxopocket.domain.model.UtxoTreemapColorMode
+import com.strhodler.utxopocket.domain.model.UtxoHealthSeverity
+import com.strhodler.utxopocket.domain.model.UtxoTreemapColor
 import com.strhodler.utxopocket.domain.model.UtxoTreemapData
 import com.strhodler.utxopocket.domain.model.UtxoTreemapTile
-import com.strhodler.utxopocket.domain.model.UtxoTreemapColor
-import com.strhodler.utxopocket.domain.model.UtxoHealthSeverity
 import com.strhodler.utxopocket.presentation.common.balanceText
 import io.github.koalaplot.core.pie.DefaultSlice
 import io.github.koalaplot.core.pie.PieChart
@@ -100,20 +95,16 @@ private enum class UtxoAgeDistributionTab {
 fun UtxoAnalysisSection(
     histogram: UtxoAgeHistogram,
     treemapData: UtxoTreemapData,
-    treemapColorMode: UtxoTreemapColorMode,
-    onTreemapColorModeChange: (UtxoTreemapColorMode) -> Unit,
     onTreemapRangeChange: (LongRange) -> Unit,
-    onResetTreemapRange: () -> Unit,
+    onTreemapRequested: () -> Unit,
     balanceUnit: BalanceUnit,
     modifier: Modifier = Modifier
 ) {
     UtxoAgeDistributionCard(
         histogram = histogram,
         treemapData = treemapData,
-        treemapColorMode = treemapColorMode,
-        onTreemapColorModeChange = onTreemapColorModeChange,
         onTreemapRangeChange = onTreemapRangeChange,
-        onResetTreemapRange = onResetTreemapRange,
+        onTreemapRequested = onTreemapRequested,
         balanceUnit = balanceUnit,
         modifier = modifier
     )
@@ -124,10 +115,8 @@ fun UtxoAnalysisSection(
 private fun UtxoAgeDistributionCard(
     histogram: UtxoAgeHistogram,
     treemapData: UtxoTreemapData,
-    treemapColorMode: UtxoTreemapColorMode,
-    onTreemapColorModeChange: (UtxoTreemapColorMode) -> Unit,
     onTreemapRangeChange: (LongRange) -> Unit,
-    onResetTreemapRange: () -> Unit,
+    onTreemapRequested: () -> Unit,
     balanceUnit: BalanceUnit,
     modifier: Modifier = Modifier
 ) {
@@ -175,6 +164,11 @@ private fun UtxoAgeDistributionCard(
                 }
             }
 
+            LaunchedEffect(pagerState.currentPage) {
+                if (tabs[pagerState.currentPage] == UtxoAgeDistributionTab.Treemap) {
+                    onTreemapRequested()
+                }
+            }
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier
@@ -206,10 +200,7 @@ private fun UtxoAgeDistributionCard(
                     ) {
                         TreemapPage(
                             treemapData = treemapData,
-                            treemapColorMode = treemapColorMode,
-                            onTreemapColorModeChange = onTreemapColorModeChange,
                             onTreemapRangeChange = onTreemapRangeChange,
-                            onResetTreemapRange = onResetTreemapRange,
                             balanceUnit = balanceUnit
                         )
                     }
@@ -292,10 +283,7 @@ private fun HistogramPage(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun TreemapPage(
     treemapData: UtxoTreemapData,
-    treemapColorMode: UtxoTreemapColorMode,
-    onTreemapColorModeChange: (UtxoTreemapColorMode) -> Unit,
     onTreemapRangeChange: (LongRange) -> Unit,
-    onResetTreemapRange: () -> Unit,
     balanceUnit: BalanceUnit
 ) {
     var selectedTile by remember(treemapData.tiles) { mutableStateOf<UtxoTreemapTile?>(null) }
@@ -326,10 +314,7 @@ private fun TreemapPage(
         }
         TreemapControls(
             treemapData = treemapData,
-            treemapColorMode = treemapColorMode,
-            onTreemapColorModeChange = onTreemapColorModeChange,
             onTreemapRangeChange = onTreemapRangeChange,
-            onResetTreemapRange = onResetTreemapRange,
             balanceUnit = balanceUnit
         )
     }
@@ -351,10 +336,7 @@ private fun TreemapPage(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun TreemapControls(
     treemapData: UtxoTreemapData,
-    treemapColorMode: UtxoTreemapColorMode,
-    onTreemapColorModeChange: (UtxoTreemapColorMode) -> Unit,
     onTreemapRangeChange: (LongRange) -> Unit,
-    onResetTreemapRange: () -> Unit,
     balanceUnit: BalanceUnit
 ) {
     val availableRange = treemapData.availableRange
@@ -365,63 +347,15 @@ private fun TreemapControls(
             rangeToSlider(availableRange, selectedRange)
         )
     }
-    val valueFormatter = remember(balanceUnit) { { value: Long -> balanceText(value, balanceUnit) } }
+    val valueFormatter = remember { { value: Long -> formatSatsShort(value) } }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AssistChip(
-                onClick = { onTreemapColorModeChange(UtxoTreemapColorMode.DustRisk) },
-                label = { Text(text = stringResource(id = R.string.wallet_utxo_treemap_color_dust)) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.AutoAwesomeMosaic,
-                        contentDescription = null
-                    )
-                },
-                colors = AssistChipDefaults.assistChipColors(
-                    containerColor = if (treemapColorMode == UtxoTreemapColorMode.DustRisk) {
-                        MaterialTheme.colorScheme.tertiaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
-                    }
-                )
-            )
-            AssistChip(
-                onClick = { onTreemapColorModeChange(UtxoTreemapColorMode.Age) },
-                label = { Text(text = stringResource(id = R.string.wallet_utxo_treemap_color_age)) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.Layers,
-                        contentDescription = null
-                    )
-                },
-                colors = AssistChipDefaults.assistChipColors(
-                    containerColor = if (treemapColorMode == UtxoTreemapColorMode.Age) {
-                        MaterialTheme.colorScheme.secondaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
-                    }
-                )
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            AssistChip(
-                onClick = onResetTreemapRange,
-                label = { Text(text = stringResource(id = R.string.wallet_utxo_treemap_reset_range)) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.Refresh,
-                        contentDescription = null
-                    )
-                },
-                colors = AssistChipDefaults.assistChipColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
-                )
-            )
-        }
+        TreemapRangeShortcuts(
+            availableRange = availableRange,
+            selectedRange = selectedRange,
+            onTreemapRangeChange = onTreemapRangeChange,
+            valueFormatter = valueFormatter
+        )
         if (span > 0 && availableRange.first != availableRange.last) {
             RangeSlider(
                 value = sliderPosition,
@@ -465,6 +399,91 @@ private fun TreemapControls(
 }
 
 @Composable
+private fun TreemapRangeShortcuts(
+    availableRange: LongRange,
+    selectedRange: LongRange,
+    onTreemapRangeChange: (LongRange) -> Unit,
+    valueFormatter: (Long) -> String
+) {
+    val minValue = availableRange.first
+    val maxValue = availableRange.last
+    val roundThresholds = listOf(
+        1_000L,
+        10_000L,
+        100_000L,
+        1_000_000L,
+        10_000_000L,
+        100_000_000L,
+        1_000_000_000L
+    )
+    val boundedThresholds = roundThresholds.filter { it in minValue..maxValue }
+    val edges = (listOf(minValue) + boundedThresholds + listOf(maxValue))
+        .distinct()
+        .sorted()
+        .filter { it in minValue..maxValue }
+    val segments = edges.zipWithNext()
+        .mapNotNull { (start, end) ->
+            if (end <= start) return@mapNotNull null
+            start..end
+        }
+    val presets = buildList {
+        add(stringResource(id = R.string.wallet_utxo_treemap_range_preset_all) to availableRange)
+        if (segments.isEmpty()) return@buildList
+        segments.forEachIndexed { index, range ->
+            val label = when {
+                range.first == minValue && range.last < maxValue -> stringResource(
+                    id = R.string.wallet_utxo_treemap_range_preset_below,
+                    valueFormatter(range.last)
+                )
+                index == segments.lastIndex && range.last == maxValue -> stringResource(
+                    id = R.string.wallet_utxo_treemap_range_preset_above,
+                    valueFormatter(range.first)
+                )
+                else -> stringResource(
+                    id = R.string.wallet_utxo_treemap_range_preset_between,
+                    valueFormatter(range.first),
+                    valueFormatter(range.last)
+                )
+            }
+            add(label to sanitizeRange(range, availableRange))
+        }
+    }.distinctBy { it.second }
+    if (presets.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = stringResource(id = R.string.wallet_utxo_treemap_range_presets_label),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(presets) { (label, range) ->
+                val isSelected = selectedRange == range
+                AssistChip(
+                    onClick = {
+                        onTreemapRangeChange(range)
+                    },
+                    label = { Text(text = label) },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = if (isSelected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
+                        },
+                        labelColor = if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun TreemapCanvas(
     tiles: List<UtxoTreemapTile>,
     selectedTileId: String?,
@@ -473,16 +492,20 @@ private fun TreemapCanvas(
     val colorScheme = MaterialTheme.colorScheme
     val agePalette = remember(colorScheme) { agePalette(colorScheme) }
     val canvasBackground = colorScheme.surfaceVariant.copy(alpha = 0.55f)
+    val density = LocalDensity.current
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
     val tileRects = remember(tiles, canvasSize) {
         if (canvasSize == IntSize.Zero) {
             emptyList()
         } else {
+            val gapPx = with(density) { 2.dp.toPx() }
             tiles.mapNotNull { tile ->
-                val widthPx = (tile.normalizedWidth * canvasSize.width).coerceAtLeast(1f)
-                val heightPx = (tile.normalizedHeight * canvasSize.height).coerceAtLeast(1f)
-                val startX = tile.normalizedX * canvasSize.width
-                val startY = tile.normalizedY * canvasSize.height
+                val rawWidth = tile.normalizedWidth * canvasSize.width
+                val rawHeight = tile.normalizedHeight * canvasSize.height
+                val widthPx = (rawWidth - gapPx).coerceAtLeast(1f)
+                val heightPx = (rawHeight - gapPx).coerceAtLeast(1f)
+                val startX = tile.normalizedX * canvasSize.width + gapPx / 2
+                val startY = tile.normalizedY * canvasSize.height + gapPx / 2
                 val maxWidth = (canvasSize.width - startX).coerceAtLeast(0f)
                 val maxHeight = (canvasSize.height - startY).coerceAtLeast(0f)
                 val clampedWidth = widthPx.coerceAtMost(if (maxWidth > 0f) maxWidth else widthPx)
@@ -525,17 +548,9 @@ private fun TreemapCanvas(
             )
             if (selectedTileId == tile.id) {
                 drawRect(
-                    color = colorScheme.inversePrimary,
+                    color = colorScheme.inversePrimary.copy(alpha = 0.35f),
                     topLeft = rect.topLeft,
-                    size = rect.size,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4f)
-                )
-            } else {
-                drawRect(
-                    color = colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                    topLeft = rect.topLeft,
-                    size = rect.size,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
+                    size = rect.size
                 )
             }
         }
@@ -690,6 +705,35 @@ private fun agePalette(colorScheme: ColorScheme): Map<UtxoAgeBucket, Color> {
     return UtxoAgeBucket.entries.mapIndexed { index, bucket ->
         bucket to colors.getOrElse(index) { colorScheme.primary }
     }.toMap()
+}
+
+private fun sanitizeRange(range: LongRange, bounds: LongRange): LongRange {
+    val start = range.first.coerceIn(bounds.first, bounds.last)
+    val end = range.last.coerceIn(bounds.first, bounds.last)
+    val minValue = min(start, end)
+    val maxValue = max(start, end)
+    return minValue..maxValue
+}
+
+private fun formatSatsShort(value: Long): String {
+    val absValue = abs(value)
+    val (divisor, suffix) = when {
+        absValue >= 1_000_000_000L -> 1_000_000_000L to "B"
+        absValue >= 1_000_000L -> 1_000_000L to "M"
+        absValue >= 1_000L -> 1_000L to "k"
+        else -> 1L to ""
+    }
+    val scaled = value.toDouble() / divisor.toDouble()
+    val rounded = if (scaled % 1.0 == 0.0) {
+        scaled.toLong().toString()
+    } else {
+        String.format(Locale.getDefault(), "%.1f", scaled)
+    }
+    return if (suffix.isEmpty()) {
+        "$rounded sats"
+    } else {
+        "$rounded${suffix} sats"
+    }
 }
 
 private fun rangeToSlider(bounds: LongRange, selected: LongRange): ClosedFloatingPointRange<Float> {
