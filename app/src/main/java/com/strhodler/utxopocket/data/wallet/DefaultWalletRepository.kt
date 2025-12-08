@@ -284,18 +284,13 @@ class DefaultWalletRepository @Inject constructor(
     private fun queueFor(network: BitcoinNetwork): ArrayDeque<Long> =
         pendingWalletQueues.getOrPut(network) { ArrayDeque() }
 
-    private fun isNodeReady(network: BitcoinNetwork): Boolean {
-        val snapshot = nodeStatus.value
-        return snapshot.network == network && snapshot.status is NodeStatus.Synced
-    }
-
     private fun updateSyncStatusLocked(
         network: BitcoinNetwork,
         activeWalletId: Long?,
         queue: List<Long>,
         isRunning: Boolean
     ) {
-        val syncing = isRunning && activeWalletId != null && isNodeReady(network)
+        val syncing = isRunning && activeWalletId != null
         syncStatus.value = SyncStatusSnapshot(
             isRefreshing = syncing,
             network = network,

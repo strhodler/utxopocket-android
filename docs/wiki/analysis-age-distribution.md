@@ -20,6 +20,11 @@ The Analysis tab inside each wallet detail exposes two views over the same walle
 - Bucket colors are stable per snapshot so you can cross‑reference the donut with the legend at a glance.
 - Switch between **Count** and **Value** to catch imbalances (e.g., few old UTXOs holding most of the value).
 
+### Treemap (UTXO-map)
+- Shows every UTXO as a tile sized by value; color can switch between dust risk or the same age buckets as the histogram. No text labels on the canvas—tap a tile to open details.
+- Use the dual-handle slider to focus on a value range; the layout reflows instantly and tiny UTXOs are aggregated into a single tappable bin per color.
+- The treemap lives alongside the snapshot tab inside Analysis so you can move between distribution views without leaving the wallet.
+
 ## Privacy and security notes
 - Everything is computed locally from the synced watch‑only data; no metrics are sent out of the app.
 - The buckets are coarse on purpose to avoid revealing exact times while still surfacing consolidation risks.

@@ -37,6 +37,8 @@ import com.strhodler.utxopocket.domain.model.UtxoAgeHistogram
 import com.strhodler.utxopocket.domain.model.UtxoHoldWaves
 import com.strhodler.utxopocket.domain.service.UtxoVisualizationCalculator
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.UtxoTreemapColorMode
+import com.strhodler.utxopocket.domain.model.UtxoTreemapData
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.TransactionHealthRepository
 import com.strhodler.utxopocket.domain.repository.UtxoHealthRepository
@@ -47,6 +49,7 @@ import com.strhodler.utxopocket.domain.service.TransactionHealthAnalyzer
 import com.strhodler.utxopocket.domain.service.UtxoHealthAnalyzer
 import com.strhodler.utxopocket.domain.service.WalletHealthAggregator
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
+import com.strhodler.utxopocket.domain.service.UtxoTreemapCalculator
 import com.strhodler.utxopocket.data.utxohealth.DefaultUtxoHealthAnalyzer
 import com.strhodler.utxopocket.presentation.components.BalancePoint
 import com.strhodler.utxopocket.presentation.components.toWalletBalancePoints
@@ -68,6 +71,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
+import kotlin.math.max
+import kotlin.math.min
 
 @HiltViewModel
 class WalletDetailViewModel @Inject constructor(
@@ -81,7 +86,8 @@ class WalletDetailViewModel @Inject constructor(
     private val walletHealthRepository: WalletHealthRepository,
     private val walletHealthAggregator: WalletHealthAggregator,
     private val incomingTxCoordinator: IncomingTxCoordinator,
-    private val utxoVisualizationCalculator: UtxoVisualizationCalculator
+    private val utxoVisualizationCalculator: UtxoVisualizationCalculator,
+    private val utxoTreemapCalculator: UtxoTreemapCalculator
 ) : ViewModel() {
 
     val initialWalletName: String? =
@@ -100,6 +106,8 @@ class WalletDetailViewModel @Inject constructor(
     private val transactionLabelFilterState = MutableStateFlow(TransactionLabelFilter())
     private val utxoLabelFilterState = MutableStateFlow(UtxoLabelFilter())
     private val utxoHistogramModeState = MutableStateFlow(UtxoHistogramMode.Count)
+    private val utxoTreemapColorModeState = MutableStateFlow(UtxoTreemapColorMode.DustRisk)
+    private val utxoTreemapRangeState = MutableStateFlow<LongRange?>(null)
     private val selectedBalanceRangeState = MutableStateFlow(BalanceRange.All)
     private val showBalanceChartState = MutableStateFlow(false)
     private val balanceHistoryReducer = BalanceHistoryReducer()
@@ -321,8 +329,16 @@ class WalletDetailViewModel @Inject constructor(
         uiInputs,
         utxoLabelFilterState,
         transactionLabelFilterState,
-        utxoHistogramModeState
-    ) { inputs, utxoLabelFilter, transactionLabelFilter, utxoHistogramMode ->
+        utxoHistogramModeState,
+        utxoTreemapColorModeState,
+        utxoTreemapRangeState
+    ) { values: Array<Any?> ->
+        val inputs = values[0] as UiInputs
+        val utxoLabelFilter = values[1] as UtxoLabelFilter
+        val transactionLabelFilter = values[2] as TransactionLabelFilter
+        val utxoHistogramMode = values[3] as UtxoHistogramMode
+        val utxoTreemapColorMode = values[4] as UtxoTreemapColorMode
+        val utxoTreemapRange = values[5] as LongRange?
         buildUiState(
             baseSnapshot = inputs.baseSnapshot,
             transactionSort = inputs.transactionSort,
@@ -332,7 +348,9 @@ class WalletDetailViewModel @Inject constructor(
             transactionLabelFilter = transactionLabelFilter,
             showBalanceChart = inputs.showBalanceChart,
             incomingPlaceholders = inputs.incomingPlaceholders,
-            utxoHistogramMode = utxoHistogramMode
+            utxoHistogramMode = utxoHistogramMode,
+            utxoTreemapColorMode = utxoTreemapColorMode,
+            utxoTreemapRange = utxoTreemapRange
         )
     }.stateIn(
         scope = viewModelScope,
@@ -345,12 +363,14 @@ class WalletDetailViewModel @Inject constructor(
         transactionSort: WalletTransactionSort,
         utxoSort: WalletUtxoSort,
         selectedRange: BalanceRange,
-    utxoLabelFilter: UtxoLabelFilter,
-    transactionLabelFilter: TransactionLabelFilter,
-    showBalanceChart: Boolean,
-    incomingPlaceholders: List<IncomingTxPlaceholder>,
-    utxoHistogramMode: UtxoHistogramMode
-): WalletDetailUiState {
+        utxoLabelFilter: UtxoLabelFilter,
+        transactionLabelFilter: TransactionLabelFilter,
+        showBalanceChart: Boolean,
+        incomingPlaceholders: List<IncomingTxPlaceholder>,
+        utxoHistogramMode: UtxoHistogramMode,
+        utxoTreemapColorMode: UtxoTreemapColorMode,
+        utxoTreemapRange: LongRange?
+    ): WalletDetailUiState {
         val detail = baseSnapshot.detail
         val availableTransactionSorts = availableTransactionSorts(baseSnapshot.transactionAnalysisEnabled)
         val resolvedTransactionSort = if (transactionSort in availableTransactionSorts) {
@@ -372,14 +392,11 @@ class WalletDetailViewModel @Inject constructor(
         }
         return if (detail == null) {
             balanceHistoryReducer.clear()
-                WalletDetailUiState(
-                    isLoading = false,
-                    isRefreshing = baseSnapshot.nodeSnapshot.status is NodeStatus.Synced &&
-                        (
-                            baseSnapshot.syncStatus.isRefreshing ||
-                                baseSnapshot.syncStatus.refreshingWalletIds.isNotEmpty() ||
-                                baseSnapshot.syncStatus.activeWalletId != null
-                        ),
+            WalletDetailUiState(
+                isLoading = false,
+                isRefreshing = baseSnapshot.syncStatus.isRefreshing ||
+                    baseSnapshot.syncStatus.refreshingWalletIds.isNotEmpty() ||
+                    baseSnapshot.syncStatus.activeWalletId != null,
                 summary = null,
                 descriptor = null,
                 changeDescriptor = null,
@@ -423,7 +440,6 @@ class WalletDetailViewModel @Inject constructor(
             val syncSnapshot = baseSnapshot.syncStatus
             val matchesSyncNetwork = syncSnapshot.network == summary.network
             val isSyncing = matchesSyncNetwork &&
-                baseSnapshot.nodeSnapshot.status is NodeStatus.Synced &&
                 (syncSnapshot.activeWalletId == summary.id || syncSnapshot.refreshingWalletIds.contains(summary.id))
             val balanceHistoryPoints = baseSnapshot.balanceHistory
             val displayBalancePoints = balanceHistoryReducer.pointsForRange(
@@ -467,6 +483,21 @@ class WalletDetailViewModel @Inject constructor(
                 currentBlockHeight = baseSnapshot.nodeSnapshot.blockHeight
             )
             val holdWaves = utxoVisualizationCalculator.buildHoldWaves(histogram)
+            val treemapRangeBounds = resolveTreemapRangeBounds(filteredUtxos)
+            val resolvedTreemapRange = resolveTreemapRange(treemapRangeBounds, utxoTreemapRange)
+            if (utxoTreemapRange != resolvedTreemapRange) {
+                utxoTreemapRangeState.value = resolvedTreemapRange
+            }
+            val treemapData = utxoTreemapCalculator.calculate(
+                utxos = filteredUtxos,
+                transactions = detail.transactions,
+                utxoHealth = if (baseSnapshot.utxoHealthEnabled) baseSnapshot.utxoHealth else emptyMap(),
+                colorMode = utxoTreemapColorMode,
+                availableRange = treemapRangeBounds,
+                selectedRange = resolvedTreemapRange,
+                dustThresholdSats = baseSnapshot.dustThresholdSats,
+                currentBlockHeight = baseSnapshot.nodeSnapshot.blockHeight
+            )
             WalletDetailUiState(
                 isLoading = false,
                 isRefreshing = isSyncing,
@@ -518,7 +549,9 @@ class WalletDetailViewModel @Inject constructor(
                 incomingPlaceholders = filteredPlaceholders,
                 utxoAgeHistogram = histogram,
                 utxoHistogramMode = utxoHistogramMode,
-                utxoHoldWaves = holdWaves
+                utxoHoldWaves = holdWaves,
+                utxoTreemap = treemapData,
+                utxoTreemapColorMode = utxoTreemapColorMode
             )
         }
     }
@@ -544,6 +577,21 @@ class WalletDetailViewModel @Inject constructor(
     fun setUtxoHistogramMode(mode: UtxoHistogramMode) {
         if (utxoHistogramModeState.value != mode) {
             utxoHistogramModeState.value = mode
+        }
+    }
+
+    fun setUtxoTreemapColorMode(mode: UtxoTreemapColorMode) {
+        if (utxoTreemapColorModeState.value != mode) {
+            utxoTreemapColorModeState.value = mode
+        }
+    }
+
+    fun setUtxoTreemapRange(range: LongRange) {
+        val start = min(range.first, range.last).coerceAtLeast(0L)
+        val end = max(range.first, range.last).coerceAtLeast(0L)
+        val sanitized = start..end
+        if (utxoTreemapRangeState.value != sanitized) {
+            utxoTreemapRangeState.value = sanitized
         }
     }
 
@@ -757,6 +805,40 @@ class WalletDetailViewModel @Inject constructor(
         )
     }
 
+    private fun resolveTreemapRangeBounds(utxos: List<WalletUtxo>): LongRange {
+        if (utxos.isEmpty()) return 0L..0L
+        val minValue = utxos.minOf { it.valueSats }
+        val maxValue = utxos.maxOf { it.valueSats }
+        return minValue..maxValue
+    }
+
+    private fun resolveTreemapRange(
+        bounds: LongRange,
+        selected: LongRange?
+    ): LongRange {
+        if (bounds.first == 0L && bounds.last == 0L) return bounds
+        val desired = selected ?: bounds
+        val start = desired.first.coerceAtLeast(bounds.first)
+        val end = desired.last.coerceAtMost(bounds.last)
+        return if (start <= end) start..end else bounds
+    }
+
+    private fun emptyTreemapData(
+        availableRange: LongRange,
+        selectedRange: LongRange,
+        utxoCount: Int,
+        totalValue: Long
+    ): UtxoTreemapData = UtxoTreemapData(
+        tiles = emptyList(),
+        availableRange = availableRange,
+        selectedRange = selectedRange,
+        totalCount = utxoCount,
+        filteredCount = 0,
+        totalValueSats = totalValue,
+        filteredValueSats = 0,
+        aggregatedCount = 0
+    )
+
     private fun availableTransactionSorts(analysisEnabled: Boolean): List<WalletTransactionSort> =
         if (analysisEnabled) {
             WalletTransactionSort.entries.toList()
@@ -836,7 +918,9 @@ data class WalletDetailUiState(
     val incomingPlaceholders: List<IncomingTxPlaceholder> = emptyList(),
     val utxoAgeHistogram: UtxoAgeHistogram = EMPTY_UTXO_HISTOGRAM,
     val utxoHistogramMode: UtxoHistogramMode = UtxoHistogramMode.Count,
-    val utxoHoldWaves: UtxoHoldWaves = EMPTY_UTXO_HOLD_WAVES
+    val utxoHoldWaves: UtxoHoldWaves = EMPTY_UTXO_HOLD_WAVES,
+    val utxoTreemap: UtxoTreemapData = UtxoTreemapData.Empty,
+    val utxoTreemapColorMode: UtxoTreemapColorMode = UtxoTreemapColorMode.DustRisk
 )
 
 sealed interface WalletDetailError {

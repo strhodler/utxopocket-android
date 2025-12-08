@@ -238,9 +238,13 @@ private fun WalletDetailContent(
 ) {
     val summary = requireNotNull(state.summary)
     val tabs = remember { WalletDetailTab.entries.toTypedArray() }
-    val walletErrorMessage = remember(summary.lastSyncStatus) {
+    val walletErrorMessage = remember(summary.lastSyncStatus, state.nodeStatus) {
         when (val status = summary.lastSyncStatus) {
-            is NodeStatus.Error -> sanitizeWalletErrorMessage(status.message)
+            is NodeStatus.Error -> if (state.nodeStatus is NodeStatus.Error) {
+                null
+            } else {
+                sanitizeWalletErrorMessage(status.message)
+            }
             else -> null
         }
     }

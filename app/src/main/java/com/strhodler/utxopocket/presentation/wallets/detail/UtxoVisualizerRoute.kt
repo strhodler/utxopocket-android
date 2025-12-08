@@ -21,6 +21,7 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
+import com.strhodler.utxopocket.domain.model.UtxoTreemapColorMode
 
 @Composable
 fun UtxoVisualizerRoute(
@@ -74,8 +75,16 @@ fun UtxoVisualizerRoute(
                         .padding(bottom = 16.dp),
                     verticalArrangement = Arrangement.Top
                 ) {
-                    UtxoVisualizationSection(
-                        state = state,
+                    UtxoAnalysisSection(
+                        histogram = state.utxoAgeHistogram,
+                        treemapData = state.utxoTreemap,
+                        treemapColorMode = state.utxoTreemapColorMode,
+                        onTreemapColorModeChange = viewModel::setUtxoTreemapColorMode,
+                        onTreemapRangeChange = viewModel::setUtxoTreemapRange,
+                        onResetTreemapRange = {
+                            viewModel.setUtxoTreemapRange(state.utxoTreemap.availableRange)
+                        },
+                        balanceUnit = state.balanceUnit,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
