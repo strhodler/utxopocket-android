@@ -21,6 +21,7 @@ data class UtxoTreemapTile(
     val id: String,
     val entries: List<UtxoTreemapEntry>,
     val totalValueSats: Long,
+    val inSelectedRange: Boolean,
     val normalizedX: Float,
     val normalizedY: Float,
     val normalizedWidth: Float,

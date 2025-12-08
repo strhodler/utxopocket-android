@@ -37,23 +37,8 @@ class UtxoTreemapCalculator @Inject constructor() {
     ): UtxoTreemapData {
         if (utxos.isEmpty()) return UtxoTreemapData.Empty
         val boundedRange = normalizeRange(availableRange, selectedRange)
-        val filteredUtxos = utxos.filter { utxo ->
-            utxo.valueSats in boundedRange
-        }
-        if (filteredUtxos.isEmpty()) {
-            return UtxoTreemapData(
-                tiles = emptyList(),
-                availableRange = availableRange,
-                selectedRange = boundedRange,
-                totalCount = utxos.size,
-                filteredCount = 0,
-                totalValueSats = utxos.sumOf { it.valueSats },
-                filteredValueSats = 0,
-                aggregatedCount = 0
-            )
-        }
         val txIndex = transactions.associateBy { it.id }
-        val entries = filteredUtxos.map { utxo ->
+        val entries = utxos.map { utxo ->
             val colorBucket = when (colorMode) {
                 UtxoTreemapColorMode.DustRisk -> UtxoTreemapColor.Dust(
                     detectDustSeverity(
@@ -89,6 +74,7 @@ class UtxoTreemapCalculator @Inject constructor() {
                 id = group.id,
                 entries = group.entries,
                 totalValueSats = group.totalValue,
+                inSelectedRange = group.entries.any { it.valueSats in boundedRange },
                 normalizedX = node.offsetX.toFloat().coerceIn(0f, 1f),
                 normalizedY = node.offsetY.toFloat().coerceIn(0f, 1f),
                 normalizedWidth = node.width.toFloat().coerceIn(0f, 1f),
@@ -98,18 +84,19 @@ class UtxoTreemapCalculator @Inject constructor() {
             )
         }.filterNotNull()
         val totalValue = utxos.sumOf { it.valueSats }
-        val filteredValue = filteredUtxos.sumOf { it.valueSats }
+        val filteredValue = utxos.filter { it.valueSats in boundedRange }.sumOf { it.valueSats }
+        val filteredCount = utxos.count { it.valueSats in boundedRange }
         val aggregatedCount = groups.filter { it.isAggregate }.sumOf { it.entries.size }
         Log.d(
             TAG,
-            "treemap calc: utxos=${utxos.size}, filtered=${filteredUtxos.size}, tiles=${tiles.size}, bounds=$availableRange, selected=$boundedRange, total=$totalValue, filteredValue=$filteredValue, aggregated=$aggregatedCount"
+            "treemap calc: utxos=${utxos.size}, filtered=$filteredCount, tiles=${tiles.size}, bounds=$availableRange, selected=$boundedRange, total=$totalValue, filteredValue=$filteredValue, aggregated=$aggregatedCount"
         )
         return UtxoTreemapData(
             tiles = tiles,
             availableRange = availableRange,
             selectedRange = boundedRange,
             totalCount = utxos.size,
-            filteredCount = filteredUtxos.size,
+            filteredCount = filteredCount,
             totalValueSats = totalValue,
             filteredValueSats = filteredValue,
             aggregatedCount = aggregatedCount

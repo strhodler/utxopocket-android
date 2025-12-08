@@ -24,7 +24,8 @@ The Analysis tab inside each wallet detail now offers multiple breakdowns over t
 
 ### Treemap (UTXO-map)
 - Shows every UTXO as a tile sized by value; color is fixed to age buckets for clarity. No text labels on the canvas—tap a tile to open details.
-- Use quick presets (aligned to the value bands above) or the dual-handle slider to focus on a value range; the layout reflows instantly and tiny UTXOs are aggregated into a single tappable bin per color.
+- Quick presets (aligned to the value bands above) or the dual-handle slider set the “focus range”. Tiles inside the range stay fully colored; tiles outside keep only a subtle border on the canvas background, so you always see the full set without items disappearing.
+- Tiny UTXOs are aggregated into a single tappable bin per color when space is scarce.
 - The treemap lives alongside the other distribution tabs inside Analysis so you can move between views without leaving the wallet.
 
 ## Privacy and security notes

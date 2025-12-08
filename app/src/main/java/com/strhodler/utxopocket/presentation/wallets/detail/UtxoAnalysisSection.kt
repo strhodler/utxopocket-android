@@ -59,6 +59,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -775,8 +776,9 @@ private fun TreemapCanvas(
     onTileSelected: (UtxoTreemapTile) -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val agePalette = remember(colorScheme) { agePalette(colorScheme) }
-    val canvasBackground = colorScheme.surfaceVariant.copy(alpha = 0.55f)
+    val isDark = isSystemInDarkTheme()
+    val agePalette = remember(colorScheme, isDark) { agePalette(colorScheme, isDark) }
+    val canvasBackground = colorScheme.background
     val density = LocalDensity.current
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
     val tileRects = remember(tiles, canvasSize) {
@@ -826,18 +828,23 @@ private fun TreemapCanvas(
         )
         tileRects.forEach { (tile, rect) ->
             val color = treemapColorFor(tile, colorScheme, agePalette)
+            val fillColor = if (tile.inSelectedRange) color else canvasBackground
+            val borderColor = when {
+                selectedTileId == tile.id -> colorScheme.inversePrimary
+                tile.inSelectedRange -> colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                else -> colorScheme.onSurface.copy(alpha = 0.15f)
+            }
             drawRect(
-                color = color,
+                color = fillColor,
                 topLeft = rect.topLeft,
                 size = rect.size
             )
-            if (selectedTileId == tile.id) {
-                drawRect(
-                    color = colorScheme.inversePrimary.copy(alpha = 0.35f),
-                    topLeft = rect.topLeft,
-                    size = rect.size
-                )
-            }
+            drawRect(
+                color = borderColor,
+                topLeft = rect.topLeft,
+                size = rect.size,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
+            )
         }
     }
 }
@@ -985,11 +992,29 @@ private fun treemapColorLabel(
     }
 }
 
-private fun agePalette(colorScheme: ColorScheme): Map<UtxoAgeBucket, Color> {
-    val colors = buildSliceColors(colorScheme, UtxoAgeBucket.entries.size)
+private fun agePalette(colorScheme: ColorScheme, isDark: Boolean): Map<UtxoAgeBucket, Color> {
+    val colors = if (isDark) {
+        buildSliceColors(colorScheme, UtxoAgeBucket.entries.size)
+    } else {
+        heatPaletteLight()
+    }
     return UtxoAgeBucket.entries.mapIndexed { index, bucket ->
         bucket to colors.getOrElse(index) { colorScheme.primary }
     }.toMap()
+}
+
+private fun heatPaletteLight(): List<Color> {
+    // High-contrast ramp for light mode: cool to warm with stable luminance.
+    return listOf(
+        Color(0xFF0D47A1), // Blue900
+        Color(0xFF1976D2), // Blue700
+        Color(0xFF009688), // Teal500
+        Color(0xFF43A047), // Green600
+        Color(0xFFFBC02D), // Yellow700
+        Color(0xFFFFA000), // Amber700
+        Color(0xFFF57C00), // Orange700
+        Color(0xFFD32F2F)  // Red700
+    )
 }
 
 private fun sanitizeRange(range: LongRange, bounds: LongRange): LongRange {
