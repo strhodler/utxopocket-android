@@ -423,7 +423,7 @@
     <string name="transaction_detail_flow_outputs">Outputs</string>
     <string name="transaction_detail_flow_index_heading">Index %1$d: %2$s</string>
     <string name="transaction_detail_flow_unknown_output">Output #%1$d</string>
-    <string name="transaction_detail_flow_wallet_badge">Wallet</string>
+    <string name="transaction_detail_flow_wallet_badge">Own</string>
     <string name="transaction_detail_flow_external_badge">External</string>
     <string name="transaction_detail_flow_change_badge">Change</string>
     <string name="transaction_detail_flow_derivation">Path %1$s</string>
@@ -513,7 +513,7 @@
     <string name="transaction_visualizer_summary_vbytes">%1$d vB</string>
     <string name="transaction_visualizer_toggle_legend">Toggle legend</string>
     <string name="transaction_visualizer_legend_title">Legend</string>
-    <string name="transaction_visualizer_legend_wallet_owned">Wallet-owned</string>
+    <string name="transaction_visualizer_legend_wallet_owned">Own</string>
     <string name="transaction_visualizer_legend_external">External</string>
     <string name="transaction_visualizer_legend_change">Change</string>
     <string name="transaction_visualizer_legend_fee">Fee</string>
@@ -527,7 +527,7 @@
     <string name="transaction_visualizer_value_title">Value</string>
     <string name="transaction_visualizer_address_title">Address</string>
     <string name="transaction_visualizer_derivation_title">Derivation path</string>
-    <string name="transaction_visualizer_wallet_owned">Wallet-owned</string>
+    <string name="transaction_visualizer_wallet_owned">Own</string>
     <string name="transaction_visualizer_external_owned">External</string>
     <string name="transaction_visualizer_group_child_count">%1$d grouped entries</string>
     <string name="transaction_visualizer_warning_title">Visualizer limited</string>

@@ -322,7 +322,7 @@
     <string name="transaction_detail_flow_outputs">Salidas</string>
     <string name="transaction_detail_flow_index_heading">Índice %1$d: %2$s</string>
     <string name="transaction_detail_flow_unknown_output">Salida #%1$d</string>
-    <string name="transaction_detail_flow_wallet_badge">Billetera</string>
+    <string name="transaction_detail_flow_wallet_badge">Propio</string>
     <string name="transaction_detail_flow_external_badge">Externa</string>
     <string name="transaction_detail_flow_change_badge">Cambio</string>
     <string name="transaction_detail_flow_derivation">Ruta %1$s</string>
@@ -381,7 +381,7 @@
     <string name="transaction_visualizer_summary_vbytes">%1$d vB</string>
     <string name="transaction_visualizer_toggle_legend">Mostrar u ocultar la leyenda</string>
     <string name="transaction_visualizer_legend_title">Leyenda</string>
-    <string name="transaction_visualizer_legend_wallet_owned">Propiedad de la billetera</string>
+    <string name="transaction_visualizer_legend_wallet_owned">Propio</string>
     <string name="transaction_visualizer_legend_external">Externa</string>
     <string name="transaction_visualizer_legend_change">Cambio</string>
     <string name="transaction_visualizer_legend_fee">Tarifa</string>
@@ -395,7 +395,7 @@
     <string name="transaction_visualizer_value_title">Valor</string>
     <string name="transaction_visualizer_address_title">Dirección</string>
     <string name="transaction_visualizer_derivation_title">Ruta de derivación</string>
-    <string name="transaction_visualizer_wallet_owned">Propiedad de la billetera</string>
+    <string name="transaction_visualizer_wallet_owned">Propio</string>
     <string name="transaction_visualizer_external_owned">Externa</string>
     <string name="transaction_visualizer_group_child_count">%1$d elementos agrupados</string>
     <string name="transaction_visualizer_warning_title">Datos insuficientes</string>

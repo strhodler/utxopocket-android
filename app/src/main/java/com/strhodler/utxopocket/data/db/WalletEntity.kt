@@ -271,7 +271,7 @@ fun WalletUtxoEntity.toDomain(): WalletUtxo =
 
 private fun toWalletAddressType(value: String): WalletAddressType? = when (value.uppercase()) {
     "EXTERNAL" -> WalletAddressType.EXTERNAL
-    "INTERNAL" -> WalletAddressType.CHANGE
+    "INTERNAL", "CHANGE" -> WalletAddressType.CHANGE
     else -> null
 }
 

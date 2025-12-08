@@ -2200,11 +2200,10 @@ private fun transactionBadges(
     walletBadge: String,
     changeBadge: String
 ): List<String> = buildList {
-    if (isMine) {
-        add(walletBadge)
-    }
     if (addressType == WalletAddressType.CHANGE) {
         add(changeBadge)
+    } else if (isMine) {
+        add(walletBadge)
     }
 }
 
