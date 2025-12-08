@@ -348,6 +348,11 @@ fun MainNavHost(
                             WalletsNavigation.transactionVisualizerRoute(walletId, txId)
                         )
                     },
+                    onOpenUtxo = { walletId, txId, vout ->
+                        navController.navigate(
+                            WalletsNavigation.utxoDetailRoute(walletId, txId, vout)
+                        )
+                    },
                     onOpenWalletSettings = {
                         navController.navigate(MainDestination.Settings.route) {
                             launchSingleTop = true

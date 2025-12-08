@@ -106,6 +106,7 @@ import com.strhodler.utxopocket.domain.model.TransactionHealthResult
 import com.strhodler.utxopocket.domain.model.TransactionType
 import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
 import com.strhodler.utxopocket.domain.model.UtxoHealthResult
+import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.displayLabel
@@ -2078,6 +2079,12 @@ private fun UtxoDetailedCard(
     val dustThresholdLabel = remember(dustThresholdSats) {
         NumberFormat.getInstance().format(dustThresholdSats)
     }
+    val isChangeUtxo = utxo.addressType == WalletAddressType.CHANGE
+    val changeBadgeText = if (isChangeUtxo) {
+        stringResource(id = R.string.transaction_detail_flow_change_badge)
+    } else {
+        null
+    }
     val utxoCardColor = MaterialTheme.colorScheme.surfaceContainer
     val spendableIcon = if (utxo.spendable) Icons.Outlined.LockOpen else Icons.Outlined.Lock
     val spendableTint = if (utxo.spendable) {
@@ -2110,10 +2117,17 @@ private fun UtxoDetailedCard(
                     modifier = Modifier.weight(1f),
                     contentAlignment = Alignment.CenterStart
                 ) {
-                    Text(
-                        text = amountText,
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = amountText,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        changeBadgeText?.let {
+                            CautionBadge(text = it)
+                        }
+                    }
                 }
                 Column(
                     horizontalAlignment = Alignment.End,
@@ -2191,6 +2205,31 @@ private fun UtxoDetailedCard(
                     color = MaterialTheme.colorScheme.error
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun CautionBadge(text: String) {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Warning,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp)
+            )
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall
+            )
         }
     }
 }
