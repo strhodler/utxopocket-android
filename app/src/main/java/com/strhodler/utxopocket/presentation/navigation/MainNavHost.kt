@@ -403,8 +403,14 @@ fun MainNavHost(
                     navArgument(WalletsNavigation.WalletNameArg) { type = NavType.StringType; defaultValue = "" }
                 )
             ) {
+                val walletId = it.arguments?.getLong(WalletsNavigation.WalletIdArg)
+                    ?: it.arguments?.getString(WalletsNavigation.WalletIdArg)?.toLongOrNull()
+                    ?: return@composable
                 UtxoVisualizerRoute(
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onOpenUtxo = { txId, vout ->
+                        navController.navigate(WalletsNavigation.utxoDetailRoute(walletId, txId, vout))
+                    }
                 )
             }
             composable(

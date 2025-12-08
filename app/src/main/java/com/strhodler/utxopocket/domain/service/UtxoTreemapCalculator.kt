@@ -63,6 +63,7 @@ class UtxoTreemapCalculator @Inject constructor() {
                 txid = utxo.txid,
                 vout = utxo.vout,
                 valueSats = utxo.valueSats,
+                address = utxo.address,
                 colorBucket = colorBucket
             )
         }

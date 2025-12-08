@@ -225,6 +225,11 @@
     <string name="wallet_utxo_treemap_color_dust_medium">Medio</string>
     <string name="wallet_utxo_treemap_color_dust_high">Alto</string>
     <string name="wallet_utxo_treemap_color_label_age">Antigüedad: %1$s</string>
+    <string name="wallet_utxo_treemap_view_details">Ver detalle del UTXO</string>
+    <string name="wallet_utxo_treemap_outpoint_label">Tx. output</string>
+    <string name="wallet_utxo_treemap_address_label">Dirección</string>
+    <string name="wallet_utxo_treemap_age_bucket_label">Antigüedad</string>
+    <string name="wallet_utxo_treemap_value_label">Valor</string>
     <string name="wallet_detail_transactions_filter_labeled">Etiquetadas</string>
     <string name="wallet_detail_transactions_filter_unlabeled">Sin etiqueta</string>
     <string name="wallet_detail_transactions_filter_received">Entradas</string>

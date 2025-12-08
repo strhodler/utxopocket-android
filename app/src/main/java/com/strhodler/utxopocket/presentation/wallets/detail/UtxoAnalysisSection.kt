@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -32,6 +34,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RangeSlider
@@ -39,6 +43,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -117,6 +122,7 @@ fun UtxoAnalysisSection(
     treemapData: UtxoTreemapData,
     onTreemapRangeChange: (LongRange) -> Unit,
     onTreemapRequested: () -> Unit,
+    onOpenUtxo: (String, Int) -> Unit,
     balanceUnit: BalanceUnit,
     modifier: Modifier = Modifier
 ) {
@@ -127,6 +133,7 @@ fun UtxoAnalysisSection(
         treemapData = treemapData,
         onTreemapRangeChange = onTreemapRangeChange,
         onTreemapRequested = onTreemapRequested,
+        onOpenUtxo = onOpenUtxo,
         balanceUnit = balanceUnit,
         modifier = modifier
     )
@@ -141,6 +148,7 @@ private fun UtxoAgeDistributionCard(
     treemapData: UtxoTreemapData,
     onTreemapRangeChange: (LongRange) -> Unit,
     onTreemapRequested: () -> Unit,
+    onOpenUtxo: (String, Int) -> Unit,
     balanceUnit: BalanceUnit,
     modifier: Modifier = Modifier
 ) {
@@ -155,7 +163,7 @@ private fun UtxoAgeDistributionCard(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth(),
+                .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ScrollableTabRow(
@@ -199,7 +207,7 @@ private fun UtxoAgeDistributionCard(
                 state = pagerState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 360.dp),
+                    .weight(1f),
                 userScrollEnabled = false
             ) { pageIndex ->
                 val pageScroll = rememberScrollState()
@@ -246,13 +254,14 @@ private fun UtxoAgeDistributionCard(
                     UtxoAgeDistributionTab.Treemap -> Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .verticalScroll(pageScroll),
+                            .fillMaxHeight()
+                            .padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         TreemapPage(
                             treemapData = treemapData,
                             onTreemapRangeChange = onTreemapRangeChange,
+                            onOpenUtxo = onOpenUtxo,
                             balanceUnit = balanceUnit
                         )
                     }
@@ -586,20 +595,29 @@ private fun DistributionLegend(
 private fun TreemapPage(
     treemapData: UtxoTreemapData,
     onTreemapRangeChange: (LongRange) -> Unit,
+    onOpenUtxo: (String, Int) -> Unit,
     balanceUnit: BalanceUnit
 ) {
     var selectedTile by remember(treemapData.tiles) { mutableStateOf<UtxoTreemapTile?>(null) }
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         if (treemapData.filteredCount == 0 || treemapData.tiles.isEmpty()) {
-            EmptyTreemapPlaceholder()
+            EmptyTreemapPlaceholder(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            )
         } else {
             TreemapCanvas(
                 tiles = treemapData.tiles,
                 selectedTileId = selectedTile?.id,
-                onTileSelected = { tile -> selectedTile = tile }
+                onTileSelected = { tile -> selectedTile = tile },
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .heightIn(min = 360.dp)
             )
         }
         TreemapControls(
@@ -616,7 +634,9 @@ private fun TreemapPage(
         ) {
             TreemapTileSheet(
                 tile = selectedTile!!,
-                balanceUnit = balanceUnit
+                balanceUnit = balanceUnit,
+                onOpenUtxo = onOpenUtxo,
+                onDismiss = { selectedTile = null }
             )
         }
     }
@@ -657,9 +677,9 @@ private fun TreemapControls(
         if (span > 0 && availableRange.first != availableRange.last) {
             RangeSlider(
                 value = sliderPosition,
-                onValueChange = { sliderPosition = it },
-                onValueChangeFinished = {
-                    val newRange = sliderToRange(sliderPosition, availableRange)
+                onValueChange = { position ->
+                    sliderPosition = position
+                    val newRange = sliderToRange(position, availableRange)
                     updateRange(newRange)
                 },
                 valueRange = 0f..1f,
@@ -773,7 +793,8 @@ private fun TreemapRangeShortcuts(
 private fun TreemapCanvas(
     tiles: List<UtxoTreemapTile>,
     selectedTileId: String?,
-    onTileSelected: (UtxoTreemapTile) -> Unit
+    onTileSelected: (UtxoTreemapTile) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val isDark = isSystemInDarkTheme()
@@ -807,9 +828,8 @@ private fun TreemapCanvas(
         }
     }
     Canvas(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .height(360.dp)
             .onSizeChanged { size -> canvasSize = size }
             .pointerInput(tileRects) {
                 detectTapGestures { offset ->
@@ -831,7 +851,7 @@ private fun TreemapCanvas(
             val fillColor = if (tile.inSelectedRange) color else canvasBackground
             val borderColor = when {
                 selectedTileId == tile.id -> colorScheme.inversePrimary
-                tile.inSelectedRange -> colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                tile.inSelectedRange -> Color.Transparent
                 else -> colorScheme.onSurface.copy(alpha = 0.15f)
             }
             drawRect(
@@ -839,12 +859,14 @@ private fun TreemapCanvas(
                 topLeft = rect.topLeft,
                 size = rect.size
             )
-            drawRect(
-                color = borderColor,
-                topLeft = rect.topLeft,
-                size = rect.size,
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
-            )
+            if (borderColor.alpha > 0f) {
+                drawRect(
+                    color = borderColor,
+                    topLeft = rect.topLeft,
+                    size = rect.size,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
+                )
+            }
         }
     }
 }
@@ -852,11 +874,28 @@ private fun TreemapCanvas(
 @Composable
 private fun TreemapTileSheet(
     tile: UtxoTreemapTile,
-    balanceUnit: BalanceUnit
+    balanceUnit: BalanceUnit,
+    onOpenUtxo: (String, Int) -> Unit,
+    onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     val colorLabel = remember(tile.colorBucket, context) {
         treemapColorLabel(tile.colorBucket, context)
+    }
+    val colorScheme = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
+    val ageColorPalette = remember(colorScheme, isDark) { agePalette(colorScheme, isDark) }
+    val colorBadge = remember(tile, colorScheme, ageColorPalette) {
+        treemapColorFor(tile, colorScheme, ageColorPalette)
+    }
+    val ageBucketLabel = remember(tile.colorBucket, context) {
+        when (val bucket = tile.colorBucket) {
+            is UtxoTreemapColor.Age -> context.getString(bucketLabelRes(bucket.bucket))
+            is UtxoTreemapColor.Dust -> null
+        }
+    }
+    val detailEntry = remember(tile) {
+        tile.entries.singleOrNull()
     }
     Column(
         modifier = Modifier
@@ -864,76 +903,170 @@ private fun TreemapTileSheet(
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = if (tile.isAggregate) {
-                stringResource(id = R.string.wallet_utxo_treemap_aggregate_title)
-            } else {
-                stringResource(id = R.string.wallet_utxo_treemap_tile_title)
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = {
+                Text(
+                    text = stringResource(id = R.string.wallet_utxo_treemap_value_label),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             },
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
+            supportingContent = {
+                Text(
+                    text = balanceText(tile.totalValueSats, balanceUnit),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         )
-        Text(
-            text = balanceText(tile.totalValueSats, balanceUnit),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = stringResource(
-                id = R.string.wallet_utxo_treemap_tile_count,
-                tile.entries.size
-            ),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = colorLabel,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (ageBucketLabel != null) {
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.wallet_utxo_treemap_age_bucket_label),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        text = ageBucketLabel,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                },
+                trailingContent = {
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(colorBadge)
+                    )
+                }
+            )
+        } else {
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = colorLabel,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                },
+                trailingContent = {
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(colorBadge)
+                    )
+                }
+            )
+        }
         Spacer(modifier = Modifier.height(4.dp))
         val entries = tile.entries
         val maxPreview = 8
-        entries.take(maxPreview).forEach { entry ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
+        if (detailEntry != null) {
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
                     Text(
-                        text = "${entry.txid.take(10)}…:${entry.vout}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = balanceText(entry.valueSats, balanceUnit),
-                        style = MaterialTheme.typography.labelMedium,
+                        text = stringResource(id = R.string.wallet_utxo_treemap_outpoint_label),
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        text = "${detailEntry.txid}:${detailEntry.vout}",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            )
+            detailEntry.address?.let { address ->
+                ListItem(
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    headlineContent = {
+                        Text(
+                            text = stringResource(id = R.string.wallet_utxo_treemap_address_label),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            text = address,
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                )
+            }
+        } else {
+            entries.take(maxPreview).forEach { entry ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "${entry.txid}:${entry.vout}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        entry.address?.let { address ->
+                            Text(
+                                text = address,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+            if (entries.size > maxPreview) {
+                Text(
+                    text = stringResource(
+                        id = R.string.wallet_utxo_treemap_more_items,
+                        entries.size - maxPreview
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        if (detailEntry != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                TextButton(
+                    onClick = {
+                        onDismiss()
+                        onOpenUtxo(detailEntry.txid, detailEntry.vout)
+                    }
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.wallet_utxo_treemap_view_details),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
-        }
-        if (entries.size > maxPreview) {
-            Text(
-                text = stringResource(
-                    id = R.string.wallet_utxo_treemap_more_items,
-                    entries.size - maxPreview
-                ),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
 
 @Composable
-private fun EmptyTreemapPlaceholder() {
+private fun EmptyTreemapPlaceholder(modifier: Modifier = Modifier) {
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 400.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)

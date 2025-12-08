@@ -14,6 +14,7 @@ data class UtxoTreemapEntry(
     val txid: String,
     val vout: Int,
     val valueSats: Long,
+    val address: String?,
     val colorBucket: UtxoTreemapColor
 )
 

@@ -24,6 +24,7 @@ import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 @Composable
 fun UtxoVisualizerRoute(
     onBack: () -> Unit,
+    onOpenUtxo: (String, Int) -> Unit,
     viewModel: WalletDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -80,8 +81,9 @@ fun UtxoVisualizerRoute(
                         treemapData = state.utxoTreemap,
                         onTreemapRangeChange = viewModel::setUtxoTreemapRange,
                         onTreemapRequested = viewModel::requestUtxoTreemap,
+                        onOpenUtxo = onOpenUtxo,
                         balanceUnit = state.balanceUnit,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
             }
