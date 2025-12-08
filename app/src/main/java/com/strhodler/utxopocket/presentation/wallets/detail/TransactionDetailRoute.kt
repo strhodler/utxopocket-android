@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -68,6 +69,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -126,6 +128,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.material3.rememberModalBottomSheetState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import androidx.compose.material.icons.outlined.Warning
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -188,6 +191,7 @@ fun TransactionDetailRoute(
     onBack: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onOpenVisualizer: (Long, String) -> Unit,
+    onOpenUtxo: (Long, String, Int) -> Unit,
     onOpenWalletSettings: () -> Unit,
     viewModel: TransactionDetailViewModel = hiltViewModel()
 ) {
@@ -253,6 +257,7 @@ fun TransactionDetailRoute(
                 showLabelDialog = true
             },
             onOpenVisualizer = onOpenVisualizer,
+            onOpenUtxo = onOpenUtxo,
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             onOpenWikiTopic = onOpenWikiTopic,
             onShowMessage = showSnackbar,
@@ -781,6 +786,7 @@ private fun TransactionDetailScreen(
     state: TransactionDetailUiState,
     onEditTransactionLabel: (String?) -> Unit,
     onOpenVisualizer: (Long, String) -> Unit,
+    onOpenUtxo: (Long, String, Int) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
@@ -804,6 +810,7 @@ private fun TransactionDetailScreen(
                     state = state,
                     onEditTransactionLabel = onEditTransactionLabel,
                     onOpenVisualizer = onOpenVisualizer,
+                    onOpenUtxo = onOpenUtxo,
                     onCycleBalanceDisplay = onCycleBalanceDisplay,
                     onOpenWikiTopic = onOpenWikiTopic,
                     onShowMessage = onShowMessage,
@@ -921,6 +928,7 @@ private fun TransactionDetailContent(
     state: TransactionDetailUiState,
     onEditTransactionLabel: (String?) -> Unit,
     onOpenVisualizer: (Long, String) -> Unit,
+    onOpenUtxo: (Long, String, Int) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onShowMessage: (String, SnackbarDuration) -> Unit,
@@ -1340,11 +1348,11 @@ private fun TransactionDetailContent(
                 }
             }
             if (transaction.outputs.isNotEmpty()) {
-                val walletBadge = stringResource(id = R.string.transaction_detail_flow_wallet_badge)
-                val changeBadge = stringResource(id = R.string.transaction_detail_flow_change_badge)
-                val outputDisplays = transaction.outputs.map { output ->
-                    val amountText = balanceText(
-                        balanceSats = output.valueSats,
+            val walletBadge = stringResource(id = R.string.transaction_detail_flow_wallet_badge)
+            val changeBadge = stringResource(id = R.string.transaction_detail_flow_change_badge)
+            val outputDisplays = transaction.outputs.map { output ->
+                val amountText = balanceText(
+                    balanceSats = output.valueSats,
                         unit = state.balanceUnit,
                         hidden = state.balancesHidden
                     )
@@ -1353,22 +1361,28 @@ private fun TransactionDetailContent(
                             id = R.string.transaction_detail_flow_unknown_output,
                             output.index
                         )
-                    val badges = transactionBadges(
-                        isMine = output.isMine,
-                        addressType = output.addressType,
-                        walletBadge = walletBadge,
-                        changeBadge = changeBadge
-                    )
-                    TransactionIoDisplay(
-                        title = stringResource(
-                            id = R.string.transaction_detail_flow_index_heading,
-                            output.index,
-                            amountText
-                        ),
-                        address = address,
-                        badges = badges
-                    )
+                val badges = transactionBadges(
+                    isMine = output.isMine,
+                    addressType = output.addressType,
+                    walletBadge = walletBadge,
+                    changeBadge = changeBadge
+                )
+                val onClickUtxo = if (output.isMine && state.walletSummary != null) {
+                    { onOpenUtxo(state.walletSummary.id, transaction.id, output.index) }
+                } else {
+                    null
                 }
+                TransactionIoDisplay(
+                    title = stringResource(
+                        id = R.string.transaction_detail_flow_index_heading,
+                        output.index,
+                        amountText
+                    ),
+                    address = address,
+                    badges = badges,
+                    onClick = onClickUtxo
+                )
+            }
                 val displayedOutputs = if (showAllOutputs || outputDisplays.size <= maxFlowItems) {
                     outputDisplays
                 } else {
@@ -1713,6 +1727,7 @@ private fun UtxoDetailContent(
             valueSats = utxo.valueSats,
             unit = state.balanceUnit,
             balancesHidden = state.balancesHidden,
+            isChange = utxo.addressType == WalletAddressType.CHANGE,
             label = displayLabel,
             isInherited = isInheritedLabel,
             onEditLabel = { onEditLabel(displayLabel) },
@@ -1947,6 +1962,7 @@ private fun UtxoDetailHeader(
     valueSats: Long,
     unit: BalanceUnit,
     balancesHidden: Boolean,
+    isChange: Boolean,
     label: String?,
     isInherited: Boolean,
     onEditLabel: () -> Unit,
@@ -1972,6 +1988,13 @@ private fun UtxoDetailHeader(
             UtxoIdenticon(
                 seed = identiconSeed
             )
+            if (isChange) {
+                FlowBadge(
+                    text = stringResource(id = R.string.transaction_detail_flow_change_badge),
+                    leadingIcon = Icons.Outlined.Warning,
+                    caution = true
+                )
+            }
             Text(
                 text = depositInfo,
                 style = MaterialTheme.typography.bodySmall,
@@ -1979,19 +2002,19 @@ private fun UtxoDetailHeader(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
-        RollingBalanceText(
-            balanceSats = valueSats,
-            unit = unit,
-            hidden = balancesHidden,
-            style = MaterialTheme.typography.headlineLarge.copy(
-                fontWeight = FontWeight.Medium,
-                color = contentColor
-            ),
-            monospaced = true,
-            autoScale = true,
-            modifier = Modifier.clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
+            RollingBalanceText(
+                balanceSats = valueSats,
+                unit = unit,
+                hidden = balancesHidden,
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontWeight = FontWeight.Medium,
+                    color = contentColor
+                ),
+                monospaced = true,
+                autoScale = true,
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
                     onClick = onCycleBalanceDisplay
                 )
             )
@@ -2150,14 +2173,29 @@ private fun TransactionHexBlock(
 private data class TransactionIoDisplay(
     val title: String,
     val address: String,
-    val badges: List<String> = emptyList()
+    val badges: List<BadgeDisplay> = emptyList(),
+    val onClick: (() -> Unit)? = null
+)
+
+private data class BadgeDisplay(
+    val text: String,
+    val leadingIcon: ImageVector? = null,
+    val caution: Boolean = false
 )
 
 @Composable
 private fun TransactionIoListItem(
     display: TransactionIoDisplay
 ) {
+    val clickableModifier = display.onClick?.let {
+        Modifier
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(onClick = it)
+            .fillMaxWidth()
+    } ?: Modifier.fillMaxWidth()
+    val trailingChevron = display.onClick != null
     ListItem(
+        modifier = clickableModifier,
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         headlineContent = {
             Text(
@@ -2186,7 +2224,18 @@ private fun TransactionIoListItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     display.badges.forEach { badge ->
-                        FlowBadge(text = badge)
+                        FlowBadge(
+                            text = badge.text,
+                            leadingIcon = badge.leadingIcon,
+                            caution = badge.caution
+                        )
+                    }
+                    if (trailingChevron) {
+                        Icon(
+                            imageVector = Icons.Outlined.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -2199,12 +2248,17 @@ private fun transactionBadges(
     addressType: WalletAddressType?,
     walletBadge: String,
     changeBadge: String
-): List<String> = buildList {
-    if (isMine) {
-        add(walletBadge)
-    }
+): List<BadgeDisplay> = buildList {
     if (addressType == WalletAddressType.CHANGE) {
-        add(changeBadge)
+        add(
+            BadgeDisplay(
+                text = changeBadge,
+                leadingIcon = Icons.Outlined.Warning,
+                caution = true
+            )
+        )
+    } else if (isMine) {
+        add(BadgeDisplay(text = walletBadge))
     }
 }
 
@@ -2213,19 +2267,38 @@ private val IoBadgeMinWidth = 80.dp
 @Composable
 private fun FlowBadge(
     text: String,
+    leadingIcon: ImageVector? = null,
+    caution: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val containerColor =
+        if (caution) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val contentColor =
+        if (caution) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(999.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        color = containerColor,
+        contentColor = contentColor
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            leadingIcon?.let {
+                Icon(
+                    imageVector = it,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
     }
 }
 

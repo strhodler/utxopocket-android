@@ -14,8 +14,8 @@ android {
         applicationId = "com.strhodler.utxopocket"
         minSdk = 28
         targetSdk = 36
-        versionCode = 12
-        versionName = "0.10.1"
+        versionCode = 13
+        versionName = "0.11.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -24,6 +24,9 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -42,6 +45,15 @@ android {
         compose = true
         buildConfig = true
     }
+    lint {
+        checkReleaseBuilds = true
+        warningsAsErrors = true
+        abortOnError = true
+    }
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -51,6 +63,12 @@ android {
         }
     }
     sourceSets["main"].assets.srcDir(rootProject.file("docs"))
+    sourceSets["androidTest"].assets.srcDir("$projectDir/schemas")
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.incremental", "true")
 }
 
 dependencies {
@@ -78,6 +96,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.vico.core)
     implementation(libs.vico.compose)
+    implementation(libs.koalaplot.core)
     implementation(libs.androidx.paging.runtime)
     implementation(libs.androidx.paging.compose)
 

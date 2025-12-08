@@ -1,0 +1,1440 @@
+package com.strhodler.utxopocket.presentation.wallets.detail
+
+import android.util.Log
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RangeSlider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
+import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.domain.model.BalanceUnit
+import com.strhodler.utxopocket.domain.model.UtxoAgeBucket
+import com.strhodler.utxopocket.domain.model.UtxoAgeHistogram
+import com.strhodler.utxopocket.domain.model.UtxoHealthSeverity
+import com.strhodler.utxopocket.domain.model.UtxoBucketDistribution
+import com.strhodler.utxopocket.domain.model.UtxoSizeBucket
+import com.strhodler.utxopocket.domain.model.UtxoSpendabilityBucket
+import com.strhodler.utxopocket.domain.model.UtxoTreemapColor
+import com.strhodler.utxopocket.domain.model.UtxoTreemapData
+import com.strhodler.utxopocket.domain.model.UtxoTreemapTile
+import com.strhodler.utxopocket.presentation.common.balanceText
+import io.github.koalaplot.core.pie.DefaultSlice
+import io.github.koalaplot.core.pie.PieChart
+import io.github.koalaplot.core.util.ExperimentalKoalaPlotApi
+import java.text.NumberFormat
+import java.util.Locale
+import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+
+private enum class UtxoAgeDistributionTab {
+    Histogram,
+    Spendability,
+    Size,
+    Treemap
+}
+
+private data class UiDistributionSlice(
+    val id: String,
+    val label: String,
+    val count: Int,
+    val valueSats: Long
+)
+
+private data class UiDistribution(
+    val slices: List<UiDistributionSlice>,
+    val totalCount: Int,
+    val totalValueSats: Long
+)
+
+@Composable
+fun UtxoAnalysisSection(
+    histogram: UtxoAgeHistogram,
+    spendabilityDistribution: UtxoBucketDistribution<UtxoSpendabilityBucket>,
+    sizeDistribution: UtxoBucketDistribution<UtxoSizeBucket>,
+    treemapData: UtxoTreemapData,
+    onTreemapRangeChange: (LongRange) -> Unit,
+    onTreemapRequested: () -> Unit,
+    onOpenUtxo: (String, Int) -> Unit,
+    balanceUnit: BalanceUnit,
+    modifier: Modifier = Modifier
+) {
+    UtxoAgeDistributionCard(
+        histogram = histogram,
+        spendabilityDistribution = spendabilityDistribution,
+        sizeDistribution = sizeDistribution,
+        treemapData = treemapData,
+        onTreemapRangeChange = onTreemapRangeChange,
+        onTreemapRequested = onTreemapRequested,
+        onOpenUtxo = onOpenUtxo,
+        balanceUnit = balanceUnit,
+        modifier = modifier
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun UtxoAgeDistributionCard(
+    histogram: UtxoAgeHistogram,
+    spendabilityDistribution: UtxoBucketDistribution<UtxoSpendabilityBucket>,
+    sizeDistribution: UtxoBucketDistribution<UtxoSizeBucket>,
+    treemapData: UtxoTreemapData,
+    onTreemapRangeChange: (LongRange) -> Unit,
+    onTreemapRequested: () -> Unit,
+    onOpenUtxo: (String, Int) -> Unit,
+    balanceUnit: BalanceUnit,
+    modifier: Modifier = Modifier
+) {
+    val tabs = remember { UtxoAgeDistributionTab.entries.toTypedArray() }
+    val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
+    val coroutineScope = rememberCoroutineScope()
+    val tabContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
+
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = tabContainerColor)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ScrollableTabRow(
+                selectedTabIndex = pagerState.currentPage,
+                containerColor = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                divider = {},
+                edgePadding = 12.dp
+            ) {
+                tabs.forEach { tab ->
+                    val selected = pagerState.currentPage == tab.ordinal
+                    val label = when (tab) {
+                        UtxoAgeDistributionTab.Histogram -> stringResource(id = R.string.wallet_utxo_visualization_tab_histogram)
+                        UtxoAgeDistributionTab.Spendability -> stringResource(id = R.string.wallet_utxo_visualization_tab_spendability)
+                        UtxoAgeDistributionTab.Size -> stringResource(id = R.string.wallet_utxo_visualization_tab_size)
+                        UtxoAgeDistributionTab.Treemap -> stringResource(id = R.string.wallet_utxo_visualization_tab_treemap)
+                    }
+                    Tab(
+                        selected = selected,
+                        onClick = {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(tab.ordinal)
+                            }
+                        },
+                        text = {
+                            Text(
+                                text = label,
+                                maxLines = 1
+                            )
+                        }
+                    )
+                }
+            }
+
+            LaunchedEffect(pagerState.currentPage) {
+                if (tabs[pagerState.currentPage] == UtxoAgeDistributionTab.Treemap) {
+                    onTreemapRequested()
+                }
+            }
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                userScrollEnabled = false
+            ) { pageIndex ->
+                val pageScroll = rememberScrollState()
+                when (tabs[pageIndex]) {
+                    UtxoAgeDistributionTab.Histogram -> Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .verticalScroll(pageScroll),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        HistogramPage(
+                            histogram = histogram,
+                            balanceUnit = balanceUnit
+                        )
+                    }
+
+                    UtxoAgeDistributionTab.Spendability -> Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .verticalScroll(pageScroll),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        SpendabilityPage(
+                            distribution = spendabilityDistribution,
+                            balanceUnit = balanceUnit
+                        )
+                    }
+
+                    UtxoAgeDistributionTab.Size -> Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .verticalScroll(pageScroll),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        SizePage(
+                            distribution = sizeDistribution,
+                            balanceUnit = balanceUnit
+                        )
+                    }
+
+                    UtxoAgeDistributionTab.Treemap -> Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        TreemapPage(
+                            treemapData = treemapData,
+                            onTreemapRangeChange = onTreemapRangeChange,
+                            onOpenUtxo = onOpenUtxo,
+                            balanceUnit = balanceUnit
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HistogramPage(
+    histogram: UtxoAgeHistogram,
+    balanceUnit: BalanceUnit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (histogram.totalCount == 0) {
+            EmptyHistogramPlaceholder()
+        } else {
+            val slices = histogram.slices
+            val colorScheme = MaterialTheme.colorScheme
+            val sliceColors = remember(
+                slices,
+                colorScheme.primary,
+                colorScheme.primaryContainer,
+                colorScheme.secondary,
+                colorScheme.secondaryContainer,
+                colorScheme.tertiary,
+                colorScheme.tertiaryContainer,
+                colorScheme.inversePrimary,
+                colorScheme.onPrimaryContainer
+            ) {
+                buildSliceColors(colorScheme, slices.size)
+            }
+            var selectedSliceIndex by remember(histogram) { mutableStateOf<Int?>(null) }
+            val legendListState = rememberLazyListState()
+            val scope = rememberCoroutineScope()
+            val onSliceSelected: (Int) -> Unit = slice@{ index ->
+                if (slices.isEmpty()) return@slice
+                val safeIndex = index.coerceIn(0, slices.lastIndex)
+                val nextSelection = if (selectedSliceIndex == safeIndex) null else safeIndex
+                selectedSliceIndex = nextSelection
+                if (nextSelection != null) {
+                    scope.launch { legendListState.animateScrollToItem(nextSelection) }
+                }
+            }
+            UtxoDonutChart(
+                histogram = histogram,
+                sliceColors = sliceColors,
+                selectedIndex = selectedSliceIndex,
+                onSliceSelected = onSliceSelected
+            )
+            HistogramLegend(
+                histogram = histogram,
+                balanceUnit = balanceUnit,
+                sliceColors = sliceColors,
+                selectedIndex = selectedSliceIndex,
+                onSliceSelected = onSliceSelected,
+                listState = legendListState
+            )
+        }
+    }
+}
+
+@Composable
+private fun SpendabilityPage(
+    distribution: UtxoBucketDistribution<UtxoSpendabilityBucket>,
+    balanceUnit: BalanceUnit
+) {
+    val context = LocalContext.current
+    val uiDistribution = remember(distribution) {
+        distribution.toUiDistribution { bucket ->
+            when (bucket) {
+                UtxoSpendabilityBucket.Spendable -> context.getString(R.string.wallet_utxo_spendability_label_spendable)
+                UtxoSpendabilityBucket.NotSpendable -> context.getString(R.string.wallet_utxo_spendability_label_locked)
+            }
+        }
+    }
+    DistributionPage(
+        title = stringResource(id = R.string.wallet_utxo_spendability_title),
+        subtitle = stringResource(id = R.string.wallet_utxo_spendability_subtitle),
+        distribution = uiDistribution,
+        balanceUnit = balanceUnit
+    )
+}
+
+@Composable
+private fun SizePage(
+    distribution: UtxoBucketDistribution<UtxoSizeBucket>,
+    balanceUnit: BalanceUnit
+) {
+    val uiDistribution = remember(distribution) {
+        distribution.toUiDistribution { bucket ->
+            formatRangeLabel(bucket.range)
+        }
+    }
+    DistributionPage(
+        title = stringResource(id = R.string.wallet_utxo_size_title),
+        subtitle = stringResource(id = R.string.wallet_utxo_size_subtitle),
+        distribution = uiDistribution,
+        balanceUnit = balanceUnit
+    )
+}
+
+@Composable
+private fun DistributionPage(
+    title: String,
+    subtitle: String,
+    distribution: UiDistribution,
+    balanceUnit: BalanceUnit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (distribution.totalCount == 0 || distribution.slices.isEmpty()) {
+            EmptyHistogramPlaceholder()
+        } else {
+            val colorScheme = MaterialTheme.colorScheme
+            val sliceColors = remember(
+                distribution.slices,
+                colorScheme.primary,
+                colorScheme.primaryContainer,
+                colorScheme.secondary,
+                colorScheme.secondaryContainer,
+                colorScheme.tertiary,
+                colorScheme.tertiaryContainer,
+                colorScheme.inversePrimary,
+                colorScheme.onPrimaryContainer
+            ) {
+                buildSliceColors(colorScheme, distribution.slices.size)
+            }
+            var selectedSliceIndex by remember(distribution) { mutableStateOf<Int?>(null) }
+            val legendListState = rememberLazyListState()
+            val scope = rememberCoroutineScope()
+            val onSliceSelected: (Int) -> Unit = slice@{ index ->
+                if (distribution.slices.isEmpty()) return@slice
+                val safeIndex = index.coerceIn(0, distribution.slices.lastIndex)
+                val nextSelection = if (selectedSliceIndex == safeIndex) null else safeIndex
+                selectedSliceIndex = nextSelection
+                if (nextSelection != null) {
+                    scope.launch { legendListState.animateScrollToItem(nextSelection) }
+                }
+            }
+            DistributionDonut(
+                distribution = distribution,
+                sliceColors = sliceColors,
+                selectedIndex = selectedSliceIndex,
+                onSliceSelected = onSliceSelected
+            )
+            DistributionLegend(
+                distribution = distribution,
+                balanceUnit = balanceUnit,
+                sliceColors = sliceColors,
+                selectedIndex = selectedSliceIndex,
+                onSliceSelected = onSliceSelected,
+                listState = legendListState
+            )
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalKoalaPlotApi::class)
+private fun DistributionDonut(
+    distribution: UiDistribution,
+    sliceColors: List<Color>,
+    selectedIndex: Int?,
+    onSliceSelected: (Int) -> Unit
+) {
+    val values = remember(distribution) {
+        distribution.slices.map { slice -> slice.valueSats.toFloat() }
+    }
+    val total = remember(values) { values.sum().coerceAtLeast(0f) }
+    if (total <= 0.0) {
+        EmptyHistogramPlaceholder()
+        return
+    }
+    PieChart(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 400.dp),
+        values = values,
+        slice = { index ->
+            val baseColor = sliceColors.getOrElse(index) { MaterialTheme.colorScheme.primary }
+            val isSelected = selectedIndex == index
+            val sliceColor =
+                if (selectedIndex == null || isSelected) baseColor else baseColor.copy(alpha = 0.55f)
+            val activeHighlightColor = MaterialTheme.colorScheme.primary
+            DefaultSlice(
+                color = sliceColor,
+                border = if (isSelected) BorderStroke(2.dp, activeHighlightColor) else null,
+                hoverExpandFactor = if (isSelected) 1.06f else 1.02f,
+                clickable = true,
+                onClick = { onSliceSelected(index) }
+            )
+        },
+        label = {},
+        labelConnector = { },
+        holeSize = 0.5f
+    )
+}
+
+@Composable
+private fun DistributionLegend(
+    distribution: UiDistribution,
+    balanceUnit: BalanceUnit,
+    sliceColors: List<Color>,
+    selectedIndex: Int?,
+    onSliceSelected: (Int) -> Unit,
+    listState: LazyListState
+) {
+    val numberFormatter = remember { NumberFormat.getInstance(Locale.getDefault()) }
+    val totalBalance = remember(distribution.totalValueSats, balanceUnit) {
+        balanceText(distribution.totalValueSats, balanceUnit)
+    }
+    Text(
+        text = stringResource(
+            id = R.string.wallet_utxo_histogram_total,
+            distribution.totalCount,
+            totalBalance
+        ),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth()
+    )
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        state = listState,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        itemsIndexed(
+            items = distribution.slices,
+            key = { _, slice -> slice.id }
+        ) { index, slice ->
+            val label = slice.label
+            val countLabel = numberFormatter.format(slice.count)
+            val balanceLabel = balanceText(slice.valueSats, balanceUnit)
+            val valuePercent = if (distribution.totalValueSats > 0) {
+                slice.valueSats.toDouble() / distribution.totalValueSats.toDouble()
+            } else {
+                0.0
+            }
+            val countPercent = if (distribution.totalCount > 0) {
+                slice.count.toDouble() / distribution.totalCount.toDouble()
+            } else {
+                0.0
+            }
+            val percentLabel = String.format(
+                Locale.getDefault(),
+                "%.1f%% value · %.1f%% UTXOs",
+                valuePercent * 100,
+                countPercent * 100
+            )
+            val sliceColor = sliceColors.getOrElse(index) { MaterialTheme.colorScheme.primary }
+            val isSelected = selectedIndex == index
+            val activeHighlightColor = MaterialTheme.colorScheme.primary
+            Card(
+                modifier = Modifier
+                    .heightIn(min = 72.dp)
+                    .fillMaxWidth(fraction = 0.55f),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(
+                        if (isSelected) 3.dp else 1.dp
+                    )
+                ),
+                border = if (isSelected) {
+                    BorderStroke(1.dp, activeHighlightColor)
+                } else {
+                    null
+                },
+                onClick = { onSliceSelected(index) }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                        .alpha(if (selectedIndex != null && !isSelected) 0.5f else 1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(sliceColor)
+                        )
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Text(
+                        text = "$countLabel UTXOs",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = balanceLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = percentLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun TreemapPage(
+    treemapData: UtxoTreemapData,
+    onTreemapRangeChange: (LongRange) -> Unit,
+    onOpenUtxo: (String, Int) -> Unit,
+    balanceUnit: BalanceUnit
+) {
+    var selectedTile by remember(treemapData.tiles) { mutableStateOf<UtxoTreemapTile?>(null) }
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (treemapData.filteredCount == 0 || treemapData.tiles.isEmpty()) {
+            EmptyTreemapPlaceholder(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            )
+        } else {
+            TreemapCanvas(
+                tiles = treemapData.tiles,
+                selectedTileId = selectedTile?.id,
+                onTileSelected = { tile -> selectedTile = tile },
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .heightIn(min = 360.dp)
+            )
+        }
+        TreemapControls(
+            treemapData = treemapData,
+            onTreemapRangeChange = onTreemapRangeChange,
+            balanceUnit = balanceUnit
+        )
+    }
+    if (selectedTile != null) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { selectedTile = null },
+            sheetState = sheetState
+        ) {
+            TreemapTileSheet(
+                tile = selectedTile!!,
+                balanceUnit = balanceUnit,
+                onOpenUtxo = onOpenUtxo,
+                onDismiss = { selectedTile = null }
+            )
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun TreemapControls(
+    treemapData: UtxoTreemapData,
+    onTreemapRangeChange: (LongRange) -> Unit,
+    balanceUnit: BalanceUnit
+) {
+    val availableRange = treemapData.availableRange
+    val selectedRange = treemapData.selectedRange
+    val span = (availableRange.last - availableRange.first).coerceAtLeast(1)
+    var sliderPosition by remember(availableRange, selectedRange) {
+        mutableStateOf(
+            rangeToSlider(availableRange, selectedRange)
+        )
+    }
+    val valueFormatter = remember(balanceUnit) {
+        { value: Long -> formatValueForUnit(value, balanceUnit) }
+    }
+
+    val updateRange: (LongRange) -> Unit = { range ->
+        val sanitized = sanitizeRange(range, availableRange)
+        sliderPosition = rangeToSlider(availableRange, sanitized)
+        onTreemapRangeChange(sanitized)
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        TreemapRangeShortcuts(
+            availableRange = availableRange,
+            selectedRange = selectedRange,
+            onTreemapRangeChange = updateRange,
+            valueFormatter = valueFormatter
+        )
+        if (span > 0 && availableRange.first != availableRange.last) {
+            RangeSlider(
+                value = sliderPosition,
+                onValueChange = { position ->
+                    sliderPosition = position
+                    val newRange = sliderToRange(position, availableRange)
+                    updateRange(newRange)
+                },
+                valueRange = 0f..1f,
+                steps = 0
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${valueFormatter(selectedRange.first)} – ${valueFormatter(selectedRange.last)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = stringResource(
+                        id = R.string.wallet_utxo_treemap_counts,
+                        treemapData.filteredCount,
+                        treemapData.totalCount
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TreemapRangeShortcuts(
+    availableRange: LongRange,
+    selectedRange: LongRange,
+    onTreemapRangeChange: (LongRange) -> Unit,
+    valueFormatter: (Long) -> String
+) {
+    val minValue = availableRange.first
+    val maxValue = availableRange.last
+    val roundThresholds = listOf(
+        1_000L,
+        10_000L,
+        100_000L,
+        1_000_000L,
+        10_000_000L,
+        100_000_000L,
+        1_000_000_000L
+    )
+    val boundedThresholds = roundThresholds.filter { it in minValue..maxValue }
+    val edges = (listOf(minValue) + boundedThresholds + listOf(maxValue))
+        .distinct()
+        .sorted()
+        .filter { it in minValue..maxValue }
+    val segments = edges.zipWithNext()
+        .mapNotNull { (start, end) ->
+            if (end <= start) return@mapNotNull null
+            start..end
+        }
+    val presets = buildList {
+        add(stringResource(id = R.string.wallet_utxo_treemap_range_preset_all) to availableRange)
+        if (segments.isEmpty()) return@buildList
+        segments.forEachIndexed { index, range ->
+            val label = when {
+                range.first == minValue && range.last < maxValue -> stringResource(
+                    id = R.string.wallet_utxo_treemap_range_preset_below,
+                    valueFormatter(range.last)
+                )
+                index == segments.lastIndex && range.last == maxValue -> stringResource(
+                    id = R.string.wallet_utxo_treemap_range_preset_above,
+                    valueFormatter(range.first)
+                )
+                else -> stringResource(
+                    id = R.string.wallet_utxo_treemap_range_preset_between,
+                    valueFormatter(range.first),
+                    valueFormatter(range.last)
+                )
+            }
+            add(label to sanitizeRange(range, availableRange))
+        }
+    }.distinctBy { it.second }
+    if (presets.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(presets) { (label, range) ->
+                val isSelected = selectedRange == range
+                AssistChip(
+                    onClick = {
+                        onTreemapRangeChange(range)
+                    },
+                    label = { Text(text = label) },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = if (isSelected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
+                        },
+                        labelColor = if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TreemapCanvas(
+    tiles: List<UtxoTreemapTile>,
+    selectedTileId: String?,
+    onTileSelected: (UtxoTreemapTile) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
+    val agePalette = remember(colorScheme, isDark) { agePalette(colorScheme, isDark) }
+    val canvasBackground = colorScheme.background
+    val density = LocalDensity.current
+    var canvasSize by remember { mutableStateOf(IntSize.Zero) }
+    val tileRects = remember(tiles, canvasSize) {
+        if (canvasSize == IntSize.Zero) {
+            emptyList()
+        } else {
+            val gapPx = with(density) { 2.dp.toPx() }
+            tiles.mapNotNull { tile ->
+                val rawWidth = tile.normalizedWidth * canvasSize.width
+                val rawHeight = tile.normalizedHeight * canvasSize.height
+                val widthPx = (rawWidth - gapPx).coerceAtLeast(1f)
+                val heightPx = (rawHeight - gapPx).coerceAtLeast(1f)
+                val startX = tile.normalizedX * canvasSize.width + gapPx / 2
+                val startY = tile.normalizedY * canvasSize.height + gapPx / 2
+                val maxWidth = (canvasSize.width - startX).coerceAtLeast(0f)
+                val maxHeight = (canvasSize.height - startY).coerceAtLeast(0f)
+                val clampedWidth = widthPx.coerceAtMost(if (maxWidth > 0f) maxWidth else widthPx)
+                val clampedHeight = heightPx.coerceAtMost(if (maxHeight > 0f) maxHeight else heightPx)
+                if (clampedWidth <= 0f || clampedHeight <= 0f) return@mapNotNull null
+                val rect = Rect(
+                    offset = Offset(x = startX, y = startY),
+                    size = Size(clampedWidth, clampedHeight)
+                )
+                tile to rect
+            }
+        }
+    }
+    Canvas(
+        modifier = modifier
+            .fillMaxWidth()
+            .onSizeChanged { size -> canvasSize = size }
+            .pointerInput(tileRects) {
+                detectTapGestures { offset ->
+                    val hit = tileRects.lastOrNull { (_, rect) -> rect.contains(offset) }?.first
+                    if (hit != null) onTileSelected(hit)
+                }
+            }
+    ) {
+        Log.d(
+            "TreemapCanvas",
+            "canvas=${size.width}x${size.height}, rects=${tileRects.size}, tiles=${tiles.size}"
+        )
+        drawRect(
+            color = canvasBackground,
+            size = size
+        )
+        tileRects.forEach { (tile, rect) ->
+            val color = treemapColorFor(tile, colorScheme, agePalette)
+            val fillColor = if (tile.inSelectedRange) color else canvasBackground
+            val borderColor = when {
+                selectedTileId == tile.id -> colorScheme.inversePrimary
+                tile.inSelectedRange -> Color.Transparent
+                else -> colorScheme.onSurface.copy(alpha = 0.15f)
+            }
+            drawRect(
+                color = fillColor,
+                topLeft = rect.topLeft,
+                size = rect.size
+            )
+            if (borderColor.alpha > 0f) {
+                drawRect(
+                    color = borderColor,
+                    topLeft = rect.topLeft,
+                    size = rect.size,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TreemapTileSheet(
+    tile: UtxoTreemapTile,
+    balanceUnit: BalanceUnit,
+    onOpenUtxo: (String, Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val colorLabel = remember(tile.colorBucket, context) {
+        treemapColorLabel(tile.colorBucket, context)
+    }
+    val colorScheme = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
+    val ageColorPalette = remember(colorScheme, isDark) { agePalette(colorScheme, isDark) }
+    val colorBadge = remember(tile, colorScheme, ageColorPalette) {
+        treemapColorFor(tile, colorScheme, ageColorPalette)
+    }
+    val ageBucketLabel = remember(tile.colorBucket, context) {
+        when (val bucket = tile.colorBucket) {
+            is UtxoTreemapColor.Age -> context.getString(bucketLabelRes(bucket.bucket))
+            is UtxoTreemapColor.Dust -> null
+        }
+    }
+    val detailEntry = remember(tile) {
+        tile.entries.singleOrNull()
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = {
+                Text(
+                    text = stringResource(id = R.string.wallet_utxo_treemap_value_label),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            supportingContent = {
+                Text(
+                    text = balanceText(tile.totalValueSats, balanceUnit),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        )
+        if (ageBucketLabel != null) {
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.wallet_utxo_treemap_age_bucket_label),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        text = ageBucketLabel,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                },
+                trailingContent = {
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(colorBadge)
+                    )
+                }
+            )
+        } else {
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = colorLabel,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                },
+                trailingContent = {
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(colorBadge)
+                    )
+                }
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        val entries = tile.entries
+        val maxPreview = 8
+        if (detailEntry != null) {
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.wallet_utxo_treemap_outpoint_label),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        text = "${detailEntry.txid}:${detailEntry.vout}",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            )
+            detailEntry.address?.let { address ->
+                ListItem(
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    headlineContent = {
+                        Text(
+                            text = stringResource(id = R.string.wallet_utxo_treemap_address_label),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            text = address,
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                )
+            }
+        } else {
+            entries.take(maxPreview).forEach { entry ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "${entry.txid}:${entry.vout}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        entry.address?.let { address ->
+                            Text(
+                                text = address,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+            if (entries.size > maxPreview) {
+                Text(
+                    text = stringResource(
+                        id = R.string.wallet_utxo_treemap_more_items,
+                        entries.size - maxPreview
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        if (detailEntry != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                TextButton(
+                    onClick = {
+                        onDismiss()
+                        onOpenUtxo(detailEntry.txid, detailEntry.vout)
+                    }
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.wallet_utxo_treemap_view_details),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyTreemapPlaceholder(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 400.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(id = R.string.wallet_utxo_treemap_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+private fun treemapColorFor(
+    tile: UtxoTreemapTile,
+    colorScheme: ColorScheme,
+    agePalette: Map<UtxoAgeBucket, Color>
+): Color {
+    return when (val bucket = tile.colorBucket) {
+        is UtxoTreemapColor.Dust -> when (bucket.severity) {
+            null -> colorScheme.secondaryContainer
+            UtxoHealthSeverity.LOW -> colorScheme.tertiary
+            UtxoHealthSeverity.MEDIUM -> colorScheme.secondary
+            UtxoHealthSeverity.HIGH -> colorScheme.error
+        }
+        is UtxoTreemapColor.Age -> agePalette[bucket.bucket]
+            ?: colorScheme.primary
+    }
+}
+
+private fun treemapColorLabel(
+    colorBucket: UtxoTreemapColor,
+    context: android.content.Context
+): String = when (colorBucket) {
+    is UtxoTreemapColor.Dust -> {
+        val severityLabel = when (colorBucket.severity) {
+            null -> context.getString(R.string.wallet_utxo_treemap_color_dust_none)
+            UtxoHealthSeverity.LOW -> context.getString(R.string.wallet_utxo_treemap_color_dust_low)
+            UtxoHealthSeverity.MEDIUM -> context.getString(R.string.wallet_utxo_treemap_color_dust_medium)
+            UtxoHealthSeverity.HIGH -> context.getString(R.string.wallet_utxo_treemap_color_dust_high)
+        }
+        context.getString(R.string.wallet_utxo_treemap_color_label_dust, severityLabel)
+    }
+    is UtxoTreemapColor.Age -> {
+        val labelRes = bucketLabelRes(colorBucket.bucket)
+        val label = context.getString(labelRes)
+        context.getString(R.string.wallet_utxo_treemap_color_label_age, label)
+    }
+}
+
+private fun agePalette(colorScheme: ColorScheme, isDark: Boolean): Map<UtxoAgeBucket, Color> {
+    val colors = if (isDark) {
+        buildSliceColors(colorScheme, UtxoAgeBucket.entries.size)
+    } else {
+        heatPaletteLight()
+    }
+    return UtxoAgeBucket.entries.mapIndexed { index, bucket ->
+        bucket to colors.getOrElse(index) { colorScheme.primary }
+    }.toMap()
+}
+
+private fun heatPaletteLight(): List<Color> {
+    // High-contrast ramp for light mode: cool to warm with stable luminance.
+    return listOf(
+        Color(0xFF0D47A1), // Blue900
+        Color(0xFF1976D2), // Blue700
+        Color(0xFF009688), // Teal500
+        Color(0xFF43A047), // Green600
+        Color(0xFFFBC02D), // Yellow700
+        Color(0xFFFFA000), // Amber700
+        Color(0xFFF57C00), // Orange700
+        Color(0xFFD32F2F)  // Red700
+    )
+}
+
+private fun sanitizeRange(range: LongRange, bounds: LongRange): LongRange {
+    val start = range.first.coerceIn(bounds.first, bounds.last)
+    val end = range.last.coerceIn(bounds.first, bounds.last)
+    val minValue = min(start, end)
+    val maxValue = max(start, end)
+    return minValue..maxValue
+}
+
+private fun formatSatsShort(value: Long): String {
+    val absValue = abs(value)
+    val (divisor, suffix) = when {
+        absValue >= 1_000_000_000L -> 1_000_000_000L to "B"
+        absValue >= 1_000_000L -> 1_000_000L to "M"
+        absValue >= 1_000L -> 1_000L to "k"
+        else -> 1L to ""
+    }
+    val scaled = value.toDouble() / divisor.toDouble()
+    val rounded = if (scaled % 1.0 == 0.0) {
+        scaled.toLong().toString()
+    } else {
+        String.format(Locale.getDefault(), "%.1f", scaled)
+    }
+    return if (suffix.isEmpty()) {
+        "$rounded sats"
+    } else {
+        "$rounded${suffix} sats"
+    }
+}
+
+private fun formatValueForUnit(value: Long, unit: BalanceUnit): String {
+    return when (unit) {
+        BalanceUnit.SATS -> formatSatsShort(value)
+        BalanceUnit.BTC -> balanceText(value, BalanceUnit.BTC)
+    }
+}
+
+private fun <B> UtxoBucketDistribution<B>.toUiDistribution(
+    labelProvider: (B) -> String
+): UiDistribution {
+    return UiDistribution(
+        slices = slices.map { slice ->
+            UiDistributionSlice(
+                id = slice.bucket.toString(),
+                label = labelProvider(slice.bucket),
+                count = slice.count,
+                valueSats = slice.valueSats
+            )
+        },
+        totalCount = totalCount,
+        totalValueSats = totalValueSats
+    )
+}
+
+private fun formatRangeLabel(range: LongRange): String {
+    val startLabel = formatSatsShort(range.first)
+    val endLabel = formatSatsShort(range.last)
+    return "$startLabel – $endLabel"
+}
+
+private fun rangeToSlider(bounds: LongRange, selected: LongRange): ClosedFloatingPointRange<Float> {
+    val span = (bounds.last - bounds.first).coerceAtLeast(1)
+    val startFraction = (selected.first - bounds.first).toFloat() / span.toFloat()
+    val endFraction = (selected.last - bounds.first).toFloat() / span.toFloat()
+    return startFraction.coerceIn(0f, 1f)..endFraction.coerceIn(0f, 1f)
+}
+
+private fun sliderToRange(
+    slider: ClosedFloatingPointRange<Float>,
+    bounds: LongRange
+): LongRange {
+    val span = (bounds.last - bounds.first).coerceAtLeast(1)
+    val start = bounds.first + (slider.start.coerceIn(0f, 1f) * span.toFloat()).toLong()
+    val end = bounds.first + (slider.endInclusive.coerceIn(0f, 1f) * span.toFloat()).toLong()
+    return start.coerceAtMost(end)..end
+}
+
+@Composable
+private fun HistogramLegend(
+    histogram: UtxoAgeHistogram,
+    balanceUnit: BalanceUnit,
+    sliceColors: List<Color>,
+    selectedIndex: Int?,
+    onSliceSelected: (Int) -> Unit,
+    listState: LazyListState
+) {
+    val numberFormatter = remember { NumberFormat.getInstance(Locale.getDefault()) }
+    val totalBalance = remember(histogram.totalValueSats, balanceUnit) {
+        balanceText(histogram.totalValueSats, balanceUnit)
+    }
+    val context = LocalContext.current
+    Text(
+        text = stringResource(
+            id = R.string.wallet_utxo_histogram_total,
+            histogram.totalCount,
+            totalBalance
+        ),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth()
+    )
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        state = listState,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        itemsIndexed(
+            items = histogram.slices,
+            key = { _, slice -> slice.bucket.id }
+        ) { index, slice ->
+            val label = context.getString(bucketLabelRes(slice.bucket))
+            val countLabel = numberFormatter.format(slice.count)
+            val balanceLabel = balanceText(slice.valueSats, balanceUnit)
+            val valuePercent = slice.valueSats.toDouble() / histogram.totalValueSats.toDouble()
+            val countPercent = if (histogram.totalCount > 0) {
+                slice.count.toDouble() / histogram.totalCount.toDouble()
+            } else {
+                0.0
+            }
+            val percentLabel = String.format(
+                Locale.getDefault(),
+                "%.1f%% value · %.1f%% UTXOs",
+                valuePercent * 100,
+                countPercent * 100
+            )
+            val sliceColor = sliceColors.getOrElse(index) { MaterialTheme.colorScheme.primary }
+            val isSelected = selectedIndex == index
+            val activeHighlightColor = MaterialTheme.colorScheme.primary
+            Card(
+                modifier = Modifier
+                    .heightIn(min = 72.dp)
+                    .fillMaxWidth(fraction = 0.55f),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(
+                        if (isSelected) 3.dp else 1.dp
+                    )
+                ),
+                border = if (isSelected) {
+                    BorderStroke(1.dp, activeHighlightColor)
+                } else {
+                    null
+                },
+                onClick = { onSliceSelected(index) }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                        .alpha(if (selectedIndex != null && !isSelected) 0.5f else 1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(sliceColor)
+                        )
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Text(
+                        text = "$countLabel UTXOs",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = balanceLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = percentLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyHistogramPlaceholder() {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 160.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = stringResource(id = R.string.wallet_utxo_histogram_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalKoalaPlotApi::class)
+@Composable
+private fun UtxoDonutChart(
+    histogram: UtxoAgeHistogram,
+    sliceColors: List<Color>,
+    selectedIndex: Int?,
+    onSliceSelected: (Int) -> Unit
+) {
+    val values = remember(histogram) {
+        histogram.slices.map { slice ->
+            slice.valueSats.toFloat()
+        }
+    }
+    val total = remember(values) { values.sum().coerceAtLeast(0f) }
+    if (total <= 0.0) {
+        EmptyHistogramPlaceholder()
+        return
+    }
+    PieChart(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 360.dp),
+        values = values,
+        slice = { index ->
+            val baseColor = sliceColors.getOrElse(index) { MaterialTheme.colorScheme.primary }
+            val isSelected = selectedIndex == index
+            val sliceColor =
+                if (selectedIndex == null || isSelected) baseColor else baseColor.copy(alpha = 0.55f)
+            val activeHighlightColor = MaterialTheme.colorScheme.primary
+            DefaultSlice(
+                color = sliceColor,
+                border = if (isSelected) BorderStroke(2.dp, activeHighlightColor) else null,
+                hoverExpandFactor = if (isSelected) 1.06f else 1.02f,
+                clickable = true,
+                onClick = { onSliceSelected(index) }
+            )
+        },
+        label = {},
+        labelConnector = { },
+        holeSize = 0.5f
+    )
+}
+
+private fun bucketLabelRes(bucket: UtxoAgeBucket): Int = when (bucket) {
+    UtxoAgeBucket.LessThanOneDay -> R.string.wallet_utxo_band_lt_one_day
+    UtxoAgeBucket.OneDayToOneWeek -> R.string.wallet_utxo_band_one_day_one_week
+    UtxoAgeBucket.OneWeekToOneMonth -> R.string.wallet_utxo_band_one_week_one_month
+    UtxoAgeBucket.OneMonthToThreeMonths -> R.string.wallet_utxo_band_one_month_three_months
+    UtxoAgeBucket.ThreeMonthsToSixMonths -> R.string.wallet_utxo_band_three_months_six_months
+    UtxoAgeBucket.SixMonthsToOneYear -> R.string.wallet_utxo_band_six_months_one_year
+    UtxoAgeBucket.OneYearToTwoYears -> R.string.wallet_utxo_band_one_year_two_years
+    UtxoAgeBucket.MoreThanTwoYears -> R.string.wallet_utxo_band_over_two_years
+}
+
+private fun buildSliceColors(colorScheme: ColorScheme, count: Int): List<Color> {
+    if (count <= 0) return emptyList()
+    val baseColors = listOf(
+        colorScheme.primary,
+        colorScheme.primaryContainer,
+        colorScheme.secondary,
+        colorScheme.secondaryContainer,
+        colorScheme.tertiary,
+        colorScheme.tertiaryContainer,
+        colorScheme.inversePrimary,
+        colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+    )
+    return List(count) { index -> baseColors[index % baseColors.size] }
+}

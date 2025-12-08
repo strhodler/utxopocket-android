@@ -9,6 +9,7 @@ androidxTestCore = "1.7.0"
 ksp = "2.2.20-2.0.4"
 espressoCore = "3.7.0"
 vico = "2.3.6"
+koalaplot = "0.10.3"
 lifecycleRuntimeKtx = "2.10.0"
 lifecycleRuntimeCompose = "2.10.0"
 lifecycleViewModelCompose = "2.10.0"
@@ -98,6 +99,7 @@ sparrow-hummingbird = { group = "com.sparrowwallet", name = "hummingbird", versi
 jbox2d-library = { group = "org.jbox2d", name = "jbox2d-library", version.ref = "jbox2d" }
 identikon = { group = "io.github.thibseisel.identikon", name = "identikon", version.ref = "identikon" }
 google-tink-android = { group = "com.google.crypto.tink", name = "tink-android", version.ref = "tink" }
+koalaplot-core = { group = "io.github.koalaplot", name = "koalaplot-core", version.ref = "koalaplot" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

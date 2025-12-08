@@ -29,13 +29,13 @@ class IncomingTxCoordinator @Inject constructor(
     private val _placeholders = MutableStateFlow<Map<Long, List<IncomingTxPlaceholder>>>(emptyMap())
     val placeholders: StateFlow<Map<Long, List<IncomingTxPlaceholder>>> = _placeholders.asStateFlow()
 
-    private val _detections = MutableSharedFlow<IncomingTxDetection>(
+    private val _sheetTriggers = MutableSharedFlow<IncomingTxDetection>(
         extraBufferCapacity = 16,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
-    val detections: SharedFlow<IncomingTxDetection> = _detections.asSharedFlow()
+    val sheetTriggers: SharedFlow<IncomingTxDetection> = _sheetTriggers.asSharedFlow()
 
-    private val lastDialogAt = mutableMapOf<Long, Long>()
+    private val lastTriggerAt = mutableMapOf<Long, Long>()
 
     init {
         scope.launch {
@@ -48,10 +48,10 @@ class IncomingTxCoordinator @Inject constructor(
     fun onDetection(event: IncomingTxDetection) {
         addPlaceholder(event)
         val now = System.currentTimeMillis()
-        val lastShown = lastDialogAt[event.walletId] ?: 0L
-        if (now - lastShown >= DIALOG_THROTTLE_MS) {
-            lastDialogAt[event.walletId] = now
-            _detections.tryEmit(event)
+        val lastShown = lastTriggerAt[event.walletId] ?: 0L
+        if (now - lastShown >= SHEET_TRIGGER_THROTTLE_MS) {
+            lastTriggerAt[event.walletId] = now
+            _sheetTriggers.tryEmit(event)
         }
     }
 
@@ -101,6 +101,6 @@ class IncomingTxCoordinator @Inject constructor(
     }
 
     companion object {
-        private const val DIALOG_THROTTLE_MS = 10_000L
+        private const val SHEET_TRIGGER_THROTTLE_MS = 10_000L
     }
 }

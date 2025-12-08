@@ -8,7 +8,6 @@ import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
 import com.strhodler.utxopocket.domain.model.BalanceUnit
-import com.strhodler.utxopocket.domain.model.IncomingTxDetection
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
@@ -34,11 +33,16 @@ import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.presentation.tor.TorLifecycleController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
@@ -80,15 +84,6 @@ data class AppEntryUiState(
     val appLocked: Boolean = false
 )
 
-data class IncomingDialogState(
-    val walletId: Long,
-    val walletName: String?,
-    val address: String,
-    val txid: String,
-    val amountSats: Long?,
-    val detectedAt: Long
-)
-
 data class IncomingPlaceholderGroup(
     val walletId: Long,
     val walletName: String,
@@ -122,17 +117,35 @@ class MainActivityViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = DEFAULT_PIN_AUTO_LOCK_MINUTES
     )
-
     private val lockState = MutableStateFlow(false)
-    private val _incomingDialog = MutableStateFlow<IncomingDialogState?>(null)
-    val incomingDialog: StateFlow<IncomingDialogState?> = _incomingDialog.asStateFlow()
-    private val incomingDialogEnabled = incomingTxPreferencesRepository.globalPreferences()
+    private val onboardingCompletedState = appPreferencesRepository.onboardingCompleted.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = false
+    )
+    private val appLockedState = combine(
+        pinEnabledState,
+        lockState,
+        onboardingCompletedState
+    ) { enabled, locked, onboarding -> enabled && locked && onboarding }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = false
+        )
+    private val incomingSheetAutoOpenEnabled = incomingTxPreferencesRepository.globalPreferences()
         .map { prefs -> prefs.showDialog }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
             initialValue = true
         )
+    private val _incomingSheetRequests = MutableSharedFlow<Unit>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val incomingSheetRequests: SharedFlow<Unit> = _incomingSheetRequests.asSharedFlow()
+    private val pendingIncomingSheet = MutableStateFlow(false)
     private val walletSummariesByNetwork = appPreferencesRepository.preferredNetwork
         .flatMapLatest { network ->
             walletRepository.observeWalletSummaries(network)
@@ -215,17 +228,32 @@ class MainActivityViewModel @Inject constructor(
         torLifecycleController.start()
         refreshLockState()
         viewModelScope.launch {
-            incomingTxCoordinator.detections.collect { detection ->
-                if (incomingDialogEnabled.value) {
-                    val walletName = walletNames.value[detection.walletId]
-                    _incomingDialog.value = detection.toDialog(walletName)
+            incomingTxCoordinator.sheetTriggers.collect { _ ->
+                if (!incomingSheetAutoOpenEnabled.value) {
+                    return@collect
+                }
+                if (appLockedState.value) {
+                    pendingIncomingSheet.value = true
+                } else {
+                    triggerIncomingSheet()
+                }
+            }
+        }
+        viewModelScope.launch {
+            appLockedState.drop(1).collect { locked ->
+                if (!locked && pendingIncomingSheet.value) {
+                    if (incomingSheetAutoOpenEnabled.value) {
+                        triggerIncomingSheet()
+                    } else {
+                        pendingIncomingSheet.value = false
+                    }
                 }
             }
         }
     }
 
     val uiState: StateFlow<AppEntryUiState> = combine(
-        appPreferencesRepository.onboardingCompleted,
+        onboardingCompletedState,
         torManager.status,
         walletRepository.observeNodeStatus(),
         walletRepository.observeSyncStatus(),
@@ -341,24 +369,22 @@ class MainActivityViewModel @Inject constructor(
         stopNodeMetadataPolling()
     }
 
-    fun dismissIncomingDialog() {
-        _incomingDialog.value = null
-    }
-
-    fun refreshFromIncomingDialog() {
-        val dialog = _incomingDialog.value ?: return
-        viewModelScope.launch {
-            walletRepository.refreshWallet(dialog.walletId)
-            _incomingDialog.value = null
-        }
-    }
-
     fun onAppSentToBackground() {
         if (ignoreNextBackgroundEvent) {
             ignoreNextBackgroundEvent = false
             return
         }
         wasBackgrounded = true
+    }
+
+    fun refreshIncomingWallets(walletIds: Collection<Long>) {
+        val distinctIds = walletIds.toSet()
+        if (distinctIds.isEmpty()) return
+        viewModelScope.launch {
+            distinctIds.forEach { walletId ->
+                walletRepository.refreshWallet(walletId)
+            }
+        }
     }
 
     fun unlockWithPin(pin: String, onResult: (PinVerificationResult) -> Unit) {
@@ -456,6 +482,11 @@ class MainActivityViewModel @Inject constructor(
         }
     }
 
+    private fun triggerIncomingSheet() {
+        pendingIncomingSheet.value = false
+        _incomingSheetRequests.tryEmit(Unit)
+    }
+
     private fun shouldLockNow(
         pinEnabled: Boolean,
         lastUnlockedAt: Long?,
@@ -481,13 +512,3 @@ class MainActivityViewModel @Inject constructor(
         private const val NODE_METADATA_POLL_INTERVAL_MS = 60_000L
     }
 }
-
-private fun IncomingTxDetection.toDialog(walletName: String?): IncomingDialogState =
-    IncomingDialogState(
-        walletId = walletId,
-        walletName = walletName,
-        address = address,
-        txid = txid,
-        amountSats = amountSats,
-        detectedAt = detectedAt
-    )

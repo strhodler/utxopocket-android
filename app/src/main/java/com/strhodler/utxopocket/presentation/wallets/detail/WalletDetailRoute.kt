@@ -1,13 +1,10 @@
 package com.strhodler.utxopocket.presentation.wallets.detail
 
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -29,8 +26,8 @@ import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.QrCode
 import androidx.compose.material.icons.outlined.ShowChart
+import androidx.compose.material.icons.outlined.DataUsage
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Scaffold
@@ -72,7 +69,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -102,9 +98,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
-import com.strhodler.utxopocket.presentation.wallets.detail.WalletDetailEvent
 import kotlin.math.roundToInt
-import kotlin.math.max
 import com.strhodler.utxopocket.presentation.pin.PinLockoutMessageType
 import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
 import com.strhodler.utxopocket.presentation.pin.formatPinCountdownMessage
@@ -129,6 +123,7 @@ fun WalletDetailRoute(
     onOpenDescriptors: (Long, String) -> Unit,
     onOpenExportLabels: (Long, String) -> Unit,
     onOpenImportLabels: (Long, String) -> Unit,
+    onOpenUtxoVisualizer: (Long, String) -> Unit,
     viewModel: WalletDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -523,6 +518,12 @@ fun WalletDetailRoute(
                     },
                     onToggleChart = { viewModel.setShowBalanceChart(!state.showBalanceChart) },
                     onReceiveClick = { onOpenReceive(walletId) },
+                    onOpenWalletAnalysis = {
+                        val summary = state.summary ?: return@WalletDetailBottomBar
+                        val walletNameArg = summary.name.ifBlank { viewModel.initialWalletName }
+                            ?: summary.name
+                        onOpenUtxoVisualizer(summary.id, walletNameArg)
+                    },
                     scrollBehavior = bottomBarScrollBehavior,
                     onHeightChanged = { height -> bottomBarHeightPx = height },
                     onVisibleHeightChanged = { visible -> bottomBarVisibleHeightPx = visible },
@@ -827,6 +828,7 @@ private fun WalletDetailBottomBar(
     onSyncClick: () -> Unit,
     onToggleChart: () -> Unit,
     onReceiveClick: () -> Unit,
+    onOpenWalletAnalysis: () -> Unit,
     scrollBehavior: BottomAppBarScrollBehavior,
     onHeightChanged: (Float) -> Unit,
     onVisibleHeightChanged: (Float) -> Unit,
@@ -917,6 +919,26 @@ private fun WalletDetailBottomBar(
                     } else {
                         "Show chart"
                     },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
+            colors = itemColors,
+            alwaysShowLabel = true,
+            modifier = Modifier.weight(1f)
+        )
+        NavigationBarItem(
+            selected = false,
+            onClick = onOpenWalletAnalysis,
+            icon = {
+                Icon(
+                    imageVector = Icons.Outlined.DataUsage,
+                    contentDescription = null
+                )
+            },
+            label = {
+                Text(
+                    text = stringResource(id = R.string.wallet_detail_action_analysis),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

@@ -49,6 +49,7 @@ import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wallets.add.AddWalletRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.AddressDetailRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.UtxoDetailRoute
+import com.strhodler.utxopocket.presentation.wallets.detail.UtxoVisualizerRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.WalletDetailRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.WalletDescriptorsRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.TransactionDetailRoute
@@ -278,6 +279,11 @@ fun MainNavHost(
                         navController.navigate(
                             WalletsNavigation.importLabelsRoute(targetWalletId, walletName)
                         )
+                    },
+                    onOpenUtxoVisualizer = { targetWalletId, walletName ->
+                        navController.navigate(
+                            WalletsNavigation.utxoVisualizerRoute(targetWalletId, walletName)
+                        )
                     }
                 )
             }
@@ -342,6 +348,11 @@ fun MainNavHost(
                             WalletsNavigation.transactionVisualizerRoute(walletId, txId)
                         )
                     },
+                    onOpenUtxo = { walletId, txId, vout ->
+                        navController.navigate(
+                            WalletsNavigation.utxoDetailRoute(walletId, txId, vout)
+                        )
+                    },
                     onOpenWalletSettings = {
                         navController.navigate(MainDestination.Settings.route) {
                             launchSingleTop = true
@@ -382,6 +393,23 @@ fun MainNavHost(
                             launchSingleTop = true
                             restoreState = true
                         }
+                    }
+                )
+            }
+            composable(
+                route = WalletsNavigation.UtxoVisualizerRoute,
+                arguments = listOf(
+                    navArgument(WalletsNavigation.WalletIdArg) { type = NavType.LongType },
+                    navArgument(WalletsNavigation.WalletNameArg) { type = NavType.StringType; defaultValue = "" }
+                )
+            ) {
+                val walletId = it.arguments?.getLong(WalletsNavigation.WalletIdArg)
+                    ?: it.arguments?.getString(WalletsNavigation.WalletIdArg)?.toLongOrNull()
+                    ?: return@composable
+                UtxoVisualizerRoute(
+                    onBack = { navController.popBackStack() },
+                    onOpenUtxo = { txId, vout ->
+                        navController.navigate(WalletsNavigation.utxoDetailRoute(walletId, txId, vout))
                     }
                 )
             }
@@ -675,6 +703,7 @@ private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackSta
         targetState.destination.route.matchesRoute(WalletsNavigation.TransactionDetailRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.TransactionVisualizerRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.UtxoDetailRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.UtxoVisualizerRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.AddressDetailRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.ReceiveRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.ExportLabelsRoute) ||
@@ -695,6 +724,7 @@ private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackSta
         targetState.destination.route.matchesRoute(WalletsNavigation.TransactionDetailRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.TransactionVisualizerRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.UtxoDetailRoute) ||
+        targetState.destination.route.matchesRoute(WalletsNavigation.UtxoVisualizerRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.AddressDetailRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.ReceiveRoute) ||
         targetState.destination.route.matchesRoute(WalletsNavigation.ExportLabelsRoute) ||
@@ -715,6 +745,7 @@ private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackSta
         initialState.destination.route.matchesRoute(WalletsNavigation.TransactionDetailRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.TransactionVisualizerRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.UtxoDetailRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.UtxoVisualizerRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.AddressDetailRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.ReceiveRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.ExportLabelsRoute) ||
@@ -735,6 +766,7 @@ private fun androidx.compose.animation.AnimatedContentTransitionScope<NavBackSta
         initialState.destination.route.matchesRoute(WalletsNavigation.TransactionDetailRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.TransactionVisualizerRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.UtxoDetailRoute) ||
+        initialState.destination.route.matchesRoute(WalletsNavigation.UtxoVisualizerRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.AddressDetailRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.ReceiveRoute) ||
         initialState.destination.route.matchesRoute(WalletsNavigation.ExportLabelsRoute) ||

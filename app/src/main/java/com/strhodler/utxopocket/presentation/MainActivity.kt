@@ -22,14 +22,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -37,36 +35,33 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.SheetState
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.contentColorFor
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -82,12 +77,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -134,7 +129,6 @@ import kotlinx.coroutines.delay
 import androidx.core.view.WindowCompat
 import java.text.DateFormat
 import java.util.Date
-import java.text.NumberFormat
 
 @AndroidEntryPoint
 @OptIn(ExperimentalMaterial3Api::class)
@@ -158,7 +152,6 @@ class MainActivity : AppCompatActivity() {
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             val obscure by obscureScreen.collectAsStateWithLifecycle()
-            val incomingDialog by viewModel.incomingDialog.collectAsStateWithLifecycle()
             val reducedMotion = rememberReducedMotionEnabled()
             LaunchedEffect(uiState.appLanguage) {
                 val desiredLocales = LocaleListCompat.forLanguageTags(uiState.appLanguage.languageTag)
@@ -217,6 +210,24 @@ class MainActivity : AppCompatActivity() {
                                 bottomBarVisibilityController.isVisible
                         var showIncomingSheet by rememberSaveable { mutableStateOf(false) }
                         val incomingGroups = uiState.status.incomingPlaceholderGroups
+                        val incomingCount = remember(incomingGroups) {
+                            incomingGroups.sumOf { it.placeholders.size }
+                        }
+                        LaunchedEffect(Unit) {
+                            viewModel.incomingSheetRequests.collect {
+                                showIncomingSheet = true
+                            }
+                        }
+                        LaunchedEffect(uiState.appLocked) {
+                            if (uiState.appLocked) {
+                                showIncomingSheet = false
+                            }
+                        }
+                        LaunchedEffect(incomingGroups) {
+                            if (showIncomingSheet && incomingGroups.isEmpty()) {
+                                showIncomingSheet = false
+                            }
+                        }
                         val modalIncomingSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
                         val onNodeStatusClick = remember(navController) {
                             {
@@ -368,8 +379,16 @@ class MainActivity : AppCompatActivity() {
                                     if (showIncomingSheet && incomingGroups.isNotEmpty()) {
                                         IncomingTxSheet(
                                             groups = incomingGroups,
+                                            totalCount = incomingCount,
                                             balanceUnit = uiState.balanceUnit,
                                             balancesHidden = uiState.balancesHidden,
+                                            onSyncNow = {
+                                                viewModel.refreshIncomingWallets(
+                                                    incomingGroups.map { group -> group.walletId }
+                                                )
+                                                showIncomingSheet = false
+                                            },
+                                            onSkip = { showIncomingSheet = false },
                                             onDismiss = { showIncomingSheet = false },
                                             sheetState = modalIncomingSheetState,
                                             onOpenWallet = { walletId, walletName ->
@@ -460,14 +479,6 @@ class MainActivity : AppCompatActivity() {
                                             Box(modifier = Modifier.fillMaxSize())
                                         }
                                     }
-
-                                    incomingDialog?.let { dialog ->
-                                        IncomingTxDialog(
-                                            dialog = dialog,
-                                            onDismiss = { viewModel.dismissIncomingDialog() },
-                                            onRefresh = { viewModel.refreshFromIncomingDialog() }
-                                        )
-                                    }
                                 }
                             }
 
@@ -513,47 +524,6 @@ private fun ellipsizeMiddle(value: String, head: Int = 8, tail: Int = 4): String
     val prefix = value.take(head)
     val suffix = value.takeLast(tail)
     return "$prefix...$suffix"
-}
-
-@Composable
-private fun IncomingTxDialog(
-    dialog: IncomingDialogState,
-    onDismiss: () -> Unit,
-    onRefresh: () -> Unit
-) {
-    val amountText = dialog.amountSats?.let { amount ->
-        NumberFormat.getInstance().format(amount)
-    }
-    val message = if (amountText != null) {
-        stringResource(
-            id = R.string.incoming_tx_dialog_message_with_amount,
-            amountText,
-            dialog.address
-        )
-    } else {
-        stringResource(
-            id = R.string.incoming_tx_dialog_message,
-            dialog.address
-        )
-    }
-    val title = dialog.walletName?.let { wallet ->
-        stringResource(id = R.string.incoming_tx_dialog_title_with_wallet, wallet)
-    } ?: stringResource(id = R.string.incoming_tx_dialog_title)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = title) },
-        text = { Text(text = message) },
-        confirmButton = {
-            TextButton(onClick = onRefresh) {
-                Text(text = stringResource(id = R.string.incoming_tx_dialog_refresh))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = stringResource(id = R.string.incoming_tx_dialog_dismiss))
-            }
-        }
-    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -692,8 +662,11 @@ private fun StatusBar(
     @Composable
     private fun IncomingTxSheet(
         groups: List<IncomingPlaceholderGroup>,
+        totalCount: Int,
         balanceUnit: BalanceUnit,
         balancesHidden: Boolean,
+        onSyncNow: () -> Unit,
+        onSkip: () -> Unit,
         onDismiss: () -> Unit,
         sheetState: SheetState,
         onOpenWallet: (Long, String) -> Unit
@@ -702,16 +675,42 @@ private fun StatusBar(
             onDismissRequest = onDismiss,
             sheetState = sheetState
         ) {
+            val countLabel = pluralStringResource(
+                id = R.plurals.incoming_tx_sheet_count,
+                count = totalCount,
+                totalCount
+            )
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = stringResource(id = R.string.incoming_detection_title),
-                    style = MaterialTheme.typography.titleLarge
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = countLabel,
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Text(
+                            text = stringResource(id = R.string.incoming_tx_sheet_subtitle),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = stringResource(id = R.string.incoming_tx_sheet_close)
+                        )
+                    }
+                }
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -736,6 +735,29 @@ private fun StatusBar(
                                 onClick = { onOpenWallet(group.walletId, group.walletName) }
                             )
                         }
+                    }
+                }
+
+                Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = onSkip,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(text = stringResource(id = R.string.incoming_tx_sheet_no_refresh))
+                    }
+                    Button(
+                        onClick = onSyncNow,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(text = stringResource(id = R.string.incoming_tx_sheet_sync))
                     }
                 }
             }
