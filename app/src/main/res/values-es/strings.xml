@@ -41,7 +41,14 @@
     <string name="wallets_empty_add_action">Añadir billetera</string>
     <string name="wallets_total_balance_label">Balance total</string>
     <string name="wallets_balance">Balance: %1$s %2$s</string>
-    <string name="wallets_transactions">%1$d txs</string>
+    <plurals name="wallets_transactions">
+        <item quantity="one">%d tx</item>
+        <item quantity="other">%d txs</item>
+    </plurals>
+    <plurals name="wallets_utxos">
+        <item quantity="one">%d utxo</item>
+        <item quantity="other">%d utxos</item>
+    </plurals>
     <string name="wallets_status">Estado: %1$s</string>
     <string name="wallets_state_idle">Inactivo</string>
     <string name="wallets_state_offline">Sin conexión</string>
@@ -57,6 +64,17 @@
     <string name="wallets_state_full_rescan_queued_gap">Full rescan en cola (gap %1$d)</string>
     <string name="wallets_state_synced">Conectado</string>
     <string name="wallets_state_error">Error</string>
+    <string name="node_status_idle">Nodo inactivo</string>
+    <string name="node_status_offline">Nodo sin conexión</string>
+    <string name="node_status_connecting">Nodo conectando</string>
+    <string name="node_status_disconnecting">Nodo desconectando</string>
+    <string name="node_status_waiting_for_tor">Nodo esperando Tor</string>
+    <string name="node_status_connected">Nodo conectado</string>
+    <string name="node_status_error">Error de nodo</string>
+    <string name="tor_status_connected">Tor conectado</string>
+    <string name="tor_status_connecting_label">Tor conectando</string>
+    <string name="tor_status_stopped_label">Tor detenido</string>
+    <string name="tor_status_error_label">Error de Tor</string>
     <string name="wallets_last_sync">Última sincronización: %1$s</string>
     <string name="wallets_sync_error_icon_description">Advertencia de sincronización</string>
 
@@ -564,6 +582,9 @@
     <string name="tor_overview_bootstrap_pending">Esperando el arranque de Tor</string>
     <string name="tor_overview_latest_event_label">Último registro</string>
     <string name="tor_overview_latest_event_empty">Aún no hay registros de Tor.</string>
+    <string name="tor_overview_status_connected">Conectado</string>
+    <string name="tor_overview_status_connecting">Conectando</string>
+    <string name="tor_overview_status_not_connected">No conectado</string>
     <string name="tor_overview_renew_identity_error">No se pudo renovar la identidad de Tor. Intenta de nuevo en unos segundos.</string>
     <string name="tor_disconnect_action">Desconectar Tor</string>
     <string name="tor_connect_action">Conectar Tor</string>

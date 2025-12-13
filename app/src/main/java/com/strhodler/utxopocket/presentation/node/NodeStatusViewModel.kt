@@ -19,6 +19,7 @@ import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.presentation.node.NodeQrParseResult
+import com.strhodler.utxopocket.common.logging.SecureLog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
 import java.util.UUID
@@ -41,6 +42,9 @@ class NodeStatusViewModel @Inject constructor(
     private val walletRepository: WalletRepository,
     private val networkErrorLogRepository: NetworkErrorLogRepository
 ) : ViewModel() {
+    private companion object {
+        private const val TAG = "NodeStatusViewModel"
+    }
 
     private val _uiState = MutableStateFlow(NodeStatusUiState())
     val uiState = _uiState.asStateFlow()
@@ -78,6 +82,11 @@ class NodeStatusViewModel @Inject constructor(
                     (syncStatus.isRefreshing ||
                         syncStatus.activeWalletId != null ||
                         syncStatus.queuedWalletIds.isNotEmpty())
+                SecureLog.d(TAG) {
+                    "NodeStatusViewModel snapshot status=${nodeSnapshot.status} network=${nodeSnapshot.network} " +
+                        "connected=$isConnected connecting=$isConnecting syncBusy=$syncBusy " +
+                        "endpoint=${nodeSnapshot.endpoint} lastSync=${nodeSnapshot.lastSyncCompletedAt}"
+                }
                 NodeConfigSnapshot(
                     networkLabel = network,
                     connectionOption = config.connectionOption,

@@ -21,6 +21,8 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.TorManager
+import com.strhodler.utxopocket.presentation.wallets.sync.WalletSyncState
+import com.strhodler.utxopocket.presentation.wallets.sync.resolveWalletSyncState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -149,6 +151,18 @@ class WalletsViewModel @Inject constructor(
         } else {
             emptyMap()
         }
+        val walletSyncStates = if (syncStatus.network == data.network) {
+            data.wallets.associate { wallet ->
+                wallet.id to resolveWalletSyncState(
+                    walletId = wallet.id,
+                    walletNetwork = data.network,
+                    syncStatus = syncStatus,
+                    nodeStatus = effectiveNodeStatus
+                )
+            }
+        } else {
+            emptyMap()
+        }
         WalletsUiState(
             isRefreshing = isRefreshing,
             wallets = data.wallets,
@@ -169,7 +183,8 @@ class WalletsViewModel @Inject constructor(
             queuedWalletIds = if (syncStatus.network == data.network) syncStatus.queuedWalletIds else emptyList(),
             activeOperation = activeOperation,
             queuedOperations = queuedOperations,
-            connectedNodeLabel = connectedNodeLabel
+            connectedNodeLabel = connectedNodeLabel,
+            walletSyncStates = walletSyncStates
         )
     }.stateIn(
         scope = viewModelScope,
@@ -253,5 +268,6 @@ data class WalletsUiState(
     val queuedWalletIds: List<Long> = emptyList(),
     val activeOperation: SyncOperation? = null,
     val queuedOperations: Map<Long, SyncOperation> = emptyMap(),
-    val connectedNodeLabel: String? = null
+    val connectedNodeLabel: String? = null,
+    val walletSyncStates: Map<Long, WalletSyncState> = emptyMap()
 )

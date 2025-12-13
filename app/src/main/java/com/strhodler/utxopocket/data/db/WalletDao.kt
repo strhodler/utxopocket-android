@@ -8,6 +8,8 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import androidx.room.Embedded
+import androidx.room.ColumnInfo
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -15,6 +17,17 @@ interface WalletDao {
 
     @Query("SELECT * FROM wallets WHERE network = :network ORDER BY sort_order, name, id")
     fun observeWallets(network: String): Flow<List<WalletEntity>>
+
+    @Query(
+        """
+        SELECT wallets.*,
+        (SELECT COUNT(*) FROM wallet_utxos WHERE wallet_utxos.wallet_id = wallets.id) AS utxo_count
+        FROM wallets
+        WHERE network = :network
+        ORDER BY sort_order, name, id
+        """
+    )
+    fun observeWalletsWithUtxoCount(network: String): Flow<List<WalletWithUtxoCount>>
 
     @Query("SELECT * FROM wallets WHERE network = :network ORDER BY sort_order, name, id")
     suspend fun getWalletsSnapshot(network: String): List<WalletEntity>
@@ -468,6 +481,11 @@ data class UtxoMetadataProjection(
     val vout: Int,
     val label: String?,
     val spendable: Boolean?
+)
+
+data class WalletWithUtxoCount(
+    @Embedded val wallet: WalletEntity,
+    @ColumnInfo(name = "utxo_count") val utxoCount: Int
 )
 
 data class UtxoRefProjection(

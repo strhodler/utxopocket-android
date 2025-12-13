@@ -286,13 +286,10 @@ private fun NodeHeroHeader(
     val primaryContentColor = colorScheme.onSurface
     val secondaryContentColor = colorScheme.onSurfaceVariant
     val message = nodeStatusMessage(status.nodeStatus)
-    val headlineMessage = if (
-        status.nodeStatus == NodeStatus.Connecting ||
-        status.nodeStatus == NodeStatus.Disconnecting
-    ) {
-        "$message…"
-    } else {
-        message
+    val headlineMessage = when (status.nodeStatus) {
+        NodeStatus.Connecting,
+        NodeStatus.Disconnecting -> "$message…"
+        else -> message
     }
     val lastSync = status.nodeLastSync?.let { timestamp ->
         remember(timestamp) {
@@ -314,6 +311,49 @@ private fun NodeHeroHeader(
     val torStatus = status.torStatus
     val torRunning = torStatus is TorStatus.Running
     val torConnecting = torStatus is TorStatus.Connecting
+    val torBadgeLabel = torStatusMessage(torStatus)
+    val torBadgeContainer = when (torStatus) {
+        is TorStatus.Running -> colorScheme.tertiary
+        is TorStatus.Connecting -> colorScheme.surfaceVariant
+        else -> colorScheme.errorContainer
+    }
+    val torBadgeContent = when (torStatus) {
+        is TorStatus.Running -> colorScheme.onTertiary
+        is TorStatus.Connecting -> colorScheme.onSurfaceVariant
+        else -> colorScheme.onErrorContainer
+    }
+    val torBadgeLeading: (@Composable () -> Unit)? = when (torStatus) {
+        is TorStatus.Running -> {
+            {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = torBadgeContent,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+        is TorStatus.Connecting -> {
+            {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = torBadgeContent
+                )
+            }
+        }
+        is TorStatus.Error,
+        TorStatus.Stopped -> {
+            {
+                Icon(
+                    imageVector = Icons.Filled.ErrorOutline,
+                    contentDescription = null,
+                    tint = torBadgeContent,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
     val reconnectInfoMessage = when {
         showReconnect && !status.isNetworkOnline ->
             stringResource(id = R.string.node_reconnect_network_required)
@@ -392,12 +432,23 @@ private fun NodeHeroHeader(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            StatusBadge(
-                label = headlineMessage,
-                containerColor = statusChipContainer,
-                contentColor = statusChipContent,
-                leadingContent = statusBadgeLeading
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                StatusBadge(
+                    label = headlineMessage,
+                    containerColor = statusChipContainer,
+                    contentColor = statusChipContent,
+                    leadingContent = statusBadgeLeading
+                )
+                StatusBadge(
+                    label = torBadgeLabel,
+                    containerColor = torBadgeContainer,
+                    contentColor = torBadgeContent,
+                    leadingContent = torBadgeLeading
+                )
+            }
 
             Column(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -484,13 +535,21 @@ private fun StatusBadge(
 
 @Composable
 private fun nodeStatusMessage(status: NodeStatus): String = when (status) {
-    NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
-    NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
-    NodeStatus.Disconnecting -> stringResource(id = R.string.wallets_state_disconnecting)
-    NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
-    NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
-    NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
-    is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
+    NodeStatus.Idle -> stringResource(id = R.string.node_status_idle)
+    NodeStatus.Offline -> stringResource(id = R.string.node_status_offline)
+    NodeStatus.Disconnecting -> stringResource(id = R.string.node_status_disconnecting)
+    NodeStatus.Connecting -> stringResource(id = R.string.node_status_connecting)
+    NodeStatus.WaitingForTor -> stringResource(id = R.string.node_status_waiting_for_tor)
+    NodeStatus.Synced -> stringResource(id = R.string.node_status_connected)
+    is NodeStatus.Error -> stringResource(id = R.string.node_status_error)
+}
+
+@Composable
+private fun torStatusMessage(status: TorStatus): String = when (status) {
+    is TorStatus.Running -> stringResource(id = R.string.tor_status_connected)
+    is TorStatus.Connecting -> stringResource(id = R.string.tor_status_connecting_label)
+    is TorStatus.Error -> stringResource(id = R.string.tor_status_error_label)
+    TorStatus.Stopped -> stringResource(id = R.string.tor_status_stopped_label)
 }
 
 private fun formatEndpoint(value: String): String =

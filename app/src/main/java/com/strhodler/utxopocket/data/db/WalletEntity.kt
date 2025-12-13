@@ -49,12 +49,13 @@ data class WalletEntity(
     @ColumnInfo(name = "last_active_change_index") val lastActiveChangeIndex: Int? = null
 )
 
-fun WalletEntity.toDomain(): WalletSummary =
+fun WalletEntity.toDomain(utxoCount: Int? = null): WalletSummary =
     WalletSummary(
         id = id,
         name = name,
         balanceSats = balanceSats,
         transactionCount = transactionCount,
+        utxoCount = utxoCount ?: 0,
         network = BitcoinNetwork.valueOf(network),
         lastSyncStatus = lastSyncStatus.toNodeStatus(lastSyncError),
         lastSyncTime = lastSyncTime,

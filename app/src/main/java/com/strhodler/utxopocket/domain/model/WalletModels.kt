@@ -96,6 +96,7 @@ data class WalletSummary(
     val sortOrder: Int = 0,
     val balanceSats: Long,
     val transactionCount: Int,
+    val utxoCount: Int = 0,
     val network: BitcoinNetwork,
     val lastSyncStatus: NodeStatus,
     val lastSyncTime: Long?,

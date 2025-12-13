@@ -609,6 +609,9 @@
     <string name="tor_overview_bootstrap_pending">Waiting for Tor bootstrap</string>
     <string name="tor_overview_latest_event_label">Latest log entry</string>
     <string name="tor_overview_latest_event_empty">No Tor log messages yet.</string>
+    <string name="tor_overview_status_connected">Connected</string>
+    <string name="tor_overview_status_connecting">Connecting</string>
+    <string name="tor_overview_status_not_connected">Not connected</string>
     <string name="tor_overview_renew_identity_error">Could not renew Tor identity. Try again shortly.</string>
     <string name="tor_disconnect_action">Disconnect Tor</string>
     <string name="tor_connect_action">Connect Tor</string>
@@ -648,7 +651,14 @@
     <string name="node_manage_prompt">Select a node under the Manage tab to reconnect and resume syncing.</string>
     <string name="node_disconnect_action">Disconnect</string>
     <string name="wallets_balance">Balance: %1$s %2$s</string>
-    <string name="wallets_transactions">%1$d txs</string>
+    <plurals name="wallets_transactions">
+        <item quantity="one">%d tx</item>
+        <item quantity="other">%d txs</item>
+    </plurals>
+    <plurals name="wallets_utxos">
+        <item quantity="one">%d utxo</item>
+        <item quantity="other">%d utxos</item>
+    </plurals>
     <string name="wallets_status">Status: %1$s</string>
     <string name="wallets_state_idle">Idle</string>
     <string name="wallets_state_offline">Offline</string>
@@ -664,6 +674,17 @@
     <string name="wallets_state_full_rescan_queued_gap">Full rescan queued (gap %1$d)</string>
     <string name="wallets_state_synced">Connected</string>
     <string name="wallets_state_error">Error</string>
+    <string name="node_status_idle">Node idle</string>
+    <string name="node_status_offline">Node offline</string>
+    <string name="node_status_connecting">Node connecting</string>
+    <string name="node_status_disconnecting">Node disconnecting</string>
+    <string name="node_status_waiting_for_tor">Node waiting for Tor</string>
+    <string name="node_status_connected">Node connected</string>
+    <string name="node_status_error">Node error</string>
+    <string name="tor_status_connected">Tor connected</string>
+    <string name="tor_status_connecting_label">Tor connecting</string>
+    <string name="tor_status_stopped_label">Tor stopped</string>
+    <string name="tor_status_error_label">Tor error</string>
     <string name="wallets_last_sync">Last sync: %1$s</string>
     <string name="wallets_sync_error_icon_description">Wallet synchronization warning</string>
     <string name="wallets_testnet_faucet_banner_title">Get testnet bitcoin from a faucet</string>

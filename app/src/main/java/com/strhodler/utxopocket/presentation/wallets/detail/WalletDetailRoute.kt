@@ -561,11 +561,13 @@ fun WalletDetailRoute(
             if (state.summary != null) {
                 WalletDetailBottomBar(
                     isRefreshing = state.isRefreshing,
+                    isQueued = state.isQueued,
                     activeSyncOperation = state.activeSyncOperation,
+                    queuedSyncOperation = state.queuedSyncOperation,
                     hasChartData = state.displayBalancePoints.isNotEmpty(),
                     showBalanceChart = state.showBalanceChart,
                     onSyncClick = {
-                        if (!state.isRefreshing) {
+                        if (!state.isRefreshing && !state.isQueued) {
                             viewModel.refresh()
                         }
                     },
@@ -825,7 +827,9 @@ private fun RenameWalletDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun WalletDetailBottomBar(
     isRefreshing: Boolean,
+    isQueued: Boolean,
     activeSyncOperation: SyncOperation?,
+    queuedSyncOperation: SyncOperation?,
     hasChartData: Boolean,
     showBalanceChart: Boolean,
     onSyncClick: () -> Unit,
@@ -875,8 +879,8 @@ private fun WalletDetailBottomBar(
     ) {
         NavigationBarItem(
             selected = isRefreshing,
-            onClick = { if (!isRefreshing) onSyncClick() },
-            enabled = !isRefreshing,
+            onClick = { if (!isRefreshing && !isQueued) onSyncClick() },
+            enabled = !isRefreshing && !isQueued,
             icon = {
                 if (isRefreshing) {
                     CircularProgressIndicator(
@@ -892,14 +896,18 @@ private fun WalletDetailBottomBar(
             },
             label = {
                 Text(
-                    text = if (isRefreshing) {
-                        if (activeSyncOperation == SyncOperation.FullRescan) {
+                    text = when {
+                        isRefreshing -> if (activeSyncOperation == SyncOperation.FullRescan) {
                             stringResource(id = R.string.wallets_state_full_rescan_syncing)
                         } else {
                             stringResource(id = R.string.wallets_state_syncing)
                         }
-                    } else {
-                        stringResource(id = R.string.wallet_detail_action_sync)
+                        isQueued -> if (queuedSyncOperation == SyncOperation.FullRescan) {
+                            stringResource(id = R.string.wallets_state_full_rescan_queued)
+                        } else {
+                            stringResource(id = R.string.wallets_state_queued)
+                        }
+                        else -> stringResource(id = R.string.wallet_detail_action_sync)
                     },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

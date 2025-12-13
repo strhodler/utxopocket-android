@@ -347,6 +347,10 @@ class DefaultWalletRepository @Inject constructor(
                 queue = if (active != null) queueList else queueList.drop(0),
                 isRunning = running
             )
+            SecureLog.d(TAG) {
+                "enqueueWalletsForSync op=$operation network=$network active=$active running=$running " +
+                    "queue=${queue.toList()} pendingOps=${walletIds.joinToString()}"
+            }
             shouldStart = queue.isNotEmpty() && !running
         }
         if (shouldStart) {
@@ -384,6 +388,9 @@ class DefaultWalletRepository @Inject constructor(
                 queue = if (active != null) queueList else queueList.drop(0),
                 isRunning = running
             )
+            SecureLog.d(TAG) {
+                "enqueueWalletsForSync(refresh) network=$network active=$active running=$running queue=${queue.toList()}"
+            }
             shouldStart = queue.isNotEmpty() && !running
         }
         if (shouldStart) {
@@ -471,7 +478,9 @@ class DefaultWalletRepository @Inject constructor(
                     }
                     queue.firstOrNull()
                 } ?: return@launch
-
+                SecureLog.d(TAG) {
+                    "launchSyncJob network=$network picked=$next queue=${pendingWalletQueues[network]?.toList()} active=${activeWalletByNetwork[network]}"
+                }
                 val shouldContinue = syncQueueMutex.withLock {
                     val queue = queueFor(network)
                     if (queue.isEmpty()) {
@@ -750,6 +759,11 @@ class DefaultWalletRepository @Inject constructor(
             return@withContext
         }
         disconnectRequests.remove(walletNetwork)
+        SecureLog.d(TAG) {
+            val pendingOps = pendingWalletOperations[walletId]
+            "handleSyncWalletIntent wallet=$walletId network=$walletNetwork active=${activeWalletByNetwork[walletNetwork]} " +
+                "queue=${pendingWalletQueues[walletNetwork]?.toList()} existingOp=$pendingOps"
+        }
         enqueueWalletsForSync(network = walletNetwork, walletIds = setOf(walletId), operation = operation)
     }
 
@@ -828,8 +842,8 @@ class DefaultWalletRepository @Inject constructor(
     }
 
     override fun observeWalletSummaries(network: BitcoinNetwork): Flow<List<WalletSummary>> =
-        walletDao.observeWallets(network.name)
-            .map { entities -> entities.map { it.toDomain() } }
+        walletDao.observeWalletsWithUtxoCount(network.name)
+            .map { rows -> rows.map { it.wallet.toDomain(it.utxoCount) } }
             .flowOn(ioDispatcher)
 
     override fun pageWalletTransactions(
@@ -945,7 +959,7 @@ class DefaultWalletRepository @Inject constructor(
                     )
                 }
                 WalletDetail(
-                    summary = walletEntity.toDomain(),
+                    summary = walletEntity.toDomain(enrichedUtxos.size),
                     descriptor = walletEntity.descriptor,
                     changeDescriptor = walletEntity.changeDescriptor,
                     masterFingerprints = masterFingerprints,
@@ -1235,6 +1249,7 @@ class DefaultWalletRepository @Inject constructor(
                 network = network,
                 feeRateSatPerVb = previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network }
             )
+            SecureLog.d(TAG) { "Node status -> Connecting network=$network endpoint=$previousEndpoint lastSync=$lastSyncForNetwork" }
         }
         ensureForeground()
 
@@ -1251,12 +1266,13 @@ class DefaultWalletRepository @Inject constructor(
             val electrumEndpoint = blockchainFactory.endpointFor(network)
             lastEndpointMetadata = EndpointAttemptMetadata(network, electrumEndpoint)
             activeTransport = electrumEndpoint.transport
-            val pendingEndpointLabel = electrumEndpoint.displayName ?: electrumEndpoint.url
-            if (previousEndpoint != pendingEndpointLabel) {
+            val pendingEndpointUrl = electrumEndpoint.url
+            val endpointChanged = previousEndpoint != null && previousEndpoint != pendingEndpointUrl
+            if (endpointChanged) {
                 shouldSignalConnecting = true
             }
             if (shouldSignalConnecting) {
-                endpoint = pendingEndpointLabel
+                endpoint = pendingEndpointUrl
                 nodeStatus.value = NodeStatusSnapshot(
                     status = NodeStatus.Connecting,
                     blockHeight = blockHeight,
@@ -1266,6 +1282,7 @@ class DefaultWalletRepository @Inject constructor(
                     network = network,
                     feeRateSatPerVb = estimatedFeeRateSatPerVb
                 )
+                SecureLog.d(TAG) { "Node status -> Connecting network=$network endpoint=$endpoint" }
             }
             suspend fun runSyncWithProxy(proxy: SocksProxyConfig?) {
                 ensureForeground()
@@ -1284,6 +1301,7 @@ class DefaultWalletRepository @Inject constructor(
                         network = network,
                         feeRateSatPerVb = estimatedFeeRateSatPerVb
                     )
+                    SecureLog.d(TAG) { "Node status -> Connecting network=$network endpoint=$endpoint" }
                 }
                 SecureLog.d(TAG) {
                     if (activeTransport == NodeTransport.TOR && proxy != null) {
@@ -1302,7 +1320,21 @@ class DefaultWalletRepository @Inject constructor(
                         SecureLog.w(TAG, metadataError) {
                             "Unable to fetch electrum metadata from $endpoint"
                         }
-                        null
+                        val reason = metadataError.toTorAwareMessage(
+                            defaultMessage = metadataError.message.orEmpty().ifBlank { "Electrum connection failed" },
+                            endpoint = endpoint,
+                            usedTor = activeTransport == NodeTransport.TOR
+                        )
+                        nodeStatus.value = NodeStatusSnapshot(
+                            status = NodeStatus.Error(reason),
+                            blockHeight = blockHeight,
+                            serverInfo = serverInfo,
+                            endpoint = endpoint,
+                            lastSyncCompletedAt = lastSyncForNetwork,
+                            network = network,
+                            feeRateSatPerVb = estimatedFeeRateSatPerVb
+                        )
+                        throw metadataError
                     }
                     serverInfo = metadata?.serverInfo?.toDomain() ?: serverInfo
                     blockHeight = metadata?.blockHeight ?: blockHeight
@@ -1329,6 +1361,9 @@ class DefaultWalletRepository @Inject constructor(
                             network = network,
                             feeRateSatPerVb = estimatedFeeRateSatPerVb
                         )
+                        SecureLog.d(TAG) {
+                            "Node status -> Synced (metadata-only) network=$network endpoint=$endpoint height=$blockHeight"
+                        }
                         return
                     }
                     val snapshotWallets = walletDao.getWalletsSnapshot(network.name)
@@ -1744,6 +1779,9 @@ class DefaultWalletRepository @Inject constructor(
                         network = network,
                         feeRateSatPerVb = estimatedFeeRateSatPerVb
                     )
+                    SecureLog.d(TAG) {
+                        "Node status -> $finalStatus network=$network endpoint=$endpoint height=$blockHeight lastSync=$syncCompletedAt"
+                    }
                     lastEndpointMetadata = null
                     if (hadWalletErrors) {
                         SecureLog.w(TAG) { "Wallet sync completed with errors. Check individual wallets for details." }
@@ -1842,6 +1880,9 @@ class DefaultWalletRepository @Inject constructor(
             status = NodeStatus.Error(rotationMessage)
         )
         SecureLog.w(TAG) { "Preset $previousLabel unreachable, rotating to ${rotated.displayName}" }
+        SecureLog.d(TAG) {
+            "Node status -> Error(rotation) network=$network endpoint=${rotated.endpoint} lastSync=${previousSnapshot.lastSyncCompletedAt}"
+        }
         return true
     }
 

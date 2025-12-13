@@ -42,6 +42,7 @@ import com.strhodler.utxopocket.domain.model.UtxoTreemapData
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
+import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.domain.service.UtxoTreemapCalculator
@@ -49,6 +50,8 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.components.BalancePoint
 import com.strhodler.utxopocket.presentation.components.toWalletBalancePoints
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
+import com.strhodler.utxopocket.presentation.wallets.sync.WalletSyncState
+import com.strhodler.utxopocket.presentation.wallets.sync.resolveWalletSyncState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import androidx.paging.PagingData
@@ -324,6 +327,7 @@ class WalletDetailViewModel @Inject constructor(
                 isRefreshing = baseSnapshot.syncStatus.isRefreshing ||
                     baseSnapshot.syncStatus.refreshingWalletIds.isNotEmpty() ||
                     baseSnapshot.syncStatus.activeWalletId != null,
+                isQueued = false,
                 summary = null,
                 descriptor = null,
                 changeDescriptor = null,
@@ -362,13 +366,16 @@ class WalletDetailViewModel @Inject constructor(
             val snapshotMatchesNetwork = baseSnapshot.nodeSnapshot.network == summary.network
             val syncSnapshot = baseSnapshot.syncStatus
             val matchesSyncNetwork = syncSnapshot.network == summary.network
-            val isSyncing = matchesSyncNetwork &&
-                (syncSnapshot.activeWalletId == summary.id || syncSnapshot.refreshingWalletIds.contains(summary.id))
-            val activeSyncOperation = if (matchesSyncNetwork && syncSnapshot.activeWalletId == summary.id) {
-                syncSnapshot.activeOperation
-            } else {
-                null
-            }
+            val walletSyncState = resolveWalletSyncState(
+                walletId = summary.id,
+                walletNetwork = summary.network,
+                syncStatus = syncSnapshot,
+                nodeStatus = if (snapshotMatchesNetwork) baseSnapshot.nodeSnapshot.status else NodeStatus.Idle
+            )
+            val isSyncing = walletSyncState is WalletSyncState.Running
+            val activeSyncOperation = (walletSyncState as? WalletSyncState.Running)?.operation
+            val queuedOperation = (walletSyncState as? WalletSyncState.Queued)?.operation
+            val isQueued = walletSyncState is WalletSyncState.Queued
             val balanceHistoryPoints = baseSnapshot.balanceHistory
             val displayBalancePoints = balanceHistoryReducer.pointsForRange(
                 balanceHistoryPoints,
@@ -469,6 +476,7 @@ class WalletDetailViewModel @Inject constructor(
             WalletDetailUiState(
                 isLoading = false,
                 isRefreshing = isSyncing,
+                isQueued = isQueued,
                 summary = summary,
                 descriptor = detail.descriptor,
                 changeDescriptor = detail.changeDescriptor,
@@ -486,6 +494,7 @@ class WalletDetailViewModel @Inject constructor(
                 fullScanStopGap = summary.fullScanStopGap,
                 lastFullScanTime = summary.lastFullScanTime,
                 activeSyncOperation = activeSyncOperation,
+                queuedSyncOperation = queuedOperation,
                 balanceHistory = balanceHistoryPoints,
                 displayBalancePoints = displayBalancePoints,
                 showBalanceChart = showBalanceChart,
@@ -631,11 +640,17 @@ class WalletDetailViewModel @Inject constructor(
         val summary = snapshot.summary ?: return
         viewModelScope.launch {
             syncBlockReason(snapshot.nodeStatus)?.let { blockedMessage ->
+                SecureLog.d(TAG) {
+                    "Sync blocked for wallet=${summary.id} nodeStatus=${snapshot.nodeStatus} mode=$mode"
+                }
                 _events.emit(WalletDetailEvent.SyncBlocked(blockedMessage))
                 return@launch
             }
             val hasNode = walletRepository.hasActiveNodeSelection(summary.network)
             if (!hasNode) {
+                SecureLog.d(TAG) {
+                    "Sync request ignored: no active node selection for network=${summary.network} wallet=${summary.id}"
+                }
                 return@launch
             }
             val syncStatus = walletRepository.observeSyncStatus().first()
@@ -649,6 +664,12 @@ class WalletDetailViewModel @Inject constructor(
             val operation = when (mode) {
                 ManualSyncMode.Refresh -> SyncOperation.Refresh
                 ManualSyncMode.FullRescan -> SyncOperation.FullRescan
+            }
+            SecureLog.d(TAG) {
+                "Manual sync requested wallet=${summary.id} mode=$mode nodeStatus=${snapshot.nodeStatus} " +
+                    "syncNetwork=${syncStatus.network} active=${syncStatus.activeWalletId} " +
+                    "refreshing=${syncStatus.refreshingWalletIds} queued=${syncStatus.queuedWalletIds} " +
+                    "matchesNetwork=$matchesNetwork queuedOrRunning=$queuedOrRunning"
             }
             walletRepository.refreshWallet(summary.id, operation)
             if (queuedOrRunning) {
@@ -916,6 +937,7 @@ class WalletDetailViewModel @Inject constructor(
     )
 
     private companion object {
+        private const val TAG = "WalletDetailViewModel"
         private val TREEMAP_SHORTCUT_THRESHOLDS = listOf(
             1_000L,
             10_000L,
@@ -938,6 +960,7 @@ sealed interface WalletDetailEvent {
 data class WalletDetailUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
+    val isQueued: Boolean = false,
     val summary: WalletSummary? = null,
     val descriptor: String? = null,
     val changeDescriptor: String? = null,
@@ -955,6 +978,7 @@ data class WalletDetailUiState(
     val fullScanStopGap: Int? = null,
     val lastFullScanTime: Long? = null,
     val activeSyncOperation: SyncOperation? = null,
+    val queuedSyncOperation: SyncOperation? = null,
     val balanceHistory: List<BalancePoint> = emptyList(),
     val displayBalancePoints: List<BalancePoint> = emptyList(),
     val showBalanceChart: Boolean = false,
