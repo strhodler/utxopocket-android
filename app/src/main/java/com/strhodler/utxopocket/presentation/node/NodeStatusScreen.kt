@@ -76,8 +76,11 @@ fun NodeStatusScreen(
     onOpenNetworkLogs: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
+    onRemovePublicNode: (String) -> Unit,
+    onRestorePublicNodes: () -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
+    onRemoveCustomNode: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
     initialTabIndex: Int,
     onDisconnect: () -> Unit,
@@ -222,8 +225,11 @@ fun NodeStatusScreen(
                                     onInteractionBlocked = onInteractionBlocked,
                                     onNetworkSelected = onNetworkSelected,
                                     onPublicNodeSelected = onPublicNodeSelected,
+                                    onRemovePublicNode = onRemovePublicNode,
+                                    onRestorePublicNodes = onRestorePublicNodes,
                                     onCustomNodeSelected = onCustomNodeSelected,
                                     onCustomNodeDetails = onCustomNodeDetails,
+                                    onRemoveCustomNode = onRemoveCustomNode,
                                     onAddCustomNodeClick = onAddCustomNodeClick,
                                     onDisconnect = onDisconnect
                                 )

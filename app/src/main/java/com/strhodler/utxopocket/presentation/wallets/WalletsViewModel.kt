@@ -14,6 +14,7 @@ import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
+import com.strhodler.utxopocket.domain.model.removedPublicNodesFor
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
 import com.strhodler.utxopocket.domain.model.activeCustomNode
 import com.strhodler.utxopocket.domain.model.requiresTor
@@ -240,7 +241,10 @@ class WalletsViewModel @Inject constructor(
     ): String? {
         return when (nodeConfig.connectionOption) {
             NodeConnectionOption.PUBLIC -> nodeConfig.selectedPublicNodeId?.let { id ->
-                nodeConfigurationRepository.publicNodesFor(network).firstOrNull { it.id == id }?.displayName
+                nodeConfigurationRepository
+                    .publicNodesFor(network, nodeConfig.removedPublicNodesFor(network))
+                    .firstOrNull { it.id == id }
+                    ?.displayName
             }
 
             NodeConnectionOption.CUSTOM -> nodeConfig.activeCustomNode(network)?.displayLabel()

@@ -11,6 +11,7 @@ import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.customNodesFor
+import com.strhodler.utxopocket.domain.model.removedPublicNodesFor
 import com.strhodler.utxopocket.domain.node.EndpointScheme
 import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
@@ -65,7 +66,8 @@ class NodeStatusViewModel @Inject constructor(
                 walletRepository.observeSyncStatus(),
                 networkErrorLogRepository.loggingEnabled
             ) { network, config, nodeSnapshot, syncStatus, loggingEnabled ->
-                val publicNodes = nodeConfigurationRepository.publicNodesFor(network)
+                val removedPublic = config.removedPublicNodesFor(network)
+                val publicNodes = nodeConfigurationRepository.publicNodesFor(network, removedPublic)
                 val selectedPublic = config.selectedPublicNodeId?.takeIf { id ->
                     publicNodes.any { it.id == id }
                 }
@@ -96,6 +98,7 @@ class NodeStatusViewModel @Inject constructor(
                     selectedCustom = selectedCustom,
                     isConnected = isConnected,
                     isConnecting = isConnecting,
+                    removedPublic = removedPublic,
                     networkLogsEnabled = loggingEnabled,
                     isSyncBusy = syncBusy
                 )
@@ -106,6 +109,7 @@ class NodeStatusViewModel @Inject constructor(
                         nodeConnectionOption = snapshot.connectionOption,
                         publicNodes = snapshot.publicNodes,
                         selectedPublicNodeId = snapshot.selectedPublic,
+                        removedPublicNodeIds = snapshot.removedPublic,
                         customNodes = snapshot.customNodes,
                         selectedCustomNodeId = snapshot.selectedCustom,
                         isNodeConnected = snapshot.isConnected,
@@ -206,6 +210,81 @@ class NodeStatusViewModel @Inject constructor(
                 )
             }
             walletRepository.refresh(network)
+        }
+    }
+
+    fun onRemovePublicNode(nodeId: String) {
+        val state = _uiState.value
+        val network = state.preferredNetwork
+        val wasActiveSelection = state.nodeConnectionOption == NodeConnectionOption.PUBLIC &&
+            state.selectedPublicNodeId == nodeId
+        val remainingNodes = state.publicNodes.filterNot { it.id == nodeId }
+        val fallback = remainingNodes.firstOrNull()?.id
+
+        _uiState.update { current ->
+            current.copy(
+                publicNodes = remainingNodes,
+                removedPublicNodeIds = current.removedPublicNodeIds + nodeId,
+                selectedPublicNodeId = if (current.selectedPublicNodeId == nodeId) fallback else current.selectedPublicNodeId,
+                selectionNotice = null,
+                customNodeError = null,
+                customNodeSuccessMessage = null
+            )
+        }
+
+        viewModelScope.launch {
+            nodeConfigurationRepository.updateNodeConfig { current ->
+                val updatedRemoved = current.removedPublicNodeIds.toMutableMap()
+                val updatedSet = updatedRemoved[network]?.toMutableSet() ?: mutableSetOf()
+                updatedSet.add(nodeId)
+                updatedRemoved[network] = updatedSet
+                current.copy(
+                    removedPublicNodeIds = updatedRemoved,
+                    selectedPublicNodeId = if (current.connectionOption == NodeConnectionOption.PUBLIC &&
+                        current.selectedPublicNodeId == nodeId
+                    ) {
+                        fallback
+                    } else {
+                        current.selectedPublicNodeId
+                    }
+                )
+            }
+            if (wasActiveSelection) {
+                walletRepository.disconnect(network)
+                fallback?.let { walletRepository.refresh(network) }
+            }
+        }
+    }
+
+    fun onRestorePublicNodes() {
+        val state = _uiState.value
+        val network = state.preferredNetwork
+        val restoredNodes = nodeConfigurationRepository.publicNodesFor(network, emptySet())
+        val shouldSelectFirst = state.nodeConnectionOption == NodeConnectionOption.PUBLIC &&
+            (state.selectedPublicNodeId == null || restoredNodes.none { it.id == state.selectedPublicNodeId })
+        val restoredSelection = if (shouldSelectFirst) restoredNodes.firstOrNull()?.id else state.selectedPublicNodeId
+
+        _uiState.update { current ->
+            current.copy(
+                publicNodes = restoredNodes,
+                removedPublicNodeIds = emptySet(),
+                selectedPublicNodeId = restoredSelection
+            )
+        }
+
+        viewModelScope.launch {
+            nodeConfigurationRepository.updateNodeConfig { current ->
+                val updatedRemoved = current.removedPublicNodeIds.toMutableMap()
+                updatedRemoved[network] = emptySet()
+                current.copy(
+                    removedPublicNodeIds = updatedRemoved,
+                    selectedPublicNodeId = if (shouldSelectFirst) restoredSelection else current.selectedPublicNodeId
+                )
+            }
+            if (shouldSelectFirst && restoredSelection != null && state.nodeConnectionOption == NodeConnectionOption.PUBLIC) {
+                walletRepository.disconnect(network)
+                walletRepository.refresh(network)
+            }
         }
     }
 
@@ -678,6 +757,7 @@ private data class NodeConfigSnapshot(
     val selectedCustom: String?,
     val isConnected: Boolean,
     val isConnecting: Boolean,
+    val removedPublic: Set<String>,
     val networkLogsEnabled: Boolean,
     val isSyncBusy: Boolean
 )

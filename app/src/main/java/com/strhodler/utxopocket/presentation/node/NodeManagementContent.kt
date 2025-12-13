@@ -18,10 +18,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +31,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -58,8 +62,11 @@ fun NodeManagementContent(
     onInteractionBlocked: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
+    onRemovePublicNode: (String) -> Unit,
+    onRestorePublicNodes: () -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
+    onRemoveCustomNode: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
     onDisconnect: () -> Unit
 ) {
@@ -72,6 +79,7 @@ fun NodeManagementContent(
             publicNodes = state.publicNodes,
             nodeConnectionOption = state.nodeConnectionOption,
             selectedPublicNodeId = state.selectedPublicNodeId,
+            removedPublicNodeIds = state.removedPublicNodeIds,
             customNodes = state.customNodes,
             selectedCustomNodeId = state.selectedCustomNodeId,
             isNodeConnected = state.isNodeConnected,
@@ -81,10 +89,13 @@ fun NodeManagementContent(
             onInteractionBlocked = onInteractionBlocked,
             onNetworkSelected = onNetworkSelected,
             onPublicNodeSelected = onPublicNodeSelected,
+            onRemovePublicNode = onRemovePublicNode,
             onCustomNodeSelected = onCustomNodeSelected,
             onCustomNodeDetails = onCustomNodeDetails,
+            onRemoveCustomNode = onRemoveCustomNode,
             onAddCustomNodeClick = onAddCustomNodeClick,
             onDisconnectNode = onDisconnect,
+            onRestorePublicNodes = onRestorePublicNodes,
             showTorReminder = false
         )
     }
@@ -96,6 +107,7 @@ fun NodeConfigurationContent(
     publicNodes: List<PublicNode>,
     nodeConnectionOption: NodeConnectionOption,
     selectedPublicNodeId: String?,
+    removedPublicNodeIds: Set<String>,
     customNodes: List<CustomNode>,
     selectedCustomNodeId: String?,
     isNodeConnected: Boolean,
@@ -105,10 +117,13 @@ fun NodeConfigurationContent(
     onInteractionBlocked: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
+    onRemovePublicNode: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
+    onRemoveCustomNode: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
     onDisconnectNode: (() -> Unit)? = null,
+    onRestorePublicNodes: () -> Unit,
     showTorReminder: Boolean = true
 ) {
     Column(
@@ -138,9 +153,13 @@ fun NodeConfigurationContent(
             onPublicNodeSelected = onPublicNodeSelected,
             onCustomNodeSelected = onCustomNodeSelected,
             onCustomNodeDetails = onCustomNodeDetails,
+            onRemovePublicNode = onRemovePublicNode,
+            onRemoveCustomNode = onRemoveCustomNode,
             onAddCustomNodeClick = onAddCustomNodeClick,
             onDisconnect = onDisconnectNode,
-            showTorReminder = showTorReminder
+            onRestorePublicNodes = onRestorePublicNodes,
+            showTorReminder = showTorReminder,
+            removedPublicNodeIds = removedPublicNodeIds
         )
     }
 }
@@ -186,9 +205,13 @@ private fun AvailableNodesSection(
     onPublicNodeSelected: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
+    onRemovePublicNode: (String) -> Unit,
+    onRemoveCustomNode: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
     onDisconnect: (() -> Unit)?,
-    showTorReminder: Boolean
+    onRestorePublicNodes: () -> Unit,
+    showTorReminder: Boolean,
+    removedPublicNodeIds: Set<String>
 ) {
     val publicTypeLabel = stringResource(id = R.string.node_item_type_public)
     val customTypeLabel = stringResource(id = R.string.node_item_type_custom)
@@ -202,8 +225,9 @@ private fun AvailableNodesSection(
         containerColor = MaterialTheme.colorScheme.primary,
         contentColor = MaterialTheme.colorScheme.onPrimary
     )
+    val visiblePublicNodes = publicNodes
     val nodes = buildList {
-        publicNodes.forEach { node ->
+        visiblePublicNodes.forEach { node ->
             add(
                 AvailableNodeItem(
                     title = node.displayName,
@@ -214,7 +238,8 @@ private fun AvailableNodesSection(
                             activeOption == NodeConnectionOption.PUBLIC && node.id == selectedPublicId,
                     onActivate = { onPublicNodeSelected(node.id) },
                     onDetailsClick = { onPublicNodeSelected(node.id) },
-                    onDeactivate = onDisconnect
+                    onDeactivate = onDisconnect,
+                    onRemove = { onRemovePublicNode(node.id) }
                 )
             )
         }
@@ -230,11 +255,13 @@ private fun AvailableNodesSection(
                     onActivate = { onCustomNodeSelected(node.id) },
                     onDetailsClick = { onCustomNodeDetails(node.id) },
                     onDeactivate = onDisconnect,
-                    showSettings = true
+                    showSettings = true,
+                    onRemove = { onRemoveCustomNode(node.id) }
                 )
             )
         }
     }
+    val hasRemovedPublicNodes = removedPublicNodeIds.isNotEmpty()
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         ListSection(
             title = stringResource(id = R.string.node_section_available_title),
@@ -251,26 +278,67 @@ private fun AvailableNodesSection(
                             .padding(horizontal = 16.dp, vertical = 20.dp)
                     )
                 }
+                if (hasRemovedPublicNodes) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(
+                                onClick = {
+                                    if (interactionsLocked) {
+                                        onInteractionBlocked()
+                                    } else {
+                                        onRestorePublicNodes()
+                                    }
+                                }
+                            ) {
+                                Text(text = stringResource(id = R.string.node_presets_restore))
+                            }
+                        }
+                    }
+                }
             } else {
                 nodes.forEach { nodeItem ->
-            item {
-                NodeListItem(
-                    title = nodeItem.title,
-                    subtitle = nodeItem.subtitle,
-                    typeBadge = nodeItem.typeBadge,
-                    selected = nodeItem.selected,
-                    connected = nodeItem.connected,
-                    onActivate = nodeItem.onActivate,
-                    onDetailsClick = nodeItem.onDetailsClick,
-                    onDeactivate = nodeItem.onDeactivate,
-                    isNetworkOnline = isNetworkOnline,
-                    interactionsLocked = interactionsLocked,
-                    onInteractionBlocked = onInteractionBlocked,
-                    showSettings = nodeItem.showSettings
-                )
+                    item {
+                        NodeListItem(
+                            title = nodeItem.title,
+                            subtitle = nodeItem.subtitle,
+                            typeBadge = nodeItem.typeBadge,
+                            selected = nodeItem.selected,
+                            connected = nodeItem.connected,
+                            onActivate = nodeItem.onActivate,
+                            onDetailsClick = nodeItem.onDetailsClick,
+                            onDeactivate = nodeItem.onDeactivate,
+                            isNetworkOnline = isNetworkOnline,
+                            interactionsLocked = interactionsLocked,
+                            onInteractionBlocked = onInteractionBlocked,
+                            showSettings = nodeItem.showSettings,
+                            onRemove = nodeItem.onRemove
+                        )
+                    }
+                }
+                if (hasRemovedPublicNodes) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(
+                                onClick = {
+                                    if (interactionsLocked) {
+                                        onInteractionBlocked()
+                                    } else {
+                                        onRestorePublicNodes()
+                                    }
+                                }
+                            ) {
+                                Text(text = stringResource(id = R.string.node_presets_restore))
+                            }
+                        }
+                    }
+                }
             }
-        }
-    }
         }
 
         Button(
@@ -330,7 +398,8 @@ private fun NodeListItem(
     interactionsLocked: Boolean = false,
     onInteractionBlocked: () -> Unit = {},
     showSettings: Boolean = false,
-    onSettingsClick: (() -> Unit)? = null
+    onSettingsClick: (() -> Unit)? = null,
+    onRemove: (() -> Unit)? = null
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         val supportingContent: (@Composable (() -> Unit))? = {
@@ -359,49 +428,7 @@ private fun NodeListItem(
             },
             supportingContent = supportingContent,
             trailingContent = {
-                if (showSettings && onSettingsClick != null) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
-                            contentDescription = stringResource(id = R.string.node_custom_edit_title),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clickable {
-                                    if (interactionsLocked) {
-                                        onInteractionBlocked()
-                                    } else {
-                                        onSettingsClick()
-                                    }
-                                }
-                        )
-                        Divider(
-                            modifier = Modifier
-                                .height(28.dp)
-                                .width(1.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-                        )
-                        Switch(
-                            checked = connected,
-                            enabled = isNetworkOnline,
-                            interactionSource = remember { MutableInteractionSource() },
-                            onCheckedChange = { checked ->
-                                if (interactionsLocked) {
-                                    onInteractionBlocked()
-                                    return@Switch
-                                }
-                                when {
-                                    checked && !connected -> onActivate()
-                                    !checked && connected -> onDeactivate?.invoke()
-                                }
-                            },
-                            colors = SwitchDefaults.colors()
-                        )
-                    }
-                } else {
+                val switchContent: @Composable () -> Unit = {
                     Switch(
                         checked = connected,
                         enabled = isNetworkOnline,
@@ -418,6 +445,68 @@ private fun NodeListItem(
                         },
                         colors = SwitchDefaults.colors()
                     )
+                }
+                val trailingRow: @Composable () -> Unit = {
+                    if (showSettings && onSettingsClick != null) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                                contentDescription = stringResource(id = R.string.node_custom_edit_title),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clickable {
+                                        if (interactionsLocked) {
+                                            onInteractionBlocked()
+                                        } else {
+                                            onSettingsClick()
+                                        }
+                                    }
+                            )
+                            Divider(
+                                modifier = Modifier
+                                    .height(28.dp)
+                                    .width(1.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                            )
+                            switchContent()
+                        }
+                    } else {
+                        switchContent()
+                    }
+                }
+                if (onRemove != null) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = {
+                                if (interactionsLocked) {
+                                    onInteractionBlocked()
+                                } else {
+                                    onRemove()
+                                }
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = stringResource(id = R.string.node_remove_action),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        VerticalDivider(
+                            modifier = Modifier.height(28.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                        )
+                        trailingRow()
+                    }
+                } else {
+                    trailingRow()
                 }
             },
             modifier = Modifier
@@ -470,7 +559,8 @@ data class AvailableNodeItem(
     val onActivate: () -> Unit,
     val onDetailsClick: () -> Unit,
     val onDeactivate: (() -> Unit)? = null,
-    val showSettings: Boolean = false
+    val showSettings: Boolean = false,
+    val onRemove: (() -> Unit)? = null
 )
 
 data class NodeTypeBadge(

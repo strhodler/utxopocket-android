@@ -63,7 +63,6 @@ import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.BlockExplorerCatalog
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.SectionCard
-import com.strhodler.utxopocket.presentation.common.SectionHeader
 import com.strhodler.utxopocket.presentation.common.UrMultiPartScanActivity
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
@@ -212,8 +211,6 @@ private fun BlockExplorerSettingsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         SectionCard(
-            title = stringResource(id = R.string.settings_block_explorer_title, networkLabel),
-            subtitle = stringResource(id = R.string.settings_block_explorer_support),
             spacedContent = false,
             divider = false
         ) {
@@ -241,30 +238,22 @@ private fun BlockExplorerSettingsScreen(
                     }
                 )
             }
-            if (explorerEnabled) {
-                item {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                        shape = MaterialTheme.shapes.large,
-                        tonalElevation = 0.dp,
-                        shadowElevation = 0.dp
-                    ) {
-                        SectionHeader(
-                            title = stringResource(id = R.string.settings_block_explorer_clearnet_title),
-                            subtitle = stringResource(id = R.string.settings_block_explorer_clearnet_subtitle),
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-                        )
-                    }
-                }
+        }
+
+        if (explorerEnabled) {
+            SectionCard(
+                title = stringResource(id = R.string.settings_block_explorer_clearnet_title),
+                subtitle = stringResource(id = R.string.settings_block_explorer_clearnet_subtitle),
+                spacedContent = false,
+                divider = false
+            ) {
                 visibleNormalPresets.forEachIndexed { index, preset ->
                     val isEnabled = !hiddenNormal.contains(preset.id)
-                    val supporting = clearnetSupport
-                    item {
-                        ListItem(
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            headlineContent = {
+                val supporting = clearnetSupport
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
                                 Text(
                                     text = preset.name,
                                     style = MaterialTheme.typography.bodyLarge
@@ -384,12 +373,6 @@ private fun BlockExplorerSettingsScreen(
                                     )
                                 }
                             )
-                            TextButton(
-                                onClick = { onRestorePresets(BlockExplorerBucket.NORMAL) },
-                                modifier = Modifier.align(Alignment.End)
-                            ) {
-                                Text(text = stringResource(id = R.string.settings_block_explorer_restore_presets))
-                            }
                         }
                     }
                 }
@@ -405,34 +388,21 @@ private fun BlockExplorerSettingsScreen(
                         Text(text = stringResource(id = R.string.settings_block_explorer_add_clearnet))
                     }
                 }
+            }
 
-                item {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
-
-                item {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                        shape = MaterialTheme.shapes.large,
-                        tonalElevation = 0.dp,
-                        shadowElevation = 0.dp
-                    ) {
-                        SectionHeader(
-                            title = stringResource(id = R.string.settings_block_explorer_tor_title),
-                            subtitle = stringResource(id = R.string.settings_block_explorer_tor_subtitle),
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-                        )
-                    }
-                }
+            SectionCard(
+                title = stringResource(id = R.string.settings_block_explorer_tor_title),
+                subtitle = stringResource(id = R.string.settings_block_explorer_tor_subtitle),
+                spacedContent = false,
+                divider = false
+            ) {
                 visibleOnionPresets.forEachIndexed { index, preset ->
                     val isEnabled = !hiddenOnion.contains(preset.id)
-                    val supporting = onionSupport
-                    item {
-                        ListItem(
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            headlineContent = {
+                val supporting = onionSupport
+                item {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        headlineContent = {
                                 Text(
                                     text = preset.name,
                                     style = MaterialTheme.typography.bodyLarge
@@ -552,12 +522,6 @@ private fun BlockExplorerSettingsScreen(
                                     )
                                 }
                             )
-                            TextButton(
-                                onClick = { onRestorePresets(BlockExplorerBucket.ONION) },
-                                modifier = Modifier.align(Alignment.End)
-                            ) {
-                                Text(text = stringResource(id = R.string.settings_block_explorer_restore_presets))
-                            }
                         }
                     }
                 }

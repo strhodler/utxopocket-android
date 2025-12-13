@@ -6,6 +6,7 @@ import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.customNodesFor
+import com.strhodler.utxopocket.domain.model.removedPublicNodesFor
 import com.strhodler.utxopocket.domain.model.activeTransport
 import com.strhodler.utxopocket.domain.node.EndpointScheme
 import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
@@ -30,11 +31,14 @@ class ElectrumEndpointProvider @Inject constructor(
         network: BitcoinNetwork,
         failedNodeId: String?
     ): PublicNode? {
-        val available = nodeConfigurationRepository.publicNodesFor(network)
+        val config = nodeConfigurationRepository.nodeConfig.first()
+        val available = nodeConfigurationRepository.publicNodesFor(
+            network,
+            config.removedPublicNodesFor(network)
+        )
         if (available.size <= 1) {
             return null
         }
-        val config = nodeConfigurationRepository.nodeConfig.first()
         if (config.connectionOption != NodeConnectionOption.PUBLIC) {
             return null
         }
@@ -60,7 +64,10 @@ class ElectrumEndpointProvider @Inject constructor(
     }
 
     private fun publicEndpoint(network: BitcoinNetwork, config: NodeConfig): ElectrumEndpoint {
-        val available = nodeConfigurationRepository.publicNodesFor(network)
+        val available = nodeConfigurationRepository.publicNodesFor(
+            network,
+            config.removedPublicNodesFor(network)
+        )
         val selected = available.firstOrNull { it.id == config.selectedPublicNodeId } ?: available.firstOrNull()
 
         return if (selected != null) {

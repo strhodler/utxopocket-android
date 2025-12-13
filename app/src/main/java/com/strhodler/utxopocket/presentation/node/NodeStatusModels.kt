@@ -11,6 +11,7 @@ data class NodeStatusUiState(
     val nodeConnectionOption: NodeConnectionOption = NodeConnectionOption.PUBLIC,
     val publicNodes: List<PublicNode> = emptyList(),
     val selectedPublicNodeId: String? = null,
+    val removedPublicNodeIds: Set<String> = emptySet(),
     val customNodes: List<CustomNode> = emptyList(),
     val selectedCustomNodeId: String? = null,
     val isNodeConnected: Boolean = false,

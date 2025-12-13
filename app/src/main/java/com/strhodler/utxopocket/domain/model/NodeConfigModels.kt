@@ -68,7 +68,8 @@ data class NodeConfig(
     val connectionOption: NodeConnectionOption = NodeConnectionOption.PUBLIC,
     val selectedPublicNodeId: String? = null,
     val customNodes: List<CustomNode> = emptyList(),
-    val selectedCustomNodeId: String? = null
+    val selectedCustomNodeId: String? = null,
+    val removedPublicNodeIds: Map<BitcoinNetwork, Set<String>> = emptyMap()
 )
 
 fun NodeConfig.hasActiveSelection(): Boolean = when (connectionOption) {
@@ -77,7 +78,8 @@ fun NodeConfig.hasActiveSelection(): Boolean = when (connectionOption) {
 }
 
 fun NodeConfig.hasActiveSelection(network: BitcoinNetwork): Boolean = when (connectionOption) {
-    NodeConnectionOption.PUBLIC -> !selectedPublicNodeId.isNullOrBlank()
+    NodeConnectionOption.PUBLIC -> !selectedPublicNodeId.isNullOrBlank() &&
+        !removedPublicNodesFor(network).contains(selectedPublicNodeId)
     NodeConnectionOption.CUSTOM -> activeCustomNode(network) != null
 }
 
@@ -112,3 +114,6 @@ fun CustomNode.requiresTor(): Boolean = activeTransport() == NodeTransport.TOR
 
 private fun CustomNode.normalisedEndpointKind(): EndpointKind? =
     runCatching { NodeEndpointClassifier.normalize(endpoint).kind }.getOrNull()
+
+fun NodeConfig.removedPublicNodesFor(network: BitcoinNetwork): Set<String> =
+    removedPublicNodeIds[network].orEmpty()

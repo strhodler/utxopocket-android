@@ -455,8 +455,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
     override val nodeConfig: Flow<NodeConfig> =
         dataStore.data.map { prefs -> prefs.toNodeConfig() }
 
-    override fun publicNodesFor(network: BitcoinNetwork): List<PublicNode> =
-        PUBLIC_NODES.filter { it.network == network }
+    override fun publicNodesFor(network: BitcoinNetwork, excludedIds: Set<String>): List<PublicNode> =
+        PUBLIC_NODES
+            .filter { it.network == network }
+            .filterNot { excludedIds.contains(it.id) }
 
     override suspend fun updateNodeConfig(mutator: (NodeConfig) -> NodeConfig) {
         dataStore.edit { prefs ->
@@ -476,6 +478,15 @@ class DefaultAppPreferencesRepository @Inject constructor(
                 prefs[Keys.NODE_CUSTOM_LIST] = encodeCustomNodes(updated.customNodes)
             } else {
                 prefs.remove(Keys.NODE_CUSTOM_LIST)
+            }
+            BitcoinNetwork.entries.forEach { network ->
+                val removed = updated.removedPublicNodeIds[network].orEmpty()
+                val key = nodePublicRemovedKey(network)
+                if (removed.isEmpty()) {
+                    prefs.remove(key)
+                } else {
+                    prefs[key] = removed.joinToString(",")
+                }
             }
 
             // Cleanup legacy fields
@@ -508,18 +519,34 @@ class DefaultAppPreferencesRepository @Inject constructor(
         }
 
         val combinedNodes = if (customNodes.isEmpty()) legacyNodes else customNodes
+        val removedPublic = BitcoinNetwork.entries.associateWith { network ->
+            this[nodePublicRemovedKey(network)]?.split(",")
+                ?.filter { it.isNotBlank() }
+                ?.toSet()
+                .orEmpty()
+        }
 
         return NodeConfig(
             connectionOption = connectionOption,
             selectedPublicNodeId = this[Keys.NODE_SELECTED_PUBLIC_ID],
             customNodes = combinedNodes,
-            selectedCustomNodeId = selectedCustomId
+            selectedCustomNodeId = selectedCustomId,
+            removedPublicNodeIds = removedPublic
         ).normalised()
     }
 
     private fun NodeConfig.normalised(): NodeConfig {
         val sanitizedCustomNodes = customNodes
             .mapNotNull { node -> node.normalizedCopy() }
+        val sanitizedRemoved = BitcoinNetwork.entries.associateWith { network ->
+            removedPublicNodeIds[network].orEmpty()
+                .filter { id -> PUBLIC_NODES.any { it.network == network && it.id == id } }
+                .toSet()
+        }
+        val resolvedSelectedPublicId = selectedPublicNodeId?.takeIf { id ->
+            PUBLIC_NODES.any { it.id == id } &&
+                sanitizedRemoved.values.none { removed -> removed.contains(id) }
+        }
 
         val resolvedSelectedCustomId = selectedCustomNodeId?.takeIf { id ->
             sanitizedCustomNodes.any { it.id == id }
@@ -527,13 +554,16 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
         return when (connectionOption) {
             NodeConnectionOption.PUBLIC -> copy(
+                selectedPublicNodeId = resolvedSelectedPublicId,
                 customNodes = sanitizedCustomNodes,
-                selectedCustomNodeId = null
+                selectedCustomNodeId = null,
+                removedPublicNodeIds = sanitizedRemoved
             )
 
             NodeConnectionOption.CUSTOM -> copy(
                 customNodes = sanitizedCustomNodes,
-                selectedCustomNodeId = resolvedSelectedCustomId
+                selectedCustomNodeId = resolvedSelectedCustomId,
+                removedPublicNodeIds = sanitizedRemoved
             )
         }
     }
@@ -713,6 +743,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     private fun blockExplorerRemovedKey(network: BitcoinNetwork, bucket: BlockExplorerBucket) =
         stringPreferencesKey("block_explorer_${network.name.lowercase()}_removed_${bucket.name.lowercase()}")
+
+    private fun nodePublicRemovedKey(network: BitcoinNetwork) =
+        stringPreferencesKey("node_public_removed_${network.name.lowercase()}")
 
     private object Keys {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")

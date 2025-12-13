@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.Flow
 interface NodeConfigurationRepository {
     val nodeConfig: Flow<NodeConfig>
 
-    fun publicNodesFor(network: BitcoinNetwork): List<PublicNode>
+    fun publicNodesFor(network: BitcoinNetwork, excludedIds: Set<String> = emptySet()): List<PublicNode>
 
     suspend fun updateNodeConfig(mutator: (NodeConfig) -> NodeConfig)
 }

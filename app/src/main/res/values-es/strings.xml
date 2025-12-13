@@ -698,6 +698,8 @@
     <string name="node_section_available_title">Nodos disponibles</string>
     <string name="node_section_available_description">Alterna entre los nodos preconfigurados y los tuyos para esta red.</string>
     <string name="node_section_available_empty">Añade tu primer nodo para empezar.</string>
+    <string name="node_presets_restore">Restaurar presets</string>
+    <string name="node_remove_action">Eliminar nodo</string>
     <string name="node_item_type_public">Público</string>
     <string name="node_item_type_custom">Personalizado</string>
     <string name="node_item_type_no_tor">Sin Tor</string>

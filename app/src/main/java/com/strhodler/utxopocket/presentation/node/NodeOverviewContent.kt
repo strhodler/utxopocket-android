@@ -18,6 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
@@ -29,7 +31,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -378,13 +379,17 @@ private fun TorActionButtons(
 
             is TorStatus.Error,
             TorStatus.Stopped -> {
-                TextButton(
+                Button(
                     onClick = onStartTor,
                     enabled = !actionsState.isStarting,
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = TorCtaMinHeight),
-                    contentPadding = TorCtaContentPadding
+                    contentPadding = TorCtaContentPadding,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
                 ) {
                     if (actionsState.isStarting) {
                         CircularProgressIndicator(
@@ -395,8 +400,7 @@ private fun TorActionButtons(
                         Icon(
                             imageVector = Icons.Outlined.PlayArrow,
                             contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.primary
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                     Text(
