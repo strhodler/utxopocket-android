@@ -56,6 +56,8 @@ import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.TransactionStructure
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
+import com.strhodler.utxopocket.domain.model.SyncOperation
+import com.strhodler.utxopocket.domain.model.SyncQueueEntry
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.TransactionType
 import com.strhodler.utxopocket.domain.model.UtxoStatus
@@ -78,9 +80,11 @@ import com.strhodler.utxopocket.domain.model.toBdkNetwork
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.TorManager
+import com.strhodler.utxopocket.data.wallet.SyncGapInitializer.seedSyncGapIfMissing
 import com.strhodler.utxopocket.domain.model.NetworkLogOperation
 import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
 import com.strhodler.utxopocket.domain.model.NetworkNodeSource
@@ -151,6 +155,7 @@ class DefaultWalletRepository @Inject constructor(
     private val nodeConfigurationRepository: NodeConfigurationRepository,
     private val networkStatusMonitor: NetworkStatusMonitor,
     private val networkErrorLogRepository: NetworkErrorLogRepository,
+    private val walletSyncPreferencesRepository: WalletSyncPreferencesRepository,
     @param:ApplicationContext private val applicationContext: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : WalletRepository {
@@ -171,6 +176,7 @@ class DefaultWalletRepository @Inject constructor(
         private val WHITESPACE_REGEX = Regex("\\s+")
         private val MULTIPATH_SEGMENT_REGEX = Regex("/<[^>]+>/")
         private const val MAX_FULL_SCAN_STOP_GAP = 500
+        private val ORIGIN_FINGERPRINT_REGEX = Regex("\\[([0-9a-fA-F]{8})(?:/|])")
 
         @VisibleForTesting
         internal fun normalizeOrigin(value: String?): String? {
@@ -202,11 +208,40 @@ class DefaultWalletRepository @Inject constructor(
             if (normalizedRecord.startsWith(normalizedWallet) || normalizedWallet.startsWith(normalizedRecord)) return true
             return false
         }
+
+        @VisibleForTesting
+        internal fun extractMasterFingerprints(descriptor: String?): List<String> {
+            if (descriptor.isNullOrBlank()) return emptyList()
+            val seen = linkedSetOf<String>()
+            ORIGIN_FINGERPRINT_REGEX.findAll(descriptor).forEach { matchResult ->
+                val fingerprint = matchResult.groupValues.getOrNull(1)?.uppercase(Locale.US)
+                if (!fingerprint.isNullOrBlank()) {
+                    seen.add(fingerprint)
+                }
+            }
+            return seen.toList()
+        }
+
+        @VisibleForTesting
+        internal fun collectMasterFingerprints(
+            descriptor: String?,
+            changeDescriptor: String?
+        ): List<String> {
+            val combined = linkedSetOf<String>()
+            extractMasterFingerprints(descriptor).forEach(combined::add)
+            extractMasterFingerprints(changeDescriptor).forEach(combined::add)
+            return combined.toList()
+        }
+    }
+
+    private fun parseDerivationIndex(path: String?): Int? {
+        if (path.isNullOrBlank()) return null
+        return path.substringAfterLast('/').toIntOrNull()
     }
 
     private sealed interface NetworkIntent {
         data class RefreshNetwork(val network: BitcoinNetwork) : NetworkIntent
-        data class SyncWallet(val walletId: Long) : NetworkIntent
+        data class SyncWallet(val walletId: Long, val operation: SyncOperation = SyncOperation.Refresh) : NetworkIntent
         data class SyncAll(val network: BitcoinNetwork) : NetworkIntent
         data class Disconnect(val network: BitcoinNetwork) : NetworkIntent
         data object RehydrateQueues : NetworkIntent
@@ -227,6 +262,7 @@ class DefaultWalletRepository @Inject constructor(
     )
     private val syncQueueMutex = Mutex()
     private val pendingWalletQueues = mutableMapOf<BitcoinNetwork, ArrayDeque<Long>>()
+    private val pendingWalletOperations = mutableMapOf<Long, SyncOperation>()
     private val activeWalletByNetwork = mutableMapOf<BitcoinNetwork, Long?>()
     private val runningSyncJobs = mutableMapOf<BitcoinNetwork, Job>()
     private val orchestratorIntents = MutableSharedFlow<NetworkIntent>(
@@ -253,32 +289,9 @@ class DefaultWalletRepository @Inject constructor(
             network = network,
             refreshingWalletIds = emptySet(),
             activeWalletId = null,
-            queuedWalletIds = emptyList()
+            activeOperation = null,
+            queued = emptyList()
         )
-    }
-
-    private fun setSyncQueue(network: BitcoinNetwork, queue: List<Long>) {
-        val active = queue.firstOrNull()
-        syncStatus.value = SyncStatusSnapshot(
-            isRefreshing = active != null,
-            network = network,
-            refreshingWalletIds = active?.let { setOf(it) } ?: emptySet(),
-            activeWalletId = active,
-            queuedWalletIds = queue.drop(1)
-        )
-    }
-
-    private fun advanceSyncQueue(network: BitcoinNetwork, remainingQueue: List<Long>) {
-        val active = remainingQueue.firstOrNull()
-        syncStatus.update { current ->
-            current.copy(
-                isRefreshing = active != null,
-                network = network,
-                refreshingWalletIds = active?.let { setOf(it) } ?: emptySet(),
-                activeWalletId = active,
-                queuedWalletIds = remainingQueue.drop(1)
-            )
-        }
     }
 
     private fun queueFor(network: BitcoinNetwork): ArrayDeque<Long> =
@@ -291,13 +304,62 @@ class DefaultWalletRepository @Inject constructor(
         isRunning: Boolean
     ) {
         val syncing = isRunning && activeWalletId != null
+        val activeOperation = activeWalletId?.let { pendingWalletOperations[it] }
+        val queuedEntries = queue.map { id ->
+            SyncQueueEntry(id, pendingWalletOperations[id] ?: SyncOperation.Refresh)
+        }
         syncStatus.value = SyncStatusSnapshot(
             isRefreshing = syncing,
             network = network,
             refreshingWalletIds = activeWalletId?.let { setOf(it) } ?: emptySet(),
             activeWalletId = activeWalletId,
-            queuedWalletIds = queue
+            activeOperation = activeOperation,
+            queued = queuedEntries
         )
+    }
+
+    private suspend fun enqueueWalletsForSync(
+        network: BitcoinNetwork,
+        walletIds: Collection<Long>,
+        operation: SyncOperation
+    ) {
+        var shouldStart = false
+        syncQueueMutex.withLock {
+            val queue = queueFor(network)
+            val active = activeWalletByNetwork[network]
+            walletIds.forEach { id ->
+                val existingOp = pendingWalletOperations[id]
+                val resolvedOp = when {
+                    operation == SyncOperation.FullRescan -> SyncOperation.FullRescan
+                    existingOp == SyncOperation.FullRescan -> SyncOperation.FullRescan
+                    else -> SyncOperation.Refresh
+                }
+                pendingWalletOperations[id] = resolvedOp
+                if (active != id && !queue.contains(id)) {
+                    queue.addLast(id)
+                }
+            }
+            val queueList = queue.toList()
+            val running = runningSyncJobs[network]?.isActive == true
+            updateSyncStatusLocked(
+                network = network,
+                activeWalletId = active,
+                queue = if (active != null) queueList else queueList.drop(0),
+                isRunning = running
+            )
+            shouldStart = queue.isNotEmpty() && !running
+        }
+        if (shouldStart) {
+            launchSyncJob(network)
+        }
+    }
+
+    private fun removeOperationIfIdle(walletId: Long) {
+        val stillQueued = pendingWalletQueues.values.any { queue -> queue.contains(walletId) }
+        val stillActive = activeWalletByNetwork.values.any { it == walletId }
+        if (!stillQueued && !stillActive) {
+            pendingWalletOperations.remove(walletId)
+        }
     }
 
     private suspend fun enqueueWalletsForSync(
@@ -309,6 +371,7 @@ class DefaultWalletRepository @Inject constructor(
             val queue = queueFor(network)
             val active = activeWalletByNetwork[network]
             walletIds.forEach { id ->
+                pendingWalletOperations.putIfAbsent(id, SyncOperation.Refresh)
                 if (active != id && !queue.contains(id)) {
                     queue.addLast(id)
                 }
@@ -343,6 +406,7 @@ class DefaultWalletRepository @Inject constructor(
                 isRunning = runningSyncJobs[network]?.isActive == true
             )
         }
+        removeOperationIfIdle(walletId)
     }
 
     private suspend fun rehydratePendingSyncs() = withContext(ioDispatcher) {
@@ -440,11 +504,13 @@ class DefaultWalletRepository @Inject constructor(
 
                 val completed = syncResult.getOrDefault(false)
                 var hasPending = false
+                var activeStillPending = false
                 syncQueueMutex.withLock {
                     val queue = queueFor(network)
                     if (!completed && !queue.contains(activeId)) {
                         queue.addFirst(activeId)
                     }
+                    activeStillPending = queue.contains(activeId)
                     activeWalletByNetwork[network] = null
                     updateSyncStatusLocked(
                         network = network,
@@ -463,6 +529,9 @@ class DefaultWalletRepository @Inject constructor(
                         return@launch
                     }
                     hasPending = queue.isNotEmpty()
+                }
+                if (!activeStillPending) {
+                    removeOperationIfIdle(activeId)
                 }
                 if (!completed && hasPending) {
                     delay(1_000)
@@ -585,12 +654,16 @@ class DefaultWalletRepository @Inject constructor(
             currentSync.activeWalletId?.let { add(it) }
             addAll(currentSync.queuedWalletIds)
         }
+        val pendingEntries = pending.map { id ->
+            SyncQueueEntry(id, pendingWalletOperations[id] ?: SyncOperation.Refresh)
+        }
         syncStatus.update {
             it.copy(
                 isRefreshing = false,
                 refreshingWalletIds = emptySet(),
                 activeWalletId = null,
-                queuedWalletIds = pending
+                activeOperation = null,
+                queued = pendingEntries
             )
         }
         val snapshot = nodeStatus.value
@@ -601,7 +674,7 @@ class DefaultWalletRepository @Inject constructor(
         orchestratorIntents.collect { intent ->
             when (intent) {
                 is NetworkIntent.RefreshNetwork -> handleRefreshIntent(intent.network)
-                is NetworkIntent.SyncWallet -> handleSyncWalletIntent(intent.walletId)
+                is NetworkIntent.SyncWallet -> handleSyncWalletIntent(intent.walletId, intent.operation)
                 is NetworkIntent.SyncAll -> handleSyncAllIntent(intent.network)
                 is NetworkIntent.Disconnect -> handleDisconnectIntent(intent.network)
                 NetworkIntent.RehydrateQueues -> rehydratePendingSyncs()
@@ -659,7 +732,7 @@ class DefaultWalletRepository @Inject constructor(
         }
     }
 
-    private suspend fun handleSyncWalletIntent(walletId: Long) = withContext(ioDispatcher) {
+    private suspend fun handleSyncWalletIntent(walletId: Long, operation: SyncOperation) = withContext(ioDispatcher) {
         val entity = walletDao.findById(walletId) ?: return@withContext
         val walletNetwork = runCatching { BitcoinNetwork.valueOf(entity.network) }
             .getOrDefault(BitcoinNetwork.DEFAULT)
@@ -677,7 +750,7 @@ class DefaultWalletRepository @Inject constructor(
             return@withContext
         }
         disconnectRequests.remove(walletNetwork)
-        enqueueWalletsForSync(network = walletNetwork, walletIds = setOf(walletId))
+        enqueueWalletsForSync(network = walletNetwork, walletIds = setOf(walletId), operation = operation)
     }
 
     private suspend fun handleSyncAllIntent(network: BitcoinNetwork) = withContext(ioDispatcher) {
@@ -719,15 +792,23 @@ class DefaultWalletRepository @Inject constructor(
         }
         val snapshot = nodeStatus.value
         val matchesNetwork = snapshot.network == network
-        nodeStatus.value = NodeStatusSnapshot(
-            status = NodeStatus.Idle,
+        val disconnectingSnapshot = NodeStatusSnapshot(
+            status = NodeStatus.Disconnecting,
             blockHeight = snapshot.blockHeight.takeIf { matchesNetwork },
             serverInfo = snapshot.serverInfo.takeIf { matchesNetwork },
-            endpoint = null,
+            endpoint = snapshot.endpoint.takeIf { matchesNetwork },
             lastSyncCompletedAt = snapshot.lastSyncCompletedAt.takeIf { matchesNetwork },
             network = network,
             feeRateSatPerVb = snapshot.feeRateSatPerVb.takeIf { matchesNetwork }
         )
+        nodeStatus.value = disconnectingSnapshot
+        val hasActiveSelection = nodeConfigurationRepository.nodeConfig.first().hasActiveSelection(network)
+        if (!hasActiveSelection) {
+            nodeStatus.value = disconnectingSnapshot.copy(
+                status = NodeStatus.Idle,
+                endpoint = null
+            )
+        }
     }
 
     private suspend fun startQueuedSyncJobs() {
@@ -846,6 +927,10 @@ class DefaultWalletRepository @Inject constructor(
             entity?.let { walletEntity ->
                 val domainTransactions = transactions.map(WalletTransactionWithRelations::toDomain)
                 val domainUtxos = utxos.map(WalletUtxoEntity::toDomain)
+                val masterFingerprints = collectMasterFingerprints(
+                    walletEntity.descriptor,
+                    walletEntity.changeDescriptor
+                )
                 val transactionLabels = domainTransactions.associate { it.id to it.label }
                 val reuseCounts = domainUtxos
                     .mapNotNull { utxo -> utxo.address?.takeIf { it.isNotBlank() } }
@@ -863,6 +948,7 @@ class DefaultWalletRepository @Inject constructor(
                     summary = walletEntity.toDomain(),
                     descriptor = walletEntity.descriptor,
                     changeDescriptor = walletEntity.changeDescriptor,
+                    masterFingerprints = masterFingerprints,
                     transactions = domainTransactions,
                     utxos = enrichedUtxos
                 )
@@ -886,6 +972,7 @@ class DefaultWalletRepository @Inject constructor(
         sealAfterUse: Boolean = false,
         block: suspend (Wallet, Persister, WalletMaterializationSource?) -> T
     ): T {
+        seedSyncGapIfMissing(entity, walletSyncPreferencesRepository)
         if (sealAfterUse) {
             val managed = walletFactory.create(entity)
             return try {
@@ -981,8 +1068,8 @@ class DefaultWalletRepository @Inject constructor(
         orchestratorIntents.emit(NetworkIntent.Disconnect(network))
     }
 
-    override suspend fun refreshWallet(walletId: Long) {
-        orchestratorIntents.emit(NetworkIntent.SyncWallet(walletId))
+    override suspend fun refreshWallet(walletId: Long, operation: SyncOperation) {
+        orchestratorIntents.emit(NetworkIntent.SyncWallet(walletId, operation))
     }
 
     private suspend fun refreshInternal(
@@ -1081,15 +1168,19 @@ class DefaultWalletRepository @Inject constructor(
                     clearSyncStatus(network)
                 } else {
                     syncStatus.update { current ->
-                        val pending = buildList {
+                        val pendingIds = buildList {
                             current.activeWalletId?.let { add(it) }
                             addAll(current.queuedWalletIds)
+                        }
+                        val pendingEntries = pendingIds.map { id ->
+                            SyncQueueEntry(id, pendingWalletOperations[id] ?: SyncOperation.Refresh)
                         }
                         current.copy(
                             isRefreshing = false,
                             refreshingWalletIds = emptySet(),
                             activeWalletId = null,
-                            queuedWalletIds = pending
+                            activeOperation = null,
+                            queued = pendingEntries
                         )
                     }
                 }
@@ -1160,6 +1251,22 @@ class DefaultWalletRepository @Inject constructor(
             val electrumEndpoint = blockchainFactory.endpointFor(network)
             lastEndpointMetadata = EndpointAttemptMetadata(network, electrumEndpoint)
             activeTransport = electrumEndpoint.transport
+            val pendingEndpointLabel = electrumEndpoint.displayName ?: electrumEndpoint.url
+            if (previousEndpoint != pendingEndpointLabel) {
+                shouldSignalConnecting = true
+            }
+            if (shouldSignalConnecting) {
+                endpoint = pendingEndpointLabel
+                nodeStatus.value = NodeStatusSnapshot(
+                    status = NodeStatus.Connecting,
+                    blockHeight = blockHeight,
+                    serverInfo = serverInfo,
+                    endpoint = endpoint,
+                    lastSyncCompletedAt = lastSyncForNetwork,
+                    network = network,
+                    feeRateSatPerVb = estimatedFeeRateSatPerVb
+                )
+            }
             suspend fun runSyncWithProxy(proxy: SocksProxyConfig?) {
                 ensureForeground()
                 val session = blockchainFactory.create(electrumEndpoint, proxy)
@@ -1242,8 +1349,16 @@ class DefaultWalletRepository @Inject constructor(
                     }
                     SecureLog.d(TAG) { "Syncing ${filteredWallets.size} wallet(s) on $network target=$targetLabelForLog" }
                     var remainingQueue = filteredWallets.map { it.id }
+                    remainingQueue.forEach { id ->
+                        pendingWalletOperations.putIfAbsent(id, SyncOperation.Refresh)
+                    }
                     if (manageSyncStatus && remainingQueue.isNotEmpty()) {
-                        setSyncQueue(network, remainingQueue)
+                        updateSyncStatusLocked(
+                            network = network,
+                            activeWalletId = remainingQueue.firstOrNull(),
+                            queue = remainingQueue.drop(1),
+                            isRunning = true
+                        )
                     } else if (manageSyncStatus) {
                         clearSyncStatus(network)
                     }
@@ -1254,7 +1369,14 @@ class DefaultWalletRepository @Inject constructor(
                         if (isWalletDeletionPending(entity.id)) {
                             SecureLog.d(TAG) { "Skipping sync for $walletAlias because it is being deleted." }
                             remainingQueue = remainingQueue.drop(1)
-                            advanceSyncQueue(network, remainingQueue)
+                            if (manageSyncStatus) {
+                                updateSyncStatusLocked(
+                                    network = network,
+                                    activeWalletId = remainingQueue.firstOrNull(),
+                                    queue = remainingQueue.drop(1),
+                                    isRunning = remainingQueue.isNotEmpty()
+                                )
+                            }
                             return@forEach
                         }
                         val metricsEnabled = BuildConfig.DEBUG
@@ -1303,7 +1425,10 @@ class DefaultWalletRepository @Inject constructor(
                                         "Wallet ${entity.id} sync mode=${if (shouldRunFullScan) "full" else "incremental"} reasons=$reasonLabel"
                                     }
                                 }
-                                val fullScanStopGap = entity.fullScanStopGap
+                                val configuredStopGap = runCatching {
+                                    walletSyncPreferencesRepository.getGap(entity.id)
+                                }.getOrNull()
+                                val fullScanStopGap = (entity.fullScanStopGap ?: configuredStopGap)
                                     ?.coerceIn(1, MAX_FULL_SCAN_STOP_GAP)
                                 val hasChangeKeychain = !entity.viewOnly && entity.hasChangeBranch()
                                 val walletCancellationSignal = SyncCancellationSignal {
@@ -1372,6 +1497,31 @@ class DefaultWalletRepository @Inject constructor(
                                         currentHeight = blockHeight,
                                         existingMetadata = existingUtxoMetadata
                                     )
+                                    val externalMaxFromOutputs = capturedTransactions.outputs
+                                        .filter { it.addressType == WalletAddressType.EXTERNAL.name }
+                                        .mapNotNull { it.derivationIndex }
+                                        .maxOrNull()
+                                    val changeMaxFromOutputs = capturedTransactions.outputs
+                                        .filter { it.addressType == WalletAddressType.CHANGE.name }
+                                        .mapNotNull { it.derivationIndex }
+                                        .maxOrNull()
+                                    val externalMaxFromUtxos = utxoEntities
+                                        .filter { it.keychain == WalletAddressType.EXTERNAL.name }
+                                        .mapNotNull { it.derivationIndex }
+                                        .maxOrNull()
+                                    val changeMaxFromUtxos = utxoEntities
+                                        .filter { it.keychain == WalletAddressType.CHANGE.name }
+                                        .mapNotNull { it.derivationIndex }
+                                        .maxOrNull()
+                                    val resolvedExternalMax = listOfNotNull(externalMaxFromOutputs, externalMaxFromUtxos).maxOrNull()
+                                    val resolvedChangeMax = listOfNotNull(changeMaxFromOutputs, changeMaxFromUtxos).maxOrNull()
+                                    runCatching {
+                                        walletDao.updateLastActiveIndices(
+                                            walletId = entity.id,
+                                            externalIdx = resolvedExternalMax,
+                                            changeIdx = resolvedChangeMax
+                                        )
+                                    }
                                     txAfterForMetrics = capturedTransactions.transactions.size
                                     utxoAfterForMetrics = utxoEntities.size
                                     val hadPreviousData =
@@ -1568,7 +1718,12 @@ class DefaultWalletRepository @Inject constructor(
                         }
                         remainingQueue = remainingQueue.drop(1)
                         if (manageSyncStatus) {
-                            advanceSyncQueue(network, remainingQueue)
+                            updateSyncStatusLocked(
+                                network = network,
+                                activeWalletId = remainingQueue.firstOrNull(),
+                                queue = remainingQueue.drop(1),
+                                isRunning = remainingQueue.isNotEmpty()
+                            )
                         }
                     }
                     ensureForeground()
@@ -1818,7 +1973,8 @@ class DefaultWalletRepository @Inject constructor(
                             address = outputDetails.address,
                             isMine = outputDetails.isMine,
                             addressType = outputDetails.addressType?.name,
-                            derivationPath = outputDetails.derivationPath
+                            derivationPath = outputDetails.derivationPath,
+                            derivationIndex = parseDerivationIndex(outputDetails.derivationPath)
                         )
                     } finally {
                         txOut.destroy()
@@ -2294,6 +2450,7 @@ class DefaultWalletRepository @Inject constructor(
                 }
                 val inserted = walletDao.findById(id)
                 if (inserted != null) {
+                    seedSyncGapIfMissing(inserted, walletSyncPreferencesRepository)
                     WalletCreationResult.Success(inserted.toDomain())
                 } else {
                     WalletCreationResult.Failure("Wallet inserted but could not be loaded.")
@@ -2584,6 +2741,15 @@ class DefaultWalletRepository @Inject constructor(
             wallet.persist(persister)
             Unit
         }
+    }
+
+    override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> = withContext(ioDispatcher) {
+        val entity = walletDao.findById(walletId) ?: return@withContext null to null
+        val external = walletDao.maxDerivationIndexForOutputs(walletId, WalletAddressType.EXTERNAL.name)
+            ?: entity.lastActiveExternalIndex
+        val change = walletDao.maxDerivationIndexForOutputs(walletId, WalletAddressType.CHANGE.name)
+            ?: entity.lastActiveChangeIndex
+        external to change
     }
 
     override suspend fun updateUtxoLabel(

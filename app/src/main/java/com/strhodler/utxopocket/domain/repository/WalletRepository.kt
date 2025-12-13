@@ -19,6 +19,7 @@ import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.domain.model.Bip329ImportResult
+import com.strhodler.utxopocket.domain.model.SyncOperation
 import kotlinx.coroutines.flow.Flow
 
 interface WalletRepository {
@@ -46,7 +47,7 @@ interface WalletRepository {
     fun observeUtxoCount(id: Long): Flow<Int>
     fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>>
     suspend fun refresh(network: BitcoinNetwork)
-    suspend fun refreshWallet(walletId: Long)
+    suspend fun refreshWallet(walletId: Long, operation: SyncOperation = SyncOperation.Refresh)
     suspend fun disconnect(network: BitcoinNetwork)
     suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean
     suspend fun validateDescriptor(
@@ -81,6 +82,7 @@ interface WalletRepository {
     suspend fun exportWalletLabels(walletId: Long): WalletLabelExport
     suspend fun importWalletLabels(walletId: Long, payload: ByteArray): Bip329ImportResult
     fun setSyncForegroundState(isForeground: Boolean)
+    suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?>
 }
 
 class WalletNameAlreadyExistsException(name: String) :

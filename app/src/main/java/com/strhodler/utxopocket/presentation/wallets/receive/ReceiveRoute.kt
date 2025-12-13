@@ -42,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,7 +70,7 @@ import com.strhodler.utxopocket.domain.model.AddressUsage
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.repository.WalletRepository
-import com.strhodler.utxopocket.domain.service.IncomingTxWatcher
+import com.strhodler.utxopocket.domain.service.IncomingTxChecker
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
@@ -100,6 +101,7 @@ fun ReceiveRoute(
     var showDetailsSheet by remember { mutableStateOf(false) }
     var selectedDetail by remember { mutableStateOf<WalletAddressDetail?>(null) }
     val context = LocalContext.current
+    var lastAddressValue by remember { mutableStateOf<String?>(null) }
     val showSnackbar = remember(coroutineScope, snackbarHostState) {
         { message: String, duration: SnackbarDuration ->
             coroutineScope.launch {
@@ -116,6 +118,14 @@ fun ReceiveRoute(
         successMessage = stringResource(id = R.string.receive_copy_success),
         onShowMessage = { message -> showSnackbar(message, SnackbarDuration.Short) }
     )
+    LaunchedEffect(state.address?.value) {
+        val current = state.address?.value ?: return@LaunchedEffect
+        val previous = lastAddressValue
+        lastAddressValue = current
+        if (previous != null && previous != current) {
+            showSnackbar(context.getString(R.string.receive_next_address_ready), SnackbarDuration.Short)
+        }
+    }
 
     SetSecondaryTopBar(
         title = stringResource(id = R.string.receive_title),
@@ -191,7 +201,7 @@ fun ReceiveRoute(
 class ReceiveViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val walletRepository: WalletRepository,
-    private val incomingTxWatcher: IncomingTxWatcher,
+    private val incomingTxChecker: IncomingTxChecker,
     private val incomingTxCoordinator: IncomingTxCoordinator
 ) : ViewModel() {
 
@@ -278,7 +288,7 @@ class ReceiveViewModel @Inject constructor(
                         derivationIndex = address.derivationIndex
                     )
                 }
-            val detected = incomingTxWatcher.manualCheck(walletId, listOf(detail) + additional)
+            val detected = incomingTxChecker.manualCheck(walletId, listOf(detail) + additional)
             if (detected) {
                 nextAddress()
                 ReceiveCheckResult.Detected
@@ -334,11 +344,30 @@ class ReceiveViewModel @Inject constructor(
     }
 
     private suspend fun fetchUnusedAddress(): WalletAddress? =
-        walletRepository.listUnusedAddresses(
-            walletId = walletId,
-            type = WalletAddressType.EXTERNAL,
-            limit = 1
-        ).firstOrNull()
+        runCatching {
+            val placeholders = placeholderAddresses()
+            val dynamicLimit = (placeholders.size + 2).coerceAtLeast(1)
+            val unused = walletRepository.listUnusedAddresses(
+                walletId = walletId,
+                type = WalletAddressType.EXTERNAL,
+                limit = dynamicLimit
+            )
+            unused.firstOrNull { address -> address.value !in placeholders } ?: revealPastPlaceholders(placeholders)
+        }.getOrNull()
+
+    private suspend fun revealPastPlaceholders(placeholders: Set<String>): WalletAddress? {
+        val maxAttempts = (placeholders.size + 3).coerceAtLeast(3)
+        repeat(maxAttempts) {
+            val next = walletRepository.revealNextAddress(
+                walletId = walletId,
+                type = WalletAddressType.EXTERNAL
+            ) ?: return null
+            if (next.value !in placeholders) {
+                return next
+            }
+        }
+        return null
+    }
 
     private fun setError(cause: Throwable?) {
         internalState.update {
@@ -350,6 +379,12 @@ class ReceiveViewModel @Inject constructor(
             )
         }
     }
+
+    private fun placeholderAddresses(): Set<String> =
+        incomingTxCoordinator.placeholders.value[walletId]
+            ?.map { it.address }
+            ?.toSet()
+            .orEmpty()
 }
 
 data class ReceiveUiState(

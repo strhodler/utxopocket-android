@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.UnfoldMore
 import androidx.compose.material.icons.outlined.Sort
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.BottomSheetDefaults
@@ -58,6 +59,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Divider
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Surface
@@ -149,11 +151,14 @@ fun WalletDetailScreen(
     onBalanceRangeSelected: (BalanceRange) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
+    onTogglePending: (Boolean) -> Unit,
     outerListState: LazyListState,
     selectedTab: WalletDetailTab,
     onTabSelected: (WalletDetailTab) -> Unit,
+    tabs: List<WalletDetailTab>,
     pagerState: PagerState,
     listStates: Map<WalletDetailTab, LazyListState>,
+    incomingCount: Int,
     contentPadding: PaddingValues,
     topContentPadding: Dp,
     modifier: Modifier = Modifier
@@ -202,8 +207,11 @@ fun WalletDetailScreen(
                 onCycleBalanceDisplay = onCycleBalanceDisplay,
                 onRefreshRequested = onRefreshRequested,
                 onOpenWikiTopic = onOpenWikiTopic,
+                onTogglePending = onTogglePending,
                 pagerState = pagerState,
                 listStates = listStates,
+                tabs = tabs,
+                incomingCount = incomingCount,
                 contentPadding = contentPadding,
                 topContentPadding = topContentPadding,
                 modifier = modifier.fillMaxSize()
@@ -231,14 +239,16 @@ private fun WalletDetailContent(
     onCycleBalanceDisplay: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onRefreshRequested: () -> Unit,
+    onTogglePending: (Boolean) -> Unit,
     pagerState: PagerState,
     listStates: Map<WalletDetailTab, LazyListState>,
+    tabs: List<WalletDetailTab>,
+    incomingCount: Int,
     contentPadding: PaddingValues,
     topContentPadding: Dp,
     modifier: Modifier = Modifier
 ) {
     val summary = requireNotNull(state.summary)
-    val tabs = remember { WalletDetailTab.entries.toTypedArray() }
     val walletErrorMessage = remember(summary.lastSyncStatus, state.nodeStatus) {
         when (val status = summary.lastSyncStatus) {
             is NodeStatus.Error -> if (state.nodeStatus is NodeStatus.Error) {
@@ -369,9 +379,11 @@ private fun WalletDetailContent(
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     WalletTabs(
+                        tabs = tabs,
                         selected = selectedTab,
                         onTabSelected = onTabSelected,
                         transactionsCount = state.transactionsCount,
+                        incomingCount = incomingCount,
                         utxosCount = state.utxosCount,
                         pagerState = pagerState,
                         palette = walletTheme,
@@ -407,10 +419,8 @@ private fun WalletDetailContent(
                 ) {
                     when (tab) {
                         WalletDetailTab.Transactions -> {
-                            val placeholders = state.incomingPlaceholders
                             val hasAnyTransactions = state.transactionsCount > 0 ||
-                                transactions.itemCount > 0 ||
-                                placeholders.isNotEmpty()
+                                transactions.itemCount > 0
                             if (hasAnyTransactions) {
                                 item(key = "transactions_sort") {
                                     Row(
@@ -431,6 +441,8 @@ private fun WalletDetailContent(
                                             counts = state.transactionFilterCounts,
                                             visibleCount = state.visibleTransactionsCount,
                                             onFilterChange = onTransactionLabelFilterChange,
+                                            showPending = state.showPending,
+                                            onPendingChange = onTogglePending,
                                             modifier = Modifier.weight(1f)
                                         )
                                     }
@@ -451,8 +463,7 @@ private fun WalletDetailContent(
                                 }
 
                                 transactionLoadState is LoadState.NotLoading &&
-                                    transactions.itemCount == 0 &&
-                                    placeholders.isEmpty() -> {
+                                    transactions.itemCount == 0 -> {
                                     item(key = "transactions_empty") {
                                         EmptyPlaceholder(
                                             message = stringResource(id = R.string.wallet_detail_empty_transactions)
@@ -461,19 +472,6 @@ private fun WalletDetailContent(
                                 }
 
                                 else -> {
-                                    if (placeholders.isNotEmpty()) {
-                                        items(
-                                            items = placeholders,
-                                            key = { placeholder -> "incoming_placeholder_${placeholder.txid}" }
-                                        ) { placeholder ->
-                                            IncomingPlaceholderRow(
-                                                placeholder = placeholder,
-                                                unit = state.balanceUnit,
-                                                balancesHidden = state.balancesHidden,
-                                                palette = walletTheme
-                                            )
-                                        }
-                                    }
                                     items(
                                         count = transactions.itemCount,
                                         key = transactions.itemKey { transaction -> transaction.id }
@@ -505,6 +503,29 @@ private fun WalletDetailContent(
 
                                         else -> Unit
                                     }
+                                }
+                            }
+                        }
+
+                        WalletDetailTab.Incoming -> {
+                            val placeholders = state.incomingPlaceholders
+                            if (placeholders.isEmpty()) {
+                                item(key = "incoming_empty") {
+                                    EmptyPlaceholder(
+                                        message = stringResource(id = R.string.wallet_detail_incoming_empty)
+                                    )
+                                }
+                            } else {
+                                items(
+                                    items = placeholders,
+                                    key = { placeholder -> "incoming_placeholder_${placeholder.txid}" }
+                                ) { placeholder ->
+                                    IncomingPlaceholderRow(
+                                        placeholder = placeholder,
+                                        unit = state.balanceUnit,
+                                        balancesHidden = state.balancesHidden,
+                                        palette = walletTheme
+                                    )
                                 }
                             }
                         }
@@ -1290,24 +1311,26 @@ fun WalletHealthMetricRow(
 
 @Composable
 private fun WalletTabs(
+    tabs: List<WalletDetailTab>,
     selected: WalletDetailTab,
     onTabSelected: (WalletDetailTab) -> Unit,
     transactionsCount: Int,
+    incomingCount: Int,
     utxosCount: Int,
     pagerState: PagerState,
     palette: WalletColorTheme,
     modifier: Modifier = Modifier
 ) {
-    val tabs = remember { WalletDetailTab.entries.toTypedArray() }
     val selectedTextColor = MaterialTheme.colorScheme.onSurface
     val unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val selectedIndex = tabs.indexOf(selected).coerceAtLeast(0)
     TabRow(
         modifier = modifier.fillMaxWidth(),
-        selectedTabIndex = selected.ordinal,
+        selectedTabIndex = selectedIndex,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         indicator = { tabPositions ->
             TabRowDefaults.SecondaryIndicator(
-                modifier = Modifier.tabIndicatorOffset(tabPositions[selected.ordinal]),
+                modifier = Modifier.tabIndicatorOffset(tabPositions[selectedIndex]),
                 color = MaterialTheme.colorScheme.primary
             )
         }
@@ -1324,6 +1347,11 @@ private fun WalletTabs(
                             WalletDetailTab.Transactions -> stringResource(
                                 id = R.string.wallet_detail_transactions_tab_count,
                                 transactionsCount
+                            )
+
+                            WalletDetailTab.Incoming -> stringResource(
+                                id = R.string.wallet_detail_incoming_tab_count,
+                                incomingCount
                             )
 
                             WalletDetailTab.Utxos -> stringResource(
@@ -1377,6 +1405,7 @@ private fun WalletTransactionSort.labelRes(): Int = when (this) {
     WalletTransactionSort.LOWEST_AMOUNT -> R.string.wallet_detail_transactions_sort_lowest_amount
     WalletTransactionSort.BEST_HEALTH -> R.string.wallet_detail_transactions_sort_best_health
     WalletTransactionSort.WORST_HEALTH -> R.string.wallet_detail_transactions_sort_worst_health
+    WalletTransactionSort.PENDING_FIRST -> R.string.wallet_detail_transactions_sort_pending_first
 }
 
 private fun WalletUtxoSort.labelRes(): Int = when (this) {
@@ -1395,6 +1424,8 @@ private fun TransactionFilterRow(
     counts: TransactionFilterCounts,
     visibleCount: Int,
     onFilterChange: (TransactionLabelFilter) -> Unit,
+    showPending: Boolean,
+    onPendingChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val withCount: (String, Int) -> String = remember {
@@ -1450,6 +1481,20 @@ private fun TransactionFilterRow(
                     text = stringResource(id = R.string.wallet_detail_transactions_filter_expand_content_description),
                     style = MaterialTheme.typography.titleMedium
                 )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.wallet_detail_pending_filter),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Switch(
+                        checked = showPending,
+                        onCheckedChange = { checked -> onPendingChange(checked) }
+                    )
+                }
                 presets.forEach { preset ->
                     val selected = preset.filter == filter
                     val label = withCount(
@@ -1763,9 +1808,9 @@ private fun IncomingPlaceholderRow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.ArrowDownward,
+                    imageVector = Icons.Outlined.HourglassEmpty,
                     contentDescription = null,
-                    tint = palette.success
+                    tint = MaterialTheme.colorScheme.primary
                 )
                 Column(
                     modifier = Modifier.weight(1f),
@@ -1933,13 +1978,14 @@ private fun TransactionDetailedCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val icon = when (transaction.type) {
-        TransactionType.RECEIVED -> Icons.Outlined.ArrowDownward
-        TransactionType.SENT -> Icons.Outlined.ArrowUpward
-    }
-    val iconTint = when (transaction.type) {
-        TransactionType.RECEIVED -> palette.success
-        TransactionType.SENT -> MaterialTheme.colorScheme.error
+    val isPending = transaction.confirmations == 0
+    val (icon, iconTint) = if (isPending) {
+        Icons.Outlined.HourglassEmpty to MaterialTheme.colorScheme.primary
+    } else {
+        when (transaction.type) {
+            TransactionType.RECEIVED -> Icons.Outlined.ArrowDownward to palette.success
+            TransactionType.SENT -> Icons.Outlined.ArrowUpward to MaterialTheme.colorScheme.error
+        }
     }
     val amountText = transactionAmount(
         transaction.amountSats,
@@ -2288,6 +2334,7 @@ private fun LabelOrPlaceholder(
 private fun nodeStatusLabel(status: NodeStatus): String = when (status) {
     NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
     NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
+    NodeStatus.Disconnecting -> stringResource(id = R.string.wallets_state_disconnecting)
     NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
     NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
     NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
@@ -2313,6 +2360,7 @@ private fun healthTextColor(score: Int, palette: WalletColorTheme): Color {
 
 enum class WalletDetailTab {
     Transactions,
+    Incoming,
     Utxos
 }
 

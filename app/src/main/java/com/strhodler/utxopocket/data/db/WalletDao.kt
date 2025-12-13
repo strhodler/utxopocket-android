@@ -193,7 +193,11 @@ interface WalletDao {
             (:showUnlabeled = 1 AND (wallet_transactions.label IS NULL OR TRIM(wallet_transactions.label) = ''))
         )
         ORDER BY
+            CASE WHEN :sort = 'NEWEST_FIRST' THEN (wallet_transactions.confirmations = 0) END ASC,
             CASE WHEN :sort = 'NEWEST_FIRST' THEN wallet_transactions.timestamp END DESC,
+            CASE WHEN :sort = 'PENDING_FIRST' THEN (wallet_transactions.confirmations = 0) END DESC,
+            CASE WHEN :sort = 'PENDING_FIRST' THEN wallet_transactions.timestamp END DESC,
+            CASE WHEN :sort = 'OLDEST_FIRST' THEN (wallet_transactions.confirmations = 0) END ASC,
             CASE WHEN :sort = 'OLDEST_FIRST' THEN wallet_transactions.timestamp END ASC,
             CASE WHEN :sort = 'HIGHEST_AMOUNT' THEN ABS(wallet_transactions.amount_sats) END DESC,
             CASE WHEN :sort = 'LOWEST_AMOUNT' THEN ABS(wallet_transactions.amount_sats) END ASC,
@@ -335,6 +339,12 @@ interface WalletDao {
 
     @Query("SELECT COUNT(*) FROM wallet_transaction_outputs WHERE wallet_id = :walletId AND address = :address")
     suspend fun countOutputsByAddress(walletId: Long, address: String): Int
+
+    @Query("SELECT MAX(derivation_index) FROM wallet_transaction_outputs WHERE wallet_id = :walletId AND address_type = :addressType")
+    suspend fun maxDerivationIndexForOutputs(walletId: Long, addressType: String): Int?
+
+    @Query("UPDATE wallets SET last_active_external_index = :externalIdx, last_active_change_index = :changeIdx WHERE id = :walletId")
+    suspend fun updateLastActiveIndices(walletId: Long, externalIdx: Int?, changeIdx: Int?)
 
     @Query("SELECT address FROM wallet_utxos WHERE wallet_id = :walletId AND address IS NOT NULL")
     suspend fun addressesWithFunds(walletId: Long): List<String>

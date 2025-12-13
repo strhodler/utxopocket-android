@@ -4,6 +4,8 @@ package com.strhodler.utxopocket.domain.service
 
 import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.common.logging.WalletLogAliasProvider
+import androidx.annotation.VisibleForTesting
+import com.strhodler.utxopocket.data.bdk.ElectrumEndpoint
 import com.strhodler.utxopocket.data.bdk.ElectrumEndpointProvider
 import com.strhodler.utxopocket.data.electrum.LightElectrumClient
 import com.strhodler.utxopocket.di.IoDispatcher
@@ -14,10 +16,12 @@ import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
+import com.strhodler.utxopocket.domain.model.IncomingWatcherPolicy
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
@@ -43,8 +47,10 @@ class IncomingTxWatcher @Inject constructor(
     private val preferencesRepository: IncomingTxPreferencesRepository,
     private val appPreferencesRepository: AppPreferencesRepository,
     private val coordinator: IncomingTxCoordinator,
-    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
-) {
+    private val walletSyncPreferencesRepository: WalletSyncPreferencesRepository,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val watcherPolicy: IncomingWatcherPolicy
+) : IncomingTxChecker {
 
     private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
     private val isForeground = MutableStateFlow(false)
@@ -104,7 +110,7 @@ class IncomingTxWatcher @Inject constructor(
         isForeground.value = foreground
     }
 
-    suspend fun manualCheck(
+    override suspend fun manualCheck(
         walletId: Long,
         addresses: List<WalletAddressDetail>
     ): Boolean = withContext(ioDispatcher) {
@@ -165,23 +171,24 @@ class IncomingTxWatcher @Inject constructor(
         val lastSeen = mutableMapOf<String, Set<String>>()
         var firstRun = true
         val walletAlias = WalletLogAliasProvider.alias(wallet.id)
-        val delayMillis = IncomingTxPreferences.DEFAULT_INTERVAL_SECONDS * 1_000L
+        var currentIntervalSeconds = watcherPolicy.baseIntervalSeconds
         while (isActive) {
             val endpoint = try {
                 endpointProvider.endpointFor(network)
             } catch (t: Throwable) {
                 SecureLog.w(TAG) { "IncomingTx endpoint resolve failed for $walletAlias: ${t.message}" }
-                delay(delayMillis)
+                delay(watcherPolicy.nextDelayMillis(currentIntervalSeconds, success = false))
                 continue
             }
+            val watcherWindow = resolveWatcherWindow(wallet, network)
             val capabilityKey = endpoint.url
             val cachedCapability = capabilityCache[capabilityKey] ?: SubscriptionCapability.UNKNOWN
-            val addresses = runCatching { loadWatchedAddresses(wallet.id) }.getOrElse { error ->
+            val addresses = runCatching { loadWatchedAddresses(wallet.id, watcherWindow) }.getOrElse { error ->
                 SecureLog.w(TAG) { "IncomingTx address load failed for $walletAlias: ${error.message}" }
                 emptyList()
             }
             if (addresses.isEmpty()) {
-                delay(delayMillis)
+                delay(watcherPolicy.nextDelayMillis(currentIntervalSeconds, success = true))
                 continue
             }
             val addressByScripthash = addresses.associateBy { detail ->
@@ -194,7 +201,7 @@ class IncomingTxWatcher @Inject constructor(
                 }
                 .getOrNull()
             if (proxy == null) {
-                delay(delayMillis)
+                delay(watcherPolicy.nextDelayMillis(currentIntervalSeconds, success = false))
                 continue
             }
             var reconnect = false
@@ -209,23 +216,25 @@ class IncomingTxWatcher @Inject constructor(
                     if (capability == SubscriptionCapability.UNSUPPORTED) {
                         capabilityCache[capabilityKey] = SubscriptionCapability.UNSUPPORTED
                         runCatching {
-                            pollWalletOnce(wallet.id, network, lastSeen)
+                            pollWalletOnce(wallet, network, lastSeen)
                         }.onFailure { error ->
                             SecureLog.w(TAG) { "IncomingTx poll fallback failed for $walletAlias: ${error.message}" }
                         }
+                        currentIntervalSeconds = watcherPolicy.baseIntervalSeconds
                         return@use
                     }
                     capabilityCache[capabilityKey] = capability
                     runCatching {
-                        pollWalletOnce(wallet.id, network, lastSeen)
+                        pollWalletOnce(wallet, network, lastSeen)
                     }.onFailure { error ->
                         SecureLog.w(TAG) { "IncomingTx initial poll failed for $walletAlias: ${error.message}" }
                     }
                     while (isActive) {
-                        val notifications = client.readNotifications(delayMillis.toInt())
-                        if (notifications.isEmpty()) {
-                            continue
-                        }
+                        val waitMillis =
+                            watcherPolicy.nextDelayMillis(currentIntervalSeconds, success = true)
+                        val notifications = client.readNotifications(waitMillis.toInt())
+                        if (notifications.isEmpty()) continue
+
                         val seenTxids = mutableSetOf<String>()
                         notifications.forEach { notification ->
                             val detail = addressByScripthash[notification.scripthash] ?: return@forEach
@@ -244,6 +253,7 @@ class IncomingTxWatcher @Inject constructor(
                                 }
                             }
                         }
+                        currentIntervalSeconds = watcherPolicy.baseIntervalSeconds
                     }
                 }
             } catch (t: Throwable) {
@@ -251,7 +261,8 @@ class IncomingTxWatcher @Inject constructor(
                 reconnect = true
             }
             if (reconnect && isActive) {
-                delay(delayMillis)
+                currentIntervalSeconds = (currentIntervalSeconds * watcherPolicy.backoffMultiplier).toInt()
+                delay(watcherPolicy.nextDelayMillis(currentIntervalSeconds, success = false))
             } else if (!isActive) {
                 break
             } else if (firstRun) {
@@ -261,17 +272,18 @@ class IncomingTxWatcher @Inject constructor(
     }
 
     private suspend fun pollWalletOnce(
-        walletId: Long,
+        wallet: WalletSummary,
         network: BitcoinNetwork,
         lastSeen: MutableMap<String, Set<String>>
     ) {
-        val walletAlias = WalletLogAliasProvider.alias(walletId)
-        val addresses = loadWatchedAddresses(walletId)
+        val walletAlias = WalletLogAliasProvider.alias(wallet.id)
+        val endpoint = endpointProvider.endpointFor(network)
+        val watcherWindow = resolveWatcherWindow(wallet, network)
+        val addresses = loadWatchedAddresses(wallet.id, watcherWindow)
         if (addresses.isEmpty()) return
         SecureLog.d(TAG) {
             "IncomingTx poll start wallet=$walletAlias network=$network addressCount=${addresses.size}"
         }
-        val endpoint = endpointProvider.endpointFor(network)
         val proxy = runCatching { torManager.awaitProxy() }
             .onFailure { error ->
                 SecureLog.w(TAG) { "IncomingTx poll skipped for $walletAlias: ${error.message}" }
@@ -290,7 +302,7 @@ class IncomingTxWatcher @Inject constructor(
                 newTxids.forEach { txid ->
                     if (!seenTxids.add(txid)) return@forEach
                     val amount = unspent.filter { it.txid == txid }.sumOf { it.valueSats }
-                    handleDetection(walletId, detail, txid, amount)
+                    handleDetection(wallet.id, detail, txid, amount)
                 }
             }
         }
@@ -333,12 +345,14 @@ class IncomingTxWatcher @Inject constructor(
         }
     }
 
-    private suspend fun handleDetection(
+    @VisibleForTesting
+    internal suspend fun handleDetection(
         walletId: Long,
         detail: WalletAddressDetail,
         txid: String,
         amount: Long
     ): IncomingTxDetection? {
+        val walletAlias = WalletLogAliasProvider.alias(walletId)
         val detection = IncomingTxDetection(
             walletId = walletId,
             address = detail.value,
@@ -353,16 +367,18 @@ class IncomingTxWatcher @Inject constructor(
                 type = WalletAddressType.EXTERNAL,
                 derivationIndex = detail.derivationIndex
             )
+        }.onFailure { error ->
+            SecureLog.w(TAG, error) { "IncomingTx markAddressAsUsed failed for $walletAlias at index ${detail.derivationIndex}" }
         }
         return detection
     }
 
-    private suspend fun loadWatchedAddresses(walletId: Long): List<WalletAddressDetail> =
+    private suspend fun loadWatchedAddresses(walletId: Long, limit: Int): List<WalletAddressDetail> =
         withContext(ioDispatcher) {
             val unused: List<WalletAddress> = walletRepository.listUnusedAddresses(
                 walletId = walletId,
                 type = WalletAddressType.EXTERNAL,
-                limit = WATCHED_UNUSED_LIMIT
+                limit = limit
             )
             unused.mapNotNull { address ->
                 walletRepository.getAddressDetail(
@@ -438,6 +454,22 @@ class IncomingTxWatcher @Inject constructor(
 
     companion object {
         private const val TAG = "IncomingTxWatcher"
-        private const val WATCHED_UNUSED_LIMIT = 40
+        private const val WATCHED_UNUSED_LIMIT_MAX = 500
+        private const val DYNAMIC_BUFFER = 20
     }
+
+    private suspend fun resolveWatcherWindow(wallet: WalletSummary, network: BitcoinNetwork): Int {
+        val configured = runCatching { walletSyncPreferencesRepository.getGap(wallet.id) }.getOrNull()
+        val baseline = configured
+            ?: wallet.fullScanStopGap
+            ?: WalletSyncPreferencesRepository.baseline(network)
+        val stopGap = baseline.coerceAtLeast(1)
+        val highestExternal = runCatching { walletRepository.highestUsedIndices(wallet.id).first }.getOrNull()
+        val dynamicGap = highestExternal?.let { (it + DYNAMIC_BUFFER).coerceAtLeast(stopGap) } ?: stopGap
+        return dynamicGap.coerceAtMost(WATCHED_UNUSED_LIMIT_MAX)
+    }
+
+    @VisibleForTesting
+    internal suspend fun resolveWatcherWindowForTest(wallet: WalletSummary, network: BitcoinNetwork): Int =
+        resolveWatcherWindow(wallet, network)
 }

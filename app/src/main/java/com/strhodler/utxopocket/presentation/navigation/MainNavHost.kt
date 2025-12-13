@@ -46,6 +46,7 @@ import com.strhodler.utxopocket.presentation.settings.logs.NetworkLogViewerRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsViewModel
 import com.strhodler.utxopocket.presentation.wallets.WalletsRoute
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
+import com.strhodler.utxopocket.presentation.wallets.detail.WalletDetailTab
 import com.strhodler.utxopocket.presentation.wallets.add.AddWalletRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.AddressDetailRoute
 import com.strhodler.utxopocket.presentation.wallets.detail.UtxoDetailRoute
@@ -57,6 +58,7 @@ import com.strhodler.utxopocket.presentation.wallets.detail.TransactionVisualize
 import com.strhodler.utxopocket.presentation.wallets.receive.ReceiveRoute
 import com.strhodler.utxopocket.presentation.wallets.labels.WalletLabelExportRoute
 import com.strhodler.utxopocket.presentation.wallets.labels.WalletLabelImportRoute
+import com.strhodler.utxopocket.presentation.wallets.sync.WalletSyncSettingsRoute
 import com.strhodler.utxopocket.presentation.wiki.WikiDetailRoute
 import com.strhodler.utxopocket.presentation.wiki.WikiNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiRoute
@@ -210,12 +212,19 @@ fun MainNavHost(
                     navArgument(WalletsNavigation.WalletNameArg) {
                         type = NavType.StringType
                         defaultValue = ""
+                    },
+                    navArgument(WalletsNavigation.WalletTabArg) {
+                        type = NavType.StringType
+                        defaultValue = WalletDetailTab.Transactions.name
                     }
                 )
             ) { backStackEntry ->
                 val walletIdArg = backStackEntry.arguments?.getLong(WalletsNavigation.WalletIdArg)
                     ?: backStackEntry.arguments?.getString(WalletsNavigation.WalletIdArg)?.toLongOrNull()
                     ?: error("Wallet id is required")
+                val initialTab = backStackEntry.arguments
+                    ?.getString(WalletsNavigation.WalletTabArg)
+                    ?.let { value -> runCatching { WalletDetailTab.valueOf(value) }.getOrNull() }
                 WalletDetailRoute(
                     onBack = { navController.popBackStack() },
                     onWalletDeleted = { message ->
@@ -284,7 +293,13 @@ fun MainNavHost(
                         navController.navigate(
                             WalletsNavigation.utxoVisualizerRoute(targetWalletId, walletName)
                         )
-                    }
+                    },
+                    onOpenSyncSettings = { targetWalletId, walletName ->
+                        navController.navigate(
+                            WalletsNavigation.syncSettingsRoute(targetWalletId, walletName)
+                        )
+                    },
+                    initialTab = initialTab
                 )
             }
             composable(
@@ -324,6 +339,21 @@ fun MainNavHost(
                 )
             ) {
                 WalletLabelImportRoute(onBack = { navController.popBackStack() })
+            }
+            composable(
+                route = WalletsNavigation.SyncSettingsRoute,
+                arguments = listOf(
+                    navArgument(WalletsNavigation.WalletIdArg) { type = NavType.LongType },
+                    navArgument(WalletsNavigation.WalletNameArg) {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            ) {
+                WalletSyncSettingsRoute(
+                    viewModel = hiltViewModel(),
+                    onBack = { navController.popBackStack() }
+                )
             }
             composable(
                 route = WalletsNavigation.TransactionDetailRoute,

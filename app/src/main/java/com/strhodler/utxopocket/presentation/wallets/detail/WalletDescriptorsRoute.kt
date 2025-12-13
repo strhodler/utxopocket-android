@@ -82,8 +82,15 @@ fun WalletDescriptorsRoute(
         }
     }
     val descriptorCopiedMessage = stringResource(id = R.string.wallet_detail_descriptor_copied_toast)
+    val fingerprintCopiedMessage =
+        stringResource(id = R.string.wallet_detail_master_fingerprint_copied_toast)
     val handleCopyDescriptor = rememberCopyToClipboard(
         successMessage = descriptorCopiedMessage,
+        onShowMessage = showMessage,
+        clearDelayMs = DESCRIPTOR_CLIPBOARD_CLEAR_DELAY_MS
+    )
+    val handleCopyFingerprint = rememberCopyToClipboard(
+        successMessage = fingerprintCopiedMessage,
         onShowMessage = showMessage,
         clearDelayMs = DESCRIPTOR_CLIPBOARD_CLEAR_DELAY_MS
     )
@@ -125,7 +132,9 @@ fun WalletDescriptorsRoute(
                 WalletDescriptorsContent(
                     descriptor = descriptor,
                     changeDescriptor = state.changeDescriptor,
+                    masterFingerprints = state.masterFingerprints,
                     onCopyDescriptor = handleCopyDescriptor,
+                    onCopyFingerprint = handleCopyFingerprint,
                     onShowDescriptorQr = { descriptorForQr = it },
                     contentPadding = innerPadding
                 )
@@ -151,7 +160,9 @@ fun WalletDescriptorsRoute(
 private fun WalletDescriptorsContent(
     descriptor: String,
     changeDescriptor: String?,
+    masterFingerprints: List<String>,
     onCopyDescriptor: (String) -> Unit,
+    onCopyFingerprint: (String) -> Unit,
     onShowDescriptorQr: (String) -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier
@@ -170,6 +181,14 @@ private fun WalletDescriptorsContent(
         DescriptorWarningBanner(
             message = stringResource(id = R.string.wallet_detail_descriptors_hint)
         )
+        masterFingerprints.takeIf { it.isNotEmpty() }?.let { fingerprints ->
+            val fingerprintDisplayValue = fingerprints.joinToString(separator = "\n")
+            FingerprintEntry(
+                label = stringResource(id = R.string.wallet_detail_master_fingerprint_label),
+                value = fingerprintDisplayValue,
+                onCopy = { onCopyFingerprint(fingerprintDisplayValue) }
+            )
+        }
         DescriptorEntry(
             label = stringResource(id = R.string.wallet_detail_descriptor_label),
             value = descriptor,
@@ -191,6 +210,53 @@ private fun WalletDescriptorsContent(
                 onCopy = { onCopyDescriptor(combined) },
                 onShowQr = { onShowDescriptorQr(combined) }
             )
+        }
+    }
+}
+
+@Composable
+private fun FingerprintEntry(
+    label: String,
+    value: String,
+    onCopy: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                IconButton(onClick = onCopy) {
+                    Icon(
+                        imageVector = Icons.Outlined.ContentCopy,
+                        contentDescription = stringResource(id = R.string.wallet_detail_master_fingerprint_copy_action),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+            SelectionContainer {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -276,6 +342,7 @@ data class WalletDescriptorsUiState(
     val walletName: String = "",
     val descriptor: String? = null,
     val changeDescriptor: String? = null,
+    val masterFingerprints: List<String> = emptyList(),
     val notFound: Boolean = false
 )
 
@@ -304,7 +371,8 @@ class WalletDescriptorsViewModel @Inject constructor(
                     isLoading = false,
                     walletName = detail.summary.name.ifBlank { initialWalletName },
                     descriptor = detail.descriptor,
-                    changeDescriptor = detail.changeDescriptor
+                    changeDescriptor = detail.changeDescriptor,
+                    masterFingerprints = detail.masterFingerprints
                 )
             }
         }

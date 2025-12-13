@@ -107,6 +107,7 @@ fun NodeStatusScreen(
     val heroTitleOverride = remember(status.nodeStatus, selectedNodeName) {
         when (status.nodeStatus) {
             NodeStatus.Synced,
+            NodeStatus.Disconnecting,
             NodeStatus.Connecting,
             NodeStatus.WaitingForTor,
             NodeStatus.Offline,
@@ -115,7 +116,7 @@ fun NodeStatusScreen(
         }
     }
     LaunchedEffect(status.nodeStatus) {
-        if (status.nodeStatus == NodeStatus.Connecting) {
+        if (status.nodeStatus == NodeStatus.Connecting || status.nodeStatus == NodeStatus.Disconnecting) {
             listState.animateScrollToItem(0)
         }
     }
@@ -280,7 +281,10 @@ private fun NodeHeroHeader(
     val primaryContentColor = colorScheme.onSurface
     val secondaryContentColor = colorScheme.onSurfaceVariant
     val message = nodeStatusMessage(status.nodeStatus)
-    val headlineMessage = if (status.nodeStatus == NodeStatus.Connecting) {
+    val headlineMessage = if (
+        status.nodeStatus == NodeStatus.Connecting ||
+        status.nodeStatus == NodeStatus.Disconnecting
+    ) {
         "$message…"
     } else {
         message
@@ -292,6 +296,8 @@ private fun NodeHeroHeader(
     }
     val endpointLabel = when {
         status.nodeStatus == NodeStatus.Synced && !status.nodeEndpoint.isNullOrBlank() ->
+            formatEndpoint(status.nodeEndpoint)
+        status.nodeStatus == NodeStatus.Disconnecting && !status.nodeEndpoint.isNullOrBlank() ->
             formatEndpoint(status.nodeEndpoint)
         !selectedEndpoint.isNullOrBlank() -> formatEndpoint(selectedEndpoint)
         status.nodeStatus == NodeStatus.Idle -> stringResource(id = R.string.node_not_connected_label)
@@ -327,7 +333,8 @@ private fun NodeHeroHeader(
         else -> colorScheme.onSurfaceVariant
     }
     val statusBadgeLeading: (@Composable () -> Unit)? = when (status.nodeStatus) {
-        NodeStatus.Connecting -> {
+        NodeStatus.Connecting,
+        NodeStatus.Disconnecting -> {
             {
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
@@ -474,6 +481,7 @@ private fun StatusBadge(
 private fun nodeStatusMessage(status: NodeStatus): String = when (status) {
     NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
     NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
+    NodeStatus.Disconnecting -> stringResource(id = R.string.wallets_state_disconnecting)
     NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
     NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
     NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)

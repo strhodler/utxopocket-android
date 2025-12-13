@@ -407,6 +407,7 @@ class MainActivityViewModel @Inject constructor(
         val currentNetwork = uiState.value.status.network
         val status = uiState.value.status
         val nodeBusy = status.nodeStatus is NodeStatus.Connecting ||
+            status.nodeStatus is NodeStatus.Disconnecting ||
             status.nodeStatus == NodeStatus.WaitingForTor ||
             status.isSyncing
         if (currentNetwork == network && nodeBusy) {
@@ -422,6 +423,7 @@ class MainActivityViewModel @Inject constructor(
         val status = uiState.value.status
         if (
             status.nodeStatus is NodeStatus.Connecting ||
+            status.nodeStatus is NodeStatus.Disconnecting ||
             status.nodeStatus == NodeStatus.WaitingForTor ||
             status.isSyncing
         ) {

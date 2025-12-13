@@ -66,7 +66,8 @@ fun NodeOverviewContent(
     modifier: Modifier = Modifier
 ) {
     val resources = LocalContext.current.resources
-    val isConnected = status.nodeStatus == NodeStatus.Synced
+    val isConnected = status.nodeStatus == NodeStatus.Synced ||
+        status.nodeStatus == NodeStatus.Disconnecting
     val nodeDetails = if (isConnected) {
         buildNodeDetails(
             resources = resources,

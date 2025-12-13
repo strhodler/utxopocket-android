@@ -38,7 +38,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material3.Badge
@@ -123,6 +123,7 @@ import com.strhodler.utxopocket.presentation.motion.sharedAxisXEnter
 import com.strhodler.utxopocket.presentation.motion.sharedAxisXExit
 import com.strhodler.utxopocket.presentation.theme.UtxoPocketTheme
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
+import com.strhodler.utxopocket.presentation.wallets.detail.WalletDetailTab
 import com.strhodler.utxopocket.presentation.wiki.WikiNavigation
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
@@ -396,7 +397,8 @@ class MainActivity : AppCompatActivity() {
                                                 navController.navigate(
                                                     WalletsNavigation.detailRoute(
                                                         walletId = walletId,
-                                                        walletName = walletName
+                                                        walletName = walletName,
+                                                        initialTab = WalletDetailTab.Incoming
                                                     )
                                                 ) {
                                                     popUpTo(navController.graph.findStartDestination().id) {
@@ -566,6 +568,7 @@ private fun StatusBar(
         val fallbackSubtitle = when (val status = state.nodeStatus) {
             NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
             NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
+            NodeStatus.Disconnecting -> stringResource(id = R.string.wallets_state_disconnecting)
             NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
             NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
             NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
@@ -836,7 +839,7 @@ private fun StatusBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.ArrowDownward,
+                        imageVector = Icons.Outlined.HourglassEmpty,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary
                     )

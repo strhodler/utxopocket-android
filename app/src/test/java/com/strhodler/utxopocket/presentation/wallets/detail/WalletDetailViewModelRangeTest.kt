@@ -35,10 +35,12 @@ import com.strhodler.utxopocket.domain.repository.UtxoHealthRepository
 import com.strhodler.utxopocket.domain.repository.UtxoHealthFilter
 import com.strhodler.utxopocket.domain.repository.WalletHealthRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.service.TransactionHealthAnalyzer
 import com.strhodler.utxopocket.domain.service.UtxoVisualizationCalculator
+import com.strhodler.utxopocket.domain.service.UtxoTreemapCalculator
 import com.strhodler.utxopocket.domain.service.WalletHealthAggregator
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import kotlin.test.AfterTest
@@ -51,6 +53,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -111,6 +114,8 @@ class WalletDetailViewModelRangeTest {
             UnconfinedTestDispatcher()
         )
         private val utxoVisualizationCalculator = UtxoVisualizationCalculator()
+        private val utxoTreemapCalculator = UtxoTreemapCalculator()
+        private val walletSyncPreferencesRepository = InMemoryWalletSyncPreferencesRepository()
 
         fun createViewModel(): WalletDetailViewModel {
             val savedStateHandle = SavedStateHandle(
@@ -127,7 +132,9 @@ class WalletDetailViewModelRangeTest {
                 walletHealthRepository = walletHealthRepository,
                 walletHealthAggregator = walletHealthAggregator,
                 incomingTxCoordinator = incomingTxCoordinator,
-                utxoVisualizationCalculator = utxoVisualizationCalculator
+                utxoVisualizationCalculator = utxoVisualizationCalculator,
+                utxoTreemapCalculator = utxoTreemapCalculator,
+                walletSyncPreferencesRepository = walletSyncPreferencesRepository
             )
         }
     }
@@ -288,6 +295,8 @@ class WalletDetailViewModelRangeTest {
             com.strhodler.utxopocket.domain.model.Bip329ImportResult(0, 0, 0, 0, 0)
 
         override fun setSyncForegroundState(isForeground: Boolean) = Unit
+
+        override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> = null to null
 
         companion object {
             const val WALLET_ID = 42L
@@ -645,5 +654,16 @@ class WalletDetailViewModelRangeTest {
                 current.selections + (network to updated)
             )
         }
+    }
+
+    private class InMemoryWalletSyncPreferencesRepository : WalletSyncPreferencesRepository {
+        private val state = MutableStateFlow<Map<Long, Int>>(emptyMap())
+        override suspend fun setGap(walletId: Long, gap: Int) {
+            state.value = state.value.toMutableMap().apply { put(walletId, gap) }
+        }
+
+        override suspend fun getGap(walletId: Long): Int? = state.value[walletId]
+
+        override fun observeGap(walletId: Long): Flow<Int?> = state.map { it[walletId] }
     }
 }

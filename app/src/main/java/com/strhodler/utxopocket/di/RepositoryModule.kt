@@ -31,6 +31,10 @@ import com.strhodler.utxopocket.domain.service.WalletHealthAggregator
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
 import com.strhodler.utxopocket.data.preferences.DefaultIncomingTxPlaceholderRepository
+import com.strhodler.utxopocket.domain.service.IncomingTxChecker
+import com.strhodler.utxopocket.domain.service.IncomingTxWatcher
+import com.strhodler.utxopocket.data.preferences.DefaultWalletSyncPreferencesRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -70,6 +74,12 @@ abstract class RepositoryModule {
     abstract fun bindIncomingTxPlaceholderRepository(
         impl: DefaultIncomingTxPlaceholderRepository
     ): IncomingTxPlaceholderRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindIncomingTxChecker(
+        impl: IncomingTxWatcher
+    ): IncomingTxChecker
 
     @Binds
     @Singleton
@@ -137,4 +147,10 @@ abstract class RepositoryModule {
     abstract fun bindNetworkErrorLogRepository(
         impl: DefaultNetworkErrorLogRepository
     ): NetworkErrorLogRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWalletSyncPreferencesRepository(
+        impl: DefaultWalletSyncPreferencesRepository
+    ): WalletSyncPreferencesRepository
 }

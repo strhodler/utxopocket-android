@@ -71,7 +71,9 @@ class NodeStatusViewModel @Inject constructor(
                 }
                 val snapshotMatchesNetwork = nodeSnapshot.network == network
                 val isConnected = nodeSnapshot.status is NodeStatus.Synced && snapshotMatchesNetwork
-                val isConnecting = nodeSnapshot.status is NodeStatus.Connecting && snapshotMatchesNetwork
+                val isConnecting = snapshotMatchesNetwork &&
+                    (nodeSnapshot.status is NodeStatus.Connecting ||
+                        nodeSnapshot.status is NodeStatus.Disconnecting)
                 val syncBusy = syncStatus.network == network &&
                     (syncStatus.isRefreshing ||
                         syncStatus.activeWalletId != null ||

@@ -11,12 +11,17 @@ import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletDetail
+import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.service.IncomingTxChecker
+import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
+import com.strhodler.utxopocket.domain.model.IncomingTxDetection
+import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -31,6 +36,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -38,6 +44,12 @@ import kotlinx.coroutines.test.setMain
 class ReceiveViewModelTest {
 
     private val repository = FakeWalletRepository()
+    private val incomingChecker = FakeIncomingTxChecker()
+    private val placeholderRepository = InMemoryIncomingTxPlaceholderRepository()
+    private val incomingCoordinator = IncomingTxCoordinator(
+        placeholderRepository = placeholderRepository,
+        ioDispatcher = UnconfinedTestDispatcher()
+    )
 
     @BeforeTest
     fun setUp() {
@@ -99,9 +111,64 @@ class ReceiveViewModelTest {
         assertIs<ReceiveError.NoAddress>(state.error)
     }
 
+    @Test
+    fun skipsPlaceholderAddressesOnInit() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        repository.unusedAddresses = listOf(primaryAddress, secondaryAddress)
+        repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
+        repository.addressDetails[secondaryAddress.derivationIndex] = secondaryDetail
+
+        placeholderRepository.setPlaceholders(
+            walletId = 1L,
+            placeholders = listOf(
+                IncomingTxPlaceholder(
+                    txid = "placeholder-tx",
+                    address = primaryAddress.value,
+                    amountSats = null,
+                    detectedAt = System.currentTimeMillis()
+                )
+            )
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(secondaryDetail, state.address)
+    }
+
+    @Test
+    fun detectionAdvancesToNextAddress() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        repository.unusedAddresses = listOf(primaryAddress)
+        repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        repository.nextAddress = secondaryAddress
+        repository.addressDetails[secondaryAddress.derivationIndex] = secondaryDetail
+
+        incomingCoordinator.onDetection(
+            IncomingTxDetection(
+                walletId = 1L,
+                address = primaryAddress.value,
+                derivationIndex = primaryAddress.derivationIndex,
+                txid = "txid-detect",
+                amountSats = null
+            )
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(secondaryDetail, state.address)
+        assertFalse(state.isAdvancing)
+    }
+
     private fun createViewModel(): ReceiveViewModel {
         val handle = SavedStateHandle(mapOf(WalletsNavigation.WalletIdArg to 1L))
-        return ReceiveViewModel(handle, repository)
+        return ReceiveViewModel(handle, repository, incomingChecker, incomingCoordinator)
     }
 
     private companion object {
@@ -144,6 +211,7 @@ private class FakeWalletRepository : WalletRepository {
     var unusedAddresses: List<WalletAddress> = emptyList()
     var nextAddress: WalletAddress? = null
     val addressDetails = mutableMapOf<Int, WalletAddressDetail>()
+    val markedAsUsed = mutableListOf<Int>()
     private val walletDetail = MutableStateFlow(
         WalletDetail(
             summary = WalletSummary(
@@ -234,7 +302,9 @@ private class FakeWalletRepository : WalletRepository {
         derivationIndex: Int
     ): WalletAddressDetail? = addressDetails[derivationIndex]
 
-    override suspend fun markAddressAsUsed(walletId: Long, type: WalletAddressType, derivationIndex: Int) = Unit
+    override suspend fun markAddressAsUsed(walletId: Long, type: WalletAddressType, derivationIndex: Int) {
+        markedAsUsed += derivationIndex
+    }
 
     override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
 
@@ -251,4 +321,30 @@ private class FakeWalletRepository : WalletRepository {
         throw UnsupportedOperationException()
 
     override fun setSyncForegroundState(isForeground: Boolean) = Unit
+
+    override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> = null to null
+}
+
+private class FakeIncomingTxChecker : IncomingTxChecker {
+    var detected = false
+    override suspend fun manualCheck(
+        walletId: Long,
+        addresses: List<WalletAddressDetail>
+    ): Boolean = detected
+}
+
+private class InMemoryIncomingTxPlaceholderRepository : IncomingTxPlaceholderRepository {
+    private val state = MutableStateFlow<Map<Long, List<IncomingTxPlaceholder>>>(emptyMap())
+    override val placeholders: Flow<Map<Long, List<IncomingTxPlaceholder>>>
+        get() = state
+
+    override suspend fun setPlaceholders(walletId: Long, placeholders: List<IncomingTxPlaceholder>) {
+        state.value = state.value.toMutableMap().apply {
+            if (placeholders.isEmpty()) {
+                remove(walletId)
+            } else {
+                put(walletId, placeholders)
+            }
+        }
+    }
 }

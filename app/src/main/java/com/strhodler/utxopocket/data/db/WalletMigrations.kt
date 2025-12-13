@@ -36,8 +36,17 @@ object WalletMigrations {
         }
     }
 
+    val MIGRATION_18_19 = object : Migration(18, 19) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE wallets ADD COLUMN last_active_external_index INTEGER")
+            database.execSQL("ALTER TABLE wallets ADD COLUMN last_active_change_index INTEGER")
+            database.execSQL("ALTER TABLE wallet_transaction_outputs ADD COLUMN derivation_index INTEGER")
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_16_17,
-        MIGRATION_17_18
+        MIGRATION_17_18,
+        MIGRATION_18_19
     )
 }

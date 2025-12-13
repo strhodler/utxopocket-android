@@ -4,25 +4,37 @@ import android.util.Log
 import com.strhodler.utxopocket.BuildConfig
 
 /**
- * Security-first logger that is a no-op in release builds to avoid leaking data to system logs.
+ * Security-focused wrapper around [Log] that short-circuits when `BuildConfig.DEBUG` is false,
+ * ensuring diagnostics never reach release builds or leak sensitive wallet data.
  */
 object SecureLog {
     @PublishedApi
     internal fun enabled(): Boolean = BuildConfig.DEBUG
 
     // Kotlin-friendly, lazy builders
+    /**
+     * Emits a debug line if logging is enabled.
+     * @param tag Android log tag, usually the class name.
+     * @param message Lambda evaluated only when logging is on to avoid touching sensitive data.
+     */
     inline fun d(tag: String, message: () -> String) {
         if (enabled()) {
             Log.d(tag, message())
         }
     }
 
+    /**
+     * Emits an info line if logging is enabled.
+     */
     inline fun i(tag: String, message: () -> String) {
         if (enabled()) {
             Log.i(tag, message())
         }
     }
 
+    /**
+     * Emits a warning, optionally with a [Throwable], when logging is enabled.
+     */
     inline fun w(tag: String, throwable: Throwable? = null, message: () -> String) {
         if (enabled()) {
             if (throwable != null) {
@@ -33,6 +45,9 @@ object SecureLog {
         }
     }
 
+    /**
+     * Emits an error, optionally with a [Throwable], when logging is enabled.
+     */
     inline fun e(tag: String, throwable: Throwable? = null, message: () -> String) {
         if (enabled()) {
             if (throwable != null) {

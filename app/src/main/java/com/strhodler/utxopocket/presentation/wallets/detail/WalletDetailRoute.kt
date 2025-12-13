@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.ShowChart
 import androidx.compose.material.icons.outlined.DataUsage
 import androidx.compose.foundation.text.KeyboardActions
@@ -98,6 +99,9 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.SyncOperation
+import com.strhodler.utxopocket.presentation.wallets.sync.resolveSyncGap
+import com.strhodler.utxopocket.presentation.wallets.sync.syncGapBaseline
 import kotlin.math.roundToInt
 import com.strhodler.utxopocket.presentation.pin.PinLockoutMessageType
 import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
@@ -124,6 +128,8 @@ fun WalletDetailRoute(
     onOpenExportLabels: (Long, String) -> Unit,
     onOpenImportLabels: (Long, String) -> Unit,
     onOpenUtxoVisualizer: (Long, String) -> Unit,
+    onOpenSyncSettings: (Long, String) -> Unit,
+    initialTab: WalletDetailTab? = null,
     viewModel: WalletDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -167,6 +173,9 @@ fun WalletDetailRoute(
                 WalletDetailEvent.RefreshQueued -> {
                     showSnackbar(context.getString(R.string.wallet_detail_refresh_enqueued), SnackbarDuration.Short)
                 }
+                WalletDetailEvent.FullRescanQueued -> {
+                    showSnackbar(context.getString(R.string.wallet_detail_full_rescan_enqueued), SnackbarDuration.Short)
+                }
                 is WalletDetailEvent.SyncCompleted -> {
                     val name = event.walletName.ifBlank { resolvedName.orEmpty() }
                     val message = context.getString(
@@ -186,15 +195,26 @@ fun WalletDetailRoute(
     val renameGenericErrorText = context.getString(R.string.wallet_detail_rename_error_generic)
     val forceRescanErrorMessage = stringResource(id = R.string.wallet_detail_force_rescan_failed)
     val outerListState = rememberLazyListState()
-    val tabs = remember { WalletDetailTab.entries.toTypedArray() }
+    val allTabs = remember { WalletDetailTab.entries.toTypedArray() }
     val bottomBarScrollBehavior = BottomAppBarDefaults.exitAlwaysScrollBehavior()
     var bottomBarHeightPx by remember { mutableStateOf(0f) }
     var bottomBarVisibleHeightPx by remember { mutableStateOf(0f) }
     val density = LocalDensity.current
+    val hasIncomingPlaceholders = state.incomingPlaceholders.isNotEmpty()
+    val availableTabs = remember(hasIncomingPlaceholders) {
+        buildList {
+            add(WalletDetailTab.Transactions)
+            if (hasIncomingPlaceholders) {
+                add(WalletDetailTab.Incoming)
+            }
+            add(WalletDetailTab.Utxos)
+        }
+    }
     var selectedTab by rememberSaveable { mutableStateOf(WalletDetailTab.Transactions) }
-    val pagerState = rememberPagerState(initialPage = selectedTab.ordinal) { tabs.size }
+    var pendingInitialTab by rememberSaveable { mutableStateOf(initialTab) }
+    val pagerState = rememberPagerState(initialPage = 0) { availableTabs.size }
     val listStates = remember {
-        tabs.associateWith { LazyListState() }
+        allTabs.associateWith { LazyListState() }
     }
     var showDescriptorPinPrompt by remember { mutableStateOf(false) }
     var descriptorPinError by remember { mutableStateOf<String?>(null) }
@@ -245,11 +265,24 @@ fun WalletDetailRoute(
         }
     }
 
-    LaunchedEffect(pagerState) {
+    LaunchedEffect(availableTabs, pendingInitialTab) {
+        val desired = pendingInitialTab
+        when {
+            desired != null && desired in availableTabs -> {
+                selectedTab = desired
+                pendingInitialTab = null
+            }
+            selectedTab !in availableTabs -> {
+                selectedTab = availableTabs.firstOrNull() ?: WalletDetailTab.Transactions
+            }
+        }
+    }
+
+    LaunchedEffect(pagerState, availableTabs) {
         snapshotFlow { pagerState.currentPage }
             .distinctUntilChanged()
             .collect { page ->
-                val tab = tabs[page]
+                val tab = availableTabs.getOrNull(page) ?: return@collect
                 if (selectedTab != tab) {
                     selectedTab = tab
                 }
@@ -257,8 +290,8 @@ fun WalletDetailRoute(
     }
 
     LaunchedEffect(selectedTab) {
-        val targetPage = selectedTab.ordinal
-        if (targetPage != pagerState.currentPage) {
+        val targetPage = availableTabs.indexOf(selectedTab)
+        if (targetPage >= 0 && targetPage != pagerState.currentPage) {
             pagerState.animateScrollToPage(targetPage)
         }
     }
@@ -411,7 +444,25 @@ fun WalletDetailRoute(
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text(text = stringResource(id = R.string.wallet_detail_menu_force_rescan)) },
+                        text = { Text(text = stringResource(id = R.string.wallet_detail_menu_sync_settings)) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Settings,
+                                contentDescription = null
+                            )
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            val summary = state.summary ?: return@DropdownMenuItem
+                            onOpenSyncSettings(summary.id, displayTitle)
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            val summary = state.summary
+                            val gapValue = resolveSyncGap(state.syncGap, summary)
+                            Text(text = stringResource(id = R.string.wallet_detail_menu_force_rescan_gap, gapValue))
+                        },
                         enabled = !forceRescanInProgress && state.summary?.requiresFullScan != true && !state.isRefreshing,
                         leadingIcon = {
                             Icon(
@@ -425,11 +476,24 @@ fun WalletDetailRoute(
                             if (forceRescanInProgress || summary?.requiresFullScan == true || summary == null || state.isRefreshing) {
                                 return@DropdownMenuItem
                             }
-                            val baseline = fullScanBaseline(summary.network)
-                            val initialGap = (summary.fullScanStopGap ?: baseline)
-                                .coerceIn(baseline, FULL_SCAN_GAP_MAX)
-                            selectedFullRescanGap = initialGap
-                            showFullRescanSheet = true
+                            val gapForRescan = resolveSyncGap(state.syncGap, summary)
+                            forceRescanInProgress = true
+                            viewModel.forceFullRescan(gapForRescan) { result ->
+                                forceRescanInProgress = false
+                                result.onSuccess {
+                                    coroutineScope.launch {
+                                        val successMessage = context.getString(
+                                            R.string.wallet_detail_force_rescan_started,
+                                            gapForRescan
+                                        )
+                                        snackbarHostState.showSnackbar(successMessage)
+                                    }
+                                }.onFailure {
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(forceRescanErrorMessage)
+                                    }
+                                }
+                            }
                         }
                     )
                     DropdownMenuItem(
@@ -497,11 +561,14 @@ fun WalletDetailRoute(
                 onBalanceRangeSelected = viewModel::onBalanceRangeSelected,
                 onCycleBalanceDisplay = cycleBalanceDisplay,
                 onOpenWikiTopic = onOpenWikiTopic,
+                onTogglePending = viewModel::setShowPending,
                 outerListState = outerListState,
                 selectedTab = selectedTab,
                 onTabSelected = { tab -> selectedTab = tab },
+                tabs = availableTabs,
                 pagerState = pagerState,
                 listStates = listStates,
+                incomingCount = state.incomingPlaceholders.size,
                 contentPadding = contentPadding,
                 topContentPadding = topContentPadding,
                 modifier = Modifier.fillMaxSize()
@@ -509,6 +576,7 @@ fun WalletDetailRoute(
             if (state.summary != null) {
                 WalletDetailBottomBar(
                     isRefreshing = state.isRefreshing,
+                    activeSyncOperation = state.activeSyncOperation,
                     hasChartData = state.displayBalancePoints.isNotEmpty(),
                     showBalanceChart = state.showBalanceChart,
                     onSyncClick = {
@@ -536,7 +604,7 @@ fun WalletDetailRoute(
     if (showFullRescanSheet) {
         val summary = state.summary
         if (summary != null) {
-            val baseline = fullScanBaseline(summary.network)
+            val baseline = syncGapBaseline(summary.network)
             val gapValue = (selectedFullRescanGap ?: baseline)
                 .coerceIn(baseline, FULL_SCAN_GAP_MAX)
             FullRescanBottomSheet(
@@ -823,6 +891,7 @@ private fun RenameWalletDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun WalletDetailBottomBar(
     isRefreshing: Boolean,
+    activeSyncOperation: SyncOperation?,
     hasChartData: Boolean,
     showBalanceChart: Boolean,
     onSyncClick: () -> Unit,
@@ -890,7 +959,11 @@ private fun WalletDetailBottomBar(
             label = {
                 Text(
                     text = if (isRefreshing) {
-                        stringResource(id = R.string.wallets_state_syncing)
+                        if (activeSyncOperation == SyncOperation.FullRescan) {
+                            stringResource(id = R.string.wallets_state_full_rescan_syncing)
+                        } else {
+                            stringResource(id = R.string.wallets_state_syncing)
+                        }
                     } else {
                         stringResource(id = R.string.wallet_detail_action_sync)
                     },
@@ -1120,11 +1193,4 @@ private fun FullRescanBottomSheet(
             }
         }
     }
-}
-
-private fun fullScanBaseline(network: BitcoinNetwork): Int = when (network) {
-    BitcoinNetwork.MAINNET -> 200
-    BitcoinNetwork.TESTNET,
-    BitcoinNetwork.TESTNET4,
-    BitcoinNetwork.SIGNET -> 120
 }

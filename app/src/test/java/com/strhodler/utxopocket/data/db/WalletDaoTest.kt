@@ -176,6 +176,50 @@ class WalletDaoTest {
         assertEquals(listOf("incoming"), result.data.map { it.transaction.txid })
     }
 
+    @Test
+    fun pagingTransactions_pendingFirstOrdersPendingBeforeConfirmed() = runTest {
+        val walletId = 4L
+        insertWallet(walletId)
+        walletDao.upsertTransactions(
+            listOf(
+                WalletTransactionEntity(
+                    walletId = walletId,
+                    txid = "confirmed",
+                    amountSats = 100_000,
+                    timestamp = 3_000,
+                    type = TransactionType.RECEIVED.name,
+                    confirmations = 3
+                ),
+                WalletTransactionEntity(
+                    walletId = walletId,
+                    txid = "pending",
+                    amountSats = 75_000,
+                    timestamp = 2_000,
+                    type = TransactionType.RECEIVED.name,
+                    confirmations = 0
+                )
+            )
+        )
+
+        val pagingSource = walletDao.pagingTransactions(
+            walletId = walletId,
+            sort = "PENDING_FIRST",
+            showLabeled = true,
+            showUnlabeled = true,
+            showReceived = true,
+            showSent = true
+        )
+        val result = pagingSource.load(
+            PagingSource.LoadParams.Refresh(
+                key = null,
+                loadSize = 50,
+                placeholdersEnabled = false
+            )
+        ) as PagingSource.LoadResult.Page
+
+        assertEquals(listOf("pending", "confirmed"), result.data.map { it.transaction.txid })
+    }
+
     private suspend fun insertWallet(walletId: Long) {
         walletDao.upsert(
             WalletEntity(

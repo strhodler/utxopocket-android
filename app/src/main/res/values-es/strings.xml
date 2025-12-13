@@ -46,10 +46,15 @@
     <string name="wallets_state_idle">Inactivo</string>
     <string name="wallets_state_offline">Sin conexión</string>
     <string name="wallets_state_connecting">Conectando</string>
+    <string name="wallets_state_disconnecting">Desconectando</string>
     <string name="wallets_state_waiting_for_tor">Esperando Tor</string>
     <string name="wallets_state_waiting_for_node">Esperando nodo</string>
     <string name="wallets_state_syncing">Sincronizando…</string>
     <string name="wallets_state_queued">En cola</string>
+    <string name="wallets_state_full_rescan_syncing">Rescan completo…</string>
+    <string name="wallets_state_full_rescan_queued">Rescan completo en cola</string>
+    <string name="wallets_state_full_rescan_syncing_gap">Rescan completo (gap %1$d)…</string>
+    <string name="wallets_state_full_rescan_queued_gap">Rescan completo en cola (gap %1$d)</string>
     <string name="wallets_state_synced">Conectado</string>
     <string name="wallets_state_error">Error</string>
     <string name="wallets_last_sync">Última sincronización: %1$s</string>
@@ -145,9 +150,11 @@
     <string name="wallet_detail_not_found">No se encontró la billetera.</string>
     <string name="wallet_detail_transactions_tab">Transacciones</string>
     <string name="wallet_detail_transactions_tab_count">Transacciones (%1$d)</string>
+    <string name="wallet_detail_incoming_tab_count">Entrantes (%1$d)</string>
     <string name="wallet_detail_utxos_tab">UTXOs</string>
     <string name="wallet_detail_utxos_tab_count">UTXOs (%1$d)</string>
     <string name="wallet_detail_empty_transactions">Aún no hay transacciones.</string>
+    <string name="wallet_detail_incoming_empty">Sin transacciones entrantes detectadas.</string>
     <string name="wallet_detail_transactions_sort_label">Ordenar por</string>
     <string name="wallet_detail_transactions_sort_expand_content_description">Mostrar opciones de orden</string>
     <string name="wallet_detail_transactions_sort_newest_first">Más recientes primero</string>
@@ -156,6 +163,7 @@
     <string name="wallet_detail_transactions_sort_lowest_amount">Monto menor</string>
     <string name="wallet_detail_transactions_sort_best_health">Mejor salud primero</string>
     <string name="wallet_detail_transactions_sort_worst_health">Peor salud primero</string>
+    <string name="wallet_detail_transactions_sort_pending_first">Pendientes primero</string>
     <string name="wallet_detail_utxos_sort_label">Orden de UTXOs</string>
     <string name="wallet_detail_utxos_filter_label">Filtro</string>
     <string name="wallet_detail_utxos_filter_expand_content_description">Mostrar opciones de filtro</string>
@@ -165,6 +173,7 @@
     <string name="wallet_detail_filters_all_with_items">Todos (%1$d elementos)</string>
     <string name="wallet_detail_filters_count_with_items">%1$d filtros (%2$d elementos)</string>
     <string name="wallet_detail_filters_custom">Personalizado</string>
+    <string name="wallet_detail_pending_filter">Mostrar pendientes</string>
     <string name="wallet_detail_utxos_filter_spendable">Gastables</string>
     <string name="wallet_detail_utxos_filter_unspendable">No gastables</string>
     <string name="wallet_detail_utxos_filter_summary_all">Todos los UTXOs</string>
@@ -277,6 +286,7 @@
     <string name="wallet_detail_no_label_placeholder">Sin etiqueta</string>
     <string name="receive_next_address">Siguiente dirección</string>
     <string name="receive_next_address_loading">Cargando siguiente dirección…</string>
+    <string name="receive_next_address_ready">Nueva dirección lista</string>
     <string name="receive_open_details">Abrir detalles de la dirección</string>
     <string name="receive_reuse_notice">Usa una dirección nueva para cada pago.</string>
     <string name="receive_error_no_address">No hay direcciones sin uso disponibles. Inténtalo de nuevo.</string>
@@ -884,6 +894,7 @@
 
     <!-- Wallet detail remaining menu/actions -->
     <string name="wallet_detail_descriptor_label">Descriptor</string>
+    <string name="wallet_detail_master_fingerprint_label">Huella maestra</string>
     <string name="wallet_detail_change_descriptor_label">Descriptor de cambio</string>
     <string name="wallet_detail_combined_descriptor_label">Descriptor combinado (externo + cambio)</string>
     <string name="wallet_detail_descriptor_pin_title">Desbloquear descriptores</string>
@@ -891,10 +902,12 @@
     <string name="wallet_detail_flip_hint_show_chart">Toca la tarjeta para explorar tu gráfico de balance.</string>
     <string name="wallet_detail_flip_hint_show_summary">Toca la tarjeta para volver al resumen.</string>
     <string name="wallet_detail_descriptor_copy_action">Copiar descriptor</string>
+    <string name="wallet_detail_master_fingerprint_copy_action">Copiar huella maestra</string>
     <string name="wallet_detail_descriptor_qr_action">Mostrar QR del descriptor</string>
     <string name="wallet_detail_change_descriptor_copy_action">Copiar descriptor de cambio</string>
     <string name="wallet_detail_change_descriptor_qr_action">Mostrar QR del descriptor de cambio</string>
     <string name="wallet_detail_descriptor_copied_toast">Descriptor copiado. El portapapeles se borra en 60 segundos.</string>
+    <string name="wallet_detail_master_fingerprint_copied_toast">Huella maestra copiada. El portapapeles se borra en 60 segundos.</string>
     <string name="wallet_detail_descriptor_qr_title">QR del descriptor</string>
     <string name="wallet_detail_descriptor_qr_close">Cerrar</string>
     <string name="wallet_detail_descriptor_qr_error">No se pudo generar un código QR para este descriptor.</string>
@@ -903,7 +916,9 @@
     <string name="wallet_detail_menu_color">Color</string>
     <string name="wallet_detail_menu_export_labels">Exportar etiquetas</string>
     <string name="wallet_detail_menu_import_labels">Importar etiquetas</string>
-    <string name="wallet_detail_menu_descriptors">Descriptores</string>
+    <string name="wallet_detail_menu_sync_settings">Ajustes de sincronización</string>
+    <string name="wallet_detail_menu_force_rescan_gap">Reescaneo completo (gap %1$d)</string>
+    <string name="wallet_detail_menu_descriptors">Detalles</string>
     <string name="wallet_detail_menu_force_rescan">Reescaneo completo</string>
     <string name="wallet_detail_menu_delete">Eliminar billetera</string>
     <string name="wallet_detail_selected_timestamp">Balance al %1$s</string>
@@ -977,6 +992,18 @@
     <string name="wallet_detail_last_full_scan">Último reescaneo completo: %1$s</string>
     <string name="wallet_detail_last_full_scan_never">Aún no se completa un reescaneo completo.</string>
     <string name="wallet_detail_full_scan_pending">Rescan completo en cola</string>
+    <string name="wallet_sync_settings_title">Ajustes de sincronización</string>
+    <string name="wallet_sync_gap_label">Gap limit</string>
+    <string name="wallet_sync_gap_status">El rescan completo y la detección de entrantes usan gap %1$d.</string>
+    <string name="wallet_sync_gap_hint">El sync incremental mantiene el gap del nodo. Un gap mayor escanea más direcciones y puede tardar más sobre Tor.</string>
+    <string name="wallet_sync_save">Guardar gap</string>
+    <string name="wallet_sync_rescan">Reescanear con este gap</string>
+    <string name="wallet_sync_help_action_description">Mostrar ayuda de gap de sync</string>
+    <string name="wallet_sync_help_title">Cómo se usan los gaps</string>
+    <string name="wallet_sync_help_full_rescan">El rescan completo recorre los descriptores hasta el gap configurado para redescubrir el historial. Gaps mayores cubren más direcciones pero tardan más sobre Tor.</string>
+    <string name="wallet_sync_help_incremental">El sync incremental mantiene el stop gap del nodo y retoma desde los últimos índices usados; este control no cambia el incremental.</string>
+    <string name="wallet_sync_help_incoming">El watcher de entrantes vigila direcciones hasta este gap más un pequeño buffer. Gaps mayores implican más suscripciones y pueden ralentizar el sondeo.</string>
+    <string name="wallet_detail_full_rescan_enqueued">Rescan completo en cola.</string>
     <string name="wallet_detail_refresh_enqueued">Refresco en cola. Espera a que terminen las sincronizaciones previas.</string>
     <string name="wallet_detail_sync_completed_new_txs">%1$d transacciones nuevas añadidas a %2$s.</string>
     <string name="wallet_detail_unknown_wallet_name">billetera</string>
@@ -1119,6 +1146,7 @@
     <!-- Wiki CTA in wallets list -->
     <string name="wallets_node_disconnected_banner">Sin conexión de nodo</string>
     <string name="wallets_node_connecting_banner">Conectando al nodo</string>
+    <string name="wallets_node_disconnecting_banner">Desconectando del nodo</string>
     <string name="wallets_node_connected_banner">Conectado al nodo</string>
     <string name="wallets_node_connected_banner_with_name">Conectado a %1$s vía Tor</string>
     <string name="wallets_node_connected_banner_generic_supporting">Conectado vía Tor</string>

@@ -80,6 +80,8 @@ import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
 import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
+import com.strhodler.utxopocket.domain.model.SyncOperation
+import com.strhodler.utxopocket.presentation.wallets.sync.resolveSyncGap
 import java.text.DateFormat
 import java.text.NumberFormat
 import java.util.Date
@@ -119,7 +121,9 @@ fun WalletsRoute(
         snackbarMessage = snackbarMessage,
         onSnackbarConsumed = onSnackbarConsumed,
         isNetworkOnline = statusBarState.isNetworkOnline,
-        onCycleBalanceDisplay = onCycleBalanceDisplay
+        onCycleBalanceDisplay = onCycleBalanceDisplay,
+        activeOperation = state.activeOperation,
+        queuedOperations = state.queuedOperations
     )
 }
 
@@ -136,6 +140,8 @@ fun WalletsScreen(
     onSnackbarConsumed: () -> Unit = {},
     isNetworkOnline: Boolean,
     onCycleBalanceDisplay: () -> Unit,
+    activeOperation: SyncOperation? = null,
+    queuedOperations: Map<Long, SyncOperation> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -173,6 +179,8 @@ fun WalletsScreen(
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             blockHeight = state.blockHeight,
             selectedNetwork = state.selectedNetwork,
+            activeOperation = activeOperation,
+            queuedOperations = queuedOperations,
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
@@ -193,6 +201,8 @@ private fun WalletsContent(
     onCycleBalanceDisplay: () -> Unit,
     blockHeight: Long?,
     selectedNetwork: BitcoinNetwork,
+    activeOperation: SyncOperation? = null,
+    queuedOperations: Map<Long, SyncOperation> = emptyMap(),
     modifier: Modifier = Modifier
 ) {
     val canAddWallet = state.hasActiveNodeSelection || !isNetworkOnline
@@ -202,10 +212,12 @@ private fun WalletsContent(
     val showTorStatusBanner = state.torRequired || torStatus !is TorStatus.Stopped
     val isNodeConnected = state.nodeStatus is NodeStatus.Synced
     val isNodeConnecting = state.nodeStatus is NodeStatus.Connecting
+    val isNodeDisconnecting = state.nodeStatus is NodeStatus.Disconnecting
     val hasWalletErrors = state.wallets.any { it.lastSyncStatus is NodeStatus.Error }
     val sanitizedErrorMessage = state.errorMessage.takeUnless { hasWalletErrors }?.takeIf { it.isNotBlank() }
     val showDisconnectedBanner = !isNodeConnected &&
         state.nodeStatus !is NodeStatus.Connecting &&
+        state.nodeStatus !is NodeStatus.Disconnecting &&
         !state.isRefreshing
 
     val banner: (@Composable () -> Unit)? = when {
@@ -255,6 +267,18 @@ private fun WalletsContent(
 
                     is TorStatus.Running -> null
                 }
+            }
+        }
+        isNodeDisconnecting -> {
+            {
+                ActionableStatusBanner(
+                    title = stringResource(id = R.string.wallets_node_disconnecting_banner),
+                    supporting = stringResource(id = R.string.wallets_manage_connection_action),
+                    icon = Icons.Outlined.Router,
+                    onClick = onSelectNode,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
             }
         }
         isNodeConnecting -> {
@@ -337,6 +361,8 @@ private fun WalletsContent(
             refreshingWalletIds = state.refreshingWalletIds,
             activeWalletId = state.activeWalletId,
             queuedWalletIds = state.queuedWalletIds,
+            activeOperation = activeOperation,
+            queuedOperations = queuedOperations,
             nodeStatus = state.nodeStatus,
             banner = bannerContent,
             modifier = Modifier.fillMaxSize(),
@@ -362,6 +388,8 @@ private fun WalletsList(
     refreshingWalletIds: Set<Long> = emptySet(),
     activeWalletId: Long? = null,
     queuedWalletIds: List<Long> = emptyList(),
+    activeOperation: SyncOperation? = null,
+    queuedOperations: Map<Long, SyncOperation> = emptyMap(),
     nodeStatus: NodeStatus,
     banner: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -430,6 +458,8 @@ private fun WalletsList(
             itemsIndexed(wallets, key = { _, wallet -> wallet.id }) { _, wallet ->
                 val walletRefreshing = wallet.id == activeWalletId || refreshingWalletIds.contains(wallet.id)
                 val walletQueued = queuedWalletIds.contains(wallet.id)
+                val walletActiveOperation = if (wallet.id == activeWalletId) activeOperation else null
+                val walletQueuedOperation = queuedOperations[wallet.id]
                 WalletCard(
                     wallet = wallet,
                     balanceUnit = balanceUnit,
@@ -438,6 +468,8 @@ private fun WalletsList(
                     modifier = Modifier.fillMaxWidth(),
                     isSyncing = walletRefreshing,
                     isQueued = walletQueued,
+                    activeOperation = walletActiveOperation,
+                    queuedOperation = walletQueuedOperation,
                     nodeStatus = nodeStatus
                 )
             }
@@ -532,6 +564,8 @@ private fun WalletCard(
     modifier: Modifier = Modifier,
     isSyncing: Boolean,
     isQueued: Boolean,
+    activeOperation: SyncOperation?,
+    queuedOperation: SyncOperation?,
     nodeStatus: NodeStatus
 ) {
     val syncStatus = wallet.lastSyncStatus
@@ -541,9 +575,18 @@ private fun WalletCard(
     }
     val statusLabel = when {
         nodeStatus is NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
+        activeOperation == SyncOperation.FullRescan -> stringResource(
+            id = R.string.wallets_state_full_rescan_syncing_gap,
+            resolveSyncGap(wallet.fullScanStopGap, wallet)
+        )
         isSyncing && nodeStatus is NodeStatus.Synced -> stringResource(id = R.string.wallets_state_syncing)
+        queuedOperation == SyncOperation.FullRescan -> stringResource(
+            id = R.string.wallets_state_full_rescan_queued_gap,
+            resolveSyncGap(wallet.fullScanStopGap, wallet)
+        )
         isQueued -> stringResource(id = R.string.wallets_state_queued)
         lastSyncText == null && nodeStatus is NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
+        nodeStatus is NodeStatus.Disconnecting -> stringResource(id = R.string.wallets_state_disconnecting)
         lastSyncText == null && nodeStatus is NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_waiting_for_node)
         lastSyncText != null -> stringResource(id = R.string.wallets_last_sync, lastSyncText)
         else -> nodeStatusLabel(syncStatus, false)
@@ -952,6 +995,7 @@ private fun nodeStatusLabel(status: NodeStatus, isSyncing: Boolean): String {
     return when (status) {
         NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
         NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
+        NodeStatus.Disconnecting -> stringResource(id = R.string.wallets_state_disconnecting)
         NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
         NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
         NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)

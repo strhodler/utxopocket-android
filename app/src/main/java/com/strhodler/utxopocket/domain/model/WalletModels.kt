@@ -41,6 +41,7 @@ sealed class TorStatus {
 sealed class NodeStatus {
     data object Idle : NodeStatus()
     data object Offline : NodeStatus()
+    data object Disconnecting : NodeStatus()
     data object Connecting : NodeStatus()
     data object Synced : NodeStatus()
     data object WaitingForTor : NodeStatus()
@@ -52,7 +53,22 @@ data class SyncStatusSnapshot(
     val network: BitcoinNetwork,
     val refreshingWalletIds: Set<Long> = emptySet(),
     val activeWalletId: Long? = null,
-    val queuedWalletIds: List<Long> = emptyList()
+    val activeOperation: SyncOperation? = null,
+    val queued: List<SyncQueueEntry> = emptyList()
+) {
+    val queuedWalletIds: List<Long> = queued.map { it.walletId }
+    fun queuedOperationFor(walletId: Long): SyncOperation? =
+        queued.firstOrNull { it.walletId == walletId }?.operation
+}
+
+enum class SyncOperation {
+    Refresh,
+    FullRescan
+}
+
+data class SyncQueueEntry(
+    val walletId: Long,
+    val operation: SyncOperation = SyncOperation.Refresh
 )
 
 data class ElectrumServerInfo(
@@ -89,6 +105,8 @@ data class WalletSummary(
     val fullScanStopGap: Int? = null,
     val sharedDescriptors: Boolean = false,
     val lastFullScanTime: Long? = null,
+    val lastActiveExternal: Int? = null,
+    val lastActiveChange: Int? = null,
     val viewOnly: Boolean = false
 )
 
@@ -163,6 +181,7 @@ data class WalletDetail(
     val summary: WalletSummary,
     val descriptor: String,
     val changeDescriptor: String? = null,
+    val masterFingerprints: List<String> = emptyList(),
     val transactions: List<WalletTransaction> = emptyList(),
     val utxos: List<WalletUtxo> = emptyList()
 )

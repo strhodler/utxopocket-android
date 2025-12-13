@@ -61,6 +61,7 @@ fun TopBarNodeStatusIcon(status: NodeStatus) {
         )
 
         NodeStatus.Connecting,
+        NodeStatus.Disconnecting,
         NodeStatus.WaitingForTor -> {
             Box(contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(
@@ -98,6 +99,7 @@ fun nodeStatusIndicatorColor(status: NodeStatus): Color? = when (status) {
     NodeStatus.Synced -> ConnectedBadgeColor
     NodeStatus.Idle,
     NodeStatus.Offline,
+    NodeStatus.Disconnecting,
     is NodeStatus.Error -> DisconnectedBadgeColor
     else -> null
 }

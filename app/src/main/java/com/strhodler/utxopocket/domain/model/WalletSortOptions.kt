@@ -6,7 +6,8 @@ enum class WalletTransactionSort {
     HIGHEST_AMOUNT,
     LOWEST_AMOUNT,
     BEST_HEALTH,
-    WORST_HEALTH
+    WORST_HEALTH,
+    PENDING_FIRST
 }
 
 enum class WalletUtxoSort {

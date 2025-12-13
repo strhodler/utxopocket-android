@@ -11,6 +11,7 @@ import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
+import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
@@ -142,6 +143,12 @@ class WalletsViewModel @Inject constructor(
             nodeConfig = snapshot.nodeConfig,
             network = data.network
         ) ?: snapshot.nodeSnapshot.endpoint?.substringAfter("://")?.trimEnd('/')
+        val activeOperation = if (syncStatus.network == data.network) syncStatus.activeOperation else null
+        val queuedOperations = if (syncStatus.network == data.network) {
+            syncStatus.queued.associate { it.walletId to it.operation }
+        } else {
+            emptyMap()
+        }
         WalletsUiState(
             isRefreshing = isRefreshing,
             wallets = data.wallets,
@@ -160,6 +167,8 @@ class WalletsViewModel @Inject constructor(
             refreshingWalletIds = syncStatus.refreshingWalletIds,
             activeWalletId = syncStatus.activeWalletId.takeIf { syncStatus.network == data.network },
             queuedWalletIds = if (syncStatus.network == data.network) syncStatus.queuedWalletIds else emptyList(),
+            activeOperation = activeOperation,
+            queuedOperations = queuedOperations,
             connectedNodeLabel = connectedNodeLabel
         )
     }.stateIn(
@@ -242,5 +251,7 @@ data class WalletsUiState(
     val refreshingWalletIds: Set<Long> = emptySet(),
     val activeWalletId: Long? = null,
     val queuedWalletIds: List<Long> = emptyList(),
+    val activeOperation: SyncOperation? = null,
+    val queuedOperations: Map<Long, SyncOperation> = emptyMap(),
     val connectedNodeLabel: String? = null
 )

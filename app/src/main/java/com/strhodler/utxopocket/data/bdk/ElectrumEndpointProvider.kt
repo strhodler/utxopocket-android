@@ -183,7 +183,7 @@ data class ElectrumSyncPreferences(
 
     companion object {
         val DEFAULT = ElectrumSyncPreferences(
-            fullScanStopGap = 50,
+            fullScanStopGap = 80,
             fullScanBatchSize = 64,
             incrementalBatchSize = 24
         )
