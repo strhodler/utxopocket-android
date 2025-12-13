@@ -920,7 +920,7 @@
     <string name="tor_notification_channel_description">Foreground service updates for Tor connectivity.</string>
     <string name="settings_title">Settings</string>
     <string name="settings_sections_overview">Categories</string>
-    <string name="settings_sections_overview_description">Jump into dedicated screens for wallet, security, and interface controls.</string>
+    <string name="settings_sections_overview_description">Jump into dedicated screens for wallet, security, block explorer, and interface controls.</string>
     <string name="settings_section_security">Security</string>
     <string name="settings_security_nav_description">%1$s, panic wipe</string>
     <string name="settings_security_pin_enabled">PIN enabled</string>
@@ -964,7 +964,10 @@
     <string name="settings_block_explorer_default_label">Default</string>
     <string name="settings_block_explorer_error_required">Enter a URL.</string>
     <string name="settings_block_explorer_error_scheme">Enter a valid http or https URL.</string>
-    <string name="settings_section_wallet">Wallet</string>
+    <string name="settings_section_block_explorer">Block explorer</string>
+    <string name="settings_block_explorer_nav_description_enabled">%1$s · %2$s</string>
+    <string name="settings_block_explorer_nav_description_disabled">Disabled</string>
+    <string name="settings_section_wallet">Wallets</string>
     <string name="settings_wallet_nav_description">%1$s, dust threshold</string>
     <string name="settings_wallet_health_on">Wallet health on</string>
     <string name="settings_wallet_health_off">Wallet health off</string>

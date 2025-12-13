@@ -36,6 +36,7 @@ import com.strhodler.utxopocket.presentation.more.MoreRoute
 import com.strhodler.utxopocket.presentation.more.PdfViewerRoute
 import com.strhodler.utxopocket.presentation.node.NodeStatusRoute
 import com.strhodler.utxopocket.presentation.settings.InterfaceSettingsRoute
+import com.strhodler.utxopocket.presentation.settings.BlockExplorerSettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SecuritySettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsNavigation
 import com.strhodler.utxopocket.presentation.settings.HealthParametersRoute
@@ -483,6 +484,9 @@ fun MainNavHost(
                 },
                 onOpenSecuritySettings = {
                     navController.navigate(SettingsNavigation.SecurityRoute)
+                },
+                onOpenBlockExplorerSettings = {
+                    navController.navigate(SettingsNavigation.BlockExplorerRoute)
                 }
             )
         }
@@ -509,6 +513,16 @@ fun MainNavHost(
                         launchSingleTop = true
                     }
                 }
+            )
+        }
+        composable(SettingsNavigation.BlockExplorerRoute) { backStackEntry ->
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(MainDestination.Settings.route)
+            }
+            val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
+            BlockExplorerSettingsRoute(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
             )
         }
         composable(SettingsNavigation.SecurityRoute) { backStackEntry ->
