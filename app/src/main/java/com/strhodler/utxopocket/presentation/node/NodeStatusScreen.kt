@@ -43,6 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +58,7 @@ import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
+import com.strhodler.utxopocket.presentation.motion.rememberLazyHeaderFadeAlpha
 import com.strhodler.utxopocket.presentation.tor.TorStatusActionUiState
 import java.text.DateFormat
 import java.util.Date
@@ -83,6 +85,7 @@ fun NodeStatusScreen(
     onStartTor: () -> Unit
 ) {
     val listState = rememberLazyListState()
+    val heroAlpha = rememberLazyHeaderFadeAlpha(listState)
     val tabs = remember { NodeStatusTab.values().toList() }
     val pagerState = rememberPagerState(
         initialPage = initialTabIndex.coerceIn(0, tabs.lastIndex),
@@ -147,7 +150,9 @@ fun NodeStatusScreen(
                     status = status,
                     nodeTitleOverride = heroTitleOverride,
                     selectedEndpoint = selectedNodeEndpoint,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer(alpha = heroAlpha)
                 )
             }
             stickyHeader {

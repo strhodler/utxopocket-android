@@ -69,6 +69,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -123,6 +124,7 @@ import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
+import com.strhodler.utxopocket.presentation.motion.rememberScrollHeaderFadeAlpha
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.surfaceColorAtElevation
@@ -997,9 +999,11 @@ private fun TransactionDetailContent(
             showExplorerSheet = true
         }
     }
+    val scrollState = rememberScrollState()
+    val headerAlpha = rememberScrollHeaderFadeAlpha(scrollState)
 
     Column(
-        modifier = modifier.verticalScroll(rememberScrollState())
+        modifier = modifier.verticalScroll(scrollState)
     ) {
         TransactionDetailHeader(
             broadcastInfo = broadcastInfoText,
@@ -1010,7 +1014,9 @@ private fun TransactionDetailContent(
             onOpenVisualizer = visualizerAction,
             onOpenExplorer = openExplorerOrSettings,
             explorerEnabled = explorerButtonEnabled,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer(alpha = headerAlpha)
         )
         Spacer(modifier = Modifier.height(16.dp))
         Column(
@@ -1717,9 +1723,11 @@ private fun UtxoDetailContent(
             WalletAddressType.CHANGE -> stringResource(id = R.string.utxo_detail_keychain_change)
         }
     }
+    val scrollState = rememberScrollState()
+    val headerAlpha = rememberScrollHeaderFadeAlpha(scrollState)
 
     Column(
-        modifier = modifier.verticalScroll(rememberScrollState())
+        modifier = modifier.verticalScroll(scrollState)
     ) {
         UtxoDetailHeader(
             identiconSeed = fullOutpoint,
@@ -1732,7 +1740,9 @@ private fun UtxoDetailContent(
             isInherited = isInheritedLabel,
             onEditLabel = { onEditLabel(displayLabel) },
             onCycleBalanceDisplay = onCycleBalanceDisplay,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .graphicsLayer(alpha = headerAlpha)
         )
         Spacer(modifier = Modifier.height(16.dp))
         Column(

@@ -112,7 +112,7 @@ class WalletDetailViewModel @Inject constructor(
     private val storedWalletHealthState = walletHealthRepository.stream(walletId)
     private val utxoHealthAnalyzer: UtxoHealthAnalyzer = DefaultUtxoHealthAnalyzer()
     private val transactionSortState = MutableStateFlow(WalletTransactionSort.NEWEST_FIRST)
-    private val showPendingState = MutableStateFlow(true)
+    private val showPendingState = MutableStateFlow(false)
     private val utxoSortState = MutableStateFlow(WalletUtxoSort.LARGEST_AMOUNT)
     private val transactionLabelFilterState = MutableStateFlow(TransactionLabelFilter())
     private val utxoLabelFilterState = MutableStateFlow(UtxoLabelFilter())
@@ -517,10 +517,11 @@ class WalletDetailViewModel @Inject constructor(
             }
             val dustBalanceSats = dustUtxos.sumOf { it.valueSats }
             val utxoFilterCounts = computeUtxoFilterCounts(detail.utxos)
+            val transactionFilterCounts = computeTransactionFilterCounts(detail.transactions)
             val filteredTransactions = if (showPending) {
-                detail.transactions
+                detail.transactions.filter { it.confirmations == 0 }
             } else {
-                detail.transactions.filterNot { it.confirmations == 0 }
+                detail.transactions
             }
             val sortedTransactions = when (resolvedTransactionSort) {
                 WalletTransactionSort.NEWEST_FIRST -> filteredTransactions.sortedWith(
@@ -559,7 +560,6 @@ class WalletDetailViewModel @Inject constructor(
                         .thenByDescending { it.id }
                 )
             }
-            val transactionFilterCounts = computeTransactionFilterCounts(sortedTransactions)
             val visibleTransactionsCount = sortedTransactions.count { transactionLabelFilter.matches(it) }
             val filteredUtxos = detail.utxos.filter { utxoLabelFilter.matches(it) }
             val visibleUtxosCount = filteredUtxos.size
@@ -1022,11 +1022,13 @@ class WalletDetailViewModel @Inject constructor(
     private fun computeTransactionFilterCounts(transactions: List<WalletTransaction>): TransactionFilterCounts {
         val labeled = transactions.count { !it.label.isNullOrBlank() }
         val received = transactions.count { it.type == TransactionType.RECEIVED }
+        val pending = transactions.count { it.confirmations == 0 }
         return TransactionFilterCounts(
             labeled = labeled,
             unlabeled = transactions.size - labeled,
             received = received,
-            sent = transactions.size - received
+            sent = transactions.size - received,
+            pending = pending
         )
     }
 
@@ -1146,7 +1148,7 @@ data class WalletDetailUiState(
     val visibleUtxosCount: Int = 0,
     val transactionSort: WalletTransactionSort = WalletTransactionSort.NEWEST_FIRST,
     val availableTransactionSorts: List<WalletTransactionSort> = WalletTransactionSort.entries.toList(),
-    val showPending: Boolean = true,
+    val showPending: Boolean = false,
     val utxoSort: WalletUtxoSort = WalletUtxoSort.LARGEST_AMOUNT,
     val availableUtxoSorts: List<WalletUtxoSort> = WalletUtxoSort.entries.toList(),
     val transactionLabelFilter: TransactionLabelFilter = TransactionLabelFilter(),
@@ -1234,7 +1236,8 @@ data class TransactionFilterCounts(
     val labeled: Int = 0,
     val unlabeled: Int = 0,
     val received: Int = 0,
-    val sent: Int = 0
+    val sent: Int = 0,
+    val pending: Int = 0
 )
 
 enum class UtxoHistogramMode {

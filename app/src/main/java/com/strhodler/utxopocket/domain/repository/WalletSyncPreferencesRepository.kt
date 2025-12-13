@@ -7,8 +7,8 @@ interface WalletSyncPreferencesRepository {
     suspend fun getGap(walletId: Long): Int?
     fun observeGap(walletId: Long): kotlinx.coroutines.flow.Flow<Int?>
     companion object {
-        const val MIN_GAP = 1
-        const val MAX_GAP = 500
+        const val MIN_GAP = 10
+        const val MAX_GAP = 250
         const val DEFAULT_GAP = 120
         fun baseline(network: BitcoinNetwork): Int =
             when (network) {

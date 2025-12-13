@@ -1,7 +1,7 @@
 package com.strhodler.utxopocket.presentation.wallets.sync
 
-import androidx.compose.foundation.layout.Arrangement
 import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.annotation.StringRes
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -159,6 +160,7 @@ private fun WalletSyncSettingsScreen(
         bottomBar = {
             SaveGapBar(
                 isSaving = state.isSaving,
+                canSave = state.gap != state.savedGap,
                 onSave = onSave
             )
         }
@@ -193,16 +195,14 @@ private fun WalletSyncSettingsScreen(
                                 if (steppedValue != gapHapticStep) {
                                     gapHapticStep = steppedValue
                                     performSliderHaptic()
-                                }
-                                onGapChanged(steppedValue)
-                            },
-                            valueRange = WalletSyncPreferencesRepository.MIN_GAP.toFloat()..WalletSyncPreferencesRepository.MAX_GAP.toFloat(),
-                            steps = (WalletSyncPreferencesRepository.MAX_GAP - WalletSyncPreferencesRepository.MIN_GAP - 1)
-                                .coerceAtLeast(0),
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                            }
+                            onGapChanged(steppedValue)
+                        },
+                        valueRange = WalletSyncPreferencesRepository.MIN_GAP.toFloat()..WalletSyncPreferencesRepository.MAX_GAP.toFloat(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
                         Text(
-                            text = stringResource(id = R.string.wallet_sync_gap_hint),
+                            text = stringResource(id = gapHintForValue(gapSliderValue.toInt())),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -217,6 +217,7 @@ private fun WalletSyncSettingsScreen(
 @Composable
 private fun SaveGapBar(
     isSaving: Boolean,
+    canSave: Boolean,
     onSave: () -> Unit
 ) {
     Surface(
@@ -231,7 +232,7 @@ private fun SaveGapBar(
         ) {
             Button(
                 onClick = onSave,
-                enabled = !isSaving,
+                enabled = !isSaving && canSave,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 56.dp),
@@ -261,6 +262,7 @@ class WalletSyncSettingsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(
         WalletSyncSettingsUiState(
             gap = WalletSyncPreferencesRepository.DEFAULT_GAP,
+            savedGap = WalletSyncPreferencesRepository.DEFAULT_GAP,
             isSaving = false,
             isRescanning = false,
             message = null
@@ -273,10 +275,15 @@ class WalletSyncSettingsViewModel @Inject constructor(
             val summary = walletRepository.observeWalletDetail(walletId).firstOrNull()?.summary
             val stored = runCatching { walletSyncPreferencesRepository.getGap(walletId) }.getOrNull()
             val resolved = resolveSyncGap(stored, summary)
-            _uiState.value = _uiState.value.copy(gap = resolved)
+            _uiState.value = _uiState.value.copy(gap = resolved, savedGap = resolved)
             walletSyncPreferencesRepository.observeGap(walletId).collect { storedGap ->
                 val normalized = resolveSyncGap(storedGap, summary)
-                _uiState.value = _uiState.value.copy(gap = normalized)
+                val previous = _uiState.value
+                val hasUnsavedChanges = previous.gap != previous.savedGap
+                _uiState.value = previous.copy(
+                    savedGap = normalized,
+                    gap = if (hasUnsavedChanges) previous.gap else normalized
+                )
             }
         }
     }
@@ -295,6 +302,7 @@ class WalletSyncSettingsViewModel @Inject constructor(
             val result = runCatching { walletSyncPreferencesRepository.setGap(walletId, gap) }
             _uiState.value = _uiState.value.copy(
                 isSaving = false,
+                savedGap = if (result.isSuccess) gap else _uiState.value.savedGap,
                 message = result.exceptionOrNull()?.message
             )
         }
@@ -324,7 +332,16 @@ class WalletSyncSettingsViewModel @Inject constructor(
 
 data class WalletSyncSettingsUiState(
     val gap: Int,
+    val savedGap: Int,
     val isSaving: Boolean,
     val isRescanning: Boolean,
     val message: String?
 )
+
+@StringRes
+private fun gapHintForValue(value: Int): Int = when {
+    value <= 60 -> R.string.wallet_sync_gap_hint_fast
+    value <= 150 -> R.string.wallet_sync_gap_hint_balanced
+    value <= 220 -> R.string.wallet_sync_gap_hint_broad
+    else -> R.string.wallet_sync_gap_hint_exhaustive
+}

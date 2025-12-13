@@ -53,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
@@ -79,6 +80,7 @@ import com.strhodler.utxopocket.presentation.components.ConnectionStatusBannerSt
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
+import com.strhodler.utxopocket.presentation.motion.rememberLazyHeaderFadeAlpha
 import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
 import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.presentation.wallets.sync.resolveSyncGap
@@ -283,9 +285,12 @@ private fun WalletsContent(
         }
         isNodeConnecting -> {
             {
+                val supportingText = state.connectedNodeLabel?.let { nodeLabel ->
+                    stringResource(id = R.string.wallets_node_connecting_banner_supporting, nodeLabel)
+                } ?: stringResource(id = R.string.wallets_manage_connection_action)
                 ActionableStatusBanner(
                     title = stringResource(id = R.string.wallets_node_connecting_banner),
-                    supporting = stringResource(id = R.string.wallets_manage_connection_action),
+                    supporting = supportingText,
                     icon = Icons.Outlined.Router,
                     onClick = onSelectNode,
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -424,6 +429,7 @@ private fun WalletsList(
         }
     } else {
         val listState = rememberLazyListState()
+        val headerAlpha = rememberLazyHeaderFadeAlpha(listState)
         LazyColumn(
             state = listState,
             modifier = modifier.fillMaxWidth(),
@@ -442,7 +448,8 @@ private fun WalletsList(
                     balancesHidden = balancesHidden,
                     onCycleBalanceDisplay = onCycleBalanceDisplay,
                     blockHeight = blockHeight,
-                    network = selectedNetwork
+                    network = selectedNetwork,
+                    modifier = Modifier.graphicsLayer(alpha = headerAlpha)
                 )
             }
             banner?.let {

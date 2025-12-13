@@ -138,15 +138,19 @@ fun NodeTorStatusSection(
                 R.string.tor_overview_bootstrap_percent_value,
                 status.torStatus.progress.coerceIn(0, 100)
             )
-            is TorStatus.Running -> resources.getString(R.string.tor_overview_bootstrap_complete)
+            is TorStatus.Running -> resources.getString(
+                R.string.tor_overview_bootstrap_percent_value,
+                100
+            )
             else -> resources.getString(R.string.tor_overview_bootstrap_pending)
         }
     }
     val bootstrapSupporting = (status.torStatus as? TorStatus.Connecting)?.message?.takeIf { it.isNotBlank() }
-    val requirementMessage = if (status.torRequired) {
-        stringResource(id = R.string.node_overview_tor_required)
-    } else {
-        stringResource(id = R.string.node_overview_tor_optional)
+    val requirementMessage = when {
+        status.torRequired && status.torStatus is TorStatus.Running ->
+            stringResource(id = R.string.node_overview_tor_required)
+        status.torRequired -> stringResource(id = R.string.node_overview_tor_required_connecting)
+        else -> stringResource(id = R.string.node_overview_tor_optional)
     }
     val showDetails = status.torRequired || status.torStatus !is TorStatus.Stopped
     val connectingStatus = status.torStatus as? TorStatus.Connecting
@@ -192,6 +196,28 @@ fun NodeTorStatusSection(
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 headlineContent = {
                     Text(
+                        text = stringResource(id = R.string.tor_overview_latest_event_label),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                supportingContent = {
+                    Text(
+                        text = latestLog ?: stringResource(id = R.string.tor_overview_latest_event_empty),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            )
+        }
+        item {
+            HorizontalDivider()
+        }
+        item {
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
                         text = stringResource(id = R.string.tor_overview_proxy_label),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -213,19 +239,28 @@ fun NodeTorStatusSection(
             ListItem(
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 headlineContent = {
-                    Text(
-                        text = stringResource(id = R.string.tor_overview_bootstrap_label),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                supportingContent = {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.tor_overview_bootstrap_label),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Text(
                             text = bootstrapValue,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                },
+                supportingContent = {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(top = 12.dp)
+                    ) {
                         bootstrapSupporting?.let {
                             Text(
                                 text = it,
@@ -233,38 +268,20 @@ fun NodeTorStatusSection(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        when (val torStatus = status.torStatus) {
+                            is TorStatus.Connecting -> LinearProgressIndicator(
+                                progress = (torStatus.progress.coerceIn(0, 100) / 100f),
+                                modifier = Modifier.fillMaxWidth(),
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                            is TorStatus.Running -> LinearProgressIndicator(
+                                progress = 1f,
+                                modifier = Modifier.fillMaxWidth(),
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                            else -> Unit
+                        }
                     }
-                },
-                trailingContent = (status.torStatus as? TorStatus.Connecting)?.let { connecting ->
-                    {
-                        LinearProgressIndicator(
-                            progress = (connecting.progress.coerceIn(0, 100) / 100f),
-                            modifier = Modifier.widthIn(min = 96.dp),
-                            trackColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    }
-                }
-            )
-        }
-        item {
-            HorizontalDivider()
-        }
-        item {
-            ListItem(
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                headlineContent = {
-                    Text(
-                        text = stringResource(id = R.string.tor_overview_latest_event_label),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                supportingContent = {
-                    Text(
-                        text = latestLog ?: stringResource(id = R.string.tor_overview_latest_event_empty),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
                 }
             )
         }
@@ -391,22 +408,7 @@ private fun TorActionButtons(
                 }
             }
 
-            is TorStatus.Connecting -> {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp
-                    )
-                    Text(
-                        text = stringResource(id = R.string.wallets_state_connecting),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
+            is TorStatus.Connecting -> Unit
 
             is TorStatus.Error,
             TorStatus.Stopped -> {

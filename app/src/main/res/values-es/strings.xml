@@ -174,7 +174,7 @@
     <string name="wallet_detail_filters_all_with_items">Todos (%1$d elementos)</string>
     <string name="wallet_detail_filters_count_with_items">%1$d filtros (%2$d elementos)</string>
     <string name="wallet_detail_filters_custom">Personalizado</string>
-    <string name="wallet_detail_pending_filter">Mostrar pendientes</string>
+    <string name="wallet_detail_pending_filter">Pendientes</string>
     <string name="wallet_detail_utxos_filter_spendable">Gastables</string>
     <string name="wallet_detail_utxos_filter_unspendable">No gastables</string>
     <string name="wallet_detail_utxos_filter_summary_all">Todos los UTXOs</string>
@@ -600,7 +600,8 @@
     <string name="node_overview_details_empty">Este nodo no expone información de conexión.</string>
     <string name="node_overview_fee_rate_title">Tarifa sugerida</string>
     <string name="node_overview_fee_rate_hint">Última estimación en sats/vB reportada por tu nodo.</string>
-    <string name="node_overview_tor_required">Esta conexión usa Tor.</string>
+    <string name="node_overview_tor_required_connecting">Tor es obligatorio; conectando...</string>
+    <string name="node_overview_tor_required">Enrutada por Tor.</string>
     <string name="node_overview_tor_optional">Esta conexión puede funcionar sin Tor.</string>
     <string name="node_overview_tab_status">Detalles</string>
     <string name="node_overview_details_section_title">Detalles del servidor</string>
@@ -1001,7 +1002,10 @@
     <string name="wallet_sync_settings_title">Ajustes de sincronización</string>
     <string name="wallet_sync_gap_label">Gap limit</string>
     <string name="wallet_sync_gap_status">El rescan completo y la detección de entrantes usan gap %1$d.</string>
-    <string name="wallet_sync_gap_hint">El sync incremental mantiene el gap del nodo. Un gap mayor escanea más direcciones y puede tardar más sobre Tor.</string>
+    <string name="wallet_sync_gap_hint_fast">Escaneos más rápidos; anticipación mínima para billeteras con pocas direcciones sin usar.</string>
+    <string name="wallet_sync_gap_hint_balanced">Gap equilibrado para actividad regular; buen equilibrio entre profundidad y velocidad.</string>
+    <string name="wallet_sync_gap_hint_broad">Rango más amplio para lotes grandes o billeteras compartidas; más lento sobre Tor.</string>
+    <string name="wallet_sync_gap_hint_exhaustive">Barrido exhaustivo para grandes abanicos de direcciones; espera sincronizaciones largas.</string>
     <string name="wallet_sync_save">Guardar gap</string>
     <string name="wallet_sync_rescan">Reescanear con este gap</string>
     <string name="wallet_sync_help_action_description">Mostrar ayuda de gap de sync</string>
@@ -1152,6 +1156,7 @@
     <!-- Wiki CTA in wallets list -->
     <string name="wallets_node_disconnected_banner">Sin conexión de nodo</string>
     <string name="wallets_node_connecting_banner">Conectando al nodo</string>
+    <string name="wallets_node_connecting_banner_supporting">Conectando a… %1$s</string>
     <string name="wallets_node_disconnecting_banner">Desconectando del nodo</string>
     <string name="wallets_node_connected_banner">Conectado al nodo</string>
     <string name="wallets_node_connected_banner_with_name">Conectado a %1$s vía Tor</string>

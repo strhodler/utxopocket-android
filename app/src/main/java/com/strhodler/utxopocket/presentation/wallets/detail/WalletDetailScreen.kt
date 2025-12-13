@@ -59,7 +59,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Divider
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Surface
@@ -83,6 +82,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -130,6 +130,7 @@ import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
 import com.strhodler.utxopocket.presentation.theme.WalletColorTheme
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import com.strhodler.utxopocket.presentation.wallets.sanitizeWalletErrorMessage
+import com.strhodler.utxopocket.presentation.motion.rememberLazyHeaderFadeAlpha
 import java.text.DateFormat
 import java.text.NumberFormat
 import java.util.Date
@@ -310,6 +311,7 @@ private fun WalletDetailContent(
     val dustUtxoCount = state.dustUtxoCount
     val dustBalanceSats = state.dustBalanceSats
     var showWalletHealthSheet by remember { mutableStateOf(false) }
+    val headerAlpha = rememberLazyHeaderFadeAlpha(outerListState)
 
     LaunchedEffect(state.walletHealthEnabled) {
         if (!state.walletHealthEnabled && showWalletHealthSheet) {
@@ -333,7 +335,8 @@ private fun WalletDetailContent(
                 selectedRange = state.selectedRange,
                 onRangeSelected = onBalanceRangeSelected,
                 showBalanceChart = state.showBalanceChart,
-                onCycleBalanceDisplay = onCycleBalanceDisplay
+                onCycleBalanceDisplay = onCycleBalanceDisplay,
+                modifier = Modifier.graphicsLayer(alpha = headerAlpha)
             )
         }
         if (hasPreTabsContent) {
@@ -1454,10 +1457,14 @@ private fun TransactionFilterRow(
     val presets = remember { transactionFilterPresets() }
     val presetLabelRes = presets.firstOrNull { it.filter == filter }?.labelRes
     val summaryText = buildString {
-        append(
-            presetLabelRes?.let { stringResource(id = it) }
-                ?: stringResource(id = R.string.wallet_detail_filters_custom)
-        )
+        if (showPending) {
+            append(stringResource(id = R.string.wallet_detail_pending_filter))
+        } else {
+            append(
+                presetLabelRes?.let { stringResource(id = it) }
+                    ?: stringResource(id = R.string.wallet_detail_filters_custom)
+            )
+        }
         append(" (")
         append(visibleCount)
         append(")")
@@ -1501,22 +1508,8 @@ private fun TransactionFilterRow(
                     text = stringResource(id = R.string.wallet_detail_transactions_filter_expand_content_description),
                     style = MaterialTheme.typography.titleMedium
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.wallet_detail_pending_filter),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Switch(
-                        checked = showPending,
-                        onCheckedChange = { checked -> onPendingChange(checked) }
-                    )
-                }
                 presets.forEach { preset ->
-                    val selected = preset.filter == filter
+                    val selected = !showPending && preset.filter == filter
                     val label = withCount(
                         stringResource(id = preset.labelRes),
                         preset.count(counts)
@@ -1537,6 +1530,9 @@ private fun TransactionFilterRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
+                                if (showPending) {
+                                    onPendingChange(false)
+                                }
                                 onFilterChange(preset.filter)
                                 scope.launch {
                                     sheetState.hide()
@@ -1546,6 +1542,35 @@ private fun TransactionFilterRow(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                 }
+                val pendingLabel = withCount(
+                    stringResource(id = R.string.wallet_detail_pending_filter),
+                    counts.pending
+                )
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            text = pendingLabel,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    },
+                    leadingContent = {
+                        RadioButton(
+                            selected = showPending,
+                            onClick = null
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onFilterChange(TransactionLabelFilter())
+                            onPendingChange(true)
+                            scope.launch {
+                                sheetState.hide()
+                                showSheet = false
+                            }
+                        },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
                 Spacer(modifier = Modifier.height(12.dp))
             }
         }

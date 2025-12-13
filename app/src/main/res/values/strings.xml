@@ -73,6 +73,7 @@
     <string name="wallets_node_prompt_action">Select node</string>
     <string name="wallets_node_disconnected_banner">No node connection</string>
     <string name="wallets_node_connecting_banner">Connecting to node</string>
+    <string name="wallets_node_connecting_banner_supporting">Connecting to… %1$s</string>
     <string name="wallets_node_disconnecting_banner">Disconnecting from node</string>
     <string name="wallets_node_connected_banner">Connected to node</string>
     <string name="wallets_node_connected_banner_with_name">Connected to %1$s using Tor</string>
@@ -114,7 +115,7 @@
     <string name="wallet_detail_filters_all_with_items">All (%1$d items)</string>
     <string name="wallet_detail_filters_count_with_items">%1$d filters (%2$d items)</string>
     <string name="wallet_detail_filters_custom">Custom</string>
-    <string name="wallet_detail_pending_filter">Show pending</string>
+    <string name="wallet_detail_pending_filter">Pending</string>
     <string name="wallet_detail_utxos_filter_spendable">Spendable</string>
     <string name="wallet_detail_utxos_filter_unspendable">Not spendable</string>
     <string name="wallet_detail_utxos_filter_summary_all">All UTXOs</string>
@@ -356,7 +357,10 @@
     <string name="wallet_sync_settings_title">Sync settings</string>
     <string name="wallet_sync_gap_label">Gap limit</string>
     <string name="wallet_sync_gap_status">Full rescan and incoming detection use gap %1$d.</string>
-    <string name="wallet_sync_gap_hint">Incremental sync keeps the node stop gap. Larger gaps scan more addresses and may take longer over Tor.</string>
+    <string name="wallet_sync_gap_hint_fast">Fastest scans; minimal lookahead for wallets with few unused addresses.</string>
+    <string name="wallet_sync_gap_hint_balanced">Balanced gap for regular activity; good trade-off between depth and speed.</string>
+    <string name="wallet_sync_gap_hint_broad">Broader lookahead for heavy batching or shared wallets; slower over Tor.</string>
+    <string name="wallet_sync_gap_hint_exhaustive">Exhaustive sweep for wide address fan-out; expect long syncs.</string>
     <string name="wallet_sync_save">Save gap</string>
     <string name="wallet_sync_rescan">Run full rescan with this gap</string>
     <string name="wallet_sync_help_action_description">Show sync gap help</string>
@@ -1079,7 +1083,8 @@
     <string name="node_overview_details_empty">This node does not expose connection details.</string>
     <string name="node_overview_fee_rate_title">Suggested fee rate</string>
     <string name="node_overview_fee_rate_hint">Latest sats/vB estimate reported by your node.</string>
-    <string name="node_overview_tor_required">This connection routes through Tor.</string>
+    <string name="node_overview_tor_required_connecting">Tor is required; connecting...</string>
+    <string name="node_overview_tor_required">Routed through Tor.</string>
     <string name="node_overview_tor_optional">This connection can run without Tor.</string>
     <string name="node_section_available_title">Available nodes</string>
     <string name="node_section_available_description">Switch between preset and custom nodes for this network.</string>
