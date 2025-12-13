@@ -342,15 +342,19 @@ private fun WalletDetailContent(
             }
         }
         walletErrorMessage?.let { message ->
+            val formattedMessage = message.replace("%", "%%")
             item(key = "error") {
                 ActionableStatusBanner(
                     title = stringResource(id = R.string.wallet_detail_error_banner_title),
-                    supporting = message,
+                    supporting = stringResource(
+                        id = R.string.wallet_detail_error_banner_message,
+                        formattedMessage
+                    ),
                     icon = Icons.Outlined.Warning,
                     modifier = Modifier.padding(horizontal = 16.dp),
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     contentColor = MaterialTheme.colorScheme.onSurface,
-                    onClick = null
+                    onClick = onRefreshRequested
                 )
             }
             item(key = "error_health_spacing") {
@@ -509,6 +513,22 @@ private fun WalletDetailContent(
 
                         WalletDetailTab.Incoming -> {
                             val placeholders = state.incomingPlaceholders
+                            item(key = "incoming_sync_banner") {
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(
+                                        text = stringResource(id = R.string.wallet_detail_incoming_sync_hint),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                                    )
+                                }
+                            }
                             if (placeholders.isEmpty()) {
                                 item(key = "incoming_empty") {
                                     EmptyPlaceholder(

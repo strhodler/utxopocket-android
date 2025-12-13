@@ -5,6 +5,7 @@ package com.strhodler.utxopocket.presentation.wallets.detail
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.annotation.StringRes
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.NodeStatus
@@ -56,6 +57,7 @@ import com.strhodler.utxopocket.domain.service.UtxoHealthAnalyzer
 import com.strhodler.utxopocket.domain.service.WalletHealthAggregator
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.domain.service.UtxoTreemapCalculator
+import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.data.utxohealth.DefaultUtxoHealthAnalyzer
 import com.strhodler.utxopocket.presentation.components.BalancePoint
 import com.strhodler.utxopocket.presentation.components.toWalletBalancePoints
@@ -770,8 +772,13 @@ class WalletDetailViewModel @Inject constructor(
     }
 
     private fun queueManualSync(mode: ManualSyncMode) {
-        val summary = uiState.value.summary ?: return
+        val snapshot = uiState.value
+        val summary = snapshot.summary ?: return
         viewModelScope.launch {
+            syncBlockReason(snapshot.nodeStatus)?.let { blockedMessage ->
+                _events.emit(WalletDetailEvent.SyncBlocked(blockedMessage))
+                return@launch
+            }
             val hasNode = walletRepository.hasActiveNodeSelection(summary.network)
             if (!hasNode) {
                 return@launch
@@ -797,6 +804,15 @@ class WalletDetailViewModel @Inject constructor(
                 _events.emit(queuedEvent)
             }
         }
+    }
+
+    @StringRes
+    private fun syncBlockReason(nodeStatus: NodeStatus): Int? = when (nodeStatus) {
+        NodeStatus.Connecting -> R.string.wallet_detail_sync_blocked_connecting
+        NodeStatus.WaitingForTor -> R.string.wallet_detail_sync_blocked_waiting_tor
+        NodeStatus.Disconnecting -> R.string.wallet_detail_sync_blocked_disconnecting
+        NodeStatus.Offline -> R.string.wallet_detail_sync_blocked_offline
+        else -> null
     }
 
     fun cycleBalanceDisplayMode() {
@@ -1084,6 +1100,7 @@ sealed interface WalletDetailEvent {
     data object RefreshQueued : WalletDetailEvent
     data object FullRescanQueued : WalletDetailEvent
     data class SyncCompleted(val walletName: String, val newTransactions: Int) : WalletDetailEvent
+    data class SyncBlocked(@StringRes val messageRes: Int) : WalletDetailEvent
 }
 
 data class WalletDetailUiState(

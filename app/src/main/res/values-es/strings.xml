@@ -49,12 +49,12 @@
     <string name="wallets_state_disconnecting">Desconectando</string>
     <string name="wallets_state_waiting_for_tor">Esperando Tor</string>
     <string name="wallets_state_waiting_for_node">Esperando nodo</string>
-    <string name="wallets_state_syncing">Sincronizando…</string>
+    <string name="wallets_state_syncing">Sincronizando</string>
     <string name="wallets_state_queued">En cola</string>
-    <string name="wallets_state_full_rescan_syncing">Rescan completo…</string>
-    <string name="wallets_state_full_rescan_queued">Rescan completo en cola</string>
-    <string name="wallets_state_full_rescan_syncing_gap">Rescan completo (gap %1$d)…</string>
-    <string name="wallets_state_full_rescan_queued_gap">Rescan completo en cola (gap %1$d)</string>
+    <string name="wallets_state_full_rescan_syncing">Full rescan</string>
+    <string name="wallets_state_full_rescan_queued">Full rescan en cola</string>
+    <string name="wallets_state_full_rescan_syncing_gap">Full rescan (gap %1$d)</string>
+    <string name="wallets_state_full_rescan_queued_gap">Full rescan en cola (gap %1$d)</string>
     <string name="wallets_state_synced">Conectado</string>
     <string name="wallets_state_error">Error</string>
     <string name="wallets_last_sync">Última sincronización: %1$s</string>
@@ -155,6 +155,7 @@
     <string name="wallet_detail_utxos_tab_count">UTXOs (%1$d)</string>
     <string name="wallet_detail_empty_transactions">Aún no hay transacciones.</string>
     <string name="wallet_detail_incoming_empty">Sin transacciones entrantes detectadas.</string>
+    <string name="wallet_detail_incoming_sync_hint">Sincroniza para agregarla a tu billetera y marcarla como pendiente.</string>
     <string name="wallet_detail_transactions_sort_label">Ordenar por</string>
     <string name="wallet_detail_transactions_sort_expand_content_description">Mostrar opciones de orden</string>
     <string name="wallet_detail_transactions_sort_newest_first">Más recientes primero</string>
@@ -820,7 +821,8 @@
     <string name="settings_network_logs_footer_compact">Duración: %1$d ms \u2022 Reintentos: %2$d \u2022 Nodo: %3$s</string>
     <string name="node_network_logs_banner_title">Registro de errores de red ACTIVO (local)</string>
     <string name="node_network_logs_banner_supporting">Toca para revisar y copiar entradas saneadas.</string>
-    <string name="wallet_detail_error_banner_title">Error</string>
+    <string name="wallet_detail_error_banner_title">Sincronización fallida</string>
+    <string name="wallet_detail_error_banner_message">No se pudo alcanzar el nodo anterior (%1$s). Toca Sincronizar ahora para reintentar con tu nodo actual.</string>
     <string name="settings_network_logs_waiting">Esperando registros…</string>
     <string name="settings_network_logs_filter_label">Filtrar registros</string>
     <string name="settings_network_logs_filter_summary">Mostrando %1$s (%2$d)</string>
@@ -942,6 +944,10 @@
     <string name="wallet_detail_rename_error_generic">No se pudo renombrar la billetera</string>
     <string name="wallet_detail_force_rescan_started">Reescaneo completo iniciado con gap %1$d.</string>
     <string name="wallet_detail_force_rescan_failed">No se pudo iniciar el reescaneo completo. Inténtalo de nuevo.</string>
+    <string name="wallet_detail_sync_blocked_connecting">El nodo sigue conectando. Inténtalo cuando esté listo.</string>
+    <string name="wallet_detail_sync_blocked_waiting_tor">Esperando a Tor. Inténtalo cuando esté listo.</string>
+    <string name="wallet_detail_sync_blocked_offline">El nodo está desconectado. Reconecta y vuelve a intentar.</string>
+    <string name="wallet_detail_sync_blocked_disconnecting">El nodo se está desconectando. Inténtalo cuando esté listo.</string>
     <string name="wallet_detail_pull_to_refresh_hint">Sincronizar</string>
     <string name="wallet_detail_show_chart">Ver gráfico</string>
     <string name="wallet_detail_hide_chart">Ocultar gráfico</string>
@@ -991,7 +997,7 @@
     <string name="wallet_detail_full_rescan_learn_more">Leer más</string>
     <string name="wallet_detail_last_full_scan">Último reescaneo completo: %1$s</string>
     <string name="wallet_detail_last_full_scan_never">Aún no se completa un reescaneo completo.</string>
-    <string name="wallet_detail_full_scan_pending">Rescan completo en cola</string>
+    <string name="wallet_detail_full_scan_pending">Full rescan en cola</string>
     <string name="wallet_sync_settings_title">Ajustes de sincronización</string>
     <string name="wallet_sync_gap_label">Gap limit</string>
     <string name="wallet_sync_gap_status">El rescan completo y la detección de entrantes usan gap %1$d.</string>
@@ -1003,7 +1009,7 @@
     <string name="wallet_sync_help_full_rescan">El rescan completo recorre los descriptores hasta el gap configurado para redescubrir el historial. Gaps mayores cubren más direcciones pero tardan más sobre Tor.</string>
     <string name="wallet_sync_help_incremental">El sync incremental mantiene el stop gap del nodo y retoma desde los últimos índices usados; este control no cambia el incremental.</string>
     <string name="wallet_sync_help_incoming">El watcher de entrantes vigila direcciones hasta este gap más un pequeño buffer. Gaps mayores implican más suscripciones y pueden ralentizar el sondeo.</string>
-    <string name="wallet_detail_full_rescan_enqueued">Rescan completo en cola.</string>
+    <string name="wallet_detail_full_rescan_enqueued">Full rescan en cola.</string>
     <string name="wallet_detail_refresh_enqueued">Refresco en cola. Espera a que terminen las sincronizaciones previas.</string>
     <string name="wallet_detail_sync_completed_new_txs">%1$d transacciones nuevas añadidas a %2$s.</string>
     <string name="wallet_detail_unknown_wallet_name">billetera</string>
