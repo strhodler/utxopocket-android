@@ -104,10 +104,8 @@ import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.NodeStatus
-import com.strhodler.utxopocket.domain.model.TransactionHealthResult
 import com.strhodler.utxopocket.domain.model.TransactionType
 import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
-import com.strhodler.utxopocket.domain.model.UtxoHealthResult
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletUtxo
@@ -115,8 +113,6 @@ import com.strhodler.utxopocket.domain.model.displayLabel
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
-import com.strhodler.utxopocket.domain.model.WalletHealthPillar
-import com.strhodler.utxopocket.domain.model.WalletHealthResult
 import com.strhodler.utxopocket.presentation.components.BalancePoint
 import com.strhodler.utxopocket.presentation.components.RefreshableContent
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
@@ -128,7 +124,6 @@ import com.strhodler.utxopocket.presentation.common.transactionAmount
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
 import com.strhodler.utxopocket.presentation.theme.WalletColorTheme
-import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import com.strhodler.utxopocket.presentation.wallets.sanitizeWalletErrorMessage
 import com.strhodler.utxopocket.presentation.motion.rememberLazyHeaderFadeAlpha
 import java.text.DateFormat
@@ -275,7 +270,6 @@ private fun WalletDetailContent(
     }
     val balanceHistoryPoints = state.displayBalancePoints
     val density = LocalDensity.current
-    val hasPreTabsContent = walletErrorMessage != null || state.walletHealthEnabled
     val stickyHeaderHeightPx = remember(topContentPadding, density) {
         with(density) { (topContentPadding + TabsHeight).roundToPx() }
     }
@@ -310,14 +304,7 @@ private fun WalletDetailContent(
     val changeBalanceSats = state.changeBalanceSats
     val dustUtxoCount = state.dustUtxoCount
     val dustBalanceSats = state.dustBalanceSats
-    var showWalletHealthSheet by remember { mutableStateOf(false) }
     val headerAlpha = rememberLazyHeaderFadeAlpha(outerListState)
-
-    LaunchedEffect(state.walletHealthEnabled) {
-        if (!state.walletHealthEnabled && showWalletHealthSheet) {
-            showWalletHealthSheet = false
-        }
-    }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -339,11 +326,6 @@ private fun WalletDetailContent(
                 modifier = Modifier.graphicsLayer(alpha = headerAlpha)
             )
         }
-        if (hasPreTabsContent) {
-            item(key = "summary_health_spacing") {
-                Spacer(modifier = Modifier.height(ListContentSpacing))
-            }
-        }
         walletErrorMessage?.let { message ->
             val formattedMessage = message.replace("%", "%%")
             item(key = "error") {
@@ -359,21 +341,6 @@ private fun WalletDetailContent(
                     contentColor = MaterialTheme.colorScheme.onSurface,
                     onClick = onRefreshRequested
                 )
-            }
-            item(key = "error_health_spacing") {
-                Spacer(modifier = Modifier.height(ListContentSpacing))
-            }
-        }
-        if (state.walletHealthEnabled) {
-            item(key = "wallet_health_indicator") {
-                WalletHealthIndicatorCard(
-                    walletHealth = state.walletHealth,
-                    onShowDetails = { showWalletHealthSheet = true },
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            }
-            item(key = "wallet_health_indicator_spacing") {
-                Spacer(modifier = Modifier.height(ListContentSpacing))
             }
         }
         stickyHeader {
@@ -488,8 +455,6 @@ private fun WalletDetailContent(
                                                 transaction = transaction,
                                                 unit = state.balanceUnit,
                                                 balancesHidden = state.balancesHidden,
-                                                healthResult = state.transactionHealth[transaction.id],
-                                                analysisEnabled = state.transactionAnalysisEnabled,
                                                 palette = walletTheme,
                                                 onClick = { onTransactionSelected(transaction.id) }
                                             )
@@ -613,8 +578,6 @@ private fun WalletDetailContent(
                                                 unit = state.balanceUnit,
                                                 balancesHidden = state.balancesHidden,
                                                 dustThresholdSats = state.dustThresholdSats,
-                                                healthResult = state.utxoHealth["${utxo.txid}:${utxo.vout}"],
-                                                analysisEnabled = state.utxoHealthEnabled,
                                                 palette = walletTheme,
                                                 onClick = { onUtxoSelected(utxo.txid, utxo.vout) }
                                             )
@@ -645,21 +608,6 @@ private fun WalletDetailContent(
         }
     }
 
-    if (showWalletHealthSheet && state.walletHealthEnabled) {
-        WalletHealthBottomSheet(
-            walletHealth = state.walletHealth,
-            reusedAddressCount = reusedAddressCount,
-            reusedBalanceSats = reusedBalanceSats,
-            changeUtxoCount = changeUtxoCount,
-            changeBalanceSats = changeBalanceSats,
-            dustUtxoCount = dustUtxoCount,
-            dustBalanceSats = dustBalanceSats,
-            dustThresholdSats = state.dustThresholdSats,
-            balanceUnit = state.balanceUnit,
-            onOpenWikiTopic = onOpenWikiTopic,
-            onDismiss = { showWalletHealthSheet = false }
-        )
-    }
 }
 
 @Composable
@@ -842,173 +790,6 @@ private fun shortRangeLabel(range: BalanceRange): String = when (range) {
 }
 
 @Composable
-private fun WalletHealthIndicatorCard(
-    walletHealth: WalletHealthResult?,
-    onShowDetails: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val subtitle = if (walletHealth == null) {
-        stringResource(id = R.string.wallet_detail_health_overview_pending)
-    } else {
-        null
-    }
-    Card(
-        onClick = onShowDetails,
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = CardDefaults.shape
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.wallet_detail_health_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    subtitle?.let { text ->
-                        Text(
-                            text = text,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                if (walletHealth != null) {
-                    WalletHealthScorePill(score = walletHealth.finalScore)
-                    Spacer(modifier = Modifier.width(12.dp))
-                }
-                Icon(
-                    imageVector = Icons.Outlined.UnfoldMore,
-                    contentDescription = stringResource(id = R.string.health_more_info),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun WalletHealthScorePill(score: Int) {
-    val (containerColor, contentColor) = when {
-        score >= 85 -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
-        score >= 60 -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-        else -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-    }
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = containerColor,
-        contentColor = contentColor
-    ) {
-        Text(
-            text = stringResource(id = R.string.transaction_health_score_chip, score),
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun WalletHealthBottomSheet(
-    walletHealth: WalletHealthResult?,
-    reusedAddressCount: Int,
-    reusedBalanceSats: Long,
-    changeUtxoCount: Int,
-    changeBalanceSats: Long,
-    dustUtxoCount: Int,
-    dustBalanceSats: Long,
-    dustThresholdSats: Long,
-    balanceUnit: BalanceUnit,
-    onOpenWikiTopic: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val configuration = LocalConfiguration.current
-    val maxSheetHeight = remember(configuration.screenHeightDp) {
-        configuration.screenHeightDp.dp * 0.85f
-    }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() }
-    ) {
-        WalletHealthSheetContent(
-            onOpenWikiTopic = onOpenWikiTopic,
-            walletHealth = walletHealth,
-            reusedAddressCount = reusedAddressCount,
-            reusedBalanceSats = reusedBalanceSats,
-            changeUtxoCount = changeUtxoCount,
-            changeBalanceSats = changeBalanceSats,
-            dustUtxoCount = dustUtxoCount,
-            dustBalanceSats = dustBalanceSats,
-            dustThresholdSats = dustThresholdSats,
-            balanceUnit = balanceUnit,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = maxSheetHeight)
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 24.dp)
-        )
-    }
-}
-
-@Composable
-private fun WalletHealthSheetContent(
-    onOpenWikiTopic: (String) -> Unit,
-    walletHealth: WalletHealthResult?,
-    reusedAddressCount: Int,
-    reusedBalanceSats: Long,
-    changeUtxoCount: Int,
-    changeBalanceSats: Long,
-    dustUtxoCount: Int,
-    dustBalanceSats: Long,
-    dustThresholdSats: Long,
-    balanceUnit: BalanceUnit,
-    modifier: Modifier = Modifier
-) {
-    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-        Column(
-            modifier = modifier.verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            if (walletHealth != null) {
-                WalletHealthSnapshotCard(
-                    health = walletHealth,
-                    onOpenWikiTopic = onOpenWikiTopic
-                )
-            } else {
-                WalletHealthPlaceholder(
-                    message = stringResource(id = R.string.wallet_detail_health_overview_pending)
-                )
-            }
-
-            WalletHealthSummary(
-                reusedAddressCount = reusedAddressCount,
-                reusedBalanceSats = reusedBalanceSats,
-                changeUtxoCount = changeUtxoCount,
-                changeBalanceSats = changeBalanceSats,
-                dustUtxoCount = dustUtxoCount,
-                dustBalanceSats = dustBalanceSats,
-                dustThresholdSats = dustThresholdSats,
-                balanceUnit = balanceUnit
-            )
-        }
-    }
-}
-
-@Composable
 private fun walletDescriptorTypeLabel(type: DescriptorType): String = when (type) {
     DescriptorType.P2PKH -> stringResource(id = R.string.wallet_detail_descriptor_type_legacy)
     DescriptorType.P2WPKH -> stringResource(id = R.string.wallet_detail_descriptor_type_segwit)
@@ -1036,298 +817,6 @@ private fun WalletSummaryChip(
             text = text,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-        )
-    }
-}
-
-@Composable
-private fun WalletHealthSummary(
-    reusedAddressCount: Int,
-    reusedBalanceSats: Long,
-    changeUtxoCount: Int,
-    changeBalanceSats: Long,
-    dustUtxoCount: Int,
-    dustBalanceSats: Long,
-    dustThresholdSats: Long,
-    balanceUnit: BalanceUnit,
-    modifier: Modifier = Modifier
-) {
-    val reusedBalanceText = remember(reusedBalanceSats, balanceUnit) {
-        balanceText(reusedBalanceSats, balanceUnit)
-    }
-    val changeBalanceText = remember(changeBalanceSats, balanceUnit) {
-        balanceText(changeBalanceSats, balanceUnit)
-    }
-    val dustBalanceText = remember(dustBalanceSats, balanceUnit) {
-        balanceText(dustBalanceSats, balanceUnit)
-    }
-    val reusedLabel = stringResource(id = R.string.wallet_detail_health_reused_addresses)
-    val changeLabel = stringResource(id = R.string.wallet_detail_health_change_outputs)
-    val dustLabel = if (dustThresholdSats > 0) {
-        stringResource(
-            id = R.string.wallet_detail_health_dust_outputs,
-            balanceText(dustThresholdSats, BalanceUnit.SATS)
-        )
-    } else {
-        stringResource(id = R.string.wallet_detail_health_dust_outputs_disabled)
-    }
-
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = stringResource(id = R.string.wallet_detail_health_title),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold
-        )
-        WalletHealthMetricRow(
-            title = reusedLabel,
-            countLabel = stringResource(
-                id = R.string.wallet_detail_health_count_label,
-                reusedAddressCount
-            ),
-            balanceDisplay = reusedBalanceText
-        )
-        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-        WalletHealthMetricRow(
-            title = changeLabel,
-            countLabel = stringResource(
-                id = R.string.wallet_detail_health_count_label,
-                changeUtxoCount
-            ),
-            balanceDisplay = changeBalanceText
-        )
-        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-        WalletHealthMetricRow(
-            title = dustLabel,
-            countLabel = stringResource(
-                id = R.string.wallet_detail_health_count_label,
-                dustUtxoCount
-            ),
-            balanceDisplay = dustBalanceText
-        )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun WalletHealthSnapshotCard(
-    health: WalletHealthResult,
-    onOpenWikiTopic: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val pillarLabels = remember {
-        WalletHealthPillar.values().associateWith { pillar ->
-            when (pillar) {
-                WalletHealthPillar.PRIVACY -> R.string.wallet_health_pillar_privacy
-                WalletHealthPillar.INVENTORY -> R.string.wallet_health_pillar_inventory
-                WalletHealthPillar.EFFICIENCY -> R.string.wallet_health_pillar_efficiency
-                WalletHealthPillar.RISK -> R.string.wallet_health_pillar_risk
-            }
-        }
-    }
-
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        tonalElevation = 3.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = stringResource(id = R.string.wallet_detail_health_overview_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = stringResource(id = R.string.wallet_detail_health_overview_score_label),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = stringResource(
-                            id = R.string.wallet_detail_health_overview_score_value,
-                            health.finalScore
-                        ),
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-            AssistChip(
-                onClick = { onOpenWikiTopic(WikiContent.WalletHealthTopicId) },
-                label = {
-                    Text(text = stringResource(id = R.string.wallet_detail_health_overview_learn_more))
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.Info,
-                        contentDescription = null
-                    )
-                }
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = stringResource(id = R.string.wallet_detail_health_overview_badges),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (health.badges.isNotEmpty()) {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        health.badges.forEach { badge ->
-                            WalletBadgeChip(text = badge.label)
-                        }
-                    }
-                } else {
-                    Text(
-                        text = stringResource(id = R.string.wallet_detail_health_overview_badges_empty),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                WalletHealthPillar.values().forEach { pillar ->
-                    val score = health.pillarScores[pillar] ?: 0
-                    WalletHealthPillarRow(
-                        label = stringResource(id = pillarLabels.getValue(pillar)),
-                        score = score
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun WalletHealthPlaceholder(
-    message: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        tonalElevation = 1.dp,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-    ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
-        )
-    }
-}
-
-@Composable
-private fun WalletBadgeChip(
-    text: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-        contentColor = MaterialTheme.colorScheme.primary
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-        )
-    }
-}
-
-@Composable
-private fun WalletHealthPillarRow(
-    label: String,
-    score: Int,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = stringResource(
-                    id = R.string.wallet_detail_health_overview_pillar_score,
-                    score
-                ),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        LinearProgressIndicator(
-            progress = score.coerceIn(0, 100) / 100f,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(6.dp),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    }
-}
-
-@Composable
-fun WalletHealthMetricRow(
-    title: String,
-    countLabel: String,
-    balanceDisplay: String,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = countLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Text(
-            text = stringResource(
-                id = R.string.wallet_detail_health_balance_label,
-                balanceDisplay
-            ),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.End,
-            maxLines = 1
         )
     }
 }
@@ -1426,8 +915,6 @@ private fun WalletTransactionSort.labelRes(): Int = when (this) {
     WalletTransactionSort.OLDEST_FIRST -> R.string.wallet_detail_transactions_sort_oldest_first
     WalletTransactionSort.HIGHEST_AMOUNT -> R.string.wallet_detail_transactions_sort_highest_amount
     WalletTransactionSort.LOWEST_AMOUNT -> R.string.wallet_detail_transactions_sort_lowest_amount
-    WalletTransactionSort.BEST_HEALTH -> R.string.wallet_detail_transactions_sort_best_health
-    WalletTransactionSort.WORST_HEALTH -> R.string.wallet_detail_transactions_sort_worst_health
     WalletTransactionSort.PENDING_FIRST -> R.string.wallet_detail_transactions_sort_pending_first
 }
 
@@ -1436,8 +923,6 @@ private fun WalletUtxoSort.labelRes(): Int = when (this) {
     WalletUtxoSort.SMALLEST_AMOUNT -> R.string.wallet_detail_transactions_sort_lowest_amount
     WalletUtxoSort.NEWEST_FIRST -> R.string.wallet_detail_transactions_sort_newest_first
     WalletUtxoSort.OLDEST_FIRST -> R.string.wallet_detail_transactions_sort_oldest_first
-    WalletUtxoSort.BEST_HEALTH -> R.string.wallet_detail_transactions_sort_best_health
-    WalletUtxoSort.WORST_HEALTH -> R.string.wallet_detail_transactions_sort_worst_health
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1763,8 +1248,6 @@ private fun TransactionRow(
     transaction: WalletTransaction,
     unit: BalanceUnit,
     balancesHidden: Boolean,
-    healthResult: TransactionHealthResult?,
-    analysisEnabled: Boolean,
     palette: WalletColorTheme,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -1773,8 +1256,6 @@ private fun TransactionRow(
         transaction = transaction,
         unit = unit,
         balancesHidden = balancesHidden,
-        healthResult = healthResult,
-        analysisEnabled = analysisEnabled,
         palette = palette,
         onClick = onClick,
         modifier = modifier
@@ -1993,8 +1474,6 @@ private fun UtxoRow(
     unit: BalanceUnit,
     balancesHidden: Boolean,
     dustThresholdSats: Long,
-    healthResult: UtxoHealthResult?,
-    analysisEnabled: Boolean,
     palette: WalletColorTheme,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -2004,8 +1483,6 @@ private fun UtxoRow(
         unit = unit,
         balancesHidden = balancesHidden,
         dustThresholdSats = dustThresholdSats,
-        healthResult = healthResult,
-        analysisEnabled = analysisEnabled,
         palette = palette,
         onClick = onClick,
         modifier = modifier
@@ -2017,8 +1494,6 @@ private fun TransactionDetailedCard(
     transaction: WalletTransaction,
     unit: BalanceUnit,
     balancesHidden: Boolean,
-    healthResult: TransactionHealthResult?,
-    analysisEnabled: Boolean,
     palette: WalletColorTheme,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -2046,7 +1521,6 @@ private fun TransactionDetailedCard(
     } ?: stringResource(id = R.string.transaction_detail_unknown_date)
     val confirmationText = confirmationLabel(transaction.confirmations)
     val displayTransactionId = remember(transaction.id) { ellipsizeMiddle(transaction.id) }
-    val healthScore: Int? = null
 
     val utxoCardColor = MaterialTheme.colorScheme.surfaceContainer
     Card(
@@ -2149,15 +1623,12 @@ private fun UtxoDetailedCard(
     unit: BalanceUnit,
     balancesHidden: Boolean,
     dustThresholdSats: Long,
-    healthResult: UtxoHealthResult?,
-    analysisEnabled: Boolean,
     palette: WalletColorTheme,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val amountText = balanceText(utxo.valueSats, unit, hidden = balancesHidden)
     val confirmationText = confirmationLabel(utxo.confirmations)
-    val healthScore: Int? = null
     val displayAddress = remember(utxo.address) {
         utxo.address?.let { ellipsizeMiddle(it) }
     }
@@ -2391,16 +1862,6 @@ private fun confirmationLabel(confirmations: Int): String = when {
     confirmations <= 0 -> stringResource(id = R.string.wallet_detail_pending_confirmation)
     confirmations == 1 -> stringResource(id = R.string.wallet_detail_single_confirmation)
     else -> stringResource(id = R.string.wallet_detail_confirmations, confirmations)
-}
-
-@Composable
-private fun healthTextColor(score: Int, palette: WalletColorTheme): Color {
-    val scheme = MaterialTheme.colorScheme
-    return if (score >= 60) {
-        palette.success
-    } else {
-        scheme.error
-    }
 }
 
 enum class WalletDetailTab {

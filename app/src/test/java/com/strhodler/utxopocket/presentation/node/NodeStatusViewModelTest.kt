@@ -7,9 +7,15 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.BlockExplorerNetworkPreference
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
+import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
+import com.strhodler.utxopocket.domain.model.NetworkEndpointType
+import com.strhodler.utxopocket.domain.model.NetworkErrorLog
+import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
+import com.strhodler.utxopocket.domain.model.NetworkNodeSource
+import com.strhodler.utxopocket.domain.model.NetworkTransport
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
@@ -19,15 +25,8 @@ import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
-import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
-import com.strhodler.utxopocket.domain.model.NetworkEndpointType
-import com.strhodler.utxopocket.domain.model.NetworkErrorLog
-import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
-import com.strhodler.utxopocket.domain.model.NetworkNodeSource
-import com.strhodler.utxopocket.domain.model.NetworkTransport
-import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
-import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
@@ -36,16 +35,14 @@ import com.strhodler.utxopocket.domain.model.WalletCreationRequest
 import com.strhodler.utxopocket.domain.model.WalletCreationResult
 import com.strhodler.utxopocket.domain.model.WalletDetail
 import com.strhodler.utxopocket.domain.model.WalletLabelExport
-import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
-import com.strhodler.utxopocket.presentation.node.NodeStatusUiState
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
-import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
+import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import kotlin.test.AfterTest
@@ -172,13 +169,6 @@ class NodeStatusViewModelTest {
         override val connectionIdleTimeoutMinutes: StateFlow<Int> = _connectionIdleTimeoutMinutes
         override val pinLastUnlockedAt: StateFlow<Long?> = MutableStateFlow(null)
         override val dustThresholdSats: StateFlow<Long> = MutableStateFlow(0L)
-        override val transactionAnalysisEnabled: StateFlow<Boolean> = MutableStateFlow(true)
-        override val utxoHealthEnabled: StateFlow<Boolean> = MutableStateFlow(true)
-        override val walletHealthEnabled: StateFlow<Boolean> = MutableStateFlow(false)
-        override val transactionHealthParameters: StateFlow<TransactionHealthParameters> =
-            MutableStateFlow(TransactionHealthParameters())
-        override val utxoHealthParameters: StateFlow<UtxoHealthParameters> =
-            MutableStateFlow(UtxoHealthParameters())
         override val networkLogsEnabled: StateFlow<Boolean> = _networkLogsEnabled
         override val networkLogsInfoSeen: StateFlow<Boolean> = _networkLogsInfoSeen
         override val blockExplorerPreferences: StateFlow<BlockExplorerPreferences> = blockExplorerPreferencesState
@@ -228,14 +218,7 @@ class NodeStatusViewModelTest {
         override suspend fun setConnectionIdleTimeoutMinutes(minutes: Int) {
             _connectionIdleTimeoutMinutes.value = minutes
         }
-        override suspend fun setTransactionAnalysisEnabled(enabled: Boolean) = Unit
-        override suspend fun setUtxoHealthEnabled(enabled: Boolean) = Unit
-        override suspend fun setWalletHealthEnabled(enabled: Boolean) = Unit
         override suspend fun setPinShuffleEnabled(enabled: Boolean) = Unit
-        override suspend fun setTransactionHealthParameters(parameters: TransactionHealthParameters) = Unit
-        override suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters) = Unit
-        override suspend fun resetTransactionHealthParameters() = Unit
-        override suspend fun resetUtxoHealthParameters() = Unit
         override suspend fun setNetworkLogsEnabled(enabled: Boolean) {
             _networkLogsEnabled.value = enabled
         }

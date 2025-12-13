@@ -68,11 +68,11 @@ private fun SettingsHomeScreen(
             R.string.settings_security_pin_disabled
         }
     )
-    val walletHealthStatus = stringResource(
-        id = if (state.walletHealthEnabled) {
-            R.string.settings_wallet_health_on
-        } else {
-            R.string.settings_wallet_health_off
+    val walletSummary = stringResource(
+        id = R.string.settings_wallet_nav_description,
+        when {
+            state.incomingDetectionDialogEnabled -> stringResource(id = R.string.incoming_detection_dialog_label)
+            else -> stringResource(id = R.string.incoming_detection_title)
         }
     )
     val blockExplorerSummary = if (state.blockExplorerEnabled) {
@@ -120,10 +120,7 @@ private fun SettingsHomeScreen(
             item {
                 SettingsNavigationRow(
                     title = stringResource(id = R.string.settings_section_wallet),
-                    supportingText = stringResource(
-                        id = R.string.settings_wallet_nav_description,
-                        walletHealthStatus
-                    ),
+                    supportingText = walletSummary,
                     onClick = onOpenWalletSettings
                 )
             }

@@ -43,7 +43,7 @@ Launch the “UtxoPocket” icon, complete onboarding, and verify Tor bootstrap.
 ## 5. Sanity Checklist
 - Switch network selector (Mainnet → Signet) and confirm presets change.
 - Import a testnet descriptor pair, sync, and confirm balance/UTXO lists populate.
-- Exercise the settings toggles (Transaction/UTXO/Wallet health) to ensure analytics run locally.
+- Trigger a full rescan from wallet detail after import and confirm the sync indicator completes.
 
 ## 6. IDE Tips
 - After dependency updates (`gradle/libs.versions.toml`), run “Sync Project with Gradle Files” inside Android Studio.

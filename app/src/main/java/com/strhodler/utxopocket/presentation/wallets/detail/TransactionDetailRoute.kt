@@ -31,19 +31,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AutoGraph
 import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.OpenInNew
-import androidx.compose.material.icons.outlined.ExpandLess
-import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -89,9 +85,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
-import com.strhodler.utxopocket.domain.model.TransactionHealthResult
-import com.strhodler.utxopocket.domain.model.TransactionHealthIndicatorType
-import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.TransactionStructure
 import com.strhodler.utxopocket.domain.model.TransactionType
 import com.strhodler.utxopocket.domain.model.WalletAddressType
@@ -103,16 +96,11 @@ import com.strhodler.utxopocket.domain.model.WalletTransactionOutput
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.displayLabel
-import com.strhodler.utxopocket.domain.model.WalletDefaults
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.BlockExplorerCatalog
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.UtxoStatus
-import com.strhodler.utxopocket.domain.model.UtxoAnalysisContext
-import com.strhodler.utxopocket.domain.model.UtxoHealthIndicatorType
-import com.strhodler.utxopocket.domain.model.UtxoHealthResult
-import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.common.balanceValue
 import com.strhodler.utxopocket.presentation.common.transactionAmount
@@ -141,11 +129,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
-import com.strhodler.utxopocket.domain.repository.TransactionHealthRepository
-import com.strhodler.utxopocket.domain.repository.UtxoHealthRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
-import com.strhodler.utxopocket.domain.service.TransactionHealthAnalyzer
-import com.strhodler.utxopocket.data.utxohealth.DefaultUtxoHealthAnalyzer
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
@@ -363,9 +347,7 @@ fun UtxoDetailRoute(
 class TransactionDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val walletRepository: WalletRepository,
-    private val appPreferencesRepository: AppPreferencesRepository,
-    private val transactionHealthAnalyzer: TransactionHealthAnalyzer,
-    private val transactionHealthRepository: TransactionHealthRepository
+    private val appPreferencesRepository: AppPreferencesRepository
 ) : ViewModel() {
 
     private val walletId: Long = savedStateHandle.get<Long>(WalletsNavigation.WalletIdArg)
@@ -376,17 +358,11 @@ class TransactionDetailViewModel @Inject constructor(
         savedStateHandle.get<String>(WalletsNavigation.TransactionIdArg)
             ?: error("Transaction id is required")
 
-    private val storedHealthState = transactionHealthRepository.stream(walletId)
-
     val uiState: StateFlow<TransactionDetailUiState> = combine(
         walletRepository.observeWalletDetail(walletId),
         appPreferencesRepository.balanceUnit,
         appPreferencesRepository.balancesHidden,
         appPreferencesRepository.advancedMode,
-        appPreferencesRepository.dustThresholdSats,
-        appPreferencesRepository.transactionHealthParameters,
-        appPreferencesRepository.transactionAnalysisEnabled,
-        storedHealthState,
         appPreferencesRepository.hapticsEnabled,
         appPreferencesRepository.blockExplorerPreferences
     ) { values: Array<Any?> ->
@@ -394,30 +370,9 @@ class TransactionDetailViewModel @Inject constructor(
         val balanceUnit = values[1] as BalanceUnit
         val balancesHidden = values[2] as Boolean
         val advancedMode = values[3] as Boolean
-        val dustThreshold = values[4] as Long
-        val transactionParameters = values[5] as TransactionHealthParameters
-        val analysisEnabled = values[6] as Boolean
-        @Suppress("UNCHECKED_CAST")
-        val storedHealth = values[7] as List<TransactionHealthResult>
-        val hapticsEnabled = values[8] as Boolean
-        val blockExplorerPrefs = values[9] as BlockExplorerPreferences
-        val storedHealthMap = storedHealth.associateBy { it.transactionId }
-        if (analysisEnabled && detail != null) {
-            val computedHealth = transactionHealthAnalyzer
-                .analyze(detail, dustThreshold, transactionParameters)
-                .transactions
-            if (computedHealth != storedHealthMap) {
-                viewModelScope.launch {
-                    transactionHealthRepository.replace(walletId, computedHealth.values)
-                }
-            }
-        } else if (!analysisEnabled && storedHealth.isNotEmpty()) {
-            viewModelScope.launch {
-                transactionHealthRepository.clear(walletId)
-            }
-        }
+        val hapticsEnabled = values[4] as Boolean
+        val blockExplorerPrefs = values[5] as BlockExplorerPreferences
         val transaction = detail?.transactions?.firstOrNull { it.id == transactionId }
-        val transactionHealth = if (analysisEnabled) storedHealthMap[transactionId] else null
         when {
             detail == null -> TransactionDetailUiState(
                 isLoading = false,
@@ -428,8 +383,6 @@ class TransactionDetailViewModel @Inject constructor(
                 hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
                 error = TransactionDetailError.NotFound,
-                transactionAnalysisEnabled = analysisEnabled,
-                transactionHealth = null,
                 blockExplorerOptions = emptyList()
             )
 
@@ -442,8 +395,6 @@ class TransactionDetailViewModel @Inject constructor(
                 hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
                 error = TransactionDetailError.NotFound,
-                transactionAnalysisEnabled = analysisEnabled,
-                transactionHealth = null,
                 blockExplorerOptions = emptyList()
             )
 
@@ -459,8 +410,6 @@ class TransactionDetailViewModel @Inject constructor(
                     advancedMode = advancedMode,
                     hapticsEnabled = hapticsEnabled,
                     error = null,
-                    transactionAnalysisEnabled = analysisEnabled,
-                    transactionHealth = transactionHealth,
                     blockExplorerOptions = explorerOptions
                 )
             }
@@ -598,8 +547,7 @@ private fun openExplorerUri(context: Context, option: BlockExplorerOption) {
 class UtxoDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val walletRepository: WalletRepository,
-    private val appPreferencesRepository: AppPreferencesRepository,
-    private val utxoHealthRepository: UtxoHealthRepository
+    private val appPreferencesRepository: AppPreferencesRepository
 ) : ViewModel() {
 
     private val walletId: Long = savedStateHandle.get<Long>(WalletsNavigation.WalletIdArg)
@@ -613,18 +561,11 @@ class UtxoDetailViewModel @Inject constructor(
         ?: savedStateHandle.get<String>(WalletsNavigation.UtxoVoutArg)?.toIntOrNull()
         ?: error("UTXO vout is required")
 
-    private val utxoHealthAnalyzer = DefaultUtxoHealthAnalyzer()
-    private val storedUtxoHealthState = utxoHealthRepository.stream(walletId)
-
     val uiState: StateFlow<UtxoDetailUiState> = combine(
         walletRepository.observeWalletDetail(walletId),
         appPreferencesRepository.balanceUnit,
         appPreferencesRepository.balancesHidden,
         appPreferencesRepository.advancedMode,
-        appPreferencesRepository.dustThresholdSats,
-        appPreferencesRepository.utxoHealthParameters,
-        appPreferencesRepository.utxoHealthEnabled,
-        storedUtxoHealthState,
         appPreferencesRepository.hapticsEnabled,
         appPreferencesRepository.blockExplorerPreferences
     ) { values: Array<Any?> ->
@@ -632,26 +573,9 @@ class UtxoDetailViewModel @Inject constructor(
         val balanceUnit = values[1] as BalanceUnit
         val balancesHidden = values[2] as Boolean
         val advancedMode = values[3] as Boolean
-        val dustThreshold = values[4] as Long
-        val utxoParameters = values[5] as UtxoHealthParameters
-        val healthEnabled = values[6] as Boolean
-        @Suppress("UNCHECKED_CAST")
-        val storedHealth = values[7] as List<UtxoHealthResult>
-        val hapticsEnabled = values[8] as Boolean
-        val blockExplorerPrefs = values[9] as BlockExplorerPreferences
+        val hapticsEnabled = values[4] as Boolean
+        val blockExplorerPrefs = values[5] as BlockExplorerPreferences
         val utxo = detail?.utxos?.firstOrNull { it.txid == txId && it.vout == vout }
-        val stored = storedHealth.firstOrNull { it.txid == txId && it.vout == vout }
-        val utxoHealth = if (healthEnabled && utxo != null) {
-            stored ?: utxoHealthAnalyzer.analyze(
-                utxo = utxo,
-                context = UtxoAnalysisContext(
-                    dustThresholdUser = dustThreshold,
-                    parameters = utxoParameters
-                )
-            )
-        } else {
-            null
-        }
         val depositTimestamp = utxo?.let { candidate ->
             detail?.transactions
                 ?.firstOrNull { transaction -> transaction.id == candidate.txid }
@@ -667,9 +591,6 @@ class UtxoDetailViewModel @Inject constructor(
                 hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
                 error = UtxoDetailError.NotFound,
-                dustThresholdSats = dustThreshold,
-                utxoHealthEnabled = healthEnabled,
-                utxoHealth = null,
                 blockExplorerOptions = emptyList()
             )
 
@@ -682,9 +603,6 @@ class UtxoDetailViewModel @Inject constructor(
                 hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
                 error = UtxoDetailError.NotFound,
-                dustThresholdSats = dustThreshold,
-                utxoHealthEnabled = healthEnabled,
-                utxoHealth = null,
                 blockExplorerOptions = emptyList()
             )
 
@@ -697,9 +615,6 @@ class UtxoDetailViewModel @Inject constructor(
                 hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
                 error = null,
-                dustThresholdSats = dustThreshold,
-                utxoHealthEnabled = healthEnabled,
-                utxoHealth = utxoHealth,
                 depositTimestamp = depositTimestamp,
                 blockExplorerOptions = resolveBlockExplorerOptions(
                     detail.summary.network,
@@ -746,8 +661,6 @@ data class TransactionDetailUiState(
     val hapticsEnabled: Boolean = true,
     val advancedMode: Boolean = false,
     val error: TransactionDetailError? = null,
-    val transactionAnalysisEnabled: Boolean = true,
-    val transactionHealth: TransactionHealthResult? = null,
     val blockExplorerOptions: List<BlockExplorerOption> = emptyList()
 )
 
@@ -764,9 +677,6 @@ data class UtxoDetailUiState(
     val hapticsEnabled: Boolean = true,
     val advancedMode: Boolean = false,
     val error: UtxoDetailError? = null,
-    val dustThresholdSats: Long = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS,
-    val utxoHealthEnabled: Boolean = true,
-    val utxoHealth: UtxoHealthResult? = null,
     val depositTimestamp: Long? = null,
     val blockExplorerOptions: List<BlockExplorerOption> = emptyList()
 )
@@ -1025,23 +935,6 @@ private fun TransactionDetailContent(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            when {
-                state.transactionAnalysisEnabled && state.transactionHealth != null -> {
-                    TransactionHealthSummaryCard(
-                        health = state.transactionHealth,
-                        onOpenWikiTopic = onOpenWikiTopic
-                    )
-                }
-
-                state.transactionAnalysisEnabled && state.transactionHealth == null -> {
-                    InfoBanner(
-                        text = stringResource(id = R.string.transaction_detail_health_unavailable),
-                        iconTint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                else -> Unit
-            }
             val feeLabel = transaction.feeSats?.let { sats ->
                 "${balanceValue(sats, BalanceUnit.SATS)} sats"
             } ?: stringResource(id = R.string.transaction_detail_unknown)
@@ -1751,23 +1644,6 @@ private fun UtxoDetailContent(
                 .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            when {
-                state.utxoHealthEnabled && state.utxoHealth != null -> {
-                    UtxoHealthSummaryCard(
-                        health = state.utxoHealth,
-                        onOpenWikiTopic = onOpenWikiTopic
-                    )
-                }
-
-                state.utxoHealthEnabled && state.utxoHealth == null -> {
-                    InfoBanner(
-                        text = stringResource(id = R.string.utxo_detail_health_unavailable),
-                        iconTint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                else -> Unit
-            }
             SpendableToggleCard(
                 spendable = utxo.spendable,
                 updating = spendableUpdating,
@@ -2312,310 +2188,9 @@ private fun FlowBadge(
     }
 }
 
-@Composable
-private fun TransactionScorePill(score: Int) {
-    val (containerColor, contentColor) = when {
-        score >= 85 -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
-        score >= 60 -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-        else -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-    }
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = containerColor,
-        contentColor = contentColor
-    ) {
-        Text(
-            text = stringResource(id = R.string.transaction_health_score_chip, score),
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-        )
-    }
-}
-
-@Composable
-private fun UtxoHealthScorePill(score: Int) {
-    val (containerColor, contentColor) = when {
-        score >= 85 -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
-        score >= 60 -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-        else -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-    }
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = containerColor,
-        contentColor = contentColor
-    ) {
-        Text(
-            text = stringResource(id = R.string.transaction_health_score_chip, score),
-            style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-        )
-    }
-}
-
-@Composable
-private fun CollapsibleHealthCard(
-    title: String,
-    scoreContent: @Composable () -> Unit,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-    onMoreInfo: () -> Unit,
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        ),
-        shape = MaterialTheme.shapes.large,
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onToggle)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f)
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    scoreContent()
-                    Icon(
-                        imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            if (expanded) {
-                content()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onMoreInfo) {
-                        Text(text = stringResource(id = R.string.health_more_info))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun TransactionHealthSummaryCard(
-    health: TransactionHealthResult,
-    onOpenWikiTopic: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-    CollapsibleHealthCard(
-        title = stringResource(id = R.string.transaction_detail_health_section_title),
-        scoreContent = { TransactionScorePill(score = health.finalScore) },
-        expanded = expanded,
-        onToggle = { expanded = !expanded },
-        onMoreInfo = { onOpenWikiTopic(WikiContent.TransactionHealthTopicId) },
-        modifier = modifier
-    ) {
-        if (health.badges.isNotEmpty()) {
-            FlowRow(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                health.badges.forEach { badge ->
-                    FlowBadge(text = badge.label)
-                }
-            }
-        }
-        if (health.indicators.isEmpty()) {
-            Text(
-                text = stringResource(id = R.string.transaction_detail_health_indicator_none),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-        } else {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
-                health.indicators.forEachIndexed { index, indicator ->
-                    if (index > 0) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    }
-                    val label = stringResource(id = indicator.type.labelRes())
-                    val deltaText = String.format(Locale.getDefault(), "%+d", indicator.delta)
-                    val pointsText = stringResource(
-                        id = R.string.transaction_health_points_format,
-                        deltaText
-                    )
-                    ListItem(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        headlineContent = {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        trailingContent = {
-                            Text(
-                                text = pointsText,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun UtxoHealthSummaryCard(
-    health: UtxoHealthResult,
-    onOpenWikiTopic: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-    CollapsibleHealthCard(
-        title = stringResource(id = R.string.utxo_detail_health_section_title),
-        scoreContent = { UtxoHealthScorePill(score = health.finalScore) },
-        expanded = expanded,
-        onToggle = { expanded = !expanded },
-        onMoreInfo = { onOpenWikiTopic(WikiContent.UtxoHealthTopicId) },
-        modifier = modifier
-    ) {
-        if (health.badges.isNotEmpty()) {
-            FlowRow(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                health.badges.forEach { badge ->
-                    FlowBadge(text = badge.label)
-                }
-            }
-        }
-        if (health.indicators.isEmpty()) {
-            Text(
-                text = stringResource(id = R.string.utxo_detail_health_indicator_none),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-        } else {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
-                health.indicators.forEachIndexed { index, indicator ->
-                    if (index > 0) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    }
-                    val label = when (indicator.type) {
-                        UtxoHealthIndicatorType.ADDRESS_REUSE -> stringResource(id = R.string.utxo_detail_health_reuse_label)
-                        UtxoHealthIndicatorType.DUST_UTXO -> stringResource(id = R.string.utxo_detail_health_dust_label)
-                        UtxoHealthIndicatorType.CHANGE_UNCONSOLIDATED -> stringResource(id = R.string.utxo_detail_health_change_label)
-                        UtxoHealthIndicatorType.MISSING_LABEL -> stringResource(id = R.string.utxo_detail_health_missing_label)
-                        UtxoHealthIndicatorType.LONG_INACTIVE -> stringResource(id = R.string.utxo_detail_health_long_inactive)
-                        UtxoHealthIndicatorType.WELL_DOCUMENTED_HIGH_VALUE -> stringResource(id = R.string.utxo_detail_health_well_documented)
-                    }
-                    val deltaText = String.format(Locale.getDefault(), "%+d", indicator.delta)
-                    val pointsText = stringResource(
-                        id = R.string.transaction_health_points_format,
-                        deltaText
-                    )
-                    ListItem(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        headlineContent = {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        trailingContent = {
-                            Text(
-                                text = pointsText,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
 private fun formatOutPoint(txid: String, vout: Int): String {
     val trimmed = if (txid.length <= 12) txid else "${txid.take(8)}...${txid.takeLast(4)}"
     return "$trimmed:$vout"
-}
-
-private fun TransactionHealthIndicatorType.labelRes(): Int = when (this) {
-    TransactionHealthIndicatorType.ADDRESS_REUSE -> R.string.transaction_health_indicator_address_reuse
-    TransactionHealthIndicatorType.CHANGE_EXPOSURE -> R.string.transaction_health_indicator_change_exposure
-    TransactionHealthIndicatorType.DUST_INCOMING -> R.string.transaction_health_indicator_dust_incoming
-    TransactionHealthIndicatorType.DUST_OUTGOING -> R.string.transaction_health_indicator_dust_outgoing
-    TransactionHealthIndicatorType.FEE_OVERPAY -> R.string.transaction_health_indicator_fee_overpay
-    TransactionHealthIndicatorType.FEE_UNDERPAY -> R.string.transaction_health_indicator_fee_underpay
-    TransactionHealthIndicatorType.SCRIPT_MIX -> R.string.transaction_health_indicator_script_mix
-    TransactionHealthIndicatorType.BATCHING -> R.string.transaction_health_indicator_batching
-    TransactionHealthIndicatorType.SEGWIT_ADOPTION -> R.string.transaction_health_indicator_segwit
-    TransactionHealthIndicatorType.CONSOLIDATION_HEALTH -> R.string.transaction_health_indicator_consolidation
-}
-
-@Composable
-private fun InfoBanner(
-    text: String,
-    modifier: Modifier = Modifier,
-    iconTint: Color = MaterialTheme.colorScheme.primary
-) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = iconTint.copy(alpha = 0.1f),
-        contentColor = MaterialTheme.colorScheme.onSurface
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Info,
-                contentDescription = null,
-                tint = iconTint
-            )
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-    }
 }
 
 @Composable

@@ -1,18 +1,35 @@
 package com.strhodler.utxopocket.domain.service
 
+import com.strhodler.utxopocket.data.bdk.ElectrumEndpoint
+import com.strhodler.utxopocket.data.bdk.ElectrumEndpointProvider
 import com.strhodler.utxopocket.domain.model.AddressUsage
+import com.strhodler.utxopocket.domain.model.AppLanguage
+import com.strhodler.utxopocket.domain.model.BalanceRange
+import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
+import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
 import com.strhodler.utxopocket.domain.model.IncomingTxPreferences
+import com.strhodler.utxopocket.domain.model.IncomingWatcherPolicy
+import com.strhodler.utxopocket.domain.model.NodeConfig
+import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
+import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
+import com.strhodler.utxopocket.domain.model.ThemePreference
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletDetail
 import com.strhodler.utxopocket.domain.model.WalletSummary
+import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
+import com.strhodler.utxopocket.domain.model.WalletTransactionSortOrder
+import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
@@ -20,25 +37,6 @@ import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepositor
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
-import com.strhodler.utxopocket.data.bdk.ElectrumEndpoint
-import com.strhodler.utxopocket.data.bdk.ElectrumEndpointProvider
-import com.strhodler.utxopocket.domain.model.BalanceRange
-import com.strhodler.utxopocket.domain.model.BalanceUnit
-import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
-import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
-import com.strhodler.utxopocket.domain.model.PinVerificationResult
-import com.strhodler.utxopocket.domain.model.ThemePreference
-import com.strhodler.utxopocket.domain.model.ThemeProfile
-import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
-import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
-import com.strhodler.utxopocket.domain.model.WalletTransaction
-import com.strhodler.utxopocket.domain.model.WalletTransactionSortOrder
-import com.strhodler.utxopocket.domain.model.WalletUtxo
-import com.strhodler.utxopocket.domain.model.NodeConfig
-import com.strhodler.utxopocket.domain.model.NodeConnectionOption
-import com.strhodler.utxopocket.domain.model.NodeTransport
-import com.strhodler.utxopocket.domain.model.IncomingWatcherPolicy
-import com.strhodler.utxopocket.domain.model.PublicNode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -216,7 +214,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val pinLockEnabled: Flow<Boolean> = flowOf(false)
     override val themePreference: Flow<ThemePreference> = flowOf(ThemePreference.DARK)
     override val themeProfile: Flow<ThemeProfile> = flowOf(ThemeProfile.STANDARD)
-    override val appLanguage: Flow<com.strhodler.utxopocket.domain.model.AppLanguage> = flowOf(com.strhodler.utxopocket.domain.model.AppLanguage.ENGLISH)
+    override val appLanguage: Flow<AppLanguage> = flowOf(AppLanguage.EN)
     override val balanceUnit: Flow<BalanceUnit> = flowOf(BalanceUnit.SATS)
     override val balancesHidden: Flow<Boolean> = flowOf(false)
     override val hapticsEnabled: Flow<Boolean> = flowOf(true)
@@ -228,11 +226,6 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val connectionIdleTimeoutMinutes: Flow<Int> = flowOf(10)
     override val pinLastUnlockedAt: Flow<Long?> = flowOf(null)
     override val dustThresholdSats: Flow<Long> = flowOf(0)
-    override val transactionAnalysisEnabled: Flow<Boolean> = flowOf(false)
-    override val utxoHealthEnabled: Flow<Boolean> = flowOf(false)
-    override val walletHealthEnabled: Flow<Boolean> = flowOf(false)
-    override val transactionHealthParameters: Flow<TransactionHealthParameters> = flowOf(TransactionHealthParameters.DEFAULT)
-    override val utxoHealthParameters: Flow<UtxoHealthParameters> = flowOf(UtxoHealthParameters.DEFAULT)
     override val networkLogsEnabled: Flow<Boolean> = flowOf(false)
     override val networkLogsInfoSeen: Flow<Boolean> = flowOf(false)
     override val blockExplorerPreferences: Flow<BlockExplorerPreferences> = flowOf(BlockExplorerPreferences.DEFAULT)
@@ -245,7 +238,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override suspend fun markPinUnlocked(timestampMillis: Long) = Unit
     override suspend fun setThemePreference(themePreference: ThemePreference) = Unit
     override suspend fun setThemeProfile(themeProfile: ThemeProfile) = Unit
-    override suspend fun setAppLanguage(language: com.strhodler.utxopocket.domain.model.AppLanguage) = Unit
+    override suspend fun setAppLanguage(language: AppLanguage) = Unit
     override suspend fun setBalanceUnit(unit: BalanceUnit) = Unit
     override suspend fun setBalancesHidden(hidden: Boolean) = Unit
     override suspend fun cycleBalanceDisplayMode() = Unit
@@ -256,13 +249,6 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override suspend fun setAdvancedMode(enabled: Boolean) = Unit
     override suspend fun setDustThresholdSats(thresholdSats: Long) = Unit
     override suspend fun setConnectionIdleTimeoutMinutes(minutes: Int) = Unit
-    override suspend fun setTransactionAnalysisEnabled(enabled: Boolean) = Unit
-    override suspend fun setUtxoHealthEnabled(enabled: Boolean) = Unit
-    override suspend fun setWalletHealthEnabled(enabled: Boolean) = Unit
-    override suspend fun setTransactionHealthParameters(parameters: TransactionHealthParameters) = Unit
-    override suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters) = Unit
-    override suspend fun resetTransactionHealthParameters() = Unit
-    override suspend fun resetUtxoHealthParameters() = Unit
     override suspend fun setNetworkLogsEnabled(enabled: Boolean) = Unit
     override suspend fun setNetworkLogsInfoSeen(seen: Boolean) = Unit
     override suspend fun setBlockExplorerBucket(network: BitcoinNetwork, bucket: BlockExplorerBucket) = Unit
@@ -297,7 +283,7 @@ private class FakeNodeConfigurationRepository : NodeConfigurationRepository {
             connectionOption = NodeConnectionOption.PUBLIC,
             publicNode = null,
             customNode = null,
-            transport = NodeTransport.TOR
+            transport = com.strhodler.utxopocket.domain.model.NodeTransport.TOR
         )
     )
     override val nodeConfig: Flow<NodeConfig> = state

@@ -164,25 +164,13 @@ interface WalletDao {
     )
     fun observeTransactions(walletId: Long): Flow<List<WalletTransactionWithRelations>>
 
-    @Query("SELECT * FROM transaction_health WHERE wallet_id = :walletId")
-    fun observeTransactionHealth(walletId: Long): Flow<List<TransactionHealthEntity>>
-
     @Query("SELECT * FROM wallet_utxos WHERE wallet_id = :walletId ORDER BY confirmations DESC, txid, vout")
     fun observeUtxos(walletId: Long): Flow<List<WalletUtxoEntity>>
-
-    @Query("SELECT * FROM utxo_health WHERE wallet_id = :walletId")
-    fun observeUtxoHealth(walletId: Long): Flow<List<UtxoHealthEntity>>
-
-    @Query("SELECT * FROM wallet_health WHERE wallet_id = :walletId LIMIT 1")
-    fun observeWalletHealth(walletId: Long): Flow<WalletHealthEntity?>
 
     @Transaction
     @Query(
         """
         SELECT wallet_transactions.* FROM wallet_transactions
-        LEFT JOIN transaction_health ON
-            wallet_transactions.wallet_id = transaction_health.wallet_id AND
-            wallet_transactions.txid = transaction_health.txid
         WHERE wallet_transactions.wallet_id = :walletId
         AND (
             (:showReceived = 1 AND wallet_transactions.type = 'RECEIVED') OR
@@ -201,8 +189,6 @@ interface WalletDao {
             CASE WHEN :sort = 'OLDEST_FIRST' THEN wallet_transactions.timestamp END ASC,
             CASE WHEN :sort = 'HIGHEST_AMOUNT' THEN ABS(wallet_transactions.amount_sats) END DESC,
             CASE WHEN :sort = 'LOWEST_AMOUNT' THEN ABS(wallet_transactions.amount_sats) END ASC,
-            CASE WHEN :sort = 'BEST_HEALTH' THEN transaction_health.final_score END DESC,
-            CASE WHEN :sort = 'WORST_HEALTH' THEN transaction_health.final_score END ASC,
             wallet_transactions.timestamp DESC,
             wallet_transactions.txid DESC
         """
@@ -219,10 +205,6 @@ interface WalletDao {
     @Query(
         """
         SELECT wallet_utxos.* FROM wallet_utxos
-        LEFT JOIN utxo_health ON
-            wallet_utxos.wallet_id = utxo_health.wallet_id AND
-            wallet_utxos.txid = utxo_health.txid AND
-            wallet_utxos.vout = utxo_health.vout
         WHERE wallet_utxos.wallet_id = :walletId
         AND (
             (:showSpendable = 1 AND COALESCE(wallet_utxos.spendable, 1) = 1) OR
@@ -237,8 +219,6 @@ interface WalletDao {
             CASE WHEN :sort = 'SMALLEST_AMOUNT' THEN wallet_utxos.value_sats END ASC,
             CASE WHEN :sort = 'NEWEST_FIRST' THEN wallet_utxos.confirmations END ASC,
             CASE WHEN :sort = 'OLDEST_FIRST' THEN wallet_utxos.confirmations END DESC,
-            CASE WHEN :sort = 'BEST_HEALTH' THEN utxo_health.final_score END DESC,
-            CASE WHEN :sort = 'WORST_HEALTH' THEN utxo_health.final_score END ASC,
             wallet_utxos.txid DESC,
             wallet_utxos.vout DESC
         """
@@ -279,13 +259,6 @@ interface WalletDao {
     @Delete
     suspend fun deleteTransactionOutputs(outputs: List<WalletTransactionOutputEntity>)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertTransactionHealth(items: List<TransactionHealthEntity>)
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertUtxoHealth(items: List<UtxoHealthEntity>)
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertWalletHealth(item: WalletHealthEntity)
-
     @Query("DELETE FROM wallet_transactions WHERE wallet_id = :walletId")
     suspend fun clearTransactions(walletId: Long)
 
@@ -303,24 +276,6 @@ interface WalletDao {
 
     @Query("DELETE FROM wallet_transaction_outputs")
     suspend fun clearAllTransactionOutputs()
-
-    @Query("DELETE FROM transaction_health WHERE wallet_id = :walletId")
-    suspend fun clearTransactionHealth(walletId: Long)
-
-    @Query("DELETE FROM transaction_health")
-    suspend fun clearAllTransactionHealth()
-
-    @Query("DELETE FROM utxo_health WHERE wallet_id = :walletId")
-    suspend fun clearUtxoHealth(walletId: Long)
-
-    @Query("DELETE FROM utxo_health")
-    suspend fun clearAllUtxoHealth()
-
-    @Query("DELETE FROM wallet_health WHERE wallet_id = :walletId")
-    suspend fun clearWalletHealth(walletId: Long)
-
-    @Query("DELETE FROM wallet_health")
-    suspend fun clearAllWalletHealth()
 
     @Query("SELECT * FROM wallet_utxos WHERE wallet_id = :walletId")
     suspend fun getUtxosSnapshot(walletId: Long): List<WalletUtxoEntity>
@@ -506,32 +461,6 @@ suspend fun findUtxosByDerivation(
         }
     }
 
-    @Transaction
-    suspend fun replaceTransactionHealth(
-        walletId: Long,
-        items: List<TransactionHealthEntity>
-    ) {
-        clearTransactionHealth(walletId)
-        if (items.isNotEmpty()) {
-            insertTransactionHealth(items)
-        }
-    }
-
-    @Transaction
-    suspend fun replaceUtxoHealth(
-        walletId: Long,
-        items: List<UtxoHealthEntity>
-    ) {
-        clearUtxoHealth(walletId)
-        if (items.isNotEmpty()) {
-            insertUtxoHealth(items)
-        }
-    }
-
-    @Transaction
-    suspend fun upsertWalletHealth(entity: WalletHealthEntity) {
-        insertWalletHealth(entity)
-    }
 }
 
 data class UtxoMetadataProjection(

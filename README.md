@@ -52,7 +52,6 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 - Watch-only monitoring across multiple wallets with labels, UTXOs, and history.
 - Private-by-default networking over Tor with curated nodes and custom onion endpoints. Tor remains mandatory; direct LAN/IP hosts and SSL toggles have been removed to keep behavior consistent.
 - Multi-network support (Mainnet, Testnet3/4, Signet) with per-network presets.
-- On-device health insights for transactions and UTXOs to spot reuse, dust, and risk.
 - Per-wallet Analysis section with age distribution and hold-wave views to assess how long coins have been sitting and where value concentrates.
 - Fast onboarding and descriptor import (paste or QR), plus a searchable offline wiki.
 - Safety controls: PIN lock with backoff, panic wipe, and encrypted local storage.
@@ -64,7 +63,7 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 - Install the latest release and verify it (fingerprints + checksums).
 - Open UtxoPocket and import your public descriptors (paste or scan QR).
 - Select a test network (Signet/Testnet) in onboarding to trial safely; switch to Mainnet when ready.
-- Connect via Tor, activate your preferred preset or onion node, and let the first sync complete; review wallet health.
+- Connect via Tor, activate your preferred preset or onion node, and let the first sync complete.
 
 ---
 
@@ -96,7 +95,6 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 - Testing: JUnit, coroutines test, Room testing, Compose UI tests.
 
 ## Design system references
-- Material component patterns are mirrored locally in `misc/material-components-android-master` (catalog, theming, motion, layout specs) and the Material 3 Expressive notes live in `misc/material-expresive` (expressive components, motion physics, typography, shape, and color tactics).
 - Compose implementations should align with `UtxoPocketTheme` tokens (colors, typography, shapes) and the Expressive motion scheme before deviating with custom easing or radii.
 
 ---

@@ -8,28 +8,26 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.BlockExplorerNetworkPreference
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
+import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
 import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
-import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
-import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
-import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
-import com.strhodler.utxopocket.domain.model.ThemeProfile
+import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.ThemePreference
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletColor
 import com.strhodler.utxopocket.domain.model.WalletCreationRequest
 import com.strhodler.utxopocket.domain.model.WalletCreationResult
-import com.strhodler.utxopocket.domain.model.WalletDetail
-import com.strhodler.utxopocket.domain.model.WalletSummary
-import com.strhodler.utxopocket.domain.model.WalletLabelExport
-import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.WalletDefaults
+import com.strhodler.utxopocket.domain.model.WalletDetail
+import com.strhodler.utxopocket.domain.model.WalletLabelExport
+import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
@@ -46,11 +44,10 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -471,12 +468,6 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
         MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
     private val _pinLastUnlockedAt = MutableStateFlow<Long?>(null)
     private val _dustThresholdSats = MutableStateFlow(WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS)
-    private val _transactionAnalysisEnabled = MutableStateFlow(true)
-    private val _utxoHealthEnabled = MutableStateFlow(true)
-    private val _walletHealthEnabled = MutableStateFlow(false)
-    private val _transactionHealthParameters =
-        MutableStateFlow(TransactionHealthParameters())
-    private val _utxoHealthParameters = MutableStateFlow(UtxoHealthParameters())
     private val _connectionIdleTimeoutMinutes = MutableStateFlow(
         AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES
     )
@@ -501,12 +492,6 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val connectionIdleTimeoutMinutes: Flow<Int> = _connectionIdleTimeoutMinutes
     override val pinLastUnlockedAt: Flow<Long?> = _pinLastUnlockedAt
     override val dustThresholdSats: Flow<Long> = _dustThresholdSats
-    override val transactionAnalysisEnabled: Flow<Boolean> = _transactionAnalysisEnabled
-    override val utxoHealthEnabled: Flow<Boolean> = _utxoHealthEnabled
-    override val walletHealthEnabled: Flow<Boolean> = _walletHealthEnabled
-    override val transactionHealthParameters: Flow<TransactionHealthParameters> =
-        _transactionHealthParameters
-    override val utxoHealthParameters: Flow<UtxoHealthParameters> = _utxoHealthParameters
     override val networkLogsEnabled: Flow<Boolean> = _networkLogsEnabled
     override val networkLogsInfoSeen: Flow<Boolean> = _networkLogsInfoSeen
     override val blockExplorerPreferences: Flow<BlockExplorerPreferences> = blockExplorerPreferencesState
@@ -600,42 +585,6 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun setDustThresholdSats(thresholdSats: Long) {
         _dustThresholdSats.value = thresholdSats
-    }
-
-    override suspend fun setTransactionAnalysisEnabled(enabled: Boolean) {
-        _transactionAnalysisEnabled.value = enabled
-        if (!enabled) {
-            _walletHealthEnabled.value = false
-        }
-    }
-
-    override suspend fun setUtxoHealthEnabled(enabled: Boolean) {
-        _utxoHealthEnabled.value = enabled
-        if (!enabled) {
-            _walletHealthEnabled.value = false
-        }
-    }
-
-    override suspend fun setWalletHealthEnabled(enabled: Boolean) {
-        _walletHealthEnabled.value = enabled &&
-            _transactionAnalysisEnabled.value &&
-            _utxoHealthEnabled.value
-    }
-
-    override suspend fun setTransactionHealthParameters(parameters: TransactionHealthParameters) {
-        _transactionHealthParameters.value = parameters
-    }
-
-    override suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters) {
-        _utxoHealthParameters.value = parameters
-    }
-
-    override suspend fun resetTransactionHealthParameters() {
-        _transactionHealthParameters.value = TransactionHealthParameters()
-    }
-
-    override suspend fun resetUtxoHealthParameters() {
-        _utxoHealthParameters.value = UtxoHealthParameters()
     }
 
     override suspend fun setBlockExplorerBucket(network: BitcoinNetwork, bucket: BlockExplorerBucket) {

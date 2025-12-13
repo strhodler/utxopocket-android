@@ -35,7 +35,6 @@ Change:  wpkh([abcd1234/84h/1h/0h]tpub.../1/*)
 ## 5. Explore The UI
 - **Wallet list**: shows balance, transaction count, last sync time, and Tor/node status per wallet.
 - **Wallet detail**: scroll through transactions, UTXOs, and the balance history chart. Tap a transaction/UTXO to inspect details or labels.
-- **Health analytics**: enable Transaction, UTXO, and Wallet Health from Settings → Privacy & analysis to surface scores and badges.
 - **Wiki & glossary**: open the in-app knowledge base (More → Wiki) for deeper explanations of descriptors, Tor usage, and coin control.
 
 ## 6. Tips & Troubleshooting
@@ -43,4 +42,4 @@ Change:  wpkh([abcd1234/84h/1h/0h]tpub.../1/*)
 - Descriptor validation errors usually mean a missing wildcard (`*`) or a private key snippet—double-check the source wallet export.
 - To test panic wipe safely, use only testnet wallets; the action deletes all local data and you will need to re-import descriptors afterward.
 
-You are now ready to monitor real watch-only wallets on mainnet. Keep descriptors safe, rotate Tor identities as needed, and use the health indicators to spot privacy or inventory issues early.
+You are now ready to monitor real watch-only wallets on mainnet. Keep descriptors safe and rotate Tor identities as needed to maintain privacy.

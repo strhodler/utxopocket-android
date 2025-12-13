@@ -150,7 +150,7 @@ private val wikiTopicKeywords: Map<String, List<String>> = mapOf(
     "node-connectivity" to listOf(
         "Tor",
         "Electrum",
-        "Node health",
+        "Node status",
         "Onion services",
         "Connectivity",
         "UtxoPocket"
@@ -254,35 +254,6 @@ private val wikiTopicKeywords: Map<String, List<String>> = mapOf(
         "Policy controls",
         "Miniscript"
     ),
-    "transaction-health" to listOf(
-        "Transaction scoring",
-        "Health badges",
-        "Diagnostics",
-        "Indicators",
-        "Health score",
-        "Risk assessment",
-        "Alerts",
-        "UtxoPocket"
-    ),
-    "wallet-health" to listOf(
-        "Wallet score",
-        "Category breakdown",
-        "Risk signals",
-        "Monitoring",
-        "Health score",
-        "Optimization",
-        "Alerts",
-        "UtxoPocket"
-    ),
-    "utxo-health" to listOf(
-        "UTXO score",
-        "Dust risk",
-        "Consolidation",
-        "Coin hygiene",
-        "Consolidation risk",
-        "Dust",
-        "UtxoPocket"
-    ),
     "operational-security" to listOf(
         "OpSec",
         "Threat mitigation",
@@ -329,9 +300,6 @@ private val wikiTopicKeywords: Map<String, List<String>> = mapOf(
 
 object WikiContent {
 
-    const val TransactionHealthTopicId: String = "transaction-health"
-    const val UtxoHealthTopicId: String = "utxo-health"
-    const val WalletHealthTopicId: String = "wallet-health"
     const val NodeConnectivityTopicId: String = "node-connectivity"
     const val PrivacyThreatModelsTopicId: String = "privacy-threat-models"
     const val BlockExplorerPrivacyTopicId: String = "block-explorer-privacy"
@@ -488,116 +456,6 @@ object WikiContent {
                                 "Avoid consolidating coins just because the mempool is quiet. Large sweeps undo months of careful coin control. When you must consolidate, do it with new change paths and be mindful of surveillance firms that track sweeping behaviour."
                             )
                         )
-                    )
-                ),
-                WikiTopic(
-                    id = TransactionHealthTopicId,
-                    title = "Transaction Health Overview",
-                    summary = "Understand how UtxoPocket scores transactions and why badges matter.",
-                    sections = listOf(
-                        WikiSection(
-                            title = "What Transaction Health Does",
-                            paragraphs = listOf(
-                                "Transaction Health runs locally on your device to analyse each transaction captured by your watch-only wallet. Inputs, outputs, and fee posture are inspected to highlight privacy leaks, inefficiencies, or dust-related risks without ever exposing signing keys.",
-                                "The goal is to give you fast signal: does this transaction leak ownership clues, is it likely to get stuck, or should you plan a future consolidation instead? The analysis complements Wallet Health and UTXO Health so you can see how individual spends affect the bigger picture."
-                            )
-                        ),
-                        WikiSection(
-                            title = "Scoring Model",
-                            paragraphs = listOf(
-                                "Every transaction starts at 100 points. Indicators adjust the score across four pillars: Privacy (45%), Fees & Policy (25%), Efficiency (20%), and Risk Signals (10%). The final score is clamped between 0 and 100 so you can compare transactions at a glance.",
-                                "Pillar breakdowns explain trade-offs. A spend might sacrifice some privacy (address reuse) but still excel on fee hygiene. Reviewing the pillars helps you decide which issues to prioritise before broadcasting new transactions."
-                            )
-                        ),
-                        WikiSection(
-                            title = "Indicators and Badges",
-                            paragraphs = listOf(
-                                "Indicators are individual heuristics—address reuse, identifiable change, dust spending, RBF posture, and more. Each indicator stores a score delta, severity, and evidence such as the output index or change ratio that triggered it.",
-                                "Badges surface the most relevant findings so you can triage quickly. A warning like “Dust spent” points to hygiene tasks, while positive badges such as “Healthy posture” confirm you are following best practices. Future releases will let you filter the transaction list by these badges."
-                            )
-                        ),
-                        WikiSection(
-                            title = "Controls and Privacy",
-                            paragraphs = listOf(
-                                "Toggle Transaction Health in Settings → Privacy & analysis if you prefer a lighter interface or want to pause analysis. When disabled we skip computation, hide badges, and clear cached scores.",
-                                "Because the system runs entirely on-device, no addresses, labels, or history are sent to external services. Re-enabling the feature recomputes scores from your stored wallet history so you can always rebuild the dataset."
-                            )
-                        )
-                    ),
-                    relatedTopicIds = listOf(
-                        UtxoHealthTopicId,
-                        WalletHealthTopicId,
-                        "utxopocket-overview"
-                    )
-                ),
-                WikiTopic(
-                    id = WalletHealthTopicId,
-                    title = "Wallet Health Overview",
-                    summary = "See how transaction and UTXO signals combine into a wallet-wide posture.",
-                    sections = listOf(
-                        WikiSection(
-                            title = "Aggregating the Signals",
-                            paragraphs = listOf(
-                                "Wallet Health listens to Transaction Health and UTXO Health streams, blending their scores into four pillars: Privacy, Inventory, Efficiency, and Risk. The calculation stays on-device, so none of your labels or metrics leave UtxoPocket.",
-                                "A single glance at the Wallet card shows whether your overall posture is trending up or down. Drill into pillars when you need to understand which area—hygiene, efficiency, or privacy—requires attention.",
-                                "Need to inspect the raw heuristics? Jump into the Transaction Health Overview and UTXO Health Overview articles to see every indicator that feeds this aggregate score."
-                            )
-                        ),
-                        WikiSection(
-                            title = "Badges and Insights",
-                            paragraphs = listOf(
-                                "Badges highlight notable patterns such as elevated dust footprint or resilient privacy posture. Upcoming releases will surface next-step suggestions so you can act directly from the dashboard.",
-                                "Snapshots are stored locally, enabling future timelines and alerts when the score drops below your target threshold."
-                            )
-                        ),
-                        WikiSection(
-                            title = "Controls and Toggles",
-                            paragraphs = listOf(
-                                "Wallet Health depends on both transaction and UTXO analysis. Enabling it from Settings automatically switches on those foundations and computes an initial snapshot.",
-                                "If you disable either dependency, Wallet Health switches off and clears cached snapshots, ensuring you remain in control of what gets analysed."
-                            )
-                        )
-                    ),
-                    relatedTopicIds = listOf(TransactionHealthTopicId, UtxoHealthTopicId, "utxopocket-overview")
-                ),
-                WikiTopic(
-                    id = UtxoHealthTopicId,
-                    title = "UTXO Health Overview",
-                    summary = "Keep your UTXO set tidy, private, and ready to spend.",
-                    sections = listOf(
-                        WikiSection(
-                            title = "Why UTXO Health Matters",
-                            paragraphs = listOf(
-                                "Each UTXO is a mini output you might spend later. UTXO Health runs on-device to flag dust, address reuse, unlabeled change, and other hygiene issues that can undermine privacy or make future transactions expensive.",
-                                "Keeping the set clean reduces fees, avoids poisoning patterns, and makes Wallet Health metrics more accurate. It is the foundation for reliable coin control."
-                            )
-                        ),
-                        WikiSection(
-                            title = "Scoring & Pillars",
-                            paragraphs = listOf(
-                                "UTXO Health starts at 100. Indicators adjust the score across four pillars borrowed from the implementation plan: Privacy (40%), Inventory Hygiene (30%), Availability (20%), and Risk Signals (10%).",
-                                "The pillar breakdown highlights where to focus. If hygiene falls under 70, it is probably time to consolidate lingering change or dust outputs."
-                            )
-                        ),
-                        WikiSection(
-                            title = "Indicators and Badges",
-                            paragraphs = listOf(
-                                "Current indicators cover address reuse, dust pending, unconsolidated change, and missing labels. Each indicator records a delta, severity, and evidence such as value or confirmations.",
-                                "Badges summarise the state (for example, 'Pending consolidation' or 'Dust pending'). Filtering by badges helps you prioritise cleanup before reusing outputs in new transactions."
-                            )
-                        ),
-                        WikiSection(
-                            title = "Controles y Privacidad",
-                            paragraphs = listOf(
-                                "Toggle UTXO Health in Settings → Privacy & analysis. When it is off we skip the heuristics and clear cached scores so you remain in control.",
-                                "The analyser runs entirely on-device. Re-enabling the feature recalculates scores from your stored UTXOs without contacting any external service." 
-                            )
-                        )
-                    ),
-                    relatedTopicIds = listOf(
-                        TransactionHealthTopicId,
-                        WalletHealthTopicId,
-                        "utxopocket-overview"
                     )
                 ),
                 WikiTopic(
@@ -1340,7 +1198,7 @@ object WikiContent {
                             title = "Product Pillars",
                             paragraphs = listOf(
                                 "UtxoPocket is a privacy-first, watch-only wallet tailored for operators who monitor multiple descriptors across networks. It routes every network call through Tor, encrypts local data at rest, and keeps the UI responsive even while long-running sync jobs execute in the background.",
-                                "Descriptors are the source of truth: the app never holds signing keys. Instead, it verifies balances, tracks address pools, and surfaces health heuristics so teams can coordinate spending decisions from a dedicated signer or hardware device."
+                                "Descriptors are the source of truth: the app never holds signing keys. Instead, it verifies balances, tracks address pools, and surfaces sync warnings and labeling so teams can coordinate spending decisions from a dedicated signer or hardware device."
                             )
                         ),
                         WikiSection(
@@ -1358,13 +1216,6 @@ object WikiContent {
                             )
                         ),
                         WikiSection(
-                            title = "Health Analytics",
-                            paragraphs = listOf(
-                                "Transaction Health evaluates each history entry for address reuse, batching patterns, script diversity, and fee alignment. Results surface as contextual badges so you can spot risky flows without leaving the timeline.",
-                                "UTXO Health highlights consolidation gaps, lingering change outputs, and dust posture, while Wallet Health aggregates the signals into privacy, efficiency, and risk pillars. You can toggle these modules from Settings → Privacy & analysis."
-                            )
-                        ),
-                        WikiSection(
                             title = "Descriptor Access Controls",
                             paragraphs = listOf(
                                 "Descriptor exports live behind the overflow menu in Wallet detail. If a PIN lock is enabled, the app prompts for verification before revealing descriptors or their QR codes, honoring lockout timers and optional digit shuffling.",
@@ -1374,15 +1225,12 @@ object WikiContent {
                         WikiSection(
                             title = "Operations in Practice",
                             paragraphs = listOf(
-                                "Every network request routes through the embedded Tor client. The global status bar shows bootstrap progress and node health, and you can renew the Tor identity from Settings whenever you need a clean circuit.",
+                                "Every network request routes through the embedded Tor client. The global status bar shows bootstrap progress and node status, and you can renew the Tor identity from Settings whenever you need a clean circuit.",
                                 "Balance cards warn about reused addresses, show scheduled full scans, and expose one-tap tooling to copy descriptors, display QR codes, or trigger a deep rescan. Watch-only operators get full visibility without risking signing keys."
                             )
                         )
                     ),
                     relatedTopicIds = listOf(
-                        TransactionHealthTopicId,
-                        UtxoHealthTopicId,
-                        WalletHealthTopicId,
                         NodeConnectivityTopicId
                     )
                 )

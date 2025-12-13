@@ -10,13 +10,12 @@ Date: 2025‑11‑07
 - UTXO model, wallet types, keys & seeds, descriptor basics.
 - Tor usage, Electrum presets, PSBT primer.
 - Fee heuristics (RBF/CPFP basics) and labeling metadata.
-- Transaction / UTXO / Wallet Health pillars with on-device indicators.
 
 ## Opportunity Areas (L1 only)
 1. **Acquisition & sourcing** – Non-KYC flows, provenance tracking, stacks separation.  
 2. **Self-custody hygiene** – Seed lifecycle, passphrases, encrypted backups, Tor-enabled wallet discipline.  
 3. **UTXO segregation** – Coin control, BIP-329 labeling conventions, address reuse avoidance.  
-4. **Node trust model** – DIY vs plug-and-play, descriptor migration, health checks.  
+4. **Node trust model** – DIY vs plug-and-play, descriptor migration, backend checks.  
 5. **On-chain heuristics** – Toxic change, script fingerprints, poisoned outputs.  
 6. **Expanded glossary** – Standardness vs consensus, gap limit, dust, CIOH, etc.
 
@@ -29,7 +28,7 @@ Date: 2025‑11‑07
 ## Wiki Interlinking Strategy
 1. **Glossary links** – each topic references glossary slugs via frontmatter `glossary_refs`; renderer auto-links first occurrence per section.
 2. **Related topics** – frontmatter `related` holds 2–6 topic IDs; UI shows the cards at the end of each article.
-3. **Cross-ui entry points** – settings help icons → wallet health; health badges → relevant wiki sections.
+3. **Cross-ui entry points** – settings help icons → relevant wiki sections; timeline badges → related wiki topics.
 4. **Linting** – future check should fail on broken IDs, missing glossary refs, or unknown related topics.
 
 ## Leveraging External Interlinks
@@ -43,13 +42,13 @@ Date: 2025‑11‑07
 - Frontmatter template:
   ```yaml
   ---
-  id: wallet-health
-  title: Wallet Health Overview
+  id: descriptor-integrity
+  title: Descriptor integrity checks
   summary: "Short summary"
   category_id: privacy-toolkit
   category_title: Privacy toolkit
   category_description: "Optional longer blurb"
-  related: [utxo-health, transaction-health]
+  related: [watch-only-restoration, descriptors-advanced]
   glossary_refs: [gap-limit, cioh]
   keywords: [privacy, descriptor]
   ---
@@ -77,7 +76,7 @@ Date: 2025‑11‑07
 | ✅ | wiki `non-kyc-acquisition` | How to source bitcoin privately, separate stacks, and log provenance. Implemented in `/docs/wiki/non-kyc-acquisition.md`. | High | Related: `bitcoin-privacy`, `utxo-basics`; Glossary: `non-kyc`, `coin-control`. |
 | ✅ | wiki `self-custody-hygiene` | Watch-only self‑custody habits: seed lifecycle, passphrases, Tor‑enabled wallets, encrypted backups, label retention, checklist. Implemented in `/docs/wiki/self-custody-hygiene.md`. | High | Related: `keys-and-seeds`, `bitcoin-privacy`; Glossary: `seed-phrase`, `passphrase`, `tor`. |
 | ✅ | wiki `utxo-segregation-playbook` | Segregation rules for compartments, BIP‑329 labeling, coin control, address reuse warnings, and change hygiene. Implemented in `/docs/wiki/utxo-segregation-playbook.md`. | High | Related: `utxo-basics`, `labeling-metadata`; Glossary: `utxo`, `change-output`, `address-reuse`. |
-| ✅ | wiki `node-trust-model` | Summarize “Scrutinising your Bitcoin”: own-node trust model, DIY vs plug-and-play, descriptor migration, routine health checks, risk table. Implemented in `/docs/wiki/node-trust-model.md`. | Medium | Related: `electrum-servers`, `watch-only-restoration`; Glossary: `full-node`, `pruned-node`. |
+| ✅ | wiki `node-trust-model` | Summarize “Scrutinising your Bitcoin”: own-node trust model, DIY vs plug-and-play, descriptor migration, routine backend checks, risk table. Implemented in `/docs/wiki/node-trust-model.md`. | Medium | Related: `electrum-servers`, `watch-only-restoration`; Glossary: `full-node`, `pruned-node`. |
 | ✅ | glossary `address-reuse` | Definition covering deanonymization risk + pointer to the segregation article. Implemented in `/docs/glossary/address-reuse.md`. | Medium | References `utxo-segregation-playbook`. |
 | ✅ | glossary `full-node` | Definition framed for UtxoPocket (validating vs trusting third parties, descriptor rescans). Implemented in `/docs/glossary/full-node.md`. | Medium | References `node-trust-model`. |
 
@@ -92,7 +91,7 @@ Date: 2025‑11‑07
 | ✅ | wiki `fee-selection-playbook` | Read the mempool, pick target feerates by urgency, size vs. inputs tradeoffs, and replacement policies. Implemented in `/docs/wiki/fee-selection-playbook.md`. | High | Related: `rbf-cpfp-strategies`; Glossary: `feerate`, `mempool`. |
 | ✅ | wiki `descriptors-advanced` | Checksums, multipath (BIP‑389), policy descriptors, account maps, and recovery notes for watch‑only monitoring. Implemented in `/docs/wiki/descriptors-advanced.md`. | Medium | Related: `watch-only-restoration`; Glossary: `descriptor-checksum`. |
 | ✅ | glossary `standardness` | Policy rules used by nodes/relays distinct from consensus rules; link to the standardness article. Implemented in `/docs/glossary/standardness.md`. | Medium | References `transaction-standardness-vs-consensus`. |
-| ✅ | glossary `gap-limit` | Wallet scanning limit for address discovery; implications for watch-only rescans and related health checks. Implemented in `/docs/glossary/gap-limit.md`. | Medium | References `descriptors-advanced`. |
+| ✅ | glossary `gap-limit` | Wallet scanning limit for address discovery; implications for watch-only rescans and related verification checks. Implemented in `/docs/glossary/gap-limit.md`. | Medium | References `descriptors-advanced`. |
 | ✅ | glossary `toxic-change` | Change that links compartments or policies, and how to avoid it; link to change hygiene. Implemented in `/docs/glossary/toxic-change.md`. | Medium | References `change-output-hygiene`. |
 | ✅ | wiki `confirmation-policy` | Security model by confirmations: risk tiers, reorg awareness, and practical thresholds by use‑case. Implemented in `/docs/wiki/confirmation-policy.md`. | Medium | Related: `fee-selection-playbook`; Glossary: `confirmation`. |
 | ✅ | wiki `script-type-tradeoffs` | Privacy and efficiency tradeoffs among script types; mixing scripts in one wallet and how it leaks. Implemented in `/docs/wiki/script-type-tradeoffs.md`. | Medium | Related: `address-format-fingerprints`; Glossary: `script`. |
@@ -130,7 +129,7 @@ Date: 2025‑11‑07
 | ✅ | glossary `cioh` | Common‑Input Ownership Heuristic: assumption that all inputs belong to one entity; why merges leak identity; methods that break it. Implemented in `/docs/glossary/cioh.md`. | Medium | References `utxo-segregation-playbook`, `bip78-payjoin-overview`. |
 | ✅ | wiki `peel-chain-patterns` | How peel chains arise from repeated change reuse; how they leak clusters over time; mitigations (change quarantine, compartment rules, scheduled consolidation). Implemented in `/docs/wiki/peel-chain-patterns.md`. | Medium | Related: `change-output-hygiene`, `consolidation-strategy`; Glossary: `peel-chain`. |
 | ✅ | glossary `peel-chain` | A transaction pattern where a wallet repeatedly spends from one UTXO and peels change, creating a linkable chain. Implemented in `/docs/glossary/peel-chain.md`. | Low | References `peel-chain-patterns`. |
-| ✅ | wiki `electrum-servers` | Electrum server trust and privacy: why self‑hosting behind Tor matters, public server data exposure, server rotation risks, and basic health checks. Implemented in `/docs/wiki/electrum-servers.md`. | High | Related: `node-trust-model`, `why-tor`; Glossary: `electrum-server`. |
+| ✅ | wiki `electrum-servers` | Electrum server trust and privacy: why self‑hosting behind Tor matters, public server data exposure, server rotation risks, and baseline monitoring. Implemented in `/docs/wiki/electrum-servers.md`. | High | Related: `node-trust-model`, `why-tor`; Glossary: `electrum-server`. |
 | ✅ | glossary `electrum-server` | Indexing service for wallet queries; privacy tradeoffs vs. full validation; best practice is self‑hosted over Tor. Implemented in `/docs/glossary/electrum-server.md`. | Medium | References `electrum-servers`. |
 | ✅ | wiki `amount-analysis-heuristics` | What output amounts can reveal (exact purchase prices, round figures, dust), and how to minimize amount‑based fingerprinting in drafts. Implemented in `/docs/wiki/amount-analysis-heuristics.md`. | Low | Related: `fee-selection-playbook`, `change-output-hygiene`; Glossary: `dust`. |
 | ✅ | glossary `knapsack` | Coin selection approach; tradeoffs vs branch‑and‑bound; link to selection heuristics article. Implemented in `/docs/glossary/knapsack.md`. | Low | References `utxo-selection-heuristics`. |

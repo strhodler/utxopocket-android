@@ -10,8 +10,6 @@ import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
-import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
-import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -94,13 +92,6 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val connectionIdleTimeoutMinutes: Flow<Int> = connectionIdleTimeoutMinutesValue
     override val pinLastUnlockedAt: Flow<Long?> = MutableStateFlow(null)
     override val dustThresholdSats: Flow<Long> = MutableStateFlow(0L)
-    override val transactionAnalysisEnabled: Flow<Boolean> = MutableStateFlow(true)
-    override val utxoHealthEnabled: Flow<Boolean> = MutableStateFlow(true)
-    override val walletHealthEnabled: Flow<Boolean> = MutableStateFlow(false)
-    override val transactionHealthParameters: Flow<TransactionHealthParameters> =
-        MutableStateFlow(TransactionHealthParameters())
-    override val utxoHealthParameters: Flow<UtxoHealthParameters> =
-        MutableStateFlow(UtxoHealthParameters())
     override val networkLogsEnabled: Flow<Boolean> = networkLogsEnabledValue
     override val networkLogsInfoSeen: Flow<Boolean> = networkLogsInfoSeenValue
     override val blockExplorerPreferences: Flow<BlockExplorerPreferences> = blockExplorerPreferencesValue
@@ -168,20 +159,6 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override suspend fun setAdvancedMode(enabled: Boolean) = Unit
 
     override suspend fun setDustThresholdSats(thresholdSats: Long) = Unit
-
-    override suspend fun setTransactionAnalysisEnabled(enabled: Boolean) = Unit
-
-    override suspend fun setUtxoHealthEnabled(enabled: Boolean) = Unit
-
-    override suspend fun setWalletHealthEnabled(enabled: Boolean) = Unit
-
-    override suspend fun setTransactionHealthParameters(parameters: TransactionHealthParameters) = Unit
-
-    override suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters) = Unit
-
-    override suspend fun resetTransactionHealthParameters() = Unit
-
-    override suspend fun resetUtxoHealthParameters() = Unit
 
     override suspend fun setBlockExplorerBucket(network: BitcoinNetwork, bucket: BlockExplorerBucket) {
         updateBlockExplorerPrefs(network) { current -> current.copy(bucket = bucket) }

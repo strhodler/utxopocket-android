@@ -76,7 +76,7 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.UtxoAgeBucket
 import com.strhodler.utxopocket.domain.model.UtxoAgeHistogram
-import com.strhodler.utxopocket.domain.model.UtxoHealthSeverity
+import com.strhodler.utxopocket.domain.model.DustSeverity
 import com.strhodler.utxopocket.domain.model.UtxoBucketDistribution
 import com.strhodler.utxopocket.domain.model.UtxoSizeBucket
 import com.strhodler.utxopocket.domain.model.UtxoSpendabilityBucket
@@ -1096,9 +1096,9 @@ private fun treemapColorFor(
     return when (val bucket = tile.colorBucket) {
         is UtxoTreemapColor.Dust -> when (bucket.severity) {
             null -> colorScheme.secondaryContainer
-            UtxoHealthSeverity.LOW -> colorScheme.tertiary
-            UtxoHealthSeverity.MEDIUM -> colorScheme.secondary
-            UtxoHealthSeverity.HIGH -> colorScheme.error
+            DustSeverity.LOW -> colorScheme.tertiary
+            DustSeverity.MEDIUM -> colorScheme.secondary
+            DustSeverity.HIGH -> colorScheme.error
         }
         is UtxoTreemapColor.Age -> agePalette[bucket.bucket]
             ?: colorScheme.primary
@@ -1112,9 +1112,9 @@ private fun treemapColorLabel(
     is UtxoTreemapColor.Dust -> {
         val severityLabel = when (colorBucket.severity) {
             null -> context.getString(R.string.wallet_utxo_treemap_color_dust_none)
-            UtxoHealthSeverity.LOW -> context.getString(R.string.wallet_utxo_treemap_color_dust_low)
-            UtxoHealthSeverity.MEDIUM -> context.getString(R.string.wallet_utxo_treemap_color_dust_medium)
-            UtxoHealthSeverity.HIGH -> context.getString(R.string.wallet_utxo_treemap_color_dust_high)
+            DustSeverity.LOW -> context.getString(R.string.wallet_utxo_treemap_color_dust_low)
+            DustSeverity.MEDIUM -> context.getString(R.string.wallet_utxo_treemap_color_dust_medium)
+            DustSeverity.HIGH -> context.getString(R.string.wallet_utxo_treemap_color_dust_high)
         }
         context.getString(R.string.wallet_utxo_treemap_color_label_dust, severityLabel)
     }

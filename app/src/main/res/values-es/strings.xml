@@ -62,7 +62,7 @@
 
     <!-- Onboarding -->
     <string name="onboarding_title">Bienvenido a UtxoPocket</string>
-    <string name="onboarding_subtitle">Replica tus hardware wallets, monitorea salud y navega tras Tor sin exponer llaves privadas.</string>
+    <string name="onboarding_subtitle">Replica tus hardware wallets, monitorea saldos y navega tras Tor sin exponer llaves privadas.</string>
     <string name="onboarding_get_started">Comenzar</string>
     <string name="onboarding_skip">Omitir</string>
     <string name="onboarding_back">Atrás</string>
@@ -89,8 +89,6 @@
     <string name="settings_section_utxo_management">Gestión de UTXO</string>
     <string name="settings_section_wallet">Billeteras</string>
     <string name="settings_wallet_nav_description">%1$s, umbral de polvo</string>
-    <string name="settings_wallet_health_on">Salud de billetera activa</string>
-    <string name="settings_wallet_health_off">Salud de billetera inactiva</string>
     <string name="settings_section_interface">Interfaz</string>
     <string name="settings_interface_nav_description">%1$s · %2$s · %3$s</string>
     <string name="settings_unit_btc">BTC</string>
@@ -162,8 +160,6 @@
     <string name="wallet_detail_transactions_sort_oldest_first">Más antiguas primero</string>
     <string name="wallet_detail_transactions_sort_highest_amount">Monto mayor</string>
     <string name="wallet_detail_transactions_sort_lowest_amount">Monto menor</string>
-    <string name="wallet_detail_transactions_sort_best_health">Mejor salud primero</string>
-    <string name="wallet_detail_transactions_sort_worst_health">Peor salud primero</string>
     <string name="wallet_detail_transactions_sort_pending_first">Pendientes primero</string>
     <string name="wallet_detail_utxos_sort_label">Orden de UTXOs</string>
     <string name="wallet_detail_utxos_filter_label">Filtro</string>
@@ -474,18 +470,6 @@
     <string name="utxo_detail_keychain">Cadena de claves</string>
     <string name="utxo_detail_keychain_external">Externa</string>
     <string name="utxo_detail_keychain_change">Cambio</string>
-    <string name="utxo_detail_section_health">Salud del UTXO</string>
-    <string name="utxo_detail_health_reuse_label">Reutilización de direcciones</string>
-    <string name="utxo_detail_health_change_label">Salida de cambio</string>
-    <string name="utxo_detail_health_dust_label">Umbral de dust</string>
-    <string name="utxo_detail_health_missing_label">Etiqueta faltante</string>
-    <string name="utxo_detail_health_long_inactive">Inactivo por largo tiempo sin etiqueta</string>
-    <string name="utxo_detail_health_well_documented">UTXO de alto valor documentado</string>
-    <string name="utxo_detail_health_section_title">Salud del UTXO</string>
-    <string name="utxo_detail_health_indicator_count">%1$d indicadores</string>
-    <string name="utxo_detail_health_badges_title">Insignias</string>
-    <string name="utxo_detail_health_indicator_none">No se activó ninguna heurística.</string>
-    <string name="utxo_detail_health_indicator_value">%1$s pts · %2$s</string>
 
     <!-- PIN flows -->
     <string name="pin_setup_title">Configura tu PIN</string>
@@ -512,7 +496,6 @@
     <string name="pin_unlock_description">Introduce tu PIN de 6 dígitos para continuar.</string>
     <string name="pin_unlock_confirm">Desbloquear</string>
     <string name="utxo_detail_deposit_date">Fecha de depósito</string>
-    <string name="health_more_info">Más información</string>
     <string name="wallet_balance_range_last_week">Última semana</string>
     <string name="wallet_balance_range_last_month">Último mes</string>
     <string name="wallet_balance_range_last_year">Último año</string>
@@ -521,7 +504,7 @@
     <string name="more_item_features_supporting">Explora todo lo que UtxoPocket puede hacer.</string>
     <string name="features_screen_intro">UtxoPocket prioriza flujos watch-only verificables y centrados en la privacidad.</string>
     <string name="feature_watch_title">Inteligencia watch-only</string>
-    <string name="feature_watch_description">Supervisa saldos, puntuaciones de salud y UTXOs etiquetados sin exponer llaves privadas ni semillas.</string>
+    <string name="feature_watch_description">Supervisa saldos y UTXOs etiquetados sin exponer llaves privadas ni semillas.</string>
     <string name="feature_descriptors_title">Sincronización nativa de descriptores</string>
     <string name="feature_descriptors_description">Importa cualquier conjunto de descriptores —ramas externa/cambio, exportaciones multipath o políticas multisig— y BDK los mantiene sincronizados.</string>
     <string name="feature_bip_support_title">Compatibilidad amplia con BIPs</string>
@@ -530,8 +513,6 @@
     <string name="feature_bip329_description">Importa, edita y exporta etiquetas mediante el formato JSON BIP-329 para mantener la nomenclatura sincronizada entre dispositivos y firmantes.</string>
     <string name="feature_connectivity_title">Conectividad privada</string>
     <string name="feature_connectivity_description">Encamina cada sincronización por Tor, alterna entre servidores Electrum curados o añade tu propio endpoint onion para tener control total.</string>
-    <string name="feature_health_title">Insights de UTXO y transacciones</string>
-    <string name="feature_health_description">Puntúa UTXOs y transacciones para detectar reutilización de direcciones, dust y clusters de riesgo antes de transmitir.</string>
     <string name="feature_analysis_title">Visualizaciones de análisis</string>
     <string name="feature_analysis_description">Donuts por antigüedad más desglose por gastables y bandas de valor, con treemap interactivo para inspeccionar UTXOs rápido.</string>
     <string name="wiki_detail_related_glossary_label">Glosario relacionado</string>
@@ -711,7 +692,7 @@
 
     <!-- Onboarding slides -->
     <string name="onboarding_slide_watch_title">Inteligencia watch-only</string>
-    <string name="onboarding_slide_watch_description">Sigue saldos, salud de transacciones, escaneos de UTXO y etiquetas personalizadas mientras tus dispositivos de firma permanecen offline.</string>
+    <string name="onboarding_slide_watch_description">Sigue saldos, escaneos de UTXO y etiquetas personalizadas mientras tus dispositivos de firma permanecen offline.</string>
     <string name="onboarding_slide_descriptors_title">Diseñado para descriptores</string>
     <string name="onboarding_slide_descriptors_description">Pega descriptores externos/cambio o exportaciones BIP-389 para recrear exactamente tu mapa de billeteras y alinear direcciones y etiquetas con tu hardware.</string>
     <string name="onboarding_slide_bips_title">Compatible con los BIPs de Bitcoin</string>
@@ -763,27 +744,16 @@
     <string name="settings_block_explorer_nav_description_enabled">%1$s · %2$s</string>
     <string name="settings_block_explorer_nav_description_disabled">Desactivado</string>
 
-    <!-- Settings: health parameters -->
-    <string name="settings_health_parameters_cta">Ajustes avanzados de salud</string>
-    <string name="settings_health_parameters_description">Ajusta umbrales de puntuación para transacciones y UTXOs.</string>
-    <string name="settings_health_parameters_transactions">Umbrales de transacciones</string>
-    <string name="settings_health_parameters_utxos">Umbrales de UTXO</string>
-    <string name="settings_health_parameters_ratio_hint">Valor entre 0 y 1.</string>
-    <string name="settings_health_parameters_apply">Aplicar cambios</string>
-    <string name="settings_health_parameters_restore">Restaurar valores predeterminados</string>
-    <string name="settings_health_parameters_saved">Parámetros avanzados de salud guardados.</string>
-    <string name="settings_health_parameters_restored">Parámetros de salud restablecidos.</string>
-
     <!-- Settings: node section extras -->
     <string name="settings_node_selection_feedback">Cambiando conexión a %1$s</string>
 
     <!-- Settings: panic wipe -->
     <string name="settings_danger_zone_title">Zona de peligro</string>
     <string name="settings_panic_list_title">Borrar app</string>
-    <string name="settings_panic_description">Borra todas las billeteras, transacciones, UTXOs y registros de salud almacenados en este dispositivo.</string>
+    <string name="settings_panic_description">Borra todas las billeteras, transacciones, UTXOs y estados de sincronización guardados en este dispositivo.</string>
     <string name="settings_panic_action">Borrar todos los datos de billeteras</string>
     <string name="settings_panic_confirm_title">¿Borrar todos los datos de billeteras?</string>
-    <string name="settings_panic_confirm_message">Esto eliminará permanentemente cada billetera, el estado de sincronización en caché y los reportes de salud almacenados localmente.</string>
+    <string name="settings_panic_confirm_message">Esto eliminará permanentemente cada billetera y el estado de sincronización en caché almacenado localmente.</string>
     <string name="settings_panic_confirm_continue">Continuar</string>
     <string name="settings_panic_confirm_action">Borrar todo</string>
     <string name="settings_panic_cancel">Cancelar</string>
@@ -793,8 +763,6 @@
     <string name="settings_panic_success_message">Todos los datos de billeteras se han borrado.</string>
     <string name="settings_panic_failure_message">No se pudieron borrar los datos de la billetera. Intenta nuevamente.</string>
 
-    <!-- Settings: wallet health gating -->
-    <string name="settings_privacy_analysis_help_content_description">Abrir ayuda de salud de la billetera</string>
     <string name="settings_pin_timeout_title">Bloquear tras</string>
     <string name="settings_pin_timeout_immediately_label">Inmediatamente (al salir)</string>
     <string name="settings_pin_timeout_minutes_label">%d min</string>
@@ -835,55 +803,8 @@
     <string name="settings_network_logs_filter_clearnet">Sólo clearnet</string>
     <string name="settings_network_logs_filter_custom_nodes">Nodos personalizados</string>
     <string name="settings_network_logs_filter_public_nodes">Nodos públicos</string>
-    <string name="settings_wallet_health_dependencies">Activa el análisis de transacciones y UTXO para habilitar Salud de la billetera.</string>
-    <string name="settings_wallet_health_disable_title">¿Desactivar Salud de la billetera?</string>
-    <string name="settings_wallet_health_disable_message_transaction">Al desactivar el análisis de transacciones también se desactivará Salud de la billetera.</string>
-    <string name="settings_wallet_health_disable_message_utxo">Al desactivar el análisis de UTXO también se desactivará Salud de la billetera.</string>
-    <string name="settings_wallet_health_disable_confirm">Desactivar</string>
-    <string name="settings_wallet_health_disable_cancel">Mantener activado</string>
-    <string name="settings_wallet_health_enable_title">Activar Salud de la billetera</string>
-    <string name="settings_wallet_health_enable_message">Salud de la billetera necesita los análisis de transacciones y UTXO. ¿Activarlos ahora?</string>
-    <string name="settings_wallet_health_enable_confirm">Activar todo</string>
-    <string name="settings_wallet_health_enable_cancel">Cancelar</string>
-
     <!-- Settings: Tor quick labels -->
     <string name="settings_tor_renew_identity">Renovar identidad</string>
-
-    <!-- Settings: health thresholds mapping -->
-    <string name="settings_transaction_change_exposure_high">Exposición de cambio (alta)</string>
-    <string name="settings_transaction_change_exposure_medium">Exposición de cambio (media)</string>
-    <string name="settings_transaction_low_fee_threshold">Umbral de tarifa baja</string>
-    <string name="settings_transaction_high_fee_threshold">Umbral de tarifa alta</string>
-    <string name="settings_transaction_consolidation_fee_threshold">Umbral de tarifa para consolidación</string>
-    <string name="settings_transaction_consolidation_high_fee_threshold">Umbral de tarifa alta para consolidación</string>
-    <string name="settings_utxo_address_reuse_high_threshold">Umbral alto de reutilización de direcciones</string>
-    <string name="settings_utxo_change_confirmations">Confirmaciones para consolidar cambio</string>
-    <string name="settings_utxo_long_inactive_confirmations">Confirmaciones para inactividad prolongada</string>
-    <string name="settings_utxo_high_value_threshold">Umbral de alto valor</string>
-    <string name="settings_utxo_well_documented_threshold">Umbral para valores bien documentados</string>
-    <string name="settings_unit_sat_vb">sat/vB</string>
-    <string name="settings_transaction_health_title">Análisis de transacciones (Beta)</string>
-    <string name="settings_transaction_health_subtitle">Calcula heurísticas de privacidad y comisiones para cada transacción.</string>
-    <string name="settings_utxo_health_title">Análisis de UTXOs (Beta)</string>
-    <string name="settings_utxo_health_subtitle">Evalúa tu set de UTXOs para dust, reutilización y consolidación.</string>
-
-    <!-- Transaction health indicators -->
-    <string name="transaction_health_score_chip">Puntaje %1$d</string>
-    <string name="transaction_health_indicator_address_reuse">Reutilización de direcciones detectada</string>
-    <string name="transaction_health_indicator_change_exposure">Salida de cambio identificable</string>
-    <string name="transaction_health_indicator_dust_incoming">Dust recibido</string>
-    <string name="transaction_health_indicator_dust_outgoing">Dust gastado junto a entradas mayores</string>
-    <string name="transaction_health_indicator_fee_overpay">Tarifa alta</string>
-    <string name="transaction_health_indicator_fee_underpay">Tarifa baja</string>
-    <string name="transaction_health_indicator_script_mix">Entradas con scripts mixtos</string>
-    <string name="transaction_health_indicator_segwit">Uso de SegWit/Taproot</string>
-    <string name="transaction_health_severity_low">Baja</string>
-    <string name="transaction_health_severity_medium">Media</string>
-    <string name="transaction_health_severity_high">Alta</string>
-
-    <!-- UTXO health availability -->
-    <string name="utxo_detail_health_disabled">El análisis de UTXO está desactivado. Actívalo en Ajustes.</string>
-    <string name="utxo_detail_health_unavailable">Los datos de salud del UTXO no están disponibles para esta entrada.</string>
 
     <!-- Wallet colors -->
     <string name="wallet_color_dialog_title">Elige el color de la billetera</string>
@@ -1030,28 +951,7 @@
     <string name="wallet_detail_delete_error">No se pudo eliminar la billetera. Inténtalo de nuevo.</string>
     <string name="wallet_detail_delete_success">Billetera eliminada.</string>
 
-    <!-- Wallet health snapshot labels -->
-    <string name="wallet_detail_health_title">Salud de la billetera</string>
-    <string name="wallet_detail_health_reused_addresses">Direcciones reutilizadas</string>
-    <string name="wallet_detail_health_change_outputs">Salidas de cambio</string>
-    <string name="wallet_detail_health_dust_outputs">Salidas dust (&lt;= %1$s)</string>
-    <string name="wallet_detail_health_dust_outputs_disabled">Salidas dust (umbral desactivado)</string>
     <string name="wallet_detail_list_error_generic">No se pudieron cargar los datos. Desliza para actualizar e inténtalo de nuevo.</string>
-    <string name="wallet_detail_health_count_label">Cantidad: %1$d</string>
-    <string name="wallet_detail_health_balance_label">Balance: %1$s</string>
-    <string name="wallet_detail_health_overview_title">Instantánea de salud</string>
-    <string name="wallet_detail_health_overview_score_label">Puntaje general</string>
-    <string name="wallet_detail_health_overview_score_value">%1$d</string>
-    <string name="wallet_detail_health_overview_badges">Destacados</string>
-    <string name="wallet_detail_health_overview_badges_empty">Aún no hay destacados.</string>
-    <string name="wallet_detail_health_overview_indicator_count">%1$d indicadores revisados</string>
-    <string name="wallet_detail_health_overview_pillar_score">%1$d / 100</string>
-    <string name="wallet_detail_health_overview_pending">Calculando la salud de la billetera… mantén la app abierta.</string>
-    <string name="wallet_detail_health_overview_learn_more">Abrir artículo de la wiki</string>
-    <string name="wallet_health_pillar_privacy">Postura de privacidad</string>
-    <string name="wallet_health_pillar_inventory">Higiene del inventario</string>
-    <string name="wallet_health_pillar_efficiency">Eficiencia operativa</string>
-    <string name="wallet_health_pillar_risk">Riesgo y resiliencia</string>
     <string name="node_not_connected_label">Sin conexión</string>
 
     <!-- Testnet faucet helper -->
@@ -1103,10 +1003,6 @@
     <string name="add_wallet_extended_type_p2wpkh">P2WPKH (SegWit nativo)</string>
     <string name="add_wallet_extended_type_p2tr">P2TR (Taproot)</string>
 
-    <!-- Wallet health toggle titles -->
-    <string name="settings_wallet_health_title">Salud de la billetera (Beta)</string>
-    <string name="settings_wallet_health_subtitle">Combina insights de transacciones y UTXO en un puntaje global.</string>
-
     <!-- Tor notifications and states -->
     <string name="tor_notification_action_renew">Nueva identidad</string>
     <string name="tor_notification_action_retry">Reintentar</string>
@@ -1130,17 +1026,6 @@
     <string name="tor_status_running">En ejecución</string>
     <string name="tor_status_stopped">Detenido</string>
 
-    <!-- Transaction health section -->
-    <string name="transaction_detail_health_section_title">Salud de la transacción</string>
-    <string name="transaction_detail_health_indicator_count">%1$d indicadores</string>
-    <string name="transaction_detail_health_badges_title">Insignias</string>
-    <string name="transaction_detail_health_indicator_none">No se activó ninguna heurística.</string>
-    <string name="transaction_detail_health_indicator_value">%1$s pts · %2$s</string>
-    <string name="transaction_health_points_format">%1$s pts</string>
-    <string name="transaction_detail_health_disabled">El análisis de transacciones está desactivado. Actívalo en Ajustes para revisar privacidad y comisiones.</string>
-    <string name="transaction_detail_health_unavailable">Las señales de salud no están disponibles para esta entrada.</string>
-    <string name="transaction_health_indicator_batching">Pago en lote detectado</string>
-    <string name="transaction_health_indicator_consolidation">Postura de consolidación</string>
     <string name="transaction_structure_legacy">Legacy</string>
     <string name="transaction_structure_segwit">SegWit</string>
     <string name="transaction_structure_taproot">Taproot</string>

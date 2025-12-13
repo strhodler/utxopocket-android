@@ -39,7 +39,6 @@ import com.strhodler.utxopocket.presentation.settings.InterfaceSettingsRoute
 import com.strhodler.utxopocket.presentation.settings.BlockExplorerSettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SecuritySettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsNavigation
-import com.strhodler.utxopocket.presentation.settings.HealthParametersRoute
 import com.strhodler.utxopocket.presentation.settings.SettingsRoute
 import com.strhodler.utxopocket.presentation.settings.WalletSettingsRoute
 import com.strhodler.utxopocket.presentation.settings.logs.NetworkLogViewModel
@@ -507,12 +506,7 @@ fun MainNavHost(
             val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
             WalletSettingsRoute(
                 viewModel = viewModel,
-                onBack = { navController.popBackStack() },
-                onOpenWikiTopic = { topicId ->
-                    navController.navigate(WikiNavigation.detailRoute(topicId)) {
-                        launchSingleTop = true
-                    }
-                }
+                onBack = { navController.popBackStack() }
             )
         }
         composable(SettingsNavigation.BlockExplorerRoute) { backStackEntry ->
@@ -547,17 +541,6 @@ fun MainNavHost(
                 onBack = { navController.popBackStack() }
             )
         }
-        composable(SettingsNavigation.HealthParametersRoute) { backStackEntry ->
-            val parentEntry = remember(backStackEntry) {
-                navController.getBackStackEntry(MainDestination.Settings.route)
-            }
-            val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
-            HealthParametersRoute(
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() }
-            )
-        }
-
         composable(
             route = "${WalletsNavigation.NodeStatusRoute}?${WalletsNavigation.NodeStatusTabArg}={${WalletsNavigation.NodeStatusTabArg}}",
             arguments = listOf(

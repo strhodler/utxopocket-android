@@ -55,10 +55,6 @@ private fun FeaturesScreen(onBack: () -> Unit) {
                 descriptionRes = R.string.feature_connectivity_description
             ),
             FeatureItem(
-                titleRes = R.string.feature_health_title,
-                descriptionRes = R.string.feature_health_description
-            ),
-            FeatureItem(
                 titleRes = R.string.feature_analysis_title,
                 descriptionRes = R.string.feature_analysis_description
             )

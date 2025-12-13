@@ -44,9 +44,18 @@ object WalletMigrations {
         }
     }
 
+    val MIGRATION_19_20 = object : Migration(19, 20) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("DROP TABLE IF EXISTS transaction_health")
+            database.execSQL("DROP TABLE IF EXISTS utxo_health")
+            database.execSQL("DROP TABLE IF EXISTS wallet_health")
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_16_17,
         MIGRATION_17_18,
-        MIGRATION_18_19
+        MIGRATION_18_19,
+        MIGRATION_19_20
     )
 }

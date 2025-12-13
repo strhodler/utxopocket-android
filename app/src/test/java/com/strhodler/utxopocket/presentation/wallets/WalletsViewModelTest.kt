@@ -8,20 +8,20 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.BlockExplorerNetworkPreference
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
-import com.strhodler.utxopocket.domain.model.CustomNode
-import com.strhodler.utxopocket.domain.model.NodeConnectionOption
+import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.NodeConfig
+import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
+import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
+import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
-import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.TorConfig
 import com.strhodler.utxopocket.domain.model.TorStatus
-import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
-import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
@@ -30,13 +30,11 @@ import com.strhodler.utxopocket.domain.model.WalletCreationRequest
 import com.strhodler.utxopocket.domain.model.WalletCreationResult
 import com.strhodler.utxopocket.domain.model.WalletDetail
 import com.strhodler.utxopocket.domain.model.WalletLabelExport
-import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
-import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
@@ -121,7 +119,6 @@ class WalletsViewModelTest {
         advanceUntilIdle()
         assertEquals(false, viewModel.uiState.value.hasActiveNodeSelection)
     }
-
 }
 
 private class TestWalletRepository : WalletRepository {
@@ -172,7 +169,7 @@ private class TestWalletRepository : WalletRepository {
     override fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>> = flowOf(emptyMap())
 
     override suspend fun refresh(network: BitcoinNetwork) = Unit
-    override suspend fun refreshWallet(walletId: Long) = Unit
+    override suspend fun refreshWallet(walletId: Long, operation: SyncOperation) = Unit
     override suspend fun disconnect(network: BitcoinNetwork) = Unit
     override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
 
@@ -286,13 +283,6 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
     override val connectionIdleTimeoutMinutes: Flow<Int> = _connectionIdleTimeoutMinutes
     override val pinLastUnlockedAt: Flow<Long?> = MutableStateFlow(null)
     override val dustThresholdSats: Flow<Long> = MutableStateFlow(0L)
-    override val transactionAnalysisEnabled: Flow<Boolean> = MutableStateFlow(true)
-    override val utxoHealthEnabled: Flow<Boolean> = MutableStateFlow(true)
-    override val walletHealthEnabled: Flow<Boolean> = MutableStateFlow(false)
-    override val transactionHealthParameters: Flow<TransactionHealthParameters> =
-        MutableStateFlow(TransactionHealthParameters())
-    override val utxoHealthParameters: Flow<UtxoHealthParameters> =
-        MutableStateFlow(UtxoHealthParameters())
     override val networkLogsEnabled: Flow<Boolean> = _networkLogsEnabled
     override val networkLogsInfoSeen: Flow<Boolean> = _networkLogsInfoSeen
     override val blockExplorerPreferences: Flow<BlockExplorerPreferences> = blockExplorerPreferencesState
@@ -330,7 +320,7 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
         _hapticsEnabled.value = enabled
     }
 
-        override suspend fun cycleBalanceDisplayMode() {
+    override suspend fun cycleBalanceDisplayMode() {
         val currentUnit = _balanceUnit.value
         val currentlyHidden = _balancesHidden.value
         when {
@@ -354,20 +344,6 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
     override suspend fun setConnectionIdleTimeoutMinutes(minutes: Int) {
         _connectionIdleTimeoutMinutes.value = minutes
     }
-
-    override suspend fun setTransactionAnalysisEnabled(enabled: Boolean) = Unit
-
-    override suspend fun setUtxoHealthEnabled(enabled: Boolean) = Unit
-
-    override suspend fun setWalletHealthEnabled(enabled: Boolean) = Unit
-
-    override suspend fun setTransactionHealthParameters(parameters: TransactionHealthParameters) = Unit
-
-    override suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters) = Unit
-
-    override suspend fun resetTransactionHealthParameters() = Unit
-
-    override suspend fun resetUtxoHealthParameters() = Unit
 
     override suspend fun setNetworkLogsEnabled(enabled: Boolean) {
         _networkLogsEnabled.value = enabled

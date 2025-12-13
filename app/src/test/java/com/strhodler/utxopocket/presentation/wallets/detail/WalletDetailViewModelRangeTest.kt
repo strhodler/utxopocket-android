@@ -9,39 +9,41 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.BlockExplorerNetworkPreference
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
+import com.strhodler.utxopocket.domain.model.Bip329ImportResult
+import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
-import com.strhodler.utxopocket.domain.model.ThemeProfile
-import com.strhodler.utxopocket.domain.model.ThemePreference
-import com.strhodler.utxopocket.domain.model.TorStatus
-import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
-import com.strhodler.utxopocket.domain.model.TransactionType
-import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
+import com.strhodler.utxopocket.domain.model.SocksProxyConfig
+import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
-import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
+import com.strhodler.utxopocket.domain.model.ThemePreference
+import com.strhodler.utxopocket.domain.model.ThemeProfile
+import com.strhodler.utxopocket.domain.model.TorConfig
+import com.strhodler.utxopocket.domain.model.TorStatus
+import com.strhodler.utxopocket.domain.model.TransactionType
+import com.strhodler.utxopocket.domain.model.WalletAddress
+import com.strhodler.utxopocket.domain.model.WalletAddressDetail
+import com.strhodler.utxopocket.domain.model.WalletAddressType
+import com.strhodler.utxopocket.domain.model.WalletColor
+import com.strhodler.utxopocket.domain.model.WalletCreationRequest
+import com.strhodler.utxopocket.domain.model.WalletCreationResult
+import com.strhodler.utxopocket.domain.model.WalletDefaults
 import com.strhodler.utxopocket.domain.model.WalletDetail
+import com.strhodler.utxopocket.domain.model.WalletLabelExport
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
-import com.strhodler.utxopocket.domain.model.WalletDefaults
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
-import com.strhodler.utxopocket.domain.repository.TransactionHealthFilter
-import com.strhodler.utxopocket.domain.repository.TransactionHealthRepository
-import com.strhodler.utxopocket.domain.repository.UtxoHealthRepository
-import com.strhodler.utxopocket.domain.repository.UtxoHealthFilter
-import com.strhodler.utxopocket.domain.repository.WalletHealthRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.domain.service.TorManager
-import com.strhodler.utxopocket.domain.service.TransactionHealthAnalyzer
-import com.strhodler.utxopocket.domain.service.UtxoVisualizationCalculator
 import com.strhodler.utxopocket.domain.service.UtxoTreemapCalculator
-import com.strhodler.utxopocket.domain.service.WalletHealthAggregator
+import com.strhodler.utxopocket.domain.service.UtxoVisualizationCalculator
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -103,11 +105,6 @@ class WalletDetailViewModelRangeTest {
         val preferences = RecordingAppPreferencesRepository()
         private val walletRepository = StaticWalletRepository()
         private val torManager = StaticTorManager()
-        private val transactionHealthRepository = StaticTransactionHealthRepository()
-        private val utxoHealthRepository = StaticUtxoHealthRepository()
-        private val walletHealthRepository = StaticWalletHealthRepository()
-        private val transactionHealthAnalyzer = StaticTransactionHealthAnalyzer()
-        private val walletHealthAggregator = StaticWalletHealthAggregator()
         private val incomingPlaceholders = InMemoryIncomingTxPlaceholderRepository()
         private val incomingTxCoordinator = IncomingTxCoordinator(
             incomingPlaceholders,
@@ -126,11 +123,6 @@ class WalletDetailViewModelRangeTest {
                 walletRepository = walletRepository,
                 torManager = torManager,
                 appPreferencesRepository = preferences,
-                transactionHealthAnalyzer = transactionHealthAnalyzer,
-                transactionHealthRepository = transactionHealthRepository,
-                utxoHealthRepository = utxoHealthRepository,
-                walletHealthRepository = walletHealthRepository,
-                walletHealthAggregator = walletHealthAggregator,
                 incomingTxCoordinator = incomingTxCoordinator,
                 utxoVisualizationCalculator = utxoVisualizationCalculator,
                 utxoTreemapCalculator = utxoTreemapCalculator,
@@ -233,7 +225,7 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun refresh(network: BitcoinNetwork) = Unit
 
-        override suspend fun refreshWallet(walletId: Long) = Unit
+        override suspend fun refreshWallet(walletId: Long, operation: SyncOperation) = Unit
         override suspend fun disconnect(network: BitcoinNetwork) = Unit
         override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
 
@@ -243,7 +235,7 @@ class WalletDetailViewModelRangeTest {
             network: BitcoinNetwork
         ) = throw UnsupportedOperationException("Not required for test")
 
-        override suspend fun addWallet(request: com.strhodler.utxopocket.domain.model.WalletCreationRequest) =
+        override suspend fun addWallet(request: WalletCreationRequest) =
             throw UnsupportedOperationException("Not required for test")
 
         override suspend fun deleteWallet(id: Long) = Unit
@@ -252,31 +244,31 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun updateWalletColor(
             id: Long,
-            color: com.strhodler.utxopocket.domain.model.WalletColor
+            color: WalletColor
         ) = Unit
 
         override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
 
         override suspend fun listUnusedAddresses(
             walletId: Long,
-            type: com.strhodler.utxopocket.domain.model.WalletAddressType,
+            type: WalletAddressType,
             limit: Int
-        ): List<com.strhodler.utxopocket.domain.model.WalletAddress> = emptyList()
+        ): List<WalletAddress> = emptyList()
 
         override suspend fun revealNextAddress(
             walletId: Long,
-            type: com.strhodler.utxopocket.domain.model.WalletAddressType
-        ): com.strhodler.utxopocket.domain.model.WalletAddress? = null
+            type: WalletAddressType
+        ): WalletAddress? = null
 
         override suspend fun getAddressDetail(
             walletId: Long,
-            type: com.strhodler.utxopocket.domain.model.WalletAddressType,
+            type: WalletAddressType,
             derivationIndex: Int
-        ): com.strhodler.utxopocket.domain.model.WalletAddressDetail? = null
+        ): WalletAddressDetail? = null
 
         override suspend fun markAddressAsUsed(
             walletId: Long,
-            type: com.strhodler.utxopocket.domain.model.WalletAddressType,
+            type: WalletAddressType,
             derivationIndex: Int
         ) = Unit
 
@@ -288,11 +280,11 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun renameWallet(id: Long, name: String) = Unit
 
-        override suspend fun exportWalletLabels(walletId: Long) =
+        override suspend fun exportWalletLabels(walletId: Long): WalletLabelExport =
             throw UnsupportedOperationException("Not required for test")
 
-        override suspend fun importWalletLabels(walletId: Long, payload: ByteArray): com.strhodler.utxopocket.domain.model.Bip329ImportResult =
-            com.strhodler.utxopocket.domain.model.Bip329ImportResult(0, 0, 0, 0, 0)
+        override suspend fun importWalletLabels(walletId: Long, payload: ByteArray): Bip329ImportResult =
+            Bip329ImportResult(0, 0, 0, 0, 0)
 
         override fun setSyncForegroundState(isForeground: Boolean) = Unit
 
@@ -310,81 +302,18 @@ class WalletDetailViewModelRangeTest {
         override val status: StateFlow<TorStatus> = statusFlow
         override val latestLog: StateFlow<String> = logFlow
 
-        override suspend fun start(config: com.strhodler.utxopocket.domain.model.TorConfig): Result<com.strhodler.utxopocket.domain.model.SocksProxyConfig> =
+        override suspend fun start(config: TorConfig): Result<SocksProxyConfig> =
             Result.success(currentProxy())
         override suspend fun <T> withTorProxy(
-            config: com.strhodler.utxopocket.domain.model.TorConfig,
-            block: suspend (com.strhodler.utxopocket.domain.model.SocksProxyConfig) -> T
+            config: TorConfig,
+            block: suspend (SocksProxyConfig) -> T
         ): T = block(currentProxy())
         override suspend fun stop() = Unit
         override suspend fun renewIdentity(): Boolean = true
-        override fun currentProxy(): com.strhodler.utxopocket.domain.model.SocksProxyConfig =
-            com.strhodler.utxopocket.domain.model.TorConfig.DEFAULT.socksProxy
+        override fun currentProxy(): SocksProxyConfig = TorConfig.DEFAULT.socksProxy
 
-        override suspend fun awaitProxy(): com.strhodler.utxopocket.domain.model.SocksProxyConfig = currentProxy()
+        override suspend fun awaitProxy(): SocksProxyConfig = currentProxy()
         override suspend fun clearPersistentState() = Unit
-    }
-
-    private class StaticTransactionHealthRepository : TransactionHealthRepository {
-        private val flow = MutableStateFlow(emptyList<com.strhodler.utxopocket.domain.model.TransactionHealthResult>())
-        override fun stream(
-            walletId: Long,
-            filter: TransactionHealthFilter
-        ): Flow<List<com.strhodler.utxopocket.domain.model.TransactionHealthResult>> = flow
-
-        override suspend fun replace(
-            walletId: Long,
-            results: Collection<com.strhodler.utxopocket.domain.model.TransactionHealthResult>
-        ) = Unit
-
-        override suspend fun clear(walletId: Long) = Unit
-    }
-
-    private class StaticUtxoHealthRepository : UtxoHealthRepository {
-        private val flow = MutableStateFlow(emptyList<com.strhodler.utxopocket.domain.model.UtxoHealthResult>())
-
-        override fun stream(
-            walletId: Long,
-            filter: UtxoHealthFilter
-        ): Flow<List<com.strhodler.utxopocket.domain.model.UtxoHealthResult>> = flow
-
-        override suspend fun replace(
-            walletId: Long,
-            results: Collection<com.strhodler.utxopocket.domain.model.UtxoHealthResult>
-        ) = Unit
-
-        override suspend fun clear(walletId: Long) = Unit
-    }
-
-    private class StaticWalletHealthRepository : WalletHealthRepository {
-        private val flow = MutableStateFlow<com.strhodler.utxopocket.domain.model.WalletHealthResult?>(null)
-
-        override fun stream(walletId: Long): Flow<com.strhodler.utxopocket.domain.model.WalletHealthResult?> = flow
-
-        override suspend fun upsert(result: com.strhodler.utxopocket.domain.model.WalletHealthResult) = Unit
-
-        override suspend fun clear(walletId: Long) = Unit
-    }
-
-    private class StaticTransactionHealthAnalyzer : TransactionHealthAnalyzer {
-        override fun analyze(
-            detail: WalletDetail,
-            dustThresholdSats: Long,
-            parameters: TransactionHealthParameters
-        ) = com.strhodler.utxopocket.domain.model.TransactionHealthSummary(emptyMap())
-
-        override fun analyzeTransaction(
-            transaction: WalletTransaction,
-            context: com.strhodler.utxopocket.domain.model.TransactionHealthContext
-        ) = throw UnsupportedOperationException("Not required for test")
-    }
-
-    private class StaticWalletHealthAggregator : WalletHealthAggregator {
-        override fun aggregate(
-            walletId: Long,
-            transactions: Collection<com.strhodler.utxopocket.domain.model.TransactionHealthResult>,
-            utxos: Collection<com.strhodler.utxopocket.domain.model.UtxoHealthResult>
-        ) = throw UnsupportedOperationException("Not required for test")
     }
 
     private class RecordingAppPreferencesRepository : AppPreferencesRepository {
@@ -408,11 +337,6 @@ class WalletDetailViewModelRangeTest {
         )
         private val pinLastUnlockedState = MutableStateFlow<Long?>(null)
         private val dustThresholdState = MutableStateFlow(WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS)
-        private val transactionAnalysisEnabledState = MutableStateFlow(false)
-        private val utxoHealthEnabledState = MutableStateFlow(false)
-        private val walletHealthEnabledState = MutableStateFlow(false)
-        private val transactionHealthParametersState = MutableStateFlow(TransactionHealthParameters())
-        private val utxoHealthParametersState = MutableStateFlow(UtxoHealthParameters())
         private val networkLogsEnabledState = MutableStateFlow(false)
         private val networkLogsInfoSeenState = MutableStateFlow(false)
         private val blockExplorerPreferencesState = MutableStateFlow(BlockExplorerPreferences())
@@ -436,11 +360,6 @@ class WalletDetailViewModelRangeTest {
         override val connectionIdleTimeoutMinutes: Flow<Int> = connectionIdleTimeoutMinutesState
         override val pinLastUnlockedAt: Flow<Long?> = pinLastUnlockedState
         override val dustThresholdSats: Flow<Long> = dustThresholdState
-        override val transactionAnalysisEnabled: Flow<Boolean> = transactionAnalysisEnabledState
-        override val utxoHealthEnabled: Flow<Boolean> = utxoHealthEnabledState
-        override val walletHealthEnabled: Flow<Boolean> = walletHealthEnabledState
-        override val transactionHealthParameters: Flow<TransactionHealthParameters> = transactionHealthParametersState
-        override val utxoHealthParameters: Flow<UtxoHealthParameters> = utxoHealthParametersState
         override val networkLogsEnabled: Flow<Boolean> = networkLogsEnabledState
         override val networkLogsInfoSeen: Flow<Boolean> = networkLogsInfoSeenState
         override val blockExplorerPreferences: Flow<BlockExplorerPreferences> = blockExplorerPreferencesState
@@ -527,34 +446,6 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun setDustThresholdSats(thresholdSats: Long) {
             dustThresholdState.value = thresholdSats
-        }
-
-        override suspend fun setTransactionAnalysisEnabled(enabled: Boolean) {
-            transactionAnalysisEnabledState.value = enabled
-        }
-
-        override suspend fun setUtxoHealthEnabled(enabled: Boolean) {
-            utxoHealthEnabledState.value = enabled
-        }
-
-        override suspend fun setWalletHealthEnabled(enabled: Boolean) {
-            walletHealthEnabledState.value = enabled
-        }
-
-        override suspend fun setTransactionHealthParameters(parameters: TransactionHealthParameters) {
-            transactionHealthParametersState.value = parameters
-        }
-
-        override suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters) {
-            utxoHealthParametersState.value = parameters
-        }
-
-        override suspend fun resetTransactionHealthParameters() {
-            transactionHealthParametersState.value = TransactionHealthParameters()
-        }
-
-        override suspend fun resetUtxoHealthParameters() {
-            utxoHealthParametersState.value = UtxoHealthParameters()
         }
 
         override suspend fun setNetworkLogsEnabled(enabled: Boolean) {

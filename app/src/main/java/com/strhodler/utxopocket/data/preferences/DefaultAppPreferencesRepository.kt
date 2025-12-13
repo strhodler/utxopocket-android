@@ -29,8 +29,6 @@ import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import android.util.Base64
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
-import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
-import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -148,55 +146,12 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs[Keys.DUST_THRESHOLD] ?: WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS
         }
 
-    override val transactionAnalysisEnabled: Flow<Boolean> =
-        dataStore.data.map { prefs -> prefs[Keys.TRANSACTION_ANALYSIS_ENABLED] ?: false }
-
-    override val utxoHealthEnabled: Flow<Boolean> =
-        dataStore.data.map { prefs -> prefs[Keys.UTXO_HEALTH_ENABLED] ?: false }
-
-    override val walletHealthEnabled: Flow<Boolean> =
-        dataStore.data.map { prefs -> prefs[Keys.WALLET_HEALTH_ENABLED] ?: false }
-
     override val networkLogsEnabled: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.NETWORK_LOGS_ENABLED] ?: false }
     override val networkLogsInfoSeen: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.NETWORK_LOGS_INFO_SEEN] ?: false }
     override val blockExplorerPreferences: Flow<BlockExplorerPreferences> =
         dataStore.data.map { prefs -> prefs.toBlockExplorerPreferences() }
-
-    override val transactionHealthParameters: Flow<TransactionHealthParameters> =
-        dataStore.data.map { prefs ->
-            TransactionHealthParameters(
-                changeExposureHighRatio = prefs[Keys.TX_CHANGE_RATIO_HIGH]
-                    ?: TransactionHealthParameters.DEFAULT_CHANGE_EXPOSURE_HIGH_RATIO,
-                changeExposureMediumRatio = prefs[Keys.TX_CHANGE_RATIO_MEDIUM]
-                    ?: TransactionHealthParameters.DEFAULT_CHANGE_EXPOSURE_MEDIUM_RATIO,
-                lowFeeRateThresholdSatPerVb = prefs[Keys.TX_LOW_FEE_THRESHOLD]
-                    ?: TransactionHealthParameters.DEFAULT_LOW_FEE_RATE_THRESHOLD,
-                highFeeRateThresholdSatPerVb = prefs[Keys.TX_HIGH_FEE_THRESHOLD]
-                    ?: TransactionHealthParameters.DEFAULT_HIGH_FEE_RATE_THRESHOLD,
-                consolidationFeeRateThresholdSatPerVb = prefs[Keys.TX_CONSOLIDATION_FEE_THRESHOLD]
-                    ?: TransactionHealthParameters.DEFAULT_CONSOLIDATION_FEE_RATE_THRESHOLD,
-                consolidationHighFeeRateThresholdSatPerVb = prefs[Keys.TX_CONSOLIDATION_HIGH_FEE_THRESHOLD]
-                    ?: TransactionHealthParameters.DEFAULT_CONSOLIDATION_HIGH_FEE_RATE_THRESHOLD
-            )
-        }
-
-    override val utxoHealthParameters: Flow<UtxoHealthParameters> =
-        dataStore.data.map { prefs ->
-            UtxoHealthParameters(
-                addressReuseHighThreshold = prefs[Keys.UTXO_ADDRESS_REUSE_HIGH_THRESHOLD]
-                    ?: UtxoHealthParameters.DEFAULT_ADDRESS_REUSE_HIGH_THRESHOLD,
-                changeMinConfirmations = prefs[Keys.UTXO_CHANGE_MIN_CONFIRMATIONS]
-                    ?: UtxoHealthParameters.DEFAULT_CHANGE_MIN_CONFIRMATIONS,
-                longInactiveConfirmations = prefs[Keys.UTXO_LONG_INACTIVE_CONFIRMATIONS]
-                    ?: UtxoHealthParameters.DEFAULT_LONG_INACTIVE_CONFIRMATIONS,
-                highValueThresholdSats = prefs[Keys.UTXO_HIGH_VALUE_THRESHOLD]
-                    ?: UtxoHealthParameters.DEFAULT_HIGH_VALUE_THRESHOLD_SATS,
-                wellDocumentedValueThresholdSats = prefs[Keys.UTXO_WELL_DOCUMENTED_THRESHOLD]
-                    ?: UtxoHealthParameters.DEFAULT_WELL_DOCUMENTED_VALUE_THRESHOLD_SATS
-            )
-        }
 
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         dataStore.edit { prefs -> prefs[Keys.ONBOARDING_COMPLETED] = completed }
@@ -387,77 +342,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
             } else {
                 prefs.remove(Keys.DUST_THRESHOLD)
             }
-        }
-    }
-
-    override suspend fun setTransactionAnalysisEnabled(enabled: Boolean) {
-        dataStore.edit { prefs ->
-            prefs[Keys.TRANSACTION_ANALYSIS_ENABLED] = enabled
-            if (!enabled) {
-                prefs[Keys.WALLET_HEALTH_ENABLED] = false
-            }
-        }
-    }
-
-    override suspend fun setUtxoHealthEnabled(enabled: Boolean) {
-        dataStore.edit { prefs ->
-            prefs[Keys.UTXO_HEALTH_ENABLED] = enabled
-            if (!enabled) {
-                prefs[Keys.WALLET_HEALTH_ENABLED] = false
-            }
-        }
-    }
-
-    override suspend fun setWalletHealthEnabled(enabled: Boolean) {
-        dataStore.edit { prefs ->
-            val txEnabled = prefs[Keys.TRANSACTION_ANALYSIS_ENABLED] ?: false
-            val utxoEnabled = prefs[Keys.UTXO_HEALTH_ENABLED] ?: false
-            prefs[Keys.WALLET_HEALTH_ENABLED] = enabled && txEnabled && utxoEnabled
-        }
-    }
-
-    override suspend fun setTransactionHealthParameters(parameters: TransactionHealthParameters) {
-        dataStore.edit { prefs ->
-            prefs[Keys.TX_CHANGE_RATIO_HIGH] = parameters.changeExposureHighRatio
-            prefs[Keys.TX_CHANGE_RATIO_MEDIUM] = parameters.changeExposureMediumRatio
-            prefs[Keys.TX_LOW_FEE_THRESHOLD] = parameters.lowFeeRateThresholdSatPerVb
-            prefs[Keys.TX_HIGH_FEE_THRESHOLD] = parameters.highFeeRateThresholdSatPerVb
-            prefs[Keys.TX_CONSOLIDATION_FEE_THRESHOLD] =
-                parameters.consolidationFeeRateThresholdSatPerVb
-            prefs[Keys.TX_CONSOLIDATION_HIGH_FEE_THRESHOLD] =
-                parameters.consolidationHighFeeRateThresholdSatPerVb
-        }
-    }
-
-    override suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters) {
-        dataStore.edit { prefs ->
-            prefs[Keys.UTXO_ADDRESS_REUSE_HIGH_THRESHOLD] = parameters.addressReuseHighThreshold
-            prefs[Keys.UTXO_CHANGE_MIN_CONFIRMATIONS] = parameters.changeMinConfirmations
-            prefs[Keys.UTXO_LONG_INACTIVE_CONFIRMATIONS] = parameters.longInactiveConfirmations
-            prefs[Keys.UTXO_HIGH_VALUE_THRESHOLD] = parameters.highValueThresholdSats
-            prefs[Keys.UTXO_WELL_DOCUMENTED_THRESHOLD] =
-                parameters.wellDocumentedValueThresholdSats
-        }
-    }
-
-    override suspend fun resetTransactionHealthParameters() {
-        dataStore.edit { prefs ->
-            prefs.remove(Keys.TX_CHANGE_RATIO_HIGH)
-            prefs.remove(Keys.TX_CHANGE_RATIO_MEDIUM)
-            prefs.remove(Keys.TX_LOW_FEE_THRESHOLD)
-            prefs.remove(Keys.TX_HIGH_FEE_THRESHOLD)
-            prefs.remove(Keys.TX_CONSOLIDATION_FEE_THRESHOLD)
-            prefs.remove(Keys.TX_CONSOLIDATION_HIGH_FEE_THRESHOLD)
-        }
-    }
-
-    override suspend fun resetUtxoHealthParameters() {
-        dataStore.edit { prefs ->
-            prefs.remove(Keys.UTXO_ADDRESS_REUSE_HIGH_THRESHOLD)
-            prefs.remove(Keys.UTXO_CHANGE_MIN_CONFIRMATIONS)
-            prefs.remove(Keys.UTXO_LONG_INACTIVE_CONFIRMATIONS)
-            prefs.remove(Keys.UTXO_HIGH_VALUE_THRESHOLD)
-            prefs.remove(Keys.UTXO_WELL_DOCUMENTED_THRESHOLD)
         }
     }
 
@@ -862,27 +746,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val ADVANCED_MODE = booleanPreferencesKey("advanced_mode_enabled")
         val CONNECTION_IDLE_MINUTES = intPreferencesKey("connection_idle_minutes")
         val DUST_THRESHOLD = longPreferencesKey("dust_threshold_sats")
-        val TRANSACTION_ANALYSIS_ENABLED = booleanPreferencesKey("transaction_analysis_enabled")
-        val UTXO_HEALTH_ENABLED = booleanPreferencesKey("utxo_health_enabled")
-        val WALLET_HEALTH_ENABLED = booleanPreferencesKey("wallet_health_enabled")
         val NETWORK_LOGS_ENABLED = booleanPreferencesKey("network_logs_enabled")
         val NETWORK_LOGS_INFO_SEEN = booleanPreferencesKey("network_logs_info_seen")
-        val TX_CHANGE_RATIO_HIGH = doublePreferencesKey("tx_change_ratio_high")
-        val TX_CHANGE_RATIO_MEDIUM = doublePreferencesKey("tx_change_ratio_medium")
-        val TX_LOW_FEE_THRESHOLD = doublePreferencesKey("tx_low_fee_threshold")
-        val TX_HIGH_FEE_THRESHOLD = doublePreferencesKey("tx_high_fee_threshold")
-        val TX_CONSOLIDATION_FEE_THRESHOLD = doublePreferencesKey("tx_consolidation_fee_threshold")
-        val TX_CONSOLIDATION_HIGH_FEE_THRESHOLD =
-            doublePreferencesKey("tx_consolidation_high_fee_threshold")
-        val UTXO_ADDRESS_REUSE_HIGH_THRESHOLD =
-            intPreferencesKey("utxo_address_reuse_high_threshold")
-        val UTXO_CHANGE_MIN_CONFIRMATIONS =
-            intPreferencesKey("utxo_change_min_confirmations")
-        val UTXO_LONG_INACTIVE_CONFIRMATIONS =
-            intPreferencesKey("utxo_long_inactive_confirmations")
-        val UTXO_HIGH_VALUE_THRESHOLD = longPreferencesKey("utxo_high_value_threshold_sats")
-        val UTXO_WELL_DOCUMENTED_THRESHOLD =
-            longPreferencesKey("utxo_well_documented_value_threshold_sats")
     }
 
     private fun derivePinHash(pin: String, salt: ByteArray, iterations: Int): ByteArray {

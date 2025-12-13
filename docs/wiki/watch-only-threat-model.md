@@ -1,7 +1,7 @@
 ---
 id: watch-only-threat-model
 title: Watch‑only threat model
-summary: What watch‑only protects and what it doesn’t; assumptions, safe defaults, and checks for healthy monitoring.
+summary: What watch‑only protects and what it doesn’t; assumptions, safe defaults, and checks for reliable monitoring.
 category_id: privacy-toolkit
 category_title: Privacy toolkit
 category_description: Practical guides to reduce on‑chain exposure and keep compartments isolated.
@@ -37,4 +37,3 @@ Watch‑only reduces risk by separating monitoring from signing. But it does not
 - [ ] Use your own backend over Tor.
 - [ ] Verify descriptors (checksum, origins, gap limits) on import.
 - [ ] Cross‑check balances/addresses with a second tool periodically.
-

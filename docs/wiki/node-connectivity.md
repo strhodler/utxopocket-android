@@ -1,7 +1,7 @@
 ---
 id: node-connectivity
 title: Connect UtxoPocket to your node
-summary: Keep Tor running, choose a healthy backend, and verify connectivity before importing descriptors.
+summary: Keep Tor running, choose a reliable backend, and verify connectivity before importing descriptors.
 category_id: privacy-networking
 category_title: Privacy & Networking
 category_description: How to protect your privacy and understand how Bitcoin nodes communicate.
@@ -20,7 +20,7 @@ keywords: [tor, node, electrum, connectivity, networking]
 - The wallet refuses to add a node when Tor is offline. This prevents accidental clearnet leaks and keeps behavior consistent across devices.
 - After selecting a node, pull to refresh on the home screen so the wallet replays discovery using the new backend. Expect a short lock while descriptors rescan.
 
-## Health checks
+## Connectivity checks
 - Compare the reported block height and fee rate in the app bar with another trusted source. Large mismatches indicate a stale or malicious server.
 - Renew your Tor identity from the Tor status screen if you suspect the circuit is sluggish or the server is unreachable.
 - Keep at least one fallback server configured. If the primary onion host is down, switching to a known-good peer keeps monitoring uninterrupted.
