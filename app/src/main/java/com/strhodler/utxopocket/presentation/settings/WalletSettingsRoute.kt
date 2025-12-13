@@ -183,6 +183,70 @@ private fun WalletSettingsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         SectionCard(
+            title = stringResource(id = R.string.incoming_detection_title),
+            spacedContent = true,
+            divider = false
+        ) {
+            item {
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            text = stringResource(id = R.string.incoming_detection_dialog_label),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            text = stringResource(id = R.string.incoming_detection_dialog_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingContent = {
+                        Switch(
+                            checked = state.incomingDetectionDialogEnabled,
+                            onCheckedChange = onIncomingDetectionDialogToggle
+                        )
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+            }
+        }
+
+        SectionCard(
+            title = stringResource(id = R.string.settings_section_utxo_management),
+            spacedContent = true,
+            divider = false
+        ) {
+            item {
+                TextField(
+                    value = state.dustThresholdInput,
+                    onValueChange = onDustThresholdChanged,
+                    label = { Text(text = stringResource(id = R.string.settings_dust_threshold_label)) },
+                    placeholder = { Text(text = stringResource(id = R.string.settings_dust_threshold_placeholder)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    suffix = {
+                        Text(
+                            text = stringResource(id = R.string.settings_unit_sats),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    },
+                    supportingText = {
+                        Text(
+                            text = stringResource(id = R.string.settings_dust_threshold_support),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
+            }
+        }
+
+        SectionCard(
             title = stringResource(id = R.string.settings_section_privacy_analysis),
             headerActionIcon = Icons.AutoMirrored.Outlined.Help,
             headerActionContentDescription = stringResource(id = R.string.settings_privacy_analysis_help_content_description),
@@ -273,70 +337,6 @@ private fun WalletSettingsScreen(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                     )
                 }
-            }
-        }
-
-        SectionCard(
-            title = stringResource(id = R.string.incoming_detection_title),
-            spacedContent = true,
-            divider = false
-        ) {
-            item {
-                ListItem(
-                    headlineContent = {
-                        Text(
-                            text = stringResource(id = R.string.incoming_detection_dialog_label),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    },
-                    supportingContent = {
-                        Text(
-                            text = stringResource(id = R.string.incoming_detection_dialog_subtitle),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    trailingContent = {
-                        Switch(
-                            checked = state.incomingDetectionDialogEnabled,
-                            onCheckedChange = onIncomingDetectionDialogToggle
-                        )
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                )
-            }
-        }
-
-        SectionCard(
-            title = stringResource(id = R.string.settings_section_utxo_management),
-            spacedContent = true,
-            divider = false
-        ) {
-            item {
-                TextField(
-                    value = state.dustThresholdInput,
-                    onValueChange = onDustThresholdChanged,
-                    label = { Text(text = stringResource(id = R.string.settings_dust_threshold_label)) },
-                    placeholder = { Text(text = stringResource(id = R.string.settings_dust_threshold_placeholder)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    suffix = {
-                        Text(
-                            text = stringResource(id = R.string.settings_unit_sats),
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    },
-                    supportingText = {
-                        Text(
-                            text = stringResource(id = R.string.settings_dust_threshold_support),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                )
             }
         }
     }
