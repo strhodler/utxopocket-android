@@ -321,8 +321,6 @@
     <string name="wallet_labels_import_scan_action">Scan QR</string>
     <string name="wallet_labels_import_file_action">Import file</string>
     <string name="wallet_labels_import_result_title">Last import</string>
-    <string name="wallet_labels_import_history_title">Import history</string>
-    <string name="wallet_labels_import_history_empty">No imports yet.</string>
     <string name="wallet_labels_import_reset">Reset</string>
     <string name="wallet_detail_pull_to_refresh_hint">Sync</string>
     <string name="wallet_detail_show_chart">Show chart</string>

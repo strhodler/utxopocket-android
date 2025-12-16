@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.imePadding
@@ -208,16 +209,21 @@ fun WalletLabelImportRoute(
         snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
         contentWindowInsets = ScreenScaffoldInsets
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .applyScreenPadding(innerPadding)
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Surface(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .padding(bottom = 104.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
                     .aspectRatio(1f),
                 shape = RoundedCornerShape(20.dp),
                 tonalElevation = 2.dp,
@@ -276,9 +282,13 @@ fun WalletLabelImportRoute(
                 }
             }
 
+            }
             Row(
                 modifier = Modifier
-                    .fillMaxWidth(),
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 12.dp)
+                    .navigationBarsPadding(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 TextButton(
@@ -308,49 +318,6 @@ fun WalletLabelImportRoute(
                     )
                 }
             }
-
-            Text(
-                text = stringResource(id = R.string.wallet_labels_import_history_title),
-                style = MaterialTheme.typography.titleMedium
-            )
-            if (importState.history.isEmpty()) {
-                Text(
-                    text = stringResource(id = R.string.wallet_labels_import_history_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    importState.history.forEach { entry ->
-                        androidx.compose.material3.ListItem(
-                            headlineContent = {
-                                Text(
-                                    text = entry.timestamp,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            },
-                            supportingContent = {
-                                Text(
-                                    text = stringResource(
-                                        id = R.string.wallet_detail_import_summary,
-                                        entry.transactionLabelsApplied,
-                                        entry.utxoLabelsApplied,
-                                        entry.utxoSpendableUpdates,
-                                        entry.skipped,
-                                        entry.invalid
-                                    ),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        )
-                    }
-                }
-            }
         }
     }
 }
@@ -365,6 +332,22 @@ private fun importPayload(
 ) {
     viewModel.importLabels(payload) { result ->
         onComplete()
+        result.onSuccess { stats ->
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    message = context.getString(
+                        R.string.wallet_detail_import_summary,
+                        stats.transactionLabelsApplied,
+                        stats.utxoLabelsApplied,
+                        stats.utxoSpendableUpdates,
+                        stats.skipped,
+                        stats.invalid
+                    ),
+                    duration = SnackbarDuration.Long,
+                    withDismissAction = true
+                )
+            }
+        }
         result.onFailure {
             coroutineScope.launch {
                 snackbarHostState.showSnackbar(

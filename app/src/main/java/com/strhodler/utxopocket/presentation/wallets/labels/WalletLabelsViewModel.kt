@@ -23,17 +23,7 @@ sealed interface LabelExportState {
 
 data class LabelImportState(
     val inProgress: Boolean = false,
-    val history: List<ImportHistoryEntry> = emptyList(),
     val error: String? = null
-)
-
-data class ImportHistoryEntry(
-    val transactionLabelsApplied: Int,
-    val utxoLabelsApplied: Int,
-    val utxoSpendableUpdates: Int,
-    val skipped: Int,
-    val invalid: Int,
-    val timestamp: String
 )
 
 @HiltViewModel
@@ -71,24 +61,9 @@ class WalletLabelsViewModel @Inject constructor(
             val result = runCatching { walletRepository.importWalletLabels(walletId, payload) }
             onFinished(result)
             _importState.value = result.fold(
-                onSuccess = { stats ->
-                    val entry = ImportHistoryEntry(
-                        transactionLabelsApplied = stats.transactionLabelsApplied,
-                        utxoLabelsApplied = stats.utxoLabelsApplied,
-                        utxoSpendableUpdates = stats.utxoSpendableUpdates,
-                        skipped = stats.skipped,
-                        invalid = stats.invalid,
-                        timestamp = java.time.Instant.now().toString()
-                    )
-                    val updatedHistory = (listOf(entry) + _importState.value.history).take(5)
-                    LabelImportState(history = updatedHistory)
-                },
-                onFailure = { error -> LabelImportState(error = error.message, history = _importState.value.history) }
+                onSuccess = { LabelImportState() },
+                onFailure = { error -> LabelImportState(error = error.message) }
             )
         }
-    }
-
-    fun clearImportStatus() {
-        _importState.value = LabelImportState(history = _importState.value.history)
     }
 }

@@ -929,8 +929,6 @@
     <string name="wallet_labels_import_scan_action">Escanear QR</string>
     <string name="wallet_labels_import_file_action">Importar archivo</string>
     <string name="wallet_labels_import_result_title">Última importación</string>
-    <string name="wallet_labels_import_history_title">Historial de importaciones</string>
-    <string name="wallet_labels_import_history_empty">Aún no hay importaciones.</string>
     <string name="wallet_labels_import_reset">Reiniciar</string>
     <string name="wallet_detail_full_rescan_title">Reescaneo completo</string>
     <string name="wallet_detail_full_rescan_description">Elige el gap limit para este reescaneo. Mínimo %1$d, máximo %2$d direcciones. %3$s</string>
