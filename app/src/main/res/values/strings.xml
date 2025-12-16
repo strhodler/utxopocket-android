@@ -101,7 +101,6 @@
     <string name="wallet_detail_transactions_sort_oldest_first">Oldest first</string>
     <string name="wallet_detail_transactions_sort_highest_amount">Largest amount</string>
     <string name="wallet_detail_transactions_sort_lowest_amount">Smallest amount</string>
-    <string name="wallet_detail_transactions_sort_pending_first">Pending first</string>
     <string name="wallet_detail_utxos_sort_label">UTXO order</string>
     <string name="wallet_detail_utxos_filter_label">Filter</string>
     <string name="wallet_detail_utxos_filter_expand_content_description">Show filter options</string>

@@ -417,6 +417,8 @@ private fun WalletDetailContent(
                                             onFilterChange = onTransactionLabelFilterChange,
                                             showPending = state.showPending,
                                             onPendingChange = onTogglePending,
+                                            balanceUnit = state.balanceUnit,
+                                            balancesHidden = state.balancesHidden,
                                             modifier = Modifier.weight(1f)
                                         )
                                     }
@@ -915,7 +917,6 @@ private fun WalletTransactionSort.labelRes(): Int = when (this) {
     WalletTransactionSort.OLDEST_FIRST -> R.string.wallet_detail_transactions_sort_oldest_first
     WalletTransactionSort.HIGHEST_AMOUNT -> R.string.wallet_detail_transactions_sort_highest_amount
     WalletTransactionSort.LOWEST_AMOUNT -> R.string.wallet_detail_transactions_sort_lowest_amount
-    WalletTransactionSort.PENDING_FIRST -> R.string.wallet_detail_transactions_sort_pending_first
 }
 
 private fun WalletUtxoSort.labelRes(): Int = when (this) {
@@ -934,25 +935,36 @@ private fun TransactionFilterRow(
     onFilterChange: (TransactionLabelFilter) -> Unit,
     showPending: Boolean,
     onPendingChange: (Boolean) -> Unit,
+    balanceUnit: BalanceUnit,
+    balancesHidden: Boolean,
     modifier: Modifier = Modifier
 ) {
     val withCount: (String, Int) -> String = remember {
         { label, count -> "$label ($count)" }
     }
     val presets = remember { transactionFilterPresets() }
-    val presetLabelRes = presets.firstOrNull { it.filter == filter }?.labelRes
-    val summaryText = buildString {
-        if (showPending) {
-            append(stringResource(id = R.string.wallet_detail_pending_filter))
-        } else {
+    val selectedPreset = presets.firstOrNull { it.filter == filter }
+    val summaryText = when {
+        showPending -> stringResource(id = R.string.wallet_detail_pending_filter) + " ($visibleCount)"
+        selectedPreset?.amount != null && selectedPreset.amountType != null -> {
+            val amount = selectedPreset.amount.invoke(counts)
+            val amountText = transactionAmount(
+                amountSats = amount,
+                type = selectedPreset.amountType,
+                unit = balanceUnit,
+                hidden = balancesHidden
+            )
+            "${stringResource(id = selectedPreset.labelRes)} ($amountText, $visibleCount)"
+        }
+        else -> buildString {
             append(
-                presetLabelRes?.let { stringResource(id = it) }
+                selectedPreset?.let { stringResource(id = it.labelRes) }
                     ?: stringResource(id = R.string.wallet_detail_filters_custom)
             )
+            append(" (")
+            append(visibleCount)
+            append(")")
         }
-        append(" (")
-        append(visibleCount)
-        append(")")
     }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showSheet by remember { mutableStateOf(false) }
@@ -999,12 +1011,34 @@ private fun TransactionFilterRow(
                         stringResource(id = preset.labelRes),
                         preset.count(counts)
                     )
+                    val amountText = preset.amount?.let { extractor ->
+                        val type = preset.amountType
+                        if (type != null) {
+                            transactionAmount(
+                                amountSats = extractor(counts),
+                                type = type,
+                                unit = balanceUnit,
+                                hidden = balancesHidden
+                            )
+                        } else {
+                            null
+                        }
+                    }
                     ListItem(
                         headlineContent = {
                             Text(
                                 text = label,
                                 style = MaterialTheme.typography.bodyLarge
                             )
+                        },
+                        supportingContent = amountText?.let { formatted ->
+                            {
+                                Text(
+                                    text = formatted,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         },
                         leadingContent = {
                             RadioButton(
@@ -1403,7 +1437,9 @@ private fun IncomingPlaceholderRow(
 private data class TransactionFilterPreset(
     val filter: TransactionLabelFilter,
     val labelRes: Int,
-    val count: (TransactionFilterCounts) -> Int
+    val count: (TransactionFilterCounts) -> Int,
+    val amount: ((TransactionFilterCounts) -> Long)? = null,
+    val amountType: TransactionType? = null
 )
 
 private fun transactionFilterPresets(): List<TransactionFilterPreset> = listOf(
@@ -1415,12 +1451,16 @@ private fun transactionFilterPresets(): List<TransactionFilterPreset> = listOf(
     TransactionFilterPreset(
         filter = TransactionLabelFilter(showSent = false),
         labelRes = R.string.wallet_detail_transactions_filter_received,
-        count = { it.received }
+        count = { it.received },
+        amount = { it.receivedAmountSats },
+        amountType = TransactionType.RECEIVED
     ),
     TransactionFilterPreset(
         filter = TransactionLabelFilter(showReceived = false),
         labelRes = R.string.wallet_detail_transactions_filter_sent,
-        count = { it.sent }
+        count = { it.sent },
+        amount = { it.sentAmountSats },
+        amountType = TransactionType.SENT
     ),
     TransactionFilterPreset(
         filter = TransactionLabelFilter(showUnlabeled = false),

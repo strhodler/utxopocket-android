@@ -146,9 +146,6 @@ class IncomingTxWatcher @Inject constructor(
                 val job = jobs.remove(wallet.id)
                 jobNetworks.remove(wallet.id)
                 job?.cancel()
-                if (job != null) {
-                    coordinator.clearWallet(wallet.id)
-                }
             }
         }
         jobs.keys

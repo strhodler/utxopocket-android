@@ -406,11 +406,13 @@ class WalletDetailViewModel @Inject constructor(
             }
             val sortedTransactions = when (resolvedTransactionSort) {
                 WalletTransactionSort.NEWEST_FIRST -> filteredTransactions.sortedWith(
-                    compareByDescending<WalletTransaction> { it.timestamp ?: Long.MIN_VALUE }
+                    compareByDescending<WalletTransaction> { it.confirmations == 0 }
+                        .thenByDescending { it.timestamp ?: Long.MIN_VALUE }
                         .thenByDescending { it.id }
                 )
                 WalletTransactionSort.OLDEST_FIRST -> filteredTransactions.sortedWith(
-                    compareBy<WalletTransaction> { it.timestamp ?: Long.MAX_VALUE }
+                    compareBy<WalletTransaction> { it.confirmations == 0 }
+                        .thenBy { it.timestamp ?: Long.MAX_VALUE }
                         .thenBy { it.id }
                 )
                 WalletTransactionSort.HIGHEST_AMOUNT -> filteredTransactions.sortedWith(
@@ -420,11 +422,6 @@ class WalletDetailViewModel @Inject constructor(
                 )
                 WalletTransactionSort.LOWEST_AMOUNT -> filteredTransactions.sortedWith(
                     compareBy<WalletTransaction> { it.amountSats.absoluteValue }
-                        .thenByDescending { it.timestamp ?: Long.MIN_VALUE }
-                        .thenByDescending { it.id }
-                )
-                WalletTransactionSort.PENDING_FIRST -> filteredTransactions.sortedWith(
-                    compareByDescending<WalletTransaction> { it.confirmations == 0 }
                         .thenByDescending { it.timestamp ?: Long.MIN_VALUE }
                         .thenByDescending { it.id }
                 )
@@ -890,14 +887,38 @@ class WalletDetailViewModel @Inject constructor(
     }
 
     private fun computeTransactionFilterCounts(transactions: List<WalletTransaction>): TransactionFilterCounts {
-        val labeled = transactions.count { !it.label.isNullOrBlank() }
-        val received = transactions.count { it.type == TransactionType.RECEIVED }
-        val pending = transactions.count { it.confirmations == 0 }
+        var labeled = 0
+        var received = 0
+        var receivedAmount = 0L
+        var sent = 0
+        var sentAmount = 0L
+        var pending = 0
+        transactions.forEach { transaction ->
+            if (!transaction.label.isNullOrBlank()) {
+                labeled++
+            }
+            if (transaction.confirmations == 0) {
+                pending++
+            }
+            when (transaction.type) {
+                TransactionType.RECEIVED -> {
+                    received++
+                    receivedAmount += transaction.amountSats.absoluteValue
+                }
+                TransactionType.SENT -> {
+                    sent++
+                    sentAmount += transaction.amountSats.absoluteValue
+                }
+            }
+        }
+        val unlabeled = transactions.size - labeled
         return TransactionFilterCounts(
             labeled = labeled,
-            unlabeled = transactions.size - labeled,
+            unlabeled = unlabeled,
             received = received,
-            sent = transactions.size - received,
+            receivedAmountSats = receivedAmount,
+            sent = sent,
+            sentAmountSats = sentAmount,
             pending = pending
         )
     }
@@ -1084,7 +1105,9 @@ data class TransactionFilterCounts(
     val labeled: Int = 0,
     val unlabeled: Int = 0,
     val received: Int = 0,
+    val receivedAmountSats: Long = 0L,
     val sent: Int = 0,
+    val sentAmountSats: Long = 0L,
     val pending: Int = 0
 )
 

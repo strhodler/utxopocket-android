@@ -194,10 +194,8 @@ interface WalletDao {
             (:showUnlabeled = 1 AND (wallet_transactions.label IS NULL OR TRIM(wallet_transactions.label) = ''))
         )
         ORDER BY
-            CASE WHEN :sort = 'NEWEST_FIRST' THEN (wallet_transactions.confirmations = 0) END ASC,
+            CASE WHEN :sort = 'NEWEST_FIRST' THEN (wallet_transactions.confirmations = 0) END DESC,
             CASE WHEN :sort = 'NEWEST_FIRST' THEN wallet_transactions.timestamp END DESC,
-            CASE WHEN :sort = 'PENDING_FIRST' THEN (wallet_transactions.confirmations = 0) END DESC,
-            CASE WHEN :sort = 'PENDING_FIRST' THEN wallet_transactions.timestamp END DESC,
             CASE WHEN :sort = 'OLDEST_FIRST' THEN (wallet_transactions.confirmations = 0) END ASC,
             CASE WHEN :sort = 'OLDEST_FIRST' THEN wallet_transactions.timestamp END ASC,
             CASE WHEN :sort = 'HIGHEST_AMOUNT' THEN ABS(wallet_transactions.amount_sats) END DESC,

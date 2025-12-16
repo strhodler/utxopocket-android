@@ -177,7 +177,7 @@ class WalletDaoTest {
     }
 
     @Test
-    fun pagingTransactions_pendingFirstOrdersPendingBeforeConfirmed() = runTest {
+    fun pagingTransactions_newestFirstOrdersPendingBeforeConfirmed() = runTest {
         val walletId = 4L
         insertWallet(walletId)
         walletDao.upsertTransactions(
@@ -203,7 +203,7 @@ class WalletDaoTest {
 
         val pagingSource = walletDao.pagingTransactions(
             walletId = walletId,
-            sort = "PENDING_FIRST",
+            sort = "NEWEST_FIRST",
             showLabeled = true,
             showUnlabeled = true,
             showReceived = true,

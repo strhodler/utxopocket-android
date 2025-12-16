@@ -178,7 +178,6 @@
     <string name="wallet_detail_transactions_sort_oldest_first">Más antiguas primero</string>
     <string name="wallet_detail_transactions_sort_highest_amount">Monto mayor</string>
     <string name="wallet_detail_transactions_sort_lowest_amount">Monto menor</string>
-    <string name="wallet_detail_transactions_sort_pending_first">Pendientes primero</string>
     <string name="wallet_detail_utxos_sort_label">Orden de UTXOs</string>
     <string name="wallet_detail_utxos_filter_label">Filtro</string>
     <string name="wallet_detail_utxos_filter_expand_content_description">Mostrar opciones de filtro</string>
