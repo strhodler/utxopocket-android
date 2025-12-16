@@ -2509,10 +2509,10 @@ class DefaultWalletRepository @Inject constructor(
             val network = BitcoinNetwork.valueOf(entity.network)
             removeFromSyncQueue(id, network)
             cancelSyncIfActive(id, network)
-            resetNetworkQueue(network)
+            val drainedQueue = drainNetworkQueue(network)
             runCatching { walletFactory.removeStorage(id, network) }
             removeWalletFromDatabase(id)
-            reenqueueExistingWallets(network)
+            reenqueueDrainedWallets(network, drainedQueue, id)
         } finally {
             clearWalletDeletionPending(id)
         }
@@ -2650,12 +2650,23 @@ class DefaultWalletRepository @Inject constructor(
         jobToCancel?.join()
     }
 
-    private suspend fun resetNetworkQueue(network: BitcoinNetwork) {
+    private suspend fun drainNetworkQueue(network: BitcoinNetwork): List<SyncQueueEntry> {
+        val drainedEntries = mutableListOf<SyncQueueEntry>()
         syncQueueMutex.withLock {
-            pendingWalletQueues.remove(network)
-            activeWalletByNetwork.remove(network)
+            val queue = pendingWalletQueues.remove(network)
+            val activeId = activeWalletByNetwork.remove(network)
             runningSyncJobs[network]?.cancel()
             runningSyncJobs.remove(network)
+            if (activeId != null) {
+                val operation = pendingWalletOperations[activeId] ?: SyncOperation.Refresh
+                drainedEntries.add(SyncQueueEntry(activeId, operation))
+                pendingWalletOperations.remove(activeId)
+            }
+            queue?.forEach { walletId ->
+                val operation = pendingWalletOperations[walletId] ?: SyncOperation.Refresh
+                drainedEntries.add(SyncQueueEntry(walletId, operation))
+                pendingWalletOperations.remove(walletId)
+            }
             updateSyncStatusLocked(
                 network = network,
                 activeWalletId = null,
@@ -2663,15 +2674,58 @@ class DefaultWalletRepository @Inject constructor(
                 isRunning = false
             )
         }
+        return drainedEntries
     }
 
-    private suspend fun reenqueueExistingWallets(network: BitcoinNetwork) {
-        val remaining = walletDao.getWalletsSnapshot(network.name).map { it.id }
-        if (remaining.isEmpty()) {
-            return
+    private suspend fun reenqueueDrainedWallets(
+        network: BitcoinNetwork,
+        drainedEntries: List<SyncQueueEntry>,
+        deletedWalletId: Long
+    ) {
+        if (drainedEntries.isEmpty()) return
+        val remainingIds = walletDao.getWalletsSnapshot(network.name).map { it.id }.toSet()
+        val chunks = prepareReenqueueChunks(drainedEntries, deletedWalletId, remainingIds)
+        chunks.forEach { chunk ->
+            enqueueWalletsForSync(network, chunk.walletIds, chunk.operation)
         }
-        enqueueWalletsForSync(network, remaining)
     }
+
+    @VisibleForTesting
+    internal fun prepareReenqueueChunks(
+        drainedEntries: List<SyncQueueEntry>,
+        deletedWalletId: Long,
+        remainingWalletIds: Set<Long>
+    ): List<ReenqueueChunk> {
+        if (drainedEntries.isEmpty()) return emptyList()
+        val filtered = drainedEntries.filter { entry ->
+            entry.walletId != deletedWalletId && remainingWalletIds.contains(entry.walletId)
+        }
+        if (filtered.isEmpty()) return emptyList()
+        val chunks = mutableListOf<ReenqueueChunk>()
+        var currentOperation: SyncOperation? = null
+        val currentChunk = mutableListOf<Long>()
+        fun flushChunk() {
+            if (currentOperation != null && currentChunk.isNotEmpty()) {
+                chunks.add(ReenqueueChunk(currentOperation!!, currentChunk.toList()))
+                currentChunk.clear()
+            }
+        }
+        filtered.forEach { entry ->
+            if (currentOperation == null || currentOperation != entry.operation) {
+                flushChunk()
+                currentOperation = entry.operation
+            }
+            currentChunk.add(entry.walletId)
+        }
+        flushChunk()
+        return chunks
+    }
+
+    @VisibleForTesting
+    internal data class ReenqueueChunk(
+        val operation: SyncOperation,
+        val walletIds: List<Long>
+    )
 
     override suspend fun revealNextAddress(
         walletId: Long,
