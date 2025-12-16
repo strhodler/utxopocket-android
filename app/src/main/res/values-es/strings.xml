@@ -338,6 +338,7 @@
     <string name="transaction_detail_label_edit_title">Editar etiqueta</string>
     <string name="transaction_detail_label_field_label">Etiqueta de transacción</string>
     <string name="transaction_detail_label_placeholder">Describe el flujo (salario, intercambio P2P, pago…)</string>
+    <string name="transaction_detail_label_empty">Sin etiqueta</string>
     <string name="transaction_detail_label_support">Caracteres restantes: %1$d</string>
     <string name="transaction_detail_label_hint">Las etiquetas mantienen el contexto y se sincronizan mediante BIP-329.</string>
     <string name="transaction_detail_label_add_action">Añadir etiqueta</string>

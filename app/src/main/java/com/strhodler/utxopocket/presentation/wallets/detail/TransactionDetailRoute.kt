@@ -81,6 +81,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextField
 import com.strhodler.utxopocket.presentation.common.ContentSection
 import com.strhodler.utxopocket.presentation.common.ListSection
+import com.strhodler.utxopocket.presentation.common.SectionCard
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
@@ -150,8 +151,7 @@ private data class LabelDialogStrings(
     @param:StringRes val editTitleRes: Int,
     @param:StringRes val fieldLabelRes: Int,
     @param:StringRes val placeholderRes: Int,
-    @param:StringRes val supportTextRes: Int,
-    @param:StringRes val hintRes: Int
+    @param:StringRes val supportTextRes: Int
 )
 
 private val UTXO_LABEL_DIALOG_STRINGS = LabelDialogStrings(
@@ -159,8 +159,7 @@ private val UTXO_LABEL_DIALOG_STRINGS = LabelDialogStrings(
     editTitleRes = R.string.utxo_detail_label_edit_title,
     fieldLabelRes = R.string.utxo_detail_label_field_label,
     placeholderRes = R.string.utxo_detail_label_placeholder_short,
-    supportTextRes = R.string.utxo_detail_label_support,
-    hintRes = R.string.utxo_detail_label_hint
+    supportTextRes = R.string.utxo_detail_label_support
 )
 
 private val TRANSACTION_LABEL_DIALOG_STRINGS = LabelDialogStrings(
@@ -168,8 +167,7 @@ private val TRANSACTION_LABEL_DIALOG_STRINGS = LabelDialogStrings(
     editTitleRes = R.string.transaction_detail_label_edit_title,
     fieldLabelRes = R.string.transaction_detail_label_field_label,
     placeholderRes = R.string.transaction_detail_label_placeholder,
-    supportTextRes = R.string.transaction_detail_label_support,
-    hintRes = R.string.transaction_detail_label_hint
+    supportTextRes = R.string.transaction_detail_label_support
 )
 
 @Composable
@@ -798,8 +796,9 @@ private fun LabelEditDialog(
                     },
                     label = { Text(text = stringResource(id = strings.fieldLabelRes)) },
                     placeholder = { Text(text = stringResource(id = strings.placeholderRes)) },
-                    singleLine = true,
-                    maxLines = 1,
+                    singleLine = false,
+                    minLines = 2,
+                    maxLines = 4,
                     keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(
                         onDone = { onConfirm(value.ifBlank { null }) }
@@ -813,11 +812,6 @@ private fun LabelEditDialog(
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
-                )
-                Text(
-                    text = stringResource(id = strings.hintRes),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
@@ -918,8 +912,6 @@ private fun TransactionDetailContent(
         TransactionDetailHeader(
             broadcastInfo = broadcastInfoText,
             amountText = amountText,
-            label = transaction.label,
-            onEditLabel = { onEditTransactionLabel(transaction.label) },
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             onOpenVisualizer = visualizerAction,
             onOpenExplorer = openExplorerOrSettings,
@@ -935,6 +927,14 @@ private fun TransactionDetailContent(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            LabelSectionCard(
+                title = stringResource(id = R.string.utxo_detail_label),
+                label = transaction.label,
+                placeholder = stringResource(id = R.string.transaction_detail_label_empty),
+                addLabelRes = R.string.transaction_detail_label_add_action,
+                editLabelRes = R.string.transaction_detail_label_edit_action,
+                onEditLabel = { onEditTransactionLabel(transaction.label) }
+            )
             val feeLabel = transaction.feeSats?.let { sats ->
                 "${balanceValue(sats, BalanceUnit.SATS)} sats"
             } ?: stringResource(id = R.string.transaction_detail_unknown)
@@ -1456,8 +1456,6 @@ private fun TransactionDetailContent(
 private fun TransactionDetailHeader(
     broadcastInfo: String,
     amountText: String,
-    label: String?,
-    onEditLabel: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     onOpenVisualizer: (() -> Unit)?,
     onOpenExplorer: () -> Unit,
@@ -1500,18 +1498,6 @@ private fun TransactionDetailHeader(
                     onClick = onCycleBalanceDisplay
                 )
             )
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                LabelChip(
-                    label = label,
-                    addLabelRes = R.string.transaction_detail_label_add_action,
-                    editLabelRes = R.string.transaction_detail_label_edit_action,
-                    onClick = onEditLabel
-                )
-            }
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
@@ -1584,13 +1570,13 @@ private fun UtxoDetailContent(
     val utxo = requireNotNull(state.utxo)
     val displayLabel = utxo.displayLabel
     val isInheritedLabel = utxo.label.isNullOrBlank() && !utxo.transactionLabel.isNullOrBlank()
+    val inheritedLabelMessage = stringResource(id = R.string.utxo_detail_label_inherited).takeIf { isInheritedLabel }
     val copyMessage = stringResource(id = R.string.utxo_detail_copy_toast)
     val copyToClipboard = rememberCopyToClipboard(
         successMessage = copyMessage,
         onShowMessage = { message -> onShowMessage(message, SnackbarDuration.Short) }
     )
     val fullOutpoint = remember(utxo.txid, utxo.vout) { "${utxo.txid}:${utxo.vout}" }
-    val displayOutpoint = remember(utxo.txid, utxo.vout) { formatOutPoint(utxo.txid, utxo.vout) }
     val confirmationsLabel = if (utxo.confirmations <= 0) {
         stringResource(id = R.string.transaction_detail_pending_confirmation)
     } else {
@@ -1629,9 +1615,6 @@ private fun UtxoDetailContent(
             unit = state.balanceUnit,
             balancesHidden = state.balancesHidden,
             isChange = utxo.addressType == WalletAddressType.CHANGE,
-            label = displayLabel,
-            isInherited = isInheritedLabel,
-            onEditLabel = { onEditLabel(displayLabel) },
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             modifier = Modifier
                 .fillMaxWidth()
@@ -1644,6 +1627,15 @@ private fun UtxoDetailContent(
                 .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            LabelSectionCard(
+                title = stringResource(id = R.string.utxo_detail_label),
+                label = displayLabel,
+                placeholder = stringResource(id = R.string.utxo_detail_label_placeholder),
+                addLabelRes = R.string.utxo_detail_label_add_action,
+                editLabelRes = R.string.utxo_detail_label_edit_action,
+                supportingMessage = inheritedLabelMessage,
+                onEditLabel = { onEditLabel(displayLabel) }
+            )
             SpendableToggleCard(
                 spendable = utxo.spendable,
                 updating = spendableUpdating,
@@ -1849,9 +1841,6 @@ private fun UtxoDetailHeader(
     unit: BalanceUnit,
     balancesHidden: Boolean,
     isChange: Boolean,
-    label: String?,
-    isInherited: Boolean,
-    onEditLabel: () -> Unit,
     onCycleBalanceDisplay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1904,20 +1893,6 @@ private fun UtxoDetailHeader(
                     onClick = onCycleBalanceDisplay
                 )
             )
-            LabelChip(
-                label = label,
-                addLabelRes = R.string.utxo_detail_label_add_action,
-                editLabelRes = R.string.utxo_detail_label_edit_action,
-                onClick = onEditLabel
-            )
-            if (isInherited) {
-                Text(
-                    text = stringResource(id = R.string.utxo_detail_label_inherited),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = secondaryContentColor,
-                    textAlign = TextAlign.Center
-                )
-            }
         }
     }
 }
@@ -1988,16 +1963,85 @@ private fun SpendableToggleCard(
             }
 
 @Composable
-private fun LabelChip(
+private fun LabelSectionCard(
+    title: String,
     label: String?,
+    placeholder: String,
+    @StringRes addLabelRes: Int,
+    @StringRes editLabelRes: Int,
+    onEditLabel: () -> Unit,
+    supportingMessage: String? = null,
+    modifier: Modifier = Modifier
+) {
+    val hasLabel = !label.isNullOrBlank()
+    SectionCard(
+        contentPadding = PaddingValues(vertical = 8.dp),
+        spacedContent = false,
+        divider = false,
+        modifier = modifier
+    ) {
+        item {
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                supportingContent = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val labelText = label?.takeIf { hasLabel } ?: placeholder
+                        SelectionContainer {
+                            Text(
+                                text = labelText,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (hasLabel) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                maxLines = Int.MAX_VALUE,
+                                overflow = TextOverflow.Visible,
+                                softWrap = true
+                            )
+                        }
+                        supportingMessage?.let { message ->
+                            Text(
+                                text = message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
+                trailingContent = {
+                    LabelActionButton(
+                        hasLabel = hasLabel,
+                        addLabelRes = addLabelRes,
+                        editLabelRes = editLabelRes,
+                        onClick = onEditLabel
+                    )
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun LabelActionButton(
+    hasLabel: Boolean,
     @StringRes addLabelRes: Int,
     @StringRes editLabelRes: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val hasLabel = !label.isNullOrBlank()
-    val actionLabel = label?.takeIf { hasLabel } ?: stringResource(id = addLabelRes)
     val icon = if (hasLabel) Icons.Outlined.Edit else Icons.Outlined.Add
+    val actionLabel = stringResource(id = if (hasLabel) editLabelRes else addLabelRes)
     TextButton(
         onClick = onClick,
         contentPadding = ButtonDefaults.TextButtonWithIconContentPadding,
@@ -2005,15 +2049,13 @@ private fun LabelChip(
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = stringResource(id = if (hasLabel) editLabelRes else addLabelRes),
+            contentDescription = actionLabel,
             modifier = Modifier.size(18.dp)
         )
         Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
         Text(
             text = actionLabel,
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            style = MaterialTheme.typography.bodySmall
         )
     }
 }
