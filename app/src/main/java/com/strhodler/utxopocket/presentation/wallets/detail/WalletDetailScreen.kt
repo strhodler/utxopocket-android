@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -1585,7 +1586,7 @@ private fun TransactionDetailedCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.wrapContentWidth(Alignment.Start),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
@@ -1594,10 +1595,15 @@ private fun TransactionDetailedCard(
                     )
                 }
                 Column(
+                    modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    LabelOrPlaceholder(transaction.label, textAlign = TextAlign.End)
+                    LabelOrPlaceholder(
+                        label = transaction.label,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.End
+                    )
                     Text(
                         text = confirmationText,
                         style = MaterialTheme.typography.labelMedium,
@@ -1716,7 +1722,7 @@ private fun UtxoDetailedCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.wrapContentWidth(Alignment.Start),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Column(
@@ -1732,10 +1738,15 @@ private fun UtxoDetailedCard(
                     }
                 }
                 Column(
+                    modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    LabelOrPlaceholder(utxo.displayLabel, textAlign = TextAlign.End)
+                    LabelOrPlaceholder(
+                        label = utxo.displayLabel,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.End
+                    )
                     Text(
                         text = confirmationText,
                         style = MaterialTheme.typography.labelMedium,
