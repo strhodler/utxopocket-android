@@ -1,6 +1,5 @@
 package com.strhodler.utxopocket.presentation.wallets
 
-import android.os.SystemClock
 import android.text.format.DateUtils
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -575,7 +574,10 @@ private fun WalletCard(
     val isNodeSynced = nodeStatus is NodeStatus.Synced
     val runningOperation = (syncState as? WalletSyncState.Running)?.operation
     val queuedOperation = (syncState as? WalletSyncState.Queued)?.operation
-    val syncingElapsed = rememberSyncElapsed(isSyncing && isNodeSynced)
+    val syncingElapsed = rememberSyncElapsed(
+        syncStartedAt = wallet.syncStartedAt,
+        isSyncing = isSyncing && isNodeSynced
+    )
     val statusLabel = when {
         nodeStatus is NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
         runningOperation == SyncOperation.FullRescan -> {
@@ -1017,28 +1019,26 @@ private fun nodeStatusLabel(status: NodeStatus, isSyncing: Boolean): String {
 }
 
 @Composable
-private fun rememberSyncElapsed(isSyncing: Boolean): String? {
-    var startElapsed by remember { mutableStateOf<Long?>(null) }
-    var elapsedSeconds by remember { mutableStateOf(0L) }
+private fun rememberSyncElapsed(syncStartedAt: Long?, isSyncing: Boolean): String? {
+    if (!isSyncing || syncStartedAt == null) return null
 
-    LaunchedEffect(isSyncing) {
-        if (isSyncing) {
-            if (startElapsed == null) {
-                startElapsed = SystemClock.elapsedRealtime()
-                elapsedSeconds = 0
-            }
-            while (isActive) {
-                val start = startElapsed ?: SystemClock.elapsedRealtime().also { startElapsed = it }
-                val now = SystemClock.elapsedRealtime()
-                elapsedSeconds = ((now - start) / 1000).coerceAtLeast(0)
-                delay(1000)
-            }
-        } else {
-            startElapsed = null
+    var elapsedSeconds by remember(syncStartedAt) {
+        mutableStateOf(
+            ((System.currentTimeMillis() - syncStartedAt) / 1000).coerceAtLeast(0)
+        )
+    }
+
+    LaunchedEffect(syncStartedAt, isSyncing) {
+        if (!isSyncing) {
             elapsedSeconds = 0
+            return@LaunchedEffect
+        }
+        while (isActive) {
+            val now = System.currentTimeMillis()
+            elapsedSeconds = ((now - syncStartedAt) / 1000).coerceAtLeast(0)
+            delay(1000)
         }
     }
 
-    if (!isSyncing) return null
     return DateUtils.formatElapsedTime(elapsedSeconds)
 }

@@ -100,6 +100,7 @@ data class WalletSummary(
     val network: BitcoinNetwork,
     val lastSyncStatus: NodeStatus,
     val lastSyncTime: Long?,
+    val syncStartedAt: Long? = null,
     val color: WalletColor = WalletColor.DEFAULT,
     val descriptorType: DescriptorType = DescriptorType.OTHER,
     val requiresFullScan: Boolean = false,

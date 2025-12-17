@@ -59,6 +59,7 @@ fun WalletEntity.toDomain(utxoCount: Int? = null): WalletSummary =
         network = BitcoinNetwork.valueOf(network),
         lastSyncStatus = lastSyncStatus.toNodeStatus(lastSyncError),
         lastSyncTime = lastSyncTime,
+        syncStartedAt = syncStartedAt,
         color = WalletColor.fromStorageKey(color),
         descriptorType = DescriptorType.fromDescriptorString(descriptor),
         requiresFullScan = requiresFullScan,
