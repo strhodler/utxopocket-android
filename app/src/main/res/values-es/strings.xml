@@ -879,7 +879,12 @@
     <string name="wallet_detail_import_error">Error al importar las etiquetas</string>
     <string name="wallet_detail_import_file_error">No se pudo leer el archivo seleccionado</string>
     <string name="wallet_detail_import_no_transactions">Importa etiquetas cuando esta billetera tenga al menos una transacción</string>
-    <string name="wallet_detail_import_summary">Tx: %1$d · Salidas: %2$d · Gastable: %3$d · Omitidas: %4$d · Inválidas: %5$d</string>
+    <string name="wallet_detail_import_summary">Tx: %1$d · Salidas: %2$d · Gastable: %3$d · En cola: %4$d · Omitidas: %5$d · Inválidas: %6$d</string>
+    <string name="wallet_labels_import_mode_header">Al importar etiquetas</string>
+    <string name="wallet_labels_import_mode_complement_title">Complementar etiquetas vacías</string>
+    <string name="wallet_labels_import_mode_complement_help">Mantiene las etiquetas actuales y solo completa los campos vacíos con el archivo o QR.</string>
+    <string name="wallet_labels_import_mode_overwrite_title">Reemplazar etiquetas existentes</string>
+    <string name="wallet_labels_import_mode_overwrite_help">Usa las etiquetas del archivo incluso si ya existe una etiqueta en la app.</string>
     <string name="wallet_detail_rename_title">Renombrar billetera</string>
     <string name="wallet_detail_rename_field_label">Nombre de la billetera</string>
     <string name="wallet_detail_rename_placeholder">Introduce un nombre nuevo</string>

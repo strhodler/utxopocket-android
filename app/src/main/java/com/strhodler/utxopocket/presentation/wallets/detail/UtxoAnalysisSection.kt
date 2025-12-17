@@ -208,7 +208,7 @@ private fun UtxoAgeDistributionCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                userScrollEnabled = false
+                userScrollEnabled = true
             ) { pageIndex ->
                 val pageScroll = rememberScrollState()
                 when (tabs[pageIndex]) {

@@ -361,11 +361,26 @@ suspend fun findUtxosByAddress(walletId: Long, address: String): List<UtxoRefPro
     WHERE wallet_id = :walletId AND keychain = :keychain AND derivation_index = :derivationIndex
     """
 )
-suspend fun findUtxosByDerivation(
-    walletId: Long,
-    keychain: String,
-    derivationIndex: Int
-): List<UtxoRefProjection>
+    suspend fun findUtxosByDerivation(
+        walletId: Long,
+        keychain: String,
+        derivationIndex: Int
+    ): List<UtxoRefProjection>
+
+    @Query("SELECT * FROM wallet_label_pending WHERE wallet_id = :walletId")
+    suspend fun getPendingLabels(walletId: Long): List<PendingBip329LabelEntity>
+
+    @Upsert
+    suspend fun upsertPendingLabels(labels: List<PendingBip329LabelEntity>)
+
+    @Delete
+    suspend fun deletePendingLabels(labels: List<PendingBip329LabelEntity>)
+
+    @Query("DELETE FROM wallet_label_pending WHERE wallet_id = :walletId")
+    suspend fun clearPendingLabels(walletId: Long)
+
+    @Query("DELETE FROM wallet_label_pending")
+    suspend fun clearAllPendingLabels()
 
     @Query(
         """

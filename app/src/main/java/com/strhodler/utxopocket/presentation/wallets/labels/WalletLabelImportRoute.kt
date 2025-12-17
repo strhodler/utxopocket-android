@@ -8,21 +8,25 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.QrCodeScanner
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -35,6 +39,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -60,6 +65,86 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private enum class LabelImportMode {
+    Complement,
+    Overwrite
+}
+
+@Composable
+private fun LabelImportModeOption(
+    title: String,
+    description: String,
+    selected: Boolean,
+    onSelected: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectable(
+                selected = selected,
+                onClick = onSelected
+            )
+            .padding(horizontal = 4.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(selected = selected, onClick = onSelected)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 52.dp)
+        )
+    }
+}
+
+private fun importPayload(
+    payload: ByteArray,
+    viewModel: WalletLabelsViewModel,
+    overwriteExisting: Boolean,
+    snackbarHostState: SnackbarHostState,
+    coroutineScope: kotlinx.coroutines.CoroutineScope,
+    context: android.content.Context,
+    onComplete: () -> Unit
+) {
+    viewModel.importLabels(payload = payload, overwriteExisting = overwriteExisting) { result ->
+        onComplete()
+        result.onSuccess { stats ->
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    message = context.getString(
+                        R.string.wallet_detail_import_summary,
+                        stats.transactionLabelsApplied,
+                        stats.utxoLabelsApplied,
+                        stats.utxoSpendableUpdates,
+                        stats.queued,
+                        stats.skipped,
+                        stats.invalid
+                    ),
+                    duration = SnackbarDuration.Long,
+                    withDismissAction = true
+                )
+            }
+        }
+        result.onFailure {
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    message = context.getString(R.string.wallet_detail_import_error),
+                    duration = SnackbarDuration.Long,
+                    withDismissAction = true
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun WalletLabelImportRoute(
     onBack: () -> Unit,
@@ -75,6 +160,7 @@ fun WalletLabelImportRoute(
     var scanProgress by remember { mutableStateOf<Double?>(null) }
     var scanError by remember { mutableStateOf<String?>(null) }
     var awaitingNextPart by remember { mutableStateOf(false) }
+    var importMode by rememberSaveable { mutableStateOf(LabelImportMode.Complement) }
 
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         val contents = result.contents
@@ -102,7 +188,14 @@ fun WalletLabelImportRoute(
                                 decoder = URDecoder()
                                 return@rememberLauncherForActivityResult
                             }
-                        importPayload(payload, viewModel, snackbarHostState, coroutineScope, context) {
+                        importPayload(
+                            payload = payload,
+                            viewModel = viewModel,
+                            overwriteExisting = importMode == LabelImportMode.Overwrite,
+                            snackbarHostState = snackbarHostState,
+                            coroutineScope = coroutineScope,
+                            context = context
+                        ) {
                             decoder = URDecoder()
                             scanProgress = null
                             awaitingNextPart = false
@@ -119,7 +212,14 @@ fun WalletLabelImportRoute(
             }
         } else {
             val payload = contents.toByteArray(Charsets.UTF_8)
-            importPayload(payload, viewModel, snackbarHostState, coroutineScope, context) {
+            importPayload(
+                payload = payload,
+                viewModel = viewModel,
+                overwriteExisting = importMode == LabelImportMode.Overwrite,
+                snackbarHostState = snackbarHostState,
+                coroutineScope = coroutineScope,
+                context = context
+            ) {
                 decoder = URDecoder()
                 scanProgress = null
                 awaitingNextPart = false
@@ -185,7 +285,14 @@ fun WalletLabelImportRoute(
                     withDismissAction = true
                 )
             } else {
-                importPayload(payload, viewModel, snackbarHostState, coroutineScope, context) {}
+                importPayload(
+                    payload = payload,
+                    viewModel = viewModel,
+                    overwriteExisting = importMode == LabelImportMode.Overwrite,
+                    snackbarHostState = snackbarHostState,
+                    coroutineScope = coroutineScope,
+                    context = context
+                ) {}
             }
         }
     }
@@ -224,71 +331,94 @@ fun WalletLabelImportRoute(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                    .aspectRatio(1f),
-                shape = RoundedCornerShape(20.dp),
-                tonalElevation = 2.dp,
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = !importState.inProgress) { startScan() },
-                    contentAlignment = Alignment.Center
+                        .aspectRatio(1f),
+                    shape = RoundedCornerShape(20.dp),
+                    tonalElevation = 2.dp,
+                    color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = !importState.inProgress) { startScan() },
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.QrCodeScanner,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(64.dp)
-                        )
-                        Text(
-                            text = stringResource(id = R.string.wallet_labels_import_scan_hint),
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center
-                        )
-                        if (scanProgress != null) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.QrCodeScanner,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(64.dp)
+                            )
                             Text(
-                                text = stringResource(
-                                    id = R.string.wallet_labels_import_scan_progress,
-                                    (scanProgress!! * 100).toInt().coerceAtMost(100)
-                                ),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
+                                text = stringResource(id = R.string.wallet_labels_import_scan_hint),
+                                style = MaterialTheme.typography.bodyMedium,
                                 textAlign = TextAlign.Center
                             )
-                        }
-                        if (awaitingNextPart) {
-                            Text(
-                                text = stringResource(id = R.string.wallet_labels_import_scan_next),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                        scanError?.let { error ->
-                            Text(
-                                text = error,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                textAlign = TextAlign.Center
-                            )
+                            if (scanProgress != null) {
+                                Text(
+                                    text = stringResource(
+                                        id = R.string.wallet_labels_import_scan_progress,
+                                        (scanProgress!! * 100).toInt().coerceAtMost(100)
+                                    ),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                            if (awaitingNextPart) {
+                                Text(
+                                    text = stringResource(id = R.string.wallet_labels_import_scan_next),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                            scanError?.let { error ->
+                                Text(
+                                    text = error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
                     }
                 }
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(id = R.string.wallet_labels_import_mode_header),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    LabelImportModeOption(
+                        title = stringResource(id = R.string.wallet_labels_import_mode_complement_title),
+                        description = stringResource(id = R.string.wallet_labels_import_mode_complement_help),
+                        selected = importMode == LabelImportMode.Complement,
+                        onSelected = { importMode = LabelImportMode.Complement }
+                    )
+                    LabelImportModeOption(
+                        title = stringResource(id = R.string.wallet_labels_import_mode_overwrite_title),
+                        description = stringResource(id = R.string.wallet_labels_import_mode_overwrite_help),
+                        selected = importMode == LabelImportMode.Overwrite,
+                        onSelected = { importMode = LabelImportMode.Overwrite }
+                    )
+                }
             }
 
-            }
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 12.dp)
-                    .navigationBarsPadding(),
+                    .navigationBarsPadding()
+                    .imePadding(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 TextButton(
@@ -317,44 +447,6 @@ fun WalletLabelImportRoute(
                         modifier = Modifier.padding(start = 8.dp)
                     )
                 }
-            }
-        }
-    }
-}
-
-private fun importPayload(
-    payload: ByteArray,
-    viewModel: WalletLabelsViewModel,
-    snackbarHostState: SnackbarHostState,
-    coroutineScope: kotlinx.coroutines.CoroutineScope,
-    context: android.content.Context,
-    onComplete: () -> Unit
-) {
-    viewModel.importLabels(payload) { result ->
-        onComplete()
-        result.onSuccess { stats ->
-            coroutineScope.launch {
-                snackbarHostState.showSnackbar(
-                    message = context.getString(
-                        R.string.wallet_detail_import_summary,
-                        stats.transactionLabelsApplied,
-                        stats.utxoLabelsApplied,
-                        stats.utxoSpendableUpdates,
-                        stats.skipped,
-                        stats.invalid
-                    ),
-                    duration = SnackbarDuration.Long,
-                    withDismissAction = true
-                )
-            }
-        }
-        result.onFailure {
-            coroutineScope.launch {
-                snackbarHostState.showSnackbar(
-                    message = context.getString(R.string.wallet_detail_import_error),
-                    duration = SnackbarDuration.Long,
-                    withDismissAction = true
-                )
             }
         }
     }

@@ -9,9 +9,10 @@ import androidx.room.RoomDatabase
         WalletTransactionEntity::class,
         WalletTransactionInputEntity::class,
         WalletTransactionOutputEntity::class,
-        WalletUtxoEntity::class
+        WalletUtxoEntity::class,
+        PendingBip329LabelEntity::class
     ],
-    version = 20,
+    version = 22,
     exportSchema = true
 )
 abstract class UtxoPocketDatabase : RoomDatabase() {

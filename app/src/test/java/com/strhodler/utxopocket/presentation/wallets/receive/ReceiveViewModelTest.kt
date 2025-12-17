@@ -317,7 +317,7 @@ private class FakeWalletRepository : WalletRepository {
     override suspend fun exportWalletLabels(walletId: Long) =
         throw UnsupportedOperationException()
 
-    override suspend fun importWalletLabels(walletId: Long, payload: ByteArray) =
+    override suspend fun importWalletLabels(walletId: Long, payload: ByteArray, overwriteExisting: Boolean) =
         throw UnsupportedOperationException()
 
     override fun setSyncForegroundState(isForeground: Boolean) = Unit

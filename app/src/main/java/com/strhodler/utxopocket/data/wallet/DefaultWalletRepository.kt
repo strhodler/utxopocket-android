@@ -29,6 +29,7 @@ import com.strhodler.utxopocket.data.db.WalletTransactionInputEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionOutputEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionWithRelations
 import com.strhodler.utxopocket.data.db.WalletUtxoEntity
+import com.strhodler.utxopocket.data.db.PendingBip329LabelEntity
 import com.strhodler.utxopocket.data.db.TransactionLabelProjection
 import com.strhodler.utxopocket.data.db.toDomain
 import com.strhodler.utxopocket.data.db.UtxoPocketDatabase
@@ -1611,6 +1612,7 @@ class DefaultWalletRepository @Inject constructor(
                                             outputs = capturedTransactions.outputs
                                         )
                                         walletDao.replaceUtxos(entity.id, utxoEntities)
+                                        applyPendingLabels(entity.id)
                                         val syncedEntity = entity.withSyncResult(
                                             balanceSats = balanceSats,
                                             txCount = capturedTransactions.transactions.size,
@@ -2086,10 +2088,262 @@ class DefaultWalletRepository @Inject constructor(
         val keyPath: String?
     )
 
+    private data class LabelApplicationResult(
+        val transactionLabelsApplied: Int = 0,
+        val utxoLabelsApplied: Int = 0,
+        val spendableUpdates: Int = 0,
+        val pending: PendingBip329LabelEntity? = null,
+        val invalid: Boolean = false,
+        val skipped: Boolean = false,
+        val needsRetry: Boolean = false
+    ) {
+        val applied: Boolean
+            get() = transactionLabelsApplied > 0 || utxoLabelsApplied > 0 || spendableUpdates > 0
+    }
+
+    private fun pendingLabelFor(
+        walletId: Long,
+        parsed: ParsedLabel,
+        sanitizedLabel: String?,
+        hasLabel: Boolean,
+        spendable: Boolean?,
+        hasSpendable: Boolean,
+        overwriteExisting: Boolean
+    ): PendingBip329LabelEntity =
+        PendingBip329LabelEntity(
+            walletId = walletId,
+            type = parsed.type,
+            ref = parsed.ref,
+            label = if (hasLabel) sanitizedLabel else null,
+            spendable = if (hasSpendable) spendable else null,
+            hasSpendable = hasSpendable,
+            keyPath = parsed.keyPath?.trim().orEmpty(),
+            overwriteExisting = overwriteExisting
+        )
+
+    private suspend fun applyParsedLabel(
+        walletId: Long,
+        parsed: ParsedLabel,
+        existingTransactions: MutableMap<String, WalletTransactionEntity>,
+        existingUtxos: MutableMap<Pair<String, Int>, WalletUtxoEntity>,
+        allowPending: Boolean,
+        overwriteExisting: Boolean
+    ): LabelApplicationResult {
+        return when (parsed.type) {
+            "tx" -> applyTransactionLabel(walletId, parsed, existingTransactions, allowPending, overwriteExisting)
+            "output" -> applyOutputLabel(walletId, parsed, existingTransactions, existingUtxos, allowPending, overwriteExisting)
+            "addr" -> applyAddressLabel(walletId, parsed, existingTransactions, existingUtxos, allowPending, overwriteExisting)
+            "input" -> LabelApplicationResult(skipped = true)
+            else -> LabelApplicationResult(skipped = true)
+        }
+    }
+
+    private suspend fun applyTransactionLabel(
+        walletId: Long,
+        parsed: ParsedLabel,
+        existingTransactions: MutableMap<String, WalletTransactionEntity>,
+        allowPending: Boolean,
+        overwriteExisting: Boolean
+    ): LabelApplicationResult {
+        if (!parsed.hasLabel) return LabelApplicationResult(skipped = true)
+        val sanitized = sanitizeLabel(parsed.label) ?: return LabelApplicationResult(skipped = true)
+        val entity = existingTransactions[parsed.ref]
+        if (entity == null) {
+            return if (allowPending) {
+                LabelApplicationResult(
+                    pending = pendingLabelFor(
+                        walletId = walletId,
+                        parsed = parsed,
+                        sanitizedLabel = sanitized,
+                        hasLabel = true,
+                        spendable = null,
+                        hasSpendable = false,
+                        overwriteExisting = overwriteExisting
+                    )
+                )
+            } else {
+                LabelApplicationResult(needsRetry = true)
+            }
+        }
+        if (!overwriteExisting && !entity.label.isNullOrBlank()) {
+            return LabelApplicationResult(skipped = true)
+        }
+        walletDao.updateTransactionLabel(walletId, parsed.ref, sanitized)
+        walletDao.inheritTransactionLabel(walletId, parsed.ref, sanitized)
+        existingTransactions[parsed.ref] = entity.copy(label = sanitized)
+        return LabelApplicationResult(transactionLabelsApplied = 1)
+    }
+
+    private suspend fun applyOutputLabel(
+        walletId: Long,
+        parsed: ParsedLabel,
+        existingTransactions: MutableMap<String, WalletTransactionEntity>,
+        existingUtxos: MutableMap<Pair<String, Int>, WalletUtxoEntity>,
+        allowPending: Boolean,
+        overwriteExisting: Boolean
+    ): LabelApplicationResult {
+        val sanitized = if (parsed.hasLabel) sanitizeLabel(parsed.label) else null
+        val hasLabel = sanitized != null
+        val hasSpendable = parsed.hasSpendable
+        if (!hasLabel && !hasSpendable) {
+            return LabelApplicationResult(skipped = true)
+        }
+        val outPoint = parseOutPoint(parsed.ref) ?: return LabelApplicationResult(invalid = true)
+        val utxo = existingUtxos[outPoint]
+        if (utxo == null) {
+            return if (allowPending) {
+                LabelApplicationResult(
+                    pending = pendingLabelFor(
+                        walletId = walletId,
+                        parsed = parsed,
+                        sanitizedLabel = sanitized,
+                        hasLabel = hasLabel,
+                        spendable = parsed.spendable,
+                        hasSpendable = hasSpendable,
+                        overwriteExisting = overwriteExisting
+                    )
+                )
+            } else {
+                LabelApplicationResult(needsRetry = true)
+            }
+        }
+        var updated = utxo
+        var labelUpdates = 0
+        var spendableUpdates = 0
+        if (hasLabel) {
+            val canUpdate = overwriteExisting || utxo.label.isNullOrBlank()
+            if (canUpdate) {
+                walletDao.updateUtxoLabel(walletId, outPoint.first, outPoint.second, sanitized)
+                updated = updated.copy(label = sanitized)
+                labelUpdates++
+            }
+        }
+        if (hasSpendable) {
+            walletDao.updateUtxoSpendable(walletId, outPoint.first, outPoint.second, parsed.spendable)
+            updated = updated.copy(spendable = parsed.spendable)
+            spendableUpdates++
+        }
+        existingUtxos[outPoint] = updated
+        return if (labelUpdates == 0 && spendableUpdates == 0) {
+            LabelApplicationResult(skipped = true)
+        } else {
+            LabelApplicationResult(
+                utxoLabelsApplied = labelUpdates,
+                spendableUpdates = spendableUpdates
+            )
+        }
+    }
+
+    private suspend fun applyAddressLabel(
+        walletId: Long,
+        parsed: ParsedLabel,
+        existingTransactions: MutableMap<String, WalletTransactionEntity>,
+        existingUtxos: MutableMap<Pair<String, Int>, WalletUtxoEntity>,
+        allowPending: Boolean,
+        overwriteExisting: Boolean
+    ): LabelApplicationResult {
+        if (!parsed.hasLabel) return LabelApplicationResult(skipped = true)
+        val sanitized = sanitizeLabel(parsed.label) ?: return LabelApplicationResult(skipped = true)
+        val byAddress = walletDao.findUtxosByAddress(walletId, parsed.ref)
+        val utxosForAddress = if (byAddress.isNotEmpty()) {
+            byAddress
+        } else {
+            findUtxosByKeyPath(walletId, parsed.keyPath)
+        }
+        if (utxosForAddress.isEmpty()) {
+            return if (allowPending) {
+                LabelApplicationResult(
+                    pending = pendingLabelFor(
+                        walletId = walletId,
+                        parsed = parsed,
+                        sanitizedLabel = sanitized,
+                        hasLabel = true,
+                        spendable = null,
+                        hasSpendable = false,
+                        overwriteExisting = overwriteExisting
+                    )
+                )
+            } else {
+                LabelApplicationResult(needsRetry = true)
+            }
+        }
+        val uniqueTxIds = mutableSetOf<String>()
+        var utxoUpdates = 0
+        utxosForAddress.forEach { ref ->
+            val key = ref.txid to ref.vout
+            val current = existingUtxos[key]
+            val canUpdate = overwriteExisting || current?.label.isNullOrBlank()
+            if (canUpdate) {
+                walletDao.updateUtxoLabel(walletId, ref.txid, ref.vout, sanitized)
+                if (current != null) {
+                    existingUtxos[key] = current.copy(label = sanitized)
+                }
+                utxoUpdates++
+                uniqueTxIds.add(ref.txid)
+            }
+        }
+        var txLabelUpdates = 0
+        uniqueTxIds.forEach { txid ->
+            val txEntity = existingTransactions[txid]
+            if (txEntity != null && txEntity.label.isNullOrBlank()) {
+                walletDao.updateTransactionLabel(walletId, txid, sanitized)
+                walletDao.inheritTransactionLabel(walletId, txid, sanitized)
+                existingTransactions[txid] = txEntity.copy(label = sanitized)
+                txLabelUpdates++
+            }
+        }
+        if (utxoUpdates == 0 && txLabelUpdates == 0) {
+            return LabelApplicationResult(skipped = true)
+        }
+        return LabelApplicationResult(
+            transactionLabelsApplied = txLabelUpdates,
+            utxoLabelsApplied = utxoUpdates
+        )
+    }
+
+    private suspend fun applyPendingLabels(walletId: Long) {
+        val pending = walletDao.getPendingLabels(walletId)
+        if (pending.isEmpty()) return
+        val transactions = walletDao.getTransactionsSnapshot(walletId)
+            .associateBy { it.txid }
+            .toMutableMap()
+        val utxos = walletDao.getUtxosSnapshot(walletId)
+            .associateBy { it.txid to it.vout }
+            .toMutableMap()
+        val toDelete = mutableListOf<PendingBip329LabelEntity>()
+        pending.forEach { entry ->
+            val parsed = ParsedLabel(
+                type = entry.type,
+                ref = entry.ref,
+                label = entry.label,
+                hasLabel = entry.label != null,
+                spendable = entry.spendable,
+                hasSpendable = entry.hasSpendable,
+                origin = null,
+                keyPath = entry.keyPath.ifBlank { null }
+            )
+            val result = applyParsedLabel(
+                walletId = walletId,
+                parsed = parsed,
+                existingTransactions = transactions,
+                existingUtxos = utxos,
+                allowPending = false,
+                overwriteExisting = entry.overwriteExisting
+            )
+            if (result.applied || result.invalid || (result.skipped && !result.needsRetry)) {
+                toDelete += entry
+            }
+        }
+        if (toDelete.isNotEmpty()) {
+            walletDao.deletePendingLabels(toDelete)
+        }
+    }
+
     private data class Bip329ImportAccumulator(
         var transactionLabels: Int = 0,
         var utxoLabels: Int = 0,
         var spendableUpdates: Int = 0,
+        var queued: Int = 0,
         var skipped: Int = 0,
         var invalid: Int = 0
     ) {
@@ -2097,6 +2351,7 @@ class DefaultWalletRepository @Inject constructor(
             transactionLabelsApplied = transactionLabels,
             utxoLabelsApplied = utxoLabels,
             utxoSpendableUpdates = spendableUpdates,
+            queued = queued,
             skipped = skipped,
             invalid = invalid
         )
@@ -2524,6 +2779,7 @@ class DefaultWalletRepository @Inject constructor(
             walletDao.clearTransactionInputs(walletId)
             walletDao.clearTransactions(walletId)
             walletDao.clearUtxos(walletId)
+            walletDao.clearPendingLabels(walletId)
             walletDao.deleteById(walletId)
         }
     }
@@ -2541,6 +2797,7 @@ class DefaultWalletRepository @Inject constructor(
         walletDao.clearAllTransactionInputs()
         walletDao.clearAllTransactions()
         walletDao.clearAllUtxos()
+        walletDao.clearAllPendingLabels()
         walletDao.deleteAllWallets()
         resetEncryptedDatabase()
         appPreferencesRepository.wipeAll()
@@ -2926,16 +3183,20 @@ class DefaultWalletRepository @Inject constructor(
 
     override suspend fun importWalletLabels(
         walletId: Long,
-        payload: ByteArray
+        payload: ByteArray,
+        overwriteExisting: Boolean
     ): Bip329ImportResult = withContext(ioDispatcher) {
         val entity = walletDao.findById(walletId)
             ?: throw IllegalArgumentException("Wallet not found: $walletId")
         val walletOrigin = descriptorOrigin(entity.descriptor)
         val existingTransactions = walletDao.getTransactionsSnapshot(walletId)
             .associateBy { it.txid }
+            .toMutableMap()
         val existingUtxos = walletDao.getUtxosSnapshot(walletId)
             .associateBy { it.txid to it.vout }
+            .toMutableMap()
         val accumulator = Bip329ImportAccumulator()
+        val pendingLabels = mutableListOf<PendingBip329LabelEntity>()
         payload.inputStream().bufferedReader(Charsets.UTF_8).use { reader ->
             for (rawLine in reader.lineSequence()) {
                 val line = rawLine.trim()
@@ -2948,92 +3209,34 @@ class DefaultWalletRepository @Inject constructor(
                     accumulator.skipped++
                     continue
                 }
-                when (parsed.type) {
-                    "tx" -> {
-                        if (!parsed.hasLabel) {
-                            continue
-                        }
-                        val sanitized = sanitizeLabel(parsed.label)
-                        if (sanitized == null) {
-                            continue
-                        }
-                        if (!existingTransactions.containsKey(parsed.ref)) {
-                            accumulator.skipped++
-                            continue
-                        }
-                        walletDao.updateTransactionLabel(walletId, parsed.ref, sanitized)
-                        walletDao.inheritTransactionLabel(walletId, parsed.ref, sanitized)
-                        accumulator.transactionLabels++
+                val result = applyParsedLabel(
+                    walletId = walletId,
+                    parsed = parsed,
+                    existingTransactions = existingTransactions,
+                    existingUtxos = existingUtxos,
+                    allowPending = true,
+                    overwriteExisting = overwriteExisting
+                )
+                when {
+                    result.invalid -> accumulator.invalid++
+                    result.applied -> {
+                        accumulator.transactionLabels += result.transactionLabelsApplied
+                        accumulator.utxoLabels += result.utxoLabelsApplied
+                        accumulator.spendableUpdates += result.spendableUpdates
                     }
-
-                    "output" -> {
-                        if (!parsed.hasLabel && !parsed.hasSpendable) {
-                            continue
-                        }
-                        val outPoint = parseOutPoint(parsed.ref) ?: run {
-                            accumulator.invalid++
-                            continue
-                        }
-                        if (!existingUtxos.containsKey(outPoint)) {
-                            accumulator.skipped++
-                            continue
-                        }
-                        if (parsed.hasLabel) {
-                            val sanitized = sanitizeLabel(parsed.label)
-                            walletDao.updateUtxoLabel(walletId, outPoint.first, outPoint.second, sanitized)
-                            accumulator.utxoLabels++
-                        }
-                        if (parsed.hasSpendable) {
-                            walletDao.updateUtxoSpendable(walletId, outPoint.first, outPoint.second, parsed.spendable)
-                            accumulator.spendableUpdates++
-                        }
+                    result.pending != null -> {
+                        pendingLabels += result.pending
+                        accumulator.queued++
                     }
-
-                    "addr" -> {
-                        if (!parsed.hasLabel) {
-                            continue
-                        }
-                        val sanitized = sanitizeLabel(parsed.label)
-                        if (sanitized == null) {
-                            continue
-                        }
-                        val byAddress = walletDao.findUtxosByAddress(walletId, parsed.ref)
-                        val utxosForAddress = if (byAddress.isNotEmpty()) {
-                            byAddress
-                        } else {
-                            findUtxosByKeyPath(walletId, parsed.keyPath)
-                        }
-                        if (utxosForAddress.isEmpty()) {
-                            accumulator.skipped++
-                            continue
-                        }
-                        val uniqueTxIds = mutableSetOf<String>()
-                        utxosForAddress.forEach { ref ->
-                            walletDao.updateUtxoLabel(walletId, ref.txid, ref.vout, sanitized)
-                            accumulator.utxoLabels++
-                            uniqueTxIds.add(ref.txid)
-                        }
-                        uniqueTxIds.forEach { txid ->
-                            val txEntity = existingTransactions[txid]
-                            if (txEntity != null && txEntity.label.isNullOrBlank()) {
-                                walletDao.updateTransactionLabel(walletId, txid, sanitized)
-                                walletDao.inheritTransactionLabel(walletId, txid, sanitized)
-                                accumulator.transactionLabels++
-                            }
-                        }
-                    }
-
-                    "xpub" -> {
-                        // Currently unsupported in UI; treat as skipped.
-                        accumulator.skipped++
-                    }
-
-                    else -> {
-                        accumulator.skipped++
-                    }
+                    result.skipped -> accumulator.skipped++
+                    else -> accumulator.skipped++
                 }
             }
         }
+        if (pendingLabels.isNotEmpty()) {
+            walletDao.upsertPendingLabels(pendingLabels)
+        }
+        applyPendingLabels(walletId)
         accumulator.toResult()
     }
 

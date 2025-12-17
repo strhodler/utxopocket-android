@@ -175,7 +175,7 @@ private class RecordingWalletRepository : WalletRepository {
     override suspend fun renameWallet(id: Long, name: String) = Unit
     override suspend fun exportWalletLabels(walletId: Long) =
         throw UnsupportedOperationException()
-    override suspend fun importWalletLabels(walletId: Long, payload: ByteArray) =
+    override suspend fun importWalletLabels(walletId: Long, payload: ByteArray, overwriteExisting: Boolean) =
         throw UnsupportedOperationException()
     override fun setSyncForegroundState(isForeground: Boolean) = Unit
     override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> = null to null

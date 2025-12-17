@@ -80,7 +80,11 @@ interface WalletRepository {
     suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?)
     suspend fun renameWallet(id: Long, name: String)
     suspend fun exportWalletLabels(walletId: Long): WalletLabelExport
-    suspend fun importWalletLabels(walletId: Long, payload: ByteArray): Bip329ImportResult
+    suspend fun importWalletLabels(
+        walletId: Long,
+        payload: ByteArray,
+        overwriteExisting: Boolean
+    ): Bip329ImportResult
     fun setSyncForegroundState(isForeground: Boolean)
     suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?>
 }

@@ -220,8 +220,12 @@ private class TestWalletRepository : WalletRepository {
     override suspend fun exportWalletLabels(walletId: Long): WalletLabelExport =
         WalletLabelExport(fileName = "labels.jsonl", entries = emptyList())
 
-    override suspend fun importWalletLabels(walletId: Long, payload: ByteArray): Bip329ImportResult =
-        Bip329ImportResult(0, 0, 0, 0, 0)
+    override suspend fun importWalletLabels(
+        walletId: Long,
+        payload: ByteArray,
+        overwriteExisting: Boolean
+    ): Bip329ImportResult =
+        Bip329ImportResult(0, 0, 0, 0, 0, 0)
 
     override fun setSyncForegroundState(isForeground: Boolean) = Unit
 }

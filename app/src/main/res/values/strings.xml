@@ -275,7 +275,12 @@
     <string name="wallet_detail_import_error">Failed to import labels</string>
     <string name="wallet_detail_import_file_error">Unable to read the selected file</string>
     <string name="wallet_detail_import_no_transactions">Import labels after this wallet has at least one transaction</string>
-    <string name="wallet_detail_import_summary">Tx labels: %1$d · Outputs: %2$d · Spendable: %3$d · Skipped: %4$d · Invalid: %5$d</string>
+    <string name="wallet_detail_import_summary">Tx labels: %1$d · Outputs: %2$d · Spendable: %3$d · Queued: %4$d · Skipped: %5$d · Invalid: %6$d</string>
+    <string name="wallet_labels_import_mode_header">When importing labels</string>
+    <string name="wallet_labels_import_mode_complement_title">Complement empty labels</string>
+    <string name="wallet_labels_import_mode_complement_help">Keep your existing labels and only fill empty fields with the file or QR contents.</string>
+    <string name="wallet_labels_import_mode_overwrite_title">Replace existing labels</string>
+    <string name="wallet_labels_import_mode_overwrite_help">Use the file labels even when a label already exists in the app.</string>
     <string name="wallet_detail_rename_title">Rename wallet</string>
     <string name="wallet_detail_rename_field_label">Wallet name</string>
     <string name="wallet_detail_rename_placeholder">Enter a new name</string>

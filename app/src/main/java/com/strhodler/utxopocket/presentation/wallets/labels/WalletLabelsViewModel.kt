@@ -55,10 +55,20 @@ class WalletLabelsViewModel @Inject constructor(
         }
     }
 
-    fun importLabels(payload: ByteArray, onFinished: (Result<Bip329ImportResult>) -> Unit = {}) {
+    fun importLabels(
+        payload: ByteArray,
+        overwriteExisting: Boolean,
+        onFinished: (Result<Bip329ImportResult>) -> Unit = {}
+    ) {
         viewModelScope.launch {
             _importState.value = LabelImportState(inProgress = true)
-            val result = runCatching { walletRepository.importWalletLabels(walletId, payload) }
+            val result = runCatching {
+                walletRepository.importWalletLabels(
+                    walletId = walletId,
+                    payload = payload,
+                    overwriteExisting = overwriteExisting
+                )
+            }
             onFinished(result)
             _importState.value = result.fold(
                 onSuccess = { LabelImportState() },

@@ -732,9 +732,19 @@ class WalletDetailViewModel @Inject constructor(
         }
     }
 
-    fun importLabels(payload: ByteArray, onResult: (Result<Bip329ImportResult>) -> Unit) {
+    fun importLabels(
+        payload: ByteArray,
+        overwriteExisting: Boolean,
+        onResult: (Result<Bip329ImportResult>) -> Unit
+    ) {
         viewModelScope.launch {
-            val result = runCatching { walletRepository.importWalletLabels(walletId, payload) }
+            val result = runCatching {
+                walletRepository.importWalletLabels(
+                    walletId = walletId,
+                    payload = payload,
+                    overwriteExisting = overwriteExisting
+                )
+            }
             onResult(result)
         }
     }

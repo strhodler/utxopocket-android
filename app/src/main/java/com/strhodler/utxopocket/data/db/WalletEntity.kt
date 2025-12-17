@@ -259,6 +259,22 @@ data class WalletUtxoEntity(
     @ColumnInfo(name = "derivation_index") val derivationIndex: Int? = null
 )
 
+@Entity(
+    tableName = "wallet_label_pending",
+    primaryKeys = ["wallet_id", "type", "ref", "key_path"],
+    indices = [Index("wallet_id")]
+)
+data class PendingBip329LabelEntity(
+    @ColumnInfo(name = "wallet_id") val walletId: Long,
+    @ColumnInfo(name = "type") val type: String,
+    @ColumnInfo(name = "ref") val ref: String,
+    @ColumnInfo(name = "label") val label: String? = null,
+    @ColumnInfo(name = "spendable") val spendable: Boolean? = null,
+    @ColumnInfo(name = "has_spendable") val hasSpendable: Boolean = false,
+    @ColumnInfo(name = "key_path") val keyPath: String = "",
+    @ColumnInfo(name = "overwrite_existing") val overwriteExisting: Boolean = true
+)
+
 fun WalletUtxoEntity.toDomain(): WalletUtxo =
     WalletUtxo(
         txid = txid,
