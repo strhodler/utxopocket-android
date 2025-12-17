@@ -57,10 +57,12 @@
     <string name="wallets_state_waiting_for_tor">Esperando Tor</string>
     <string name="wallets_state_waiting_for_node">Esperando nodo</string>
     <string name="wallets_state_syncing">Sincronizando</string>
+    <string name="wallets_state_syncing_with_elapsed">Sincronizando (%1$s)</string>
     <string name="wallets_state_queued">En cola</string>
     <string name="wallets_state_full_rescan_syncing">Full rescan</string>
     <string name="wallets_state_full_rescan_queued">Full rescan en cola</string>
     <string name="wallets_state_full_rescan_syncing_gap">Full rescan (gap %1$d)</string>
+    <string name="wallets_state_full_rescan_syncing_gap_elapsed">Full rescan (gap %1$d, %2$s)</string>
     <string name="wallets_state_full_rescan_queued_gap">Full rescan en cola (gap %1$d)</string>
     <string name="wallets_state_synced">Conectado</string>
     <string name="wallets_state_error">Error</string>
@@ -897,9 +899,9 @@
     <string name="wallet_detail_rename_error_generic">No se pudo renombrar la billetera</string>
     <string name="wallet_detail_force_rescan_started">Reescaneo completo iniciado con gap %1$d.</string>
     <string name="wallet_detail_force_rescan_failed">No se pudo iniciar el reescaneo completo. Inténtalo de nuevo.</string>
-    <string name="wallet_detail_sync_blocked_connecting">El nodo sigue conectando. Inténtalo cuando esté listo.</string>
+    <string name="wallet_detail_sync_blocked_connecting">El nodo está conectando. Espera a que termine de conectar.</string>
     <string name="wallet_detail_sync_blocked_waiting_tor">Esperando a Tor. Inténtalo cuando esté listo.</string>
-    <string name="wallet_detail_sync_blocked_offline">El nodo está desconectado. Reconecta y vuelve a intentar.</string>
+    <string name="wallet_detail_sync_blocked_offline">No hay conexión al nodo. Conecta para sincronizar.</string>
     <string name="wallet_detail_sync_blocked_disconnecting">El nodo se está desconectando. Inténtalo cuando esté listo.</string>
     <string name="wallet_detail_pull_to_refresh_hint">Sincronizar</string>
     <string name="wallet_detail_show_chart">Ver gráfico</string>

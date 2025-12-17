@@ -293,9 +293,9 @@
     <string name="wallet_detail_rename_error_generic">Unable to rename wallet</string>
     <string name="wallet_detail_force_rescan_started">Full rescan started with gap %1$d.</string>
     <string name="wallet_detail_force_rescan_failed">Unable to start a full rescan. Please try again.</string>
-    <string name="wallet_detail_sync_blocked_connecting">Node is still connecting. Try again once it\'s ready.</string>
+    <string name="wallet_detail_sync_blocked_connecting">Node is connecting. Wait for it to finish connecting.</string>
     <string name="wallet_detail_sync_blocked_waiting_tor">Waiting for Tor. Try again once it\'s ready.</string>
-    <string name="wallet_detail_sync_blocked_offline">Node is offline. Reconnect and try again.</string>
+    <string name="wallet_detail_sync_blocked_offline">No connection to the node. Connect to sync.</string>
     <string name="wallet_detail_sync_blocked_disconnecting">Node is disconnecting. Try again once it\'s ready.</string>
     <string name="wallet_labels_export_title">Export labels</string>
     <string name="wallet_labels_export_nav_title">Export wallet labels</string>
@@ -670,10 +670,12 @@
     <string name="wallets_state_waiting_for_tor">Waiting for Tor</string>
     <string name="wallets_state_waiting_for_node">Waiting for node</string>
     <string name="wallets_state_syncing">Syncing</string>
+    <string name="wallets_state_syncing_with_elapsed">Syncing (%1$s)</string>
     <string name="wallets_state_queued">Queued</string>
     <string name="wallets_state_full_rescan_syncing">Full rescan</string>
     <string name="wallets_state_full_rescan_queued">Full rescan queued</string>
     <string name="wallets_state_full_rescan_syncing_gap">Full rescan (gap %1$d)</string>
+    <string name="wallets_state_full_rescan_syncing_gap_elapsed">Full rescan (gap %1$d, %2$s)</string>
     <string name="wallets_state_full_rescan_queued_gap">Full rescan queued (gap %1$d)</string>
     <string name="wallets_state_synced">Connected</string>
     <string name="wallets_state_error">Error</string>

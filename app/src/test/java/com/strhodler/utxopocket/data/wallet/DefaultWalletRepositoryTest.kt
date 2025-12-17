@@ -1,5 +1,6 @@
 package com.strhodler.utxopocket.data.wallet
 
+import com.strhodler.utxopocket.data.wallet.sync.WalletSyncOrchestrator
 import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.SyncQueueEntry
 import org.junit.Assert.assertEquals
@@ -26,18 +27,18 @@ class DefaultWalletRepositoryTest {
         )
         val remaining = setOf(11L, 12L)
 
-        val result = DefaultWalletRepository.prepareReenqueueChunks(
+        val result = WalletSyncOrchestrator.prepareReenqueueChunks(
             drainedEntries = drained,
             deletedWalletId = 10L,
             remainingWalletIds = remaining
         )
 
         val expected = listOf(
-            DefaultWalletRepository.ReenqueueChunk(
+            WalletSyncOrchestrator.ReenqueueChunk(
                 operation = SyncOperation.FullRescan,
                 walletIds = listOf(11L)
             ),
-            DefaultWalletRepository.ReenqueueChunk(
+            WalletSyncOrchestrator.ReenqueueChunk(
                 operation = SyncOperation.Refresh,
                 walletIds = listOf(12L)
             )
@@ -57,22 +58,22 @@ class DefaultWalletRepositoryTest {
         )
         val remaining = setOf(1L, 2L, 3L, 4L, 5L)
 
-        val result = DefaultWalletRepository.prepareReenqueueChunks(
+        val result = WalletSyncOrchestrator.prepareReenqueueChunks(
             drainedEntries = drained,
             deletedWalletId = 99L,
             remainingWalletIds = remaining
         )
 
         val expected = listOf(
-            DefaultWalletRepository.ReenqueueChunk(
+            WalletSyncOrchestrator.ReenqueueChunk(
                 operation = SyncOperation.Refresh,
                 walletIds = listOf(1L, 2L)
             ),
-            DefaultWalletRepository.ReenqueueChunk(
+            WalletSyncOrchestrator.ReenqueueChunk(
                 operation = SyncOperation.FullRescan,
                 walletIds = listOf(3L, 4L)
             ),
-            DefaultWalletRepository.ReenqueueChunk(
+            WalletSyncOrchestrator.ReenqueueChunk(
                 operation = SyncOperation.Refresh,
                 walletIds = listOf(5L)
             )

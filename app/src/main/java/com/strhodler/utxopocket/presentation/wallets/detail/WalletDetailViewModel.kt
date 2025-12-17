@@ -681,10 +681,12 @@ class WalletDetailViewModel @Inject constructor(
 
     @StringRes
     private fun syncBlockReason(nodeStatus: NodeStatus): Int? = when (nodeStatus) {
+        NodeStatus.Idle -> R.string.wallet_detail_sync_blocked_offline
         NodeStatus.Connecting -> R.string.wallet_detail_sync_blocked_connecting
         NodeStatus.WaitingForTor -> R.string.wallet_detail_sync_blocked_waiting_tor
         NodeStatus.Disconnecting -> R.string.wallet_detail_sync_blocked_disconnecting
         NodeStatus.Offline -> R.string.wallet_detail_sync_blocked_offline
+        is NodeStatus.Error -> R.string.wallet_detail_sync_blocked_offline
         else -> null
     }
 

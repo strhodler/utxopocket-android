@@ -1,5 +1,7 @@
 package com.strhodler.utxopocket.presentation.wallets
 
+import android.os.SystemClock
+import android.text.format.DateUtils
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -89,6 +91,8 @@ import com.strhodler.utxopocket.presentation.wallets.sync.WalletSyncState
 import java.text.DateFormat
 import java.text.NumberFormat
 import java.util.Date
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @Composable
 fun WalletsRoute(
@@ -568,15 +572,30 @@ private fun WalletCard(
         wallet.utxoCount
     )
     val isSyncing = syncState is WalletSyncState.Running
+    val isNodeSynced = nodeStatus is NodeStatus.Synced
     val runningOperation = (syncState as? WalletSyncState.Running)?.operation
     val queuedOperation = (syncState as? WalletSyncState.Queued)?.operation
+    val syncingElapsed = rememberSyncElapsed(isSyncing && isNodeSynced)
     val statusLabel = when {
         nodeStatus is NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
-        runningOperation == SyncOperation.FullRescan -> stringResource(
-            id = R.string.wallets_state_full_rescan_syncing_gap,
-            resolveSyncGap(wallet.fullScanStopGap, wallet)
-        )
-        isSyncing && nodeStatus is NodeStatus.Synced -> stringResource(id = R.string.wallets_state_syncing)
+        runningOperation == SyncOperation.FullRescan -> {
+            val gapValue = resolveSyncGap(wallet.fullScanStopGap, wallet)
+            if (syncingElapsed != null) {
+                stringResource(
+                    id = R.string.wallets_state_full_rescan_syncing_gap_elapsed,
+                    gapValue,
+                    syncingElapsed
+                )
+            } else {
+                stringResource(
+                    id = R.string.wallets_state_full_rescan_syncing_gap,
+                    gapValue
+                )
+            }
+        }
+        isSyncing && isNodeSynced -> syncingElapsed?.let {
+            stringResource(id = R.string.wallets_state_syncing_with_elapsed, it)
+        } ?: stringResource(id = R.string.wallets_state_syncing)
         queuedOperation == SyncOperation.FullRescan -> stringResource(
             id = R.string.wallets_state_full_rescan_queued_gap,
             resolveSyncGap(wallet.fullScanStopGap, wallet)
@@ -995,4 +1014,31 @@ private fun nodeStatusLabel(status: NodeStatus, isSyncing: Boolean): String {
         NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
         is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
     }
+}
+
+@Composable
+private fun rememberSyncElapsed(isSyncing: Boolean): String? {
+    var startElapsed by remember { mutableStateOf<Long?>(null) }
+    var elapsedSeconds by remember { mutableStateOf(0L) }
+
+    LaunchedEffect(isSyncing) {
+        if (isSyncing) {
+            if (startElapsed == null) {
+                startElapsed = SystemClock.elapsedRealtime()
+                elapsedSeconds = 0
+            }
+            while (isActive) {
+                val start = startElapsed ?: SystemClock.elapsedRealtime().also { startElapsed = it }
+                val now = SystemClock.elapsedRealtime()
+                elapsedSeconds = ((now - start) / 1000).coerceAtLeast(0)
+                delay(1000)
+            }
+        } else {
+            startElapsed = null
+            elapsedSeconds = 0
+        }
+    }
+
+    if (!isSyncing) return null
+    return DateUtils.formatElapsedTime(elapsedSeconds)
 }
