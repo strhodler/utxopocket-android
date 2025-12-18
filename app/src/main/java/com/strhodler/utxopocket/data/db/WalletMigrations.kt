@@ -133,13 +133,85 @@ object WalletMigrations {
         }
     }
 
+    val MIGRATION_22_23 = object : Migration(22, 23) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS utxo_collections (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    wallet_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    color_key TEXT NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            database.execSQL(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS index_utxo_collections_wallet_id_name
+                ON utxo_collections(wallet_id, name)
+                """.trimIndent()
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_utxo_collections_wallet_id
+                ON utxo_collections(wallet_id)
+                """.trimIndent()
+            )
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS utxo_collection_memberships (
+                    wallet_id INTEGER NOT NULL,
+                    txid TEXT NOT NULL,
+                    vout INTEGER NOT NULL,
+                    collection_id INTEGER NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    PRIMARY KEY(wallet_id, txid, vout),
+                    FOREIGN KEY(collection_id) REFERENCES utxo_collections(id) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_utxo_collection_memberships_wallet_id
+                ON utxo_collection_memberships(wallet_id)
+                """.trimIndent()
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_utxo_collection_memberships_collection_id
+                ON utxo_collection_memberships(collection_id)
+                """.trimIndent()
+            )
+            database.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS utxo_canvas_items (
+                    wallet_id INTEGER NOT NULL,
+                    item_type TEXT NOT NULL,
+                    ref_id TEXT NOT NULL,
+                    position_index INTEGER NOT NULL,
+                    PRIMARY KEY(wallet_id, item_type, ref_id)
+                )
+                """.trimIndent()
+            )
+            database.execSQL(
+                """
+                CREATE INDEX IF NOT EXISTS index_utxo_canvas_items_wallet_id
+                ON utxo_canvas_items(wallet_id)
+                """.trimIndent()
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_16_17,
         MIGRATION_17_18,
         MIGRATION_18_19,
         MIGRATION_19_20,
         MIGRATION_20_21,
-        MIGRATION_21_22
+        MIGRATION_21_22,
+        MIGRATION_22_23
     )
 }
 

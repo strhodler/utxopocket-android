@@ -104,6 +104,7 @@ fun WalletDetailRoute(
     onWalletDeleted: (String) -> Unit,
     onTransactionSelected: (String) -> Unit,
     onUtxoSelected: (String, Int) -> Unit,
+    onOpenCollection: (Long) -> Unit,
     onOpenReceive: (Long) -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onOpenGlossaryEntry: (String) -> Unit,
@@ -112,6 +113,7 @@ fun WalletDetailRoute(
     onOpenExportLabels: (Long, String) -> Unit,
     onOpenImportLabels: (Long, String) -> Unit,
     onOpenUtxoVisualizer: (Long, String) -> Unit,
+    onOpenUtxoCanvas: (Long, String) -> Unit,
     onOpenSyncSettings: (Long, String) -> Unit,
     initialTab: WalletDetailTab? = null,
     viewModel: WalletDetailViewModel = hiltViewModel()
@@ -193,6 +195,7 @@ fun WalletDetailRoute(
                 add(WalletDetailTab.Incoming)
             }
             add(WalletDetailTab.Utxos)
+            add(WalletDetailTab.Collections)
         }
     }
     var selectedTab by rememberSaveable { mutableStateOf(WalletDetailTab.Transactions) }
@@ -543,8 +546,15 @@ fun WalletDetailRoute(
                 onRefreshRequested = viewModel::refresh,
                 onTransactionSelected = onTransactionSelected,
                 onUtxoSelected = onUtxoSelected,
+                onOpenCollection = onOpenCollection,
                 onBalanceRangeSelected = viewModel::onBalanceRangeSelected,
                 onCycleBalanceDisplay = cycleBalanceDisplay,
+                onOpenUtxoCanvas = {
+                    val summary = state.summary ?: return@WalletDetailScreen
+                    val walletNameArg = summary.name.ifBlank { viewModel.initialWalletName }
+                        ?: summary.name
+                    onOpenUtxoCanvas(summary.id, walletNameArg)
+                },
                 onOpenWikiTopic = onOpenWikiTopic,
                 onTogglePending = viewModel::setShowPending,
                 outerListState = outerListState,

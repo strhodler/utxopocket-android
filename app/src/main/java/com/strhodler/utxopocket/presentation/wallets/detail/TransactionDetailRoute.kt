@@ -1,8 +1,6 @@
 package com.strhodler.utxopocket.presentation.wallets.detail
 
-import android.graphics.Bitmap
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -47,6 +45,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -64,17 +63,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.OutlinedButton
@@ -101,6 +97,9 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.BlockExplorerCatalog
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
+import com.strhodler.utxopocket.domain.model.UtxoCollection
+import com.strhodler.utxopocket.domain.model.UtxoCanvasSnapshot
+import com.strhodler.utxopocket.domain.model.UtxoRef
 import com.strhodler.utxopocket.domain.model.UtxoStatus
 import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.common.balanceValue
@@ -110,6 +109,7 @@ import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
+import com.strhodler.utxopocket.presentation.components.UtxoIdenticon
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
@@ -130,13 +130,12 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
+import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import io.github.thibseisel.identikon.Identicon
-import io.github.thibseisel.identikon.drawToBitmap
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -271,8 +270,11 @@ fun UtxoDetailRoute(
     }
     var showLabelDialog by remember { mutableStateOf(false) }
     var pendingLabel by remember { mutableStateOf<String?>(null) }
+    var showCollectionDialog by remember { mutableStateOf(false) }
     val labelSavedMessage = stringResource(id = R.string.utxo_detail_label_success)
     val labelErrorMessage = stringResource(id = R.string.utxo_detail_label_error)
+    val collectionSavedMessage = stringResource(id = R.string.utxo_detail_collection_success)
+    val collectionErrorMessage = stringResource(id = R.string.utxo_detail_collection_error)
     var spendableUpdating by remember { mutableStateOf(false) }
     val spendableSavedMessage = stringResource(id = R.string.utxo_detail_spendable_success)
     val spendableErrorMessage = stringResource(id = R.string.utxo_detail_spendable_error)
@@ -311,6 +313,20 @@ fun UtxoDetailRoute(
             }
         )
     }
+    if (showCollectionDialog && currentUtxo != null) {
+        CollectionAssignDialog(
+            collections = state.collections,
+            assignedCollectionId = state.assignedCollection?.id,
+            onDismiss = { showCollectionDialog = false },
+            onSelect = { collectionId ->
+                viewModel.updateCollection(collectionId) { result ->
+                    showCollectionDialog = false
+                    val message = if (result.isSuccess) collectionSavedMessage else collectionErrorMessage
+                    showSnackbar(message, SnackbarDuration.Short)
+                }
+            }
+        )
+    }
 
     Scaffold(
         snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
@@ -322,6 +338,7 @@ fun UtxoDetailRoute(
                 pendingLabel = label
                 showLabelDialog = true
             },
+            onEditCollection = { showCollectionDialog = true },
             onToggleSpendable = { value ->
                 spendableUpdating = true
                 viewModel.updateSpendable(value) { result ->
@@ -545,7 +562,8 @@ private fun openExplorerUri(context: Context, option: BlockExplorerOption) {
 class UtxoDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val walletRepository: WalletRepository,
-    private val appPreferencesRepository: AppPreferencesRepository
+    private val appPreferencesRepository: AppPreferencesRepository,
+    private val canvasRepository: UtxoCanvasRepository
 ) : ViewModel() {
 
     private val walletId: Long = savedStateHandle.get<Long>(WalletsNavigation.WalletIdArg)
@@ -561,6 +579,7 @@ class UtxoDetailViewModel @Inject constructor(
 
     val uiState: StateFlow<UtxoDetailUiState> = combine(
         walletRepository.observeWalletDetail(walletId),
+        canvasRepository.observeCanvasSnapshot(walletId),
         appPreferencesRepository.balanceUnit,
         appPreferencesRepository.balancesHidden,
         appPreferencesRepository.advancedMode,
@@ -568,17 +587,20 @@ class UtxoDetailViewModel @Inject constructor(
         appPreferencesRepository.blockExplorerPreferences
     ) { values: Array<Any?> ->
         val detail = values[0] as WalletDetail?
-        val balanceUnit = values[1] as BalanceUnit
-        val balancesHidden = values[2] as Boolean
-        val advancedMode = values[3] as Boolean
-        val hapticsEnabled = values[4] as Boolean
-        val blockExplorerPrefs = values[5] as BlockExplorerPreferences
+        val canvasSnapshot = values[1] as UtxoCanvasSnapshot
+        val balanceUnit = values[2] as BalanceUnit
+        val balancesHidden = values[3] as Boolean
+        val advancedMode = values[4] as Boolean
+        val hapticsEnabled = values[5] as Boolean
+        val blockExplorerPrefs = values[6] as BlockExplorerPreferences
         val utxo = detail?.utxos?.firstOrNull { it.txid == txId && it.vout == vout }
         val depositTimestamp = utxo?.let { candidate ->
             detail?.transactions
                 ?.firstOrNull { transaction -> transaction.id == candidate.txid }
                 ?.timestamp
         }
+        val collections = canvasSnapshot.collections.sortedBy { it.name }
+        val assignedCollection = findAssignedCollection(canvasSnapshot, collections)
         when {
             detail == null -> UtxoDetailUiState(
                 isLoading = false,
@@ -588,6 +610,8 @@ class UtxoDetailViewModel @Inject constructor(
                 balancesHidden = balancesHidden,
                 hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
+                collections = emptyList(),
+                assignedCollection = null,
                 error = UtxoDetailError.NotFound,
                 blockExplorerOptions = emptyList()
             )
@@ -600,6 +624,8 @@ class UtxoDetailViewModel @Inject constructor(
                 balancesHidden = balancesHidden,
                 hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
+                collections = collections,
+                assignedCollection = assignedCollection,
                 error = UtxoDetailError.NotFound,
                 blockExplorerOptions = emptyList()
             )
@@ -612,6 +638,8 @@ class UtxoDetailViewModel @Inject constructor(
                 balancesHidden = balancesHidden,
                 hapticsEnabled = hapticsEnabled,
                 advancedMode = advancedMode,
+                collections = collections,
+                assignedCollection = assignedCollection,
                 error = null,
                 depositTimestamp = depositTimestamp,
                 blockExplorerOptions = resolveBlockExplorerOptions(
@@ -643,10 +671,33 @@ class UtxoDetailViewModel @Inject constructor(
         }
     }
 
+    fun updateCollection(collectionId: Long?, onResult: (Result<Unit>) -> Unit) {
+        viewModelScope.launch {
+            val result = runCatching {
+                val utxoRef = UtxoRef(txId, vout)
+                if (collectionId == null) {
+                    canvasRepository.removeUtxoFromCollection(walletId, utxoRef)
+                } else {
+                    canvasRepository.addUtxoToCollection(walletId, utxoRef, collectionId)
+                }
+            }
+            onResult(result)
+        }
+    }
+
     fun cycleBalanceDisplayMode() {
         viewModelScope.launch {
             appPreferencesRepository.cycleBalanceDisplayMode()
         }
+    }
+
+    private fun findAssignedCollection(
+        snapshot: UtxoCanvasSnapshot,
+        collections: List<UtxoCollection>
+    ): UtxoCollection? {
+        val membership = snapshot.memberships.firstOrNull { it.txid == txId && it.vout == vout }
+            ?: return null
+        return collections.firstOrNull { it.id == membership.collectionId }
     }
 }
 
@@ -674,6 +725,8 @@ data class UtxoDetailUiState(
     val balancesHidden: Boolean = false,
     val hapticsEnabled: Boolean = true,
     val advancedMode: Boolean = false,
+    val collections: List<UtxoCollection> = emptyList(),
+    val assignedCollection: UtxoCollection? = null,
     val error: UtxoDetailError? = null,
     val depositTimestamp: Long? = null,
     val blockExplorerOptions: List<BlockExplorerOption> = emptyList()
@@ -735,6 +788,7 @@ private fun TransactionDetailScreen(
 private fun UtxoDetailScreen(
     state: UtxoDetailUiState,
     onEditLabel: (String?) -> Unit,
+    onEditCollection: () -> Unit,
     onToggleSpendable: (Boolean) -> Unit,
     spendableUpdating: Boolean,
     onCycleBalanceDisplay: () -> Unit,
@@ -758,6 +812,7 @@ private fun UtxoDetailScreen(
             UtxoDetailContent(
                 state = state,
                 onEditLabel = onEditLabel,
+                onEditCollection = onEditCollection,
                 onToggleSpendable = onToggleSpendable,
                 spendableUpdating = spendableUpdating,
                 onCycleBalanceDisplay = onCycleBalanceDisplay,
@@ -826,6 +881,77 @@ private fun LabelEditDialog(
             }
         }
     )
+}
+
+@Composable
+private fun CollectionAssignDialog(
+    collections: List<UtxoCollection>,
+    assignedCollectionId: Long?,
+    onDismiss: () -> Unit,
+    onSelect: (Long?) -> Unit
+) {
+    val unassignedLabel = stringResource(id = R.string.utxo_detail_collection_unassigned)
+    val emptyMessage = stringResource(id = R.string.utxo_detail_collection_empty)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(id = R.string.utxo_detail_collection_dialog_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                CollectionOptionRow(
+                    label = unassignedLabel,
+                    selected = assignedCollectionId == null,
+                    onClick = { onSelect(null) }
+                )
+                if (collections.isEmpty()) {
+                    Text(
+                        text = emptyMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    collections.forEach { collection ->
+                        CollectionOptionRow(
+                            label = collection.name,
+                            selected = collection.id == assignedCollectionId,
+                            onClick = { onSelect(collection.id) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(id = R.string.utxo_detail_label_cancel_action))
+            }
+        }
+    )
+}
+
+@Composable
+private fun CollectionOptionRow(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = null
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1560,6 +1686,7 @@ private fun TransactionChip(
 private fun UtxoDetailContent(
     state: UtxoDetailUiState,
     onEditLabel: (String?) -> Unit,
+    onEditCollection: () -> Unit,
     onToggleSpendable: (Boolean) -> Unit,
     spendableUpdating: Boolean,
     onCycleBalanceDisplay: () -> Unit,
@@ -1569,6 +1696,7 @@ private fun UtxoDetailContent(
 ) {
     val utxo = requireNotNull(state.utxo)
     val displayLabel = utxo.displayLabel
+    val assignedCollection = state.assignedCollection
     val isInheritedLabel = utxo.label.isNullOrBlank() && !utxo.transactionLabel.isNullOrBlank()
     val inheritedLabelMessage = stringResource(id = R.string.utxo_detail_label_inherited).takeIf { isInheritedLabel }
     val copyMessage = stringResource(id = R.string.utxo_detail_copy_toast)
@@ -1635,6 +1763,14 @@ private fun UtxoDetailContent(
                 editLabelRes = R.string.utxo_detail_label_edit_action,
                 supportingMessage = inheritedLabelMessage,
                 onEditLabel = { onEditLabel(displayLabel) }
+            )
+            LabelSectionCard(
+                title = stringResource(id = R.string.utxo_detail_collection_title),
+                label = assignedCollection?.name,
+                placeholder = stringResource(id = R.string.utxo_detail_collection_unassigned),
+                addLabelRes = R.string.utxo_detail_collection_add_action,
+                editLabelRes = R.string.utxo_detail_collection_edit_action,
+                onEditLabel = onEditCollection
             )
             SpendableToggleCard(
                 spendable = utxo.spendable,
@@ -1895,28 +2031,6 @@ private fun UtxoDetailHeader(
             )
         }
     }
-}
-
-@Composable
-private fun UtxoIdenticon(
-    seed: String,
-    size: Dp = 72.dp,
-    modifier: Modifier = Modifier
-) {
-    val iconSizePx = with(LocalDensity.current) { size.roundToPx().coerceAtLeast(1) }
-    val bitmap = remember(seed, iconSizePx) {
-        val icon = Identicon.fromValue(seed, iconSizePx)
-        Bitmap.createBitmap(iconSizePx, iconSizePx, Bitmap.Config.ARGB_8888).apply {
-            icon.drawToBitmap(this)
-        }
-    }
-    Image(
-        bitmap = bitmap.asImageBitmap(),
-        contentDescription = null,
-        modifier = modifier
-            .size(size)
-            .clip(RoundedCornerShape(20.dp))
-    )
 }
 
 @Composable

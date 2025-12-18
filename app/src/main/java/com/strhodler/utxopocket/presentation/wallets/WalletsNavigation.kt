@@ -27,6 +27,9 @@ object WalletsNavigation {
     const val UtxoTxIdArg: String = "utxoTxId"
     const val UtxoVoutArg: String = "vout"
     const val UtxoVisualizerRoute: String = "wallets/detail/{walletId}/utxo-visualizer?walletName={walletName}"
+    const val UtxoCanvasRoute: String = "wallets/detail/{walletId}/utxo-canvas?walletName={walletName}"
+    const val UtxoCollectionRoute: String = "wallets/detail/{walletId}/utxo-collection/{collectionId}"
+    const val UtxoCollectionIdArg: String = "collectionId"
     const val AddressDetailRoute: String =
         "wallets/detail/{walletId}/address/{addressType}/{derivationIndex}?addressValue={addressValue}"
     const val ReceiveRoute: String = "wallets/detail/{walletId}/receive"
@@ -81,6 +84,14 @@ object WalletsNavigation {
         val encodedName = Uri.encode(walletName)
         return "wallets/detail/$walletId/utxo-visualizer?walletName=$encodedName"
     }
+
+    fun utxoCanvasRoute(walletId: Long, walletName: String): String {
+        val encodedName = Uri.encode(walletName)
+        return "wallets/detail/$walletId/utxo-canvas?walletName=$encodedName"
+    }
+
+    fun utxoCollectionRoute(walletId: Long, collectionId: Long): String =
+        "wallets/detail/$walletId/utxo-collection/$collectionId"
 
     fun utxoDetailRoute(walletId: Long, txId: String, vout: Int): String {
         val encodedTxId = Uri.encode(txId)

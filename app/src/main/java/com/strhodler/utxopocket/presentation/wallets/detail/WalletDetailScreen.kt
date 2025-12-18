@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -38,6 +40,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.FilterList
@@ -51,6 +54,7 @@ import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -145,8 +149,10 @@ fun WalletDetailScreen(
     onRefreshRequested: () -> Unit,
     onTransactionSelected: (String) -> Unit,
     onUtxoSelected: (String, Int) -> Unit,
+    onOpenCollection: (Long) -> Unit,
     onBalanceRangeSelected: (BalanceRange) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
+    onOpenUtxoCanvas: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onTogglePending: (Boolean) -> Unit,
     outerListState: LazyListState,
@@ -200,8 +206,10 @@ fun WalletDetailScreen(
                 onUtxoLabelFilterChange = onUtxoLabelFilterChange,
                 onTransactionSelected = onTransactionSelected,
                 onUtxoSelected = onUtxoSelected,
+                onOpenCollection = onOpenCollection,
                 onBalanceRangeSelected = onBalanceRangeSelected,
                 onCycleBalanceDisplay = onCycleBalanceDisplay,
+                onOpenUtxoCanvas = onOpenUtxoCanvas,
                 onRefreshRequested = onRefreshRequested,
                 onOpenWikiTopic = onOpenWikiTopic,
                 onTogglePending = onTogglePending,
@@ -232,8 +240,10 @@ private fun WalletDetailContent(
     onUtxoLabelFilterChange: (UtxoLabelFilter) -> Unit,
     onTransactionSelected: (String) -> Unit,
     onUtxoSelected: (String, Int) -> Unit,
+    onOpenCollection: (Long) -> Unit,
     onBalanceRangeSelected: (BalanceRange) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
+    onOpenUtxoCanvas: () -> Unit,
     onOpenWikiTopic: (String) -> Unit,
     onRefreshRequested: () -> Unit,
     onTogglePending: (Boolean) -> Unit,
@@ -324,6 +334,7 @@ private fun WalletDetailContent(
                 onRangeSelected = onBalanceRangeSelected,
                 showBalanceChart = state.showBalanceChart,
                 onCycleBalanceDisplay = onCycleBalanceDisplay,
+                onOpenUtxoCanvas = onOpenUtxoCanvas,
                 modifier = Modifier.graphicsLayer(alpha = headerAlpha)
             )
         }
@@ -360,6 +371,7 @@ private fun WalletDetailContent(
                         transactionsCount = state.transactionsCount,
                         incomingCount = incomingCount,
                         utxosCount = state.utxosCount,
+                        collectionsCount = state.collections.size,
                         pagerState = pagerState,
                         palette = walletTheme,
                         modifier = Modifier
@@ -605,6 +617,29 @@ private fun WalletDetailContent(
                             }
                         }
 
+                        WalletDetailTab.Collections -> {
+                            val collections = state.collections
+                            if (collections.isEmpty()) {
+                                item(key = "collections_empty") {
+                                    EmptyPlaceholder(
+                                        message = stringResource(id = R.string.wallet_detail_collections_empty)
+                                    )
+                                }
+                            } else {
+                                items(
+                                    items = collections,
+                                    key = { collection -> "collection_${collection.id}" }
+                                ) { collection ->
+                                    CollectionRow(
+                                        collection = collection,
+                                        balanceUnit = state.balanceUnit,
+                                        balancesHidden = state.balancesHidden,
+                                        onClick = { onOpenCollection(collection.id) }
+                                    )
+                                }
+                            }
+                        }
+
                     }
                 }
             }
@@ -624,6 +659,7 @@ private fun WalletSummaryHeader(
     onRangeSelected: (BalanceRange) -> Unit,
     showBalanceChart: Boolean,
     onCycleBalanceDisplay: () -> Unit,
+    onOpenUtxoCanvas: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val summary = requireNotNull(state.summary)
@@ -665,6 +701,7 @@ private fun WalletSummaryHeader(
             showBalanceChart = showBalanceChart,
             onRangeSelected = onRangeSelected,
             onCycleBalanceDisplay = onCycleBalanceDisplay,
+            onOpenUtxoCanvas = onOpenUtxoCanvas,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 36.dp)
@@ -674,6 +711,7 @@ private fun WalletSummaryHeader(
 
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun WalletDetailHeader(
     summary: WalletSummary,
     balanceSats: Long,
@@ -690,6 +728,7 @@ private fun WalletDetailHeader(
     showBalanceChart: Boolean,
     onRangeSelected: (BalanceRange) -> Unit,
     onCycleBalanceDisplay: () -> Unit,
+    onOpenUtxoCanvas: () -> Unit,
     modifier: Modifier
 ) {
     Column(
@@ -726,6 +765,27 @@ private fun WalletDetailHeader(
                 onClick = onCycleBalanceDisplay
             )
         )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            TextButton(
+                onClick = onOpenUtxoCanvas,
+                contentPadding = ButtonDefaults.TextButtonWithIconContentPadding
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Apps,
+                    contentDescription = stringResource(id = R.string.wallet_detail_utxo_canvas_content_description),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                Text(
+                    text = stringResource(id = R.string.wallet_detail_open_utxo_canvas),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
         val hasChartData = balancePoints.isNotEmpty()
         val shouldShowChart = showBalanceChart && hasChartData
         if (shouldShowChart) {
@@ -832,6 +892,7 @@ private fun WalletTabs(
     transactionsCount: Int,
     incomingCount: Int,
     utxosCount: Int,
+    collectionsCount: Int,
     pagerState: PagerState,
     palette: WalletColorTheme,
     modifier: Modifier = Modifier
@@ -872,6 +933,11 @@ private fun WalletTabs(
                             WalletDetailTab.Utxos -> stringResource(
                                 id = R.string.wallet_detail_utxos_tab_count,
                                 utxosCount
+                            )
+
+                            WalletDetailTab.Collections -> stringResource(
+                                id = R.string.wallet_detail_collections_tab_count,
+                                collectionsCount
                             )
                         },
                         maxLines = 1
@@ -1531,6 +1597,71 @@ private fun UtxoRow(
 }
 
 @Composable
+private fun CollectionRow(
+    collection: WalletCollectionItem,
+    balanceUnit: BalanceUnit,
+    balancesHidden: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val totalLabel = balanceText(
+        balanceSats = collection.totalValueSats,
+        unit = balanceUnit,
+        hidden = balancesHidden
+    )
+    Card(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .background(collectionColor(collection.color), CircleShape)
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = collection.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = stringResource(
+                        id = R.string.wallet_utxo_canvas_collection_count,
+                        collection.memberCount
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = totalLabel,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
 private fun TransactionDetailedCard(
     transaction: WalletTransaction,
     unit: BalanceUnit,
@@ -1664,14 +1795,15 @@ private fun TransactionDetailedCard(
 }
 
 @Composable
-private fun UtxoDetailedCard(
+internal fun UtxoDetailedCard(
     utxo: WalletUtxo,
     unit: BalanceUnit,
     balancesHidden: Boolean,
     dustThresholdSats: Long,
     palette: WalletColorTheme,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    trailingContent: (@Composable () -> Unit)? = null
 ) {
     val amountText = balanceText(utxo.valueSats, unit, hidden = balancesHidden)
     val confirmationText = confirmationLabel(utxo.confirmations)
@@ -1752,6 +1884,11 @@ private fun UtxoDetailedCard(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+                trailingContent?.let { content ->
+                    Box(contentAlignment = Alignment.Center) {
+                        content()
+                    }
                 }
             }
 
@@ -1918,7 +2055,8 @@ private fun confirmationLabel(confirmations: Int): String = when {
 enum class WalletDetailTab {
     Transactions,
     Incoming,
-    Utxos
+    Utxos,
+    Collections
 }
 
 private val TabsHeight = 48.dp

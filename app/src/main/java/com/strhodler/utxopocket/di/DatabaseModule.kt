@@ -6,6 +6,7 @@ import com.strhodler.utxopocket.data.db.EncryptedSupportFactoryProvider
 import com.strhodler.utxopocket.data.db.UtxoPocketDatabase
 import com.strhodler.utxopocket.data.db.WalletMigrations
 import com.strhodler.utxopocket.data.db.WalletDao
+import com.strhodler.utxopocket.data.db.UtxoCanvasDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -35,4 +36,8 @@ object DatabaseModule {
 
     @Provides
     fun provideWalletDao(database: UtxoPocketDatabase): WalletDao = database.walletDao()
+
+    @Provides
+    fun provideUtxoCanvasDao(database: UtxoPocketDatabase): UtxoCanvasDao =
+        database.utxoCanvasDao()
 }

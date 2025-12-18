@@ -10,13 +10,17 @@ import androidx.room.RoomDatabase
         WalletTransactionInputEntity::class,
         WalletTransactionOutputEntity::class,
         WalletUtxoEntity::class,
-        PendingBip329LabelEntity::class
+        PendingBip329LabelEntity::class,
+        UtxoCollectionEntity::class,
+        UtxoCollectionMembershipEntity::class,
+        UtxoCanvasItemEntity::class
     ],
-    version = 22,
+    version = 23,
     exportSchema = true
 )
 abstract class UtxoPocketDatabase : RoomDatabase() {
     abstract fun walletDao(): WalletDao
+    abstract fun utxoCanvasDao(): UtxoCanvasDao
 
     companion object {
         const val NAME: String = "utxopocket.db"

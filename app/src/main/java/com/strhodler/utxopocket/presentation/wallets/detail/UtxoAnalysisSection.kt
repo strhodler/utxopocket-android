@@ -98,6 +98,7 @@ private enum class UtxoAgeDistributionTab {
     Histogram,
     Spendability,
     Size,
+    Collections,
     Treemap
 }
 
@@ -119,6 +120,9 @@ fun UtxoAnalysisSection(
     histogram: UtxoAgeHistogram,
     spendabilityDistribution: UtxoBucketDistribution<UtxoSpendabilityBucket>,
     sizeDistribution: UtxoBucketDistribution<UtxoSizeBucket>,
+    collectionItems: List<WalletCollectionItem>,
+    totalUtxoCount: Int,
+    totalUtxoValueSats: Long,
     treemapData: UtxoTreemapData,
     onTreemapRangeChange: (LongRange) -> Unit,
     onTreemapRequested: () -> Unit,
@@ -130,6 +134,9 @@ fun UtxoAnalysisSection(
         histogram = histogram,
         spendabilityDistribution = spendabilityDistribution,
         sizeDistribution = sizeDistribution,
+        collectionItems = collectionItems,
+        totalUtxoCount = totalUtxoCount,
+        totalUtxoValueSats = totalUtxoValueSats,
         treemapData = treemapData,
         onTreemapRangeChange = onTreemapRangeChange,
         onTreemapRequested = onTreemapRequested,
@@ -145,6 +152,9 @@ private fun UtxoAgeDistributionCard(
     histogram: UtxoAgeHistogram,
     spendabilityDistribution: UtxoBucketDistribution<UtxoSpendabilityBucket>,
     sizeDistribution: UtxoBucketDistribution<UtxoSizeBucket>,
+    collectionItems: List<WalletCollectionItem>,
+    totalUtxoCount: Int,
+    totalUtxoValueSats: Long,
     treemapData: UtxoTreemapData,
     onTreemapRangeChange: (LongRange) -> Unit,
     onTreemapRequested: () -> Unit,
@@ -179,6 +189,7 @@ private fun UtxoAgeDistributionCard(
                         UtxoAgeDistributionTab.Histogram -> stringResource(id = R.string.wallet_utxo_visualization_tab_histogram)
                         UtxoAgeDistributionTab.Spendability -> stringResource(id = R.string.wallet_utxo_visualization_tab_spendability)
                         UtxoAgeDistributionTab.Size -> stringResource(id = R.string.wallet_utxo_visualization_tab_size)
+                        UtxoAgeDistributionTab.Collections -> stringResource(id = R.string.wallet_utxo_visualization_tab_collections)
                         UtxoAgeDistributionTab.Treemap -> stringResource(id = R.string.wallet_utxo_visualization_tab_treemap)
                     }
                     Tab(
@@ -247,6 +258,21 @@ private fun UtxoAgeDistributionCard(
                     ) {
                         SizePage(
                             distribution = sizeDistribution,
+                            balanceUnit = balanceUnit
+                        )
+                    }
+
+                    UtxoAgeDistributionTab.Collections -> Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .verticalScroll(pageScroll),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        CollectionsPage(
+                            collectionItems = collectionItems,
+                            totalUtxoCount = totalUtxoCount,
+                            totalUtxoValueSats = totalUtxoValueSats,
                             balanceUnit = balanceUnit
                         )
                     }
@@ -364,6 +390,35 @@ private fun SizePage(
         title = stringResource(id = R.string.wallet_utxo_size_title),
         subtitle = stringResource(id = R.string.wallet_utxo_size_subtitle),
         distribution = uiDistribution,
+        balanceUnit = balanceUnit
+    )
+}
+
+@Composable
+private fun CollectionsPage(
+    collectionItems: List<WalletCollectionItem>,
+    totalUtxoCount: Int,
+    totalUtxoValueSats: Long,
+    balanceUnit: BalanceUnit
+) {
+    val unassignedLabel = stringResource(id = R.string.wallet_utxo_collection_distribution_unassigned)
+    val distribution = remember(
+        collectionItems,
+        totalUtxoCount,
+        totalUtxoValueSats,
+        unassignedLabel
+    ) {
+        buildCollectionDistribution(
+            collectionItems = collectionItems,
+            totalUtxoCount = totalUtxoCount,
+            totalUtxoValueSats = totalUtxoValueSats,
+            unassignedLabel = unassignedLabel
+        )
+    }
+    DistributionPage(
+        title = stringResource(id = R.string.wallet_utxo_collections_title),
+        subtitle = stringResource(id = R.string.wallet_utxo_collections_subtitle),
+        distribution = distribution,
         balanceUnit = balanceUnit
     )
 }
@@ -1200,6 +1255,45 @@ private fun <B> UtxoBucketDistribution<B>.toUiDistribution(
         },
         totalCount = totalCount,
         totalValueSats = totalValueSats
+    )
+}
+
+private fun buildCollectionDistribution(
+    collectionItems: List<WalletCollectionItem>,
+    totalUtxoCount: Int,
+    totalUtxoValueSats: Long,
+    unassignedLabel: String
+): UiDistribution {
+    val assignedCount = collectionItems.sumOf { it.memberCount }
+    val assignedValue = collectionItems.sumOf { it.totalValueSats }
+    val unassignedCount = (totalUtxoCount - assignedCount).coerceAtLeast(0)
+    val unassignedValue = (totalUtxoValueSats - assignedValue).coerceAtLeast(0L)
+    val slices = buildList {
+        collectionItems.forEach { collection ->
+            add(
+                UiDistributionSlice(
+                    id = "collection:${collection.id}",
+                    label = collection.name,
+                    count = collection.memberCount,
+                    valueSats = collection.totalValueSats
+                )
+            )
+        }
+        if (unassignedCount > 0 || unassignedValue > 0L) {
+            add(
+                UiDistributionSlice(
+                    id = "collection:unassigned",
+                    label = unassignedLabel,
+                    count = unassignedCount,
+                    valueSats = unassignedValue
+                )
+            )
+        }
+    }
+    return UiDistribution(
+        slices = slices,
+        totalCount = totalUtxoCount,
+        totalValueSats = totalUtxoValueSats
     )
 }
 

@@ -36,8 +36,14 @@ import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
+import com.strhodler.utxopocket.domain.model.UtxoCanvasItemRef
+import com.strhodler.utxopocket.domain.model.UtxoCanvasSnapshot
+import com.strhodler.utxopocket.domain.model.UtxoCollection
+import com.strhodler.utxopocket.domain.model.UtxoCollectionColor
+import com.strhodler.utxopocket.domain.model.UtxoRef
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
+import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
@@ -105,6 +111,7 @@ class WalletDetailViewModelRangeTest {
         val preferences = RecordingAppPreferencesRepository()
         private val walletRepository = StaticWalletRepository()
         private val torManager = StaticTorManager()
+        private val canvasRepository = InMemoryUtxoCanvasRepository()
         private val incomingPlaceholders = InMemoryIncomingTxPlaceholderRepository()
         private val incomingTxCoordinator = IncomingTxCoordinator(
             incomingPlaceholders,
@@ -123,6 +130,7 @@ class WalletDetailViewModelRangeTest {
                 walletRepository = walletRepository,
                 torManager = torManager,
                 appPreferencesRepository = preferences,
+                canvasRepository = canvasRepository,
                 incomingTxCoordinator = incomingTxCoordinator,
                 utxoVisualizationCalculator = utxoVisualizationCalculator,
                 utxoTreemapCalculator = utxoTreemapCalculator,
@@ -144,6 +152,41 @@ class WalletDetailViewModelRangeTest {
             }
             state.value = next
         }
+    }
+
+    private class InMemoryUtxoCanvasRepository : UtxoCanvasRepository {
+        private val snapshot = UtxoCanvasSnapshot(
+            collections = emptyList(),
+            memberships = emptyList(),
+            items = emptyList()
+        )
+
+        override fun observeCanvasSnapshot(walletId: Long): Flow<UtxoCanvasSnapshot> = flowOf(snapshot)
+
+        override suspend fun syncCanvas(walletId: Long, utxos: List<WalletUtxo>, dustThresholdSats: Long) = Unit
+
+        override suspend fun updateCanvasOrder(walletId: Long, orderedItems: List<UtxoCanvasItemRef>) = Unit
+
+        override suspend fun createCollection(
+            walletId: Long,
+            name: String,
+            color: UtxoCollectionColor,
+            utxos: List<UtxoRef>,
+            anchorIndex: Int?
+        ): UtxoCollection = error("Not needed for this test")
+
+        override suspend fun addUtxoToCollection(walletId: Long, utxo: UtxoRef, collectionId: Long) = Unit
+
+        override suspend fun removeUtxoFromCollection(walletId: Long, utxo: UtxoRef) = Unit
+
+        override suspend fun deleteCollection(walletId: Long, collectionId: Long) = Unit
+
+        override suspend fun updateCollection(
+            walletId: Long,
+            collectionId: Long,
+            name: String,
+            color: UtxoCollectionColor
+        ): Boolean = false
     }
 
     private class StaticWalletRepository : WalletRepository {

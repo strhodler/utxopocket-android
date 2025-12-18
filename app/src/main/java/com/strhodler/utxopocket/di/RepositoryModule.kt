@@ -12,6 +12,7 @@ import com.strhodler.utxopocket.data.wiki.WikiRepository
 import com.strhodler.utxopocket.data.glossary.DefaultGlossaryRepository
 import com.strhodler.utxopocket.data.glossary.GlossaryRepository
 import com.strhodler.utxopocket.data.logs.DefaultNetworkErrorLogRepository
+import com.strhodler.utxopocket.data.utxo.DefaultUtxoCanvasRepository
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
@@ -25,6 +26,7 @@ import com.strhodler.utxopocket.domain.service.IncomingTxChecker
 import com.strhodler.utxopocket.domain.service.IncomingTxWatcher
 import com.strhodler.utxopocket.data.preferences.DefaultWalletSyncPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
+import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -112,4 +114,10 @@ abstract class RepositoryModule {
     abstract fun bindWalletSyncPreferencesRepository(
         impl: DefaultWalletSyncPreferencesRepository
     ): WalletSyncPreferencesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindUtxoCanvasRepository(
+        impl: DefaultUtxoCanvasRepository
+    ): UtxoCanvasRepository
 }

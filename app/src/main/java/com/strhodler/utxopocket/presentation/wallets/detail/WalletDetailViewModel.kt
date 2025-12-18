@@ -37,9 +37,12 @@ import com.strhodler.utxopocket.domain.model.UtxoSizeBucket
 import com.strhodler.utxopocket.domain.model.UtxoSpendabilityBucket
 import com.strhodler.utxopocket.domain.service.UtxoVisualizationCalculator
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.UtxoCanvasSnapshot
+import com.strhodler.utxopocket.domain.model.UtxoCollectionColor
 import com.strhodler.utxopocket.domain.model.UtxoTreemapColorMode
 import com.strhodler.utxopocket.domain.model.UtxoTreemapData
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
+import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import com.strhodler.utxopocket.common.logging.SecureLog
@@ -79,6 +82,7 @@ class WalletDetailViewModel @Inject constructor(
     private val walletRepository: WalletRepository,
     private val torManager: TorManager,
     private val appPreferencesRepository: AppPreferencesRepository,
+    private val canvasRepository: UtxoCanvasRepository,
     private val incomingTxCoordinator: IncomingTxCoordinator,
     private val utxoVisualizationCalculator: UtxoVisualizationCalculator,
     private val utxoTreemapCalculator: UtxoTreemapCalculator,
@@ -148,6 +152,7 @@ class WalletDetailViewModel @Inject constructor(
 
     private val baseState = combine(
         walletRepository.observeWalletDetail(walletId),
+        canvasRepository.observeCanvasSnapshot(walletId),
         walletRepository.observeNodeStatus(),
         walletRepository.observeSyncStatus(),
         torManager.status,
@@ -160,16 +165,17 @@ class WalletDetailViewModel @Inject constructor(
         appPreferencesRepository.pinShuffleEnabled
     ) { values: Array<Any?> ->
         val detail = values[0] as WalletDetail?
-        val nodeSnapshot = values[1] as NodeStatusSnapshot
-        val syncStatus = values[2] as SyncStatusSnapshot
-        val torStatus = values[3] as TorStatus
-        val balanceUnit = values[4] as BalanceUnit
-        val balancesHidden = values[5] as Boolean
-        val advancedMode = values[6] as Boolean
-        val dustThreshold = values[7] as Long
-        val hapticsEnabled = values[8] as Boolean
-        val pinLockEnabled = values[9] as Boolean
-        val pinShuffleEnabled = values[10] as Boolean
+        val canvasSnapshot = values[1] as UtxoCanvasSnapshot
+        val nodeSnapshot = values[2] as NodeStatusSnapshot
+        val syncStatus = values[3] as SyncStatusSnapshot
+        val torStatus = values[4] as TorStatus
+        val balanceUnit = values[5] as BalanceUnit
+        val balancesHidden = values[6] as Boolean
+        val advancedMode = values[7] as Boolean
+        val dustThreshold = values[8] as Long
+        val hapticsEnabled = values[9] as Boolean
+        val pinLockEnabled = values[10] as Boolean
+        val pinShuffleEnabled = values[11] as Boolean
         val balanceHistoryPoints = detail?.let { walletDetail ->
             if (walletDetail.transactions.isEmpty()) {
                 emptyList()
@@ -187,6 +193,7 @@ class WalletDetailViewModel @Inject constructor(
         } ?: emptyList()
         BaseSnapshot(
             detail = detail,
+            canvasSnapshot = canvasSnapshot,
             nodeSnapshot = nodeSnapshot,
             syncStatus = syncStatus,
             torStatus = torStatus,
@@ -359,7 +366,9 @@ class WalletDetailViewModel @Inject constructor(
                 syncGap = syncGap,
                 utxoAgeHistogram = EMPTY_UTXO_HISTOGRAM,
                 utxoHistogramMode = utxoHistogramMode,
-                utxoHoldWaves = EMPTY_UTXO_HOLD_WAVES
+                utxoHoldWaves = EMPTY_UTXO_HOLD_WAVES,
+                utxoTotalValueSats = 0L,
+                collections = emptyList()
             )
         } else {
             val summary = detail.summary
@@ -447,6 +456,7 @@ class WalletDetailViewModel @Inject constructor(
             val holdWaves = utxoVisualizationCalculator.buildHoldWaves(histogram)
             val spendabilityDistribution = buildSpendabilityDistribution(filteredUtxos)
             val sizeDistribution = buildSizeDistribution(filteredUtxos)
+            val totalUtxoValueSats = detail.utxos.sumOf { it.valueSats }
             val treemapRangeBounds = resolveTreemapRangeBounds(filteredUtxos)
             val resolvedTreemapRange = resolveTreemapRange(treemapRangeBounds, utxoTreemapRange)
             if (utxoTreemapRange != resolvedTreemapRange) {
@@ -470,6 +480,7 @@ class WalletDetailViewModel @Inject constructor(
                     totalValue = filteredUtxos.sumOf { it.valueSats }
                 )
             }
+            val collectionItems = buildCollectionItems(detail, baseSnapshot.canvasSnapshot)
             WalletDetailUiState(
                 isLoading = false,
                 isRefreshing = isSyncing,
@@ -521,10 +532,12 @@ class WalletDetailViewModel @Inject constructor(
                 utxoAgeHistogram = histogram,
                 utxoHistogramMode = utxoHistogramMode,
                 utxoHoldWaves = holdWaves,
+                utxoTotalValueSats = totalUtxoValueSats,
                 utxoSpendabilityDistribution = spendabilityDistribution,
                 utxoSizeDistribution = sizeDistribution,
                 utxoTreemap = treemapData,
-                utxoTreemapColorMode = utxoTreemapColorMode
+                utxoTreemapColorMode = utxoTreemapColorMode,
+                collections = collectionItems
             )
         }
     }
@@ -874,6 +887,7 @@ class WalletDetailViewModel @Inject constructor(
 
     private data class BaseSnapshot(
         val detail: WalletDetail?,
+        val canvasSnapshot: UtxoCanvasSnapshot,
         val nodeSnapshot: NodeStatusSnapshot,
         val syncStatus: SyncStatusSnapshot,
         val torStatus: TorStatus,
@@ -886,6 +900,29 @@ class WalletDetailViewModel @Inject constructor(
         val pinLockEnabled: Boolean,
         val pinShuffleEnabled: Boolean
     )
+
+    private fun buildCollectionItems(
+        detail: WalletDetail,
+        snapshot: UtxoCanvasSnapshot
+    ): List<WalletCollectionItem> {
+        if (snapshot.collections.isEmpty()) return emptyList()
+        val utxoMap = detail.utxos.associateBy { "${it.txid}:${it.vout}" }
+        val membershipMap = snapshot.memberships.groupBy { it.collectionId }
+        return snapshot.collections.map { collection ->
+            val memberKeys = membershipMap[collection.id]
+                ?.map { "${it.txid}:${it.vout}" }
+                ?.filter(utxoMap::containsKey)
+                ?: emptyList()
+            val totalValue = memberKeys.sumOf { key -> utxoMap[key]?.valueSats ?: 0L }
+            WalletCollectionItem(
+                id = collection.id,
+                name = collection.name,
+                color = collection.color,
+                totalValueSats = totalValue,
+                memberCount = memberKeys.size
+            )
+        }
+    }
 
     private fun computeUtxoFilterCounts(utxos: List<WalletUtxo>): UtxoFilterCounts {
         val labeled = utxos.count { !it.displayLabel.isNullOrBlank() }
@@ -1041,10 +1078,20 @@ data class WalletDetailUiState(
     val utxoAgeHistogram: UtxoAgeHistogram = EMPTY_UTXO_HISTOGRAM,
     val utxoHistogramMode: UtxoHistogramMode = UtxoHistogramMode.Count,
     val utxoHoldWaves: UtxoHoldWaves = EMPTY_UTXO_HOLD_WAVES,
+    val utxoTotalValueSats: Long = 0L,
     val utxoSpendabilityDistribution: UtxoBucketDistribution<UtxoSpendabilityBucket> = EMPTY_UTXO_SPENDABILITY_DISTRIBUTION,
     val utxoSizeDistribution: UtxoBucketDistribution<UtxoSizeBucket> = EMPTY_UTXO_SIZE_DISTRIBUTION,
     val utxoTreemap: UtxoTreemapData = UtxoTreemapData.Empty,
-    val utxoTreemapColorMode: UtxoTreemapColorMode = UtxoTreemapColorMode.DustRisk
+    val utxoTreemapColorMode: UtxoTreemapColorMode = UtxoTreemapColorMode.DustRisk,
+    val collections: List<WalletCollectionItem> = emptyList()
+)
+
+data class WalletCollectionItem(
+    val id: Long,
+    val name: String,
+    val color: UtxoCollectionColor,
+    val totalValueSats: Long,
+    val memberCount: Int
 )
 
 sealed interface WalletDetailError {
