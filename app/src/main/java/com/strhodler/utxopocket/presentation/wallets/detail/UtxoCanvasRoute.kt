@@ -1,6 +1,8 @@
 package com.strhodler.utxopocket.presentation.wallets.detail
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntOffsetAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -78,6 +81,7 @@ import javax.inject.Inject
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
+import android.os.SystemClock
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -301,6 +305,8 @@ private fun UtxoCanvasGrid(
     val scrollState = rememberScrollState()
     var dragState by remember { mutableStateOf<DragState?>(null) }
     var hoverKey by remember { mutableStateOf<String?>(null) }
+    var pendingHoverKey by remember { mutableStateOf<String?>(null) }
+    var hoverStartTimeMs by remember { mutableStateOf<Long?>(null) }
     val dragEnabled = dragState == null
     val edgePadding = 16.dp
     val spacing = 16.dp
@@ -308,6 +314,9 @@ private fun UtxoCanvasGrid(
     val minTileSize = 92.dp
     val autoScrollEdge = 72.dp
     val autoScrollStep = 24.dp
+    val hoverDwellMs = 140L
+    val previewTimeThresholdMs = 140L
+    val previewDistanceThreshold = 12.dp
 
     BoxWithConstraints(
         modifier = Modifier
@@ -316,6 +325,7 @@ private fun UtxoCanvasGrid(
             .padding(horizontal = edgePadding)
     ) {
         val density = LocalDensity.current
+        val previewDistanceThresholdPx = with(density) { previewDistanceThreshold.toPx() }
         val maxWidth = maxWidth
         val columns = ((maxWidth + spacing) / (minTileSize + spacing)).toInt().coerceAtLeast(2)
         val tileSize = remember(maxWidth, columns) {
@@ -329,8 +339,40 @@ private fun UtxoCanvasGrid(
         val viewportHeightPx = with(density) { maxHeight.toPx() }
         val autoScrollEdgePx = with(density) { autoScrollEdge.toPx() }
         val autoScrollStepPx = with(density) { autoScrollStep.toPx() }
-        val itemRects = remember(items, columns, tilePx, spacingPx, contentPaddingPx) {
-            buildItemRects(items, columns, tilePx, spacingPx, contentPaddingPx)
+        val dropIndex = dragState?.pointerPosition?.let { pointer ->
+            indexForPosition(pointer, columns, tilePx, spacingPx, items.size, contentPaddingPx)
+        }
+        val hasHoverTarget = hoverKey != null || pendingHoverKey != null
+        val previewReady = dragState?.hasMetPreviewThreshold(
+            distanceThresholdPx = previewDistanceThresholdPx,
+            timeThresholdMs = previewTimeThresholdMs
+        ) == true
+        val previewDropIndex = if (previewReady && !hasHoverTarget) dropIndex else null
+        val previewItems = remember(items, previewDropIndex, dragState?.itemKey, hasHoverTarget) {
+            val key = dragState?.itemKey
+            if (key != null && previewDropIndex != null) {
+                reorderItems(items, key, previewDropIndex) ?: items
+            } else {
+                items
+            }
+        }
+        val itemRects = remember(previewItems, columns, tilePx, spacingPx, contentPaddingPx) {
+            buildItemRects(previewItems, columns, tilePx, spacingPx, contentPaddingPx)
+        }
+        val itemRectsState = rememberUpdatedState(itemRects)
+        val itemsState = rememberUpdatedState(items)
+        val previewItemsState = rememberUpdatedState(previewItems)
+        val dropIndexState = rememberUpdatedState(dropIndex)
+        val previewReadyState = rememberUpdatedState(previewReady)
+        val previewDropIndexState = rememberUpdatedState(previewDropIndex)
+        val columnsState = rememberUpdatedState(columns)
+        val tilePxState = rememberUpdatedState(tilePx)
+        val spacingPxState = rememberUpdatedState(spacingPx)
+        val contentPaddingPxState = rememberUpdatedState(contentPaddingPx)
+        val previewOffsets = remember(itemRects) {
+            itemRects.mapValues { (_, rect) ->
+                IntOffset(rect.left.roundToInt(), rect.top.roundToInt())
+            }
         }
 
         val rows = if (items.isEmpty()) 0 else ceil(items.size / columns.toFloat()).toInt()
@@ -354,9 +396,13 @@ private fun UtxoCanvasGrid(
                     val isDragging = dragState?.itemKey == item.key
                     val isHovered = hoverKey == item.key && !isDragging
                     val alpha = if (isDragging) 0f else 1f
-                    val offset = with(density) {
-                        IntOffset(rect.left.roundToInt(), rect.top.roundToInt())
-                    }
+                    val targetOffset = previewOffsets[item.key]
+                        ?: IntOffset(rect.left.roundToInt(), rect.top.roundToInt())
+                    val offset by animateIntOffsetAsState(
+                        targetValue = targetOffset,
+                        animationSpec = spring(dampingRatio = 0.85f, stiffness = 500f),
+                        label = "canvasTileOffset"
+                    )
                     val scale by animateFloatAsState(
                         targetValue = if (isHovered) 1.02f else 1f,
                         label = "canvasTileScale"
@@ -375,10 +421,13 @@ private fun UtxoCanvasGrid(
                                             touchOffset = localOffset
                                         )
                                         hoverKey = null
+                                        pendingHoverKey = null
+                                        hoverStartTimeMs = null
                                     },
                                     onDrag = { change, dragAmount ->
                                         change.consume()
-                                        var updated = dragState?.moveBy(dragAmount) ?: return@detectDragGesturesAfterLongPress
+                                        var updated = dragState?.moveBy(dragAmount)
+                                            ?: return@detectDragGesturesAfterLongPress
                                         val pointer = updated.pointerPosition
                                         val pointerViewportY = pointer.y - scrollState.value.toFloat()
                                         val scrollDelta = autoScrollDelta(
@@ -394,17 +443,34 @@ private fun UtxoCanvasGrid(
                                             }
                                         }
                                         dragState = updated
-                                        hoverKey = findHoverKey(updated.pointerPosition, itemRects, updated.itemKey)
+                                        val candidateHover = findHoverKey(
+                                            updated.pointerPosition,
+                                            itemRectsState.value,
+                                            updated.itemKey
+                                        )
+                                        val now = SystemClock.uptimeMillis()
+                                        if (candidateHover != pendingHoverKey) {
+                                            pendingHoverKey = candidateHover
+                                            hoverStartTimeMs = if (candidateHover != null) now else null
+                                        }
+                                        val hasDwelled = candidateHover != null &&
+                                            hoverStartTimeMs?.let { start -> now - start >= hoverDwellMs } == true
+                                        hoverKey = if (hasDwelled) candidateHover else null
                                     },
                                     onDragEnd = {
                                         val snapshot = dragState
                                         val pointer = snapshot?.pointerPosition
                                         if (snapshot != null && pointer != null) {
+                                            val currentItems = itemsState.value
                                             val draggedItem =
-                                                items.firstOrNull { it.key == snapshot.itemKey }
-                                            val targetKey = findHoverKey(pointer, itemRects, snapshot.itemKey)
+                                                currentItems.firstOrNull { it.key == snapshot.itemKey }
+                                            val targetKey = hoverKey ?: findHoverKey(
+                                                pointer,
+                                                itemRectsState.value,
+                                                snapshot.itemKey
+                                            )
                                             val targetItem = targetKey?.let { key ->
-                                                items.firstOrNull { it.key == key }
+                                                currentItems.firstOrNull { it.key == key }
                                             }
                                             if (draggedItem is UtxoCanvasItemUi.Utxo &&
                                                 targetItem is UtxoCanvasItemUi.Collection
@@ -414,19 +480,31 @@ private fun UtxoCanvasGrid(
                                                 targetItem is UtxoCanvasItemUi.Utxo &&
                                                 draggedItem.key != targetItem.key
                                             ) {
-                                                val anchorIndex = items.indexOfFirst { it.key == targetItem.key }
+                                                val anchorIndex = currentItems.indexOfFirst { it.key == targetItem.key }
                                                     .takeIf { it >= 0 }
                                                 onRequestCollection(draggedItem, targetItem, anchorIndex)
                                             } else {
-                                                val dropIndex = indexForPosition(
-                                                    pointer,
-                                                    columns,
-                                                    tilePx,
-                                                    spacingPx,
-                                                    items.size,
-                                                    contentPaddingPx
-                                                )
-                                                val reordered = reorderItems(items, snapshot.itemKey, dropIndex)
+                                                val dropIndex = dropIndexState.value
+                                                    ?: indexForPosition(
+                                                        pointer,
+                                                        columnsState.value,
+                                                        tilePxState.value,
+                                                        spacingPxState.value,
+                                                        currentItems.size,
+                                                        contentPaddingPxState.value
+                                                    )
+                                                val reordered = if (
+                                                    previewReadyState.value &&
+                                                    previewDropIndexState.value != null
+                                                ) {
+                                                    previewItemsState.value
+                                                } else {
+                                                    reorderItems(
+                                                        currentItems,
+                                                        snapshot.itemKey,
+                                                        dropIndex
+                                                    )
+                                                }
                                                 if (reordered != null) {
                                                     onReorder(reordered)
                                                 }
@@ -434,10 +512,14 @@ private fun UtxoCanvasGrid(
                                         }
                                         dragState = null
                                         hoverKey = null
+                                        pendingHoverKey = null
+                                        hoverStartTimeMs = null
                                     },
                                     onDragCancel = {
                                         dragState = null
                                         hoverKey = null
+                                        pendingHoverKey = null
+                                        hoverStartTimeMs = null
                                     }
                                 )
                             }
@@ -692,8 +774,8 @@ private fun reorderItems(
     if (fromIndex == -1 || fromIndex == dropIndex) return null
     val mutable = items.toMutableList()
     val item = mutable.removeAt(fromIndex)
-    val adjusted = if (dropIndex > fromIndex) dropIndex - 1 else dropIndex
-    mutable.add(adjusted.coerceIn(0, mutable.size), item)
+    val clampedIndex = dropIndex.coerceIn(0, mutable.size)
+    mutable.add(clampedIndex, item)
     return mutable.toList()
 }
 
@@ -708,9 +790,19 @@ private data class DragState(
     val itemKey: String,
     val origin: Offset,
     val touchOffset: Offset,
+    val startTimeMs: Long = SystemClock.uptimeMillis(),
     val dragDelta: Offset = Offset.Zero
 ) {
     val pointerPosition: Offset = origin + dragDelta + touchOffset
+
+    fun hasMetPreviewThreshold(
+        distanceThresholdPx: Float,
+        timeThresholdMs: Long
+    ): Boolean {
+        val distanceMet = distanceThresholdPx <= 0f || dragDelta.getDistance() >= distanceThresholdPx
+        val timeMet = timeThresholdMs <= 0 || SystemClock.uptimeMillis() - startTimeMs >= timeThresholdMs
+        return distanceMet || timeMet
+    }
 
     fun moveBy(delta: Offset): DragState = copy(dragDelta = dragDelta + delta)
 }

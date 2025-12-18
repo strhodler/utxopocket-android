@@ -28,6 +28,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
@@ -166,6 +168,7 @@ private fun UtxoAgeDistributionCard(
     val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
     val coroutineScope = rememberCoroutineScope()
     val tabContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
+    var isTreemapSliderDragging by remember { mutableStateOf(false) }
 
     Card(
         modifier = modifier,
@@ -212,6 +215,8 @@ private fun UtxoAgeDistributionCard(
             LaunchedEffect(pagerState.currentPage) {
                 if (tabs[pagerState.currentPage] == UtxoAgeDistributionTab.Treemap) {
                     onTreemapRequested()
+                } else if (isTreemapSliderDragging) {
+                    isTreemapSliderDragging = false
                 }
             }
             HorizontalPager(
@@ -219,7 +224,7 @@ private fun UtxoAgeDistributionCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                userScrollEnabled = true
+                userScrollEnabled = !isTreemapSliderDragging
             ) { pageIndex ->
                 val pageScroll = rememberScrollState()
                 when (tabs[pageIndex]) {
@@ -284,13 +289,16 @@ private fun UtxoAgeDistributionCard(
                             .padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        TreemapPage(
-                            treemapData = treemapData,
-                            onTreemapRangeChange = onTreemapRangeChange,
-                            onOpenUtxo = onOpenUtxo,
-                            balanceUnit = balanceUnit
-                        )
-                    }
+                            TreemapPage(
+                                treemapData = treemapData,
+                                onTreemapRangeChange = onTreemapRangeChange,
+                                onOpenUtxo = onOpenUtxo,
+                                balanceUnit = balanceUnit,
+                                onSliderDraggingChange = { isDragging ->
+                                    isTreemapSliderDragging = isDragging
+                                }
+                            )
+                        }
                 }
             }
         }
@@ -402,6 +410,7 @@ private fun CollectionsPage(
     balanceUnit: BalanceUnit
 ) {
     val unassignedLabel = stringResource(id = R.string.wallet_utxo_collection_distribution_unassigned)
+    val colorScheme = MaterialTheme.colorScheme
     val distribution = remember(
         collectionItems,
         totalUtxoCount,
@@ -415,10 +424,19 @@ private fun CollectionsPage(
             unassignedLabel = unassignedLabel
         )
     }
+    val sliceColors = remember(collectionItems, distribution.slices, colorScheme.surfaceVariant) {
+        val colorMap = collectionItems.associate { collection ->
+            "collection:${collection.id}" to collectionColor(collection.color)
+        }
+        distribution.slices.map { slice ->
+            colorMap[slice.id] ?: colorScheme.surfaceVariant
+        }
+    }
     DistributionPage(
         title = stringResource(id = R.string.wallet_utxo_collections_title),
         subtitle = stringResource(id = R.string.wallet_utxo_collections_subtitle),
         distribution = distribution,
+        sliceColorsOverride = sliceColors,
         balanceUnit = balanceUnit
     )
 }
@@ -428,6 +446,7 @@ private fun DistributionPage(
     title: String,
     subtitle: String,
     distribution: UiDistribution,
+    sliceColorsOverride: List<Color>? = null,
     balanceUnit: BalanceUnit
 ) {
     Column(
@@ -440,6 +459,7 @@ private fun DistributionPage(
             val colorScheme = MaterialTheme.colorScheme
             val sliceColors = remember(
                 distribution.slices,
+                sliceColorsOverride,
                 colorScheme.primary,
                 colorScheme.primaryContainer,
                 colorScheme.secondary,
@@ -449,7 +469,8 @@ private fun DistributionPage(
                 colorScheme.inversePrimary,
                 colorScheme.onPrimaryContainer
             ) {
-                buildSliceColors(colorScheme, distribution.slices.size)
+                val provided = sliceColorsOverride?.takeIf { it.size >= distribution.slices.size }
+                provided ?: buildSliceColors(colorScheme, distribution.slices.size)
             }
             var selectedSliceIndex by remember(distribution) { mutableStateOf<Int?>(null) }
             val legendListState = rememberLazyListState()
@@ -651,7 +672,8 @@ private fun TreemapPage(
     treemapData: UtxoTreemapData,
     onTreemapRangeChange: (LongRange) -> Unit,
     onOpenUtxo: (String, Int) -> Unit,
-    balanceUnit: BalanceUnit
+    balanceUnit: BalanceUnit,
+    onSliderDraggingChange: (Boolean) -> Unit
 ) {
     var selectedTile by remember(treemapData.tiles) { mutableStateOf<UtxoTreemapTile?>(null) }
     Column(
@@ -678,7 +700,8 @@ private fun TreemapPage(
         TreemapControls(
             treemapData = treemapData,
             onTreemapRangeChange = onTreemapRangeChange,
-            balanceUnit = balanceUnit
+            balanceUnit = balanceUnit,
+            onSliderDraggingChange = onSliderDraggingChange
         )
     }
     if (selectedTile != null) {
@@ -702,7 +725,8 @@ private fun TreemapPage(
 private fun TreemapControls(
     treemapData: UtxoTreemapData,
     onTreemapRangeChange: (LongRange) -> Unit,
-    balanceUnit: BalanceUnit
+    balanceUnit: BalanceUnit,
+    onSliderDraggingChange: (Boolean) -> Unit
 ) {
     val availableRange = treemapData.availableRange
     val selectedRange = treemapData.selectedRange
@@ -712,8 +736,17 @@ private fun TreemapControls(
             rangeToSlider(availableRange, selectedRange)
         )
     }
+    val startInteractionSource = remember { MutableInteractionSource() }
+    val endInteractionSource = remember { MutableInteractionSource() }
+    val isStartDragging by startInteractionSource.collectIsDraggedAsState()
+    val isEndDragging by endInteractionSource.collectIsDraggedAsState()
+    val isSliderDragging = isStartDragging || isEndDragging
     val valueFormatter = remember(balanceUnit) {
         { value: Long -> formatValueForUnit(value, balanceUnit) }
+    }
+
+    LaunchedEffect(isSliderDragging) {
+        onSliderDraggingChange(isSliderDragging)
     }
 
     val updateRange: (LongRange) -> Unit = { range ->
@@ -738,7 +771,9 @@ private fun TreemapControls(
                     updateRange(newRange)
                 },
                 valueRange = 0f..1f,
-                steps = 0
+                steps = 0,
+                startInteractionSource = startInteractionSource,
+                endInteractionSource = endInteractionSource
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
