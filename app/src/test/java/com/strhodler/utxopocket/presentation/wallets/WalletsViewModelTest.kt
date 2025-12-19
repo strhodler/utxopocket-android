@@ -290,6 +290,7 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
     override val networkLogsEnabled: Flow<Boolean> = _networkLogsEnabled
     override val networkLogsInfoSeen: Flow<Boolean> = _networkLogsInfoSeen
     override val blockExplorerPreferences: Flow<BlockExplorerPreferences> = blockExplorerPreferencesState
+    override val duressConfigured: Flow<Boolean> = MutableStateFlow(false)
 
     override suspend fun setOnboardingCompleted(completed: Boolean) = Unit
 
@@ -298,6 +299,10 @@ private class TestAppPreferencesRepository : AppPreferencesRepository {
     }
 
     override suspend fun setPin(pin: String) = Unit
+
+    override suspend fun setDuressPin(pin: String) = Unit
+
+    override suspend fun clearDuressPin() = Unit
 
     override suspend fun clearPin() = Unit
 

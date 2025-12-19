@@ -14,7 +14,8 @@ enum class PinLockoutMessageType(@param:StringRes val stringRes: Int) {
 
 fun formatPinStaticError(resources: Resources, result: PinVerificationResult): String? =
     when (result) {
-        PinVerificationResult.Success -> null
+        PinVerificationResult.Success,
+        is PinVerificationResult.DuressTriggered -> null
         PinVerificationResult.InvalidFormat ->
             resources.getString(R.string.pin_error_length)
         PinVerificationResult.NotConfigured ->

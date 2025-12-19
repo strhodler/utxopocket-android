@@ -45,5 +45,6 @@ data class SettingsUiState(
     val blockExplorerNormalCustomNameInput: String = "",
     val blockExplorerOnionCustomNameInput: String = "",
     val incomingDetectionIntervalSeconds: Int = IncomingTxPreferences.DEFAULT_INTERVAL_SECONDS,
-    val incomingDetectionDialogEnabled: Boolean = true
+    val incomingDetectionDialogEnabled: Boolean = true,
+    val duressConfigured: Boolean = false
 )

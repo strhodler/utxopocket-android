@@ -23,6 +23,7 @@ import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import com.strhodler.utxopocket.domain.service.DuressManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,7 +36,8 @@ class SettingsViewModel @Inject constructor(
     private val appPreferencesRepository: AppPreferencesRepository,
     private val incomingTxPreferencesRepository: IncomingTxPreferencesRepository,
     private val walletRepository: WalletRepository,
-    private val networkErrorLogRepository: NetworkErrorLogRepository
+    private val networkErrorLogRepository: NetworkErrorLogRepository,
+    private val duressManager: DuressManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -58,6 +60,7 @@ class SettingsViewModel @Inject constructor(
                 networkErrorLogRepository.loggingEnabled,
                 appPreferencesRepository.dustThresholdSats,
                 appPreferencesRepository.blockExplorerPreferences,
+                appPreferencesRepository.duressConfigured,
                 incomingTxPreferencesRepository.globalPreferences()
             ) { values: Array<Any?> ->
                 val preferredNetwork = values[0] as BitcoinNetwork
@@ -74,7 +77,8 @@ class SettingsViewModel @Inject constructor(
                 val networkLogsEnabled = values[11] as Boolean
                 val dustThreshold = values[12] as Long
                 val blockExplorerPrefs = values[13] as BlockExplorerPreferences
-                val incomingPrefs = values[14] as IncomingTxPreferences
+                val duressConfigured = values[14] as Boolean
+                val incomingPrefs = values[15] as IncomingTxPreferences
                 val previous = _uiState.value
 
                 val networkExplorerPrefs = blockExplorerPrefs.forNetwork(preferredNetwork)
@@ -117,7 +121,8 @@ class SettingsViewModel @Inject constructor(
                     blockExplorerNormalCustomNameInput = customNormalName,
                     blockExplorerOnionCustomNameInput = customOnionName,
                     incomingDetectionIntervalSeconds = incomingPrefs.intervalSeconds,
-                    incomingDetectionDialogEnabled = incomingPrefs.showDialog
+                    incomingDetectionDialogEnabled = incomingPrefs.showDialog,
+                    duressConfigured = duressConfigured
                 )
             }.collect { state ->
                 _uiState.value = state
@@ -447,10 +452,36 @@ class SettingsViewModel @Inject constructor(
     fun disablePin(pin: String, onResult: (PinVerificationResult) -> Unit) {
         viewModelScope.launch {
             val result = appPreferencesRepository.verifyPin(pin)
-            if (result is PinVerificationResult.Success) {
+            if (result is PinVerificationResult.Success || result is PinVerificationResult.DuressTriggered) {
                 appPreferencesRepository.clearPin()
+                duressManager.restore()
             }
             onResult(result)
+        }
+    }
+
+    fun verifyPin(pin: String, onResult: (PinVerificationResult) -> Unit) {
+        viewModelScope.launch {
+            onResult(appPreferencesRepository.verifyPin(pin))
+        }
+    }
+
+    fun setDuressPin(pin: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            runCatching { appPreferencesRepository.setDuressPin(pin) }
+                .onSuccess { onResult(true, null) }
+                .onFailure { error -> onResult(false, error.message) }
+        }
+    }
+
+    fun clearDuressPin(onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            runCatching { appPreferencesRepository.clearDuressPin() }
+                .onSuccess {
+                    duressManager.restore()
+                    onResult(true)
+                }
+                .onFailure { onResult(false) }
         }
     }
 

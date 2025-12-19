@@ -410,6 +410,7 @@ class WalletDetailViewModelRangeTest {
         override val networkLogsEnabled: Flow<Boolean> = networkLogsEnabledState
         override val networkLogsInfoSeen: Flow<Boolean> = networkLogsInfoSeenState
         override val blockExplorerPreferences: Flow<BlockExplorerPreferences> = blockExplorerPreferencesState
+        override val duressConfigured: Flow<Boolean> = MutableStateFlow(false)
 
         override suspend fun setOnboardingCompleted(completed: Boolean) {
             onboardingCompletedState.value = completed
@@ -420,6 +421,10 @@ class WalletDetailViewModelRangeTest {
         }
 
         override suspend fun setPin(pin: String) = Unit
+
+        override suspend fun setDuressPin(pin: String) = Unit
+
+        override suspend fun clearDuressPin() = Unit
 
         override suspend fun clearPin() = Unit
 

@@ -613,7 +613,8 @@ fun WalletDetailRoute(
                 val resources = resourcesState.value
                 viewModel.verifyPin(pin) { result ->
                     when (result) {
-                        PinVerificationResult.Success -> {
+                        PinVerificationResult.Success,
+                        is PinVerificationResult.DuressTriggered -> {
                             descriptorPinError = null
                             descriptorPinLockoutExpiry = null
                             descriptorPinLockoutType = null

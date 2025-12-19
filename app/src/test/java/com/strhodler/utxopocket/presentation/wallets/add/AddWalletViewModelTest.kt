@@ -499,6 +499,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val networkLogsEnabled: Flow<Boolean> = _networkLogsEnabled
     override val networkLogsInfoSeen: Flow<Boolean> = _networkLogsInfoSeen
     override val blockExplorerPreferences: Flow<BlockExplorerPreferences> = blockExplorerPreferencesState
+    override val duressConfigured: Flow<Boolean> = MutableStateFlow(false)
 
     val currentNetwork: BitcoinNetwork
         get() = _preferredNetwork.value
@@ -512,6 +513,10 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     }
 
     override suspend fun setPin(pin: String) = Unit
+
+    override suspend fun setDuressPin(pin: String) = Unit
+
+    override suspend fun clearDuressPin() = Unit
 
     override suspend fun clearPin() = Unit
 

@@ -93,6 +93,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
+import com.strhodler.utxopocket.domain.model.DuressSessionState
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
@@ -191,6 +192,7 @@ class MainActivity : AppCompatActivity() {
 
                     else -> {
                         val navController = rememberNavController()
+                        val duressActive = uiState.duressState is DuressSessionState.FakeActive
                         var pinErrorMessage by remember { mutableStateOf<String?>(null) }
                         var pinLockoutExpiry by remember { mutableStateOf<Long?>(null) }
                         var pinLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
@@ -210,9 +212,29 @@ class MainActivity : AppCompatActivity() {
                                 currentRoute in bottomBarVisibleRoutes &&
                                 bottomBarVisibilityController.isVisible
                         var showIncomingSheet by rememberSaveable { mutableStateOf(false) }
+                        var lastDuressActive by rememberSaveable { mutableStateOf(false) }
                         val incomingGroups = uiState.status.incomingPlaceholderGroups
                         val incomingCount = remember(incomingGroups) {
                             incomingGroups.sumOf { it.placeholders.size }
+                        }
+                        LaunchedEffect(uiState.duressState) {
+                            val active = uiState.duressState is DuressSessionState.FakeActive
+                            if (active && !lastDuressActive) {
+                                showIncomingSheet = false
+                                navController.navigate(MainDestination.Wallets.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                            lastDuressActive = active
+                        }
+                        LaunchedEffect(duressActive) {
+                            if (duressActive) {
+                                showIncomingSheet = false
+                            }
                         }
                         LaunchedEffect(Unit) {
                             viewModel.incomingSheetRequests.collect {
@@ -230,8 +252,9 @@ class MainActivity : AppCompatActivity() {
                             }
                         }
                         val modalIncomingSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-                        val onNodeStatusClick = remember(navController) {
-                            {
+                        val onNodeStatusClick = remember(navController, duressActive) {
+                            onNodeStatusClick@{
+                                if (duressActive) return@onNodeStatusClick
                                 navController.navigate(
                                     WalletsNavigation.nodeStatusRoute()
                                 ) {
@@ -239,8 +262,9 @@ class MainActivity : AppCompatActivity() {
                                 }
                             }
                         }
-                        val onIncomingTxClick = remember(navController, incomingGroups) {
-                            {
+                        val onIncomingTxClick = remember(navController, incomingGroups, duressActive) {
+                            onIncomingTxClick@{
+                                if (duressActive) return@onIncomingTxClick
                                 if (incomingGroups.isNotEmpty()) {
                                     showIncomingSheet = true
                                 } else {
@@ -307,6 +331,7 @@ class MainActivity : AppCompatActivity() {
                                                 is MainTopBarState.Primary -> {
                                                     StatusBar(
                                                         state = uiState.status,
+                                                        duressActive = duressActive,
                                                         onNodeStatusClick = onNodeStatusClick,
                                                         onIncomingTxClick = onIncomingTxClick,
                                                         modifier = Modifier.windowInsetsPadding(
@@ -373,16 +398,17 @@ class MainActivity : AppCompatActivity() {
                                                     end = endPadding,
                                                     bottom = bottomPadding
                                                 ),
-                                            statusBarState = uiState.status
+                                            statusBarState = uiState.status,
+                                            duressState = uiState.duressState
                                         )
                                     }
 
-                                    if (showIncomingSheet && incomingGroups.isNotEmpty()) {
-                                        IncomingTxSheet(
-                                            groups = incomingGroups,
-                                            totalCount = incomingCount,
-                                            balanceUnit = uiState.balanceUnit,
-                                            balancesHidden = uiState.balancesHidden,
+                        if (!duressActive && showIncomingSheet && incomingGroups.isNotEmpty()) {
+                            IncomingTxSheet(
+                                groups = incomingGroups,
+                                totalCount = incomingCount,
+                                balanceUnit = uiState.balanceUnit,
+                                balancesHidden = uiState.balancesHidden,
                                             onSyncNow = {
                                                 viewModel.refreshIncomingWallets(
                                                     incomingGroups.map { group -> group.walletId }
@@ -435,7 +461,8 @@ class MainActivity : AppCompatActivity() {
                                                     val resources = resourcesState.value
                                                     viewModel.unlockWithPin(pin) { result ->
                                                         when (result) {
-                                                            PinVerificationResult.Success -> {
+                                                            PinVerificationResult.Success,
+                                                            is PinVerificationResult.DuressTriggered -> {
                                                                 pinErrorMessage = null
                                                                 pinLockoutExpiry = null
                                                                 pinLockoutType = null
@@ -532,6 +559,7 @@ private fun ellipsizeMiddle(value: String, head: Int = 8, tail: Int = 4): String
 @Composable
 private fun StatusBar(
     state: StatusBarUiState,
+    duressActive: Boolean,
     onNodeStatusClick: () -> Unit,
     onIncomingTxClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -609,7 +637,7 @@ private fun StatusBar(
             },
             navigationIcon = {},
             actions = {
-                if (state.incomingTxCount > 0) {
+                if (!duressActive && state.incomingTxCount > 0) {
                     IncomingTxBadgeIcon(
                         count = state.incomingTxCount,
                         onClick = onIncomingTxClick,
@@ -619,12 +647,14 @@ private fun StatusBar(
                         )
                     )
                 }
-                TopBarStatusActionIcon(
-                    onClick = onNodeStatusClick,
-                    indicatorColor = nodeStatusIndicatorColor(state.nodeStatus),
-                    contentDescription = stringResource(id = R.string.status_node_action_description)
-                ) {
-                    TopBarNodeStatusIcon(state.nodeStatus)
+                if (!duressActive) {
+                    TopBarStatusActionIcon(
+                        onClick = onNodeStatusClick,
+                        indicatorColor = nodeStatusIndicatorColor(state.nodeStatus),
+                        contentDescription = stringResource(id = R.string.status_node_action_description)
+                    ) {
+                        TopBarNodeStatusIcon(state.nodeStatus)
+                    }
                 }
             },
             colors = topBarColors,

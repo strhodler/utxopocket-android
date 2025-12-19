@@ -28,6 +28,9 @@ import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import android.util.Base64
+import com.strhodler.utxopocket.domain.model.DEFAULT_DURESS_DECOY_BALANCE_SATS
+import com.strhodler.utxopocket.domain.model.MAX_DURESS_DECOY_BALANCE_SATS
+import com.strhodler.utxopocket.domain.model.MIN_DURESS_DECOY_BALANCE_SATS
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
@@ -47,6 +50,7 @@ import java.util.UUID
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import kotlin.math.min
+import kotlin.random.Random
 
 @Singleton
 class DefaultAppPreferencesRepository @Inject constructor(
@@ -80,6 +84,11 @@ class DefaultAppPreferencesRepository @Inject constructor(
     override val pinLastUnlockedAt: Flow<Long?> =
         dataStore.data.map { prefs ->
             prefs[Keys.PIN_LAST_UNLOCKED_AT]?.takeIf { it > 0L }
+        }
+
+    override val duressConfigured: Flow<Boolean> =
+        dataStore.data.map { prefs ->
+            prefs[Keys.DURESS_PIN_HASH] != null && prefs[Keys.DURESS_PIN_SALT] != null
         }
 
     override val themePreference: Flow<ThemePreference> =
@@ -188,6 +197,33 @@ class DefaultAppPreferencesRepository @Inject constructor(
         }
     }
 
+    override suspend fun setDuressPin(pin: String) {
+        val normalised = pin.filter { it.isDigit() }
+        require(normalised.length == PIN_LENGTH) { "PIN must be $PIN_LENGTH digits" }
+        val snapshot = dataStore.data.first()
+        val normalHash = snapshot[Keys.PIN_HASH]
+        val normalSalt = snapshot[Keys.PIN_SALT]
+        val normalIterations = snapshot[Keys.PIN_KDF_ITERATIONS] ?: PIN_KDF_ITERATIONS
+        if (normalHash != null && normalSalt != null) {
+            val derivedNormalWithDuressPin = derivePinHash(
+                normalised,
+                decodeBase64(normalSalt),
+                normalIterations
+            )
+            val storedNormalHash = decodeBase64(normalHash)
+            require(!MessageDigest.isEqual(derivedNormalWithDuressPin, storedNormalHash)) {
+                "Duress PIN must differ from the app PIN"
+            }
+        }
+        val salt = generateSalt()
+        val derivedHash = derivePinHash(normalised, salt, PIN_KDF_ITERATIONS)
+        dataStore.edit { prefs ->
+            prefs[Keys.DURESS_PIN_HASH] = derivedHash.toBase64()
+            prefs[Keys.DURESS_PIN_SALT] = salt.toBase64()
+            prefs[Keys.DURESS_PIN_KDF_ITERATIONS] = PIN_KDF_ITERATIONS
+        }
+    }
+
     override suspend fun clearPin() {
         dataStore.edit { prefs ->
             prefs.remove(Keys.PIN_HASH)
@@ -198,6 +234,17 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs.remove(Keys.PIN_LAST_FAILURE)
             prefs[Keys.PIN_ENABLED] = false
             prefs.remove(Keys.PIN_LAST_UNLOCKED_AT)
+            prefs.remove(Keys.DURESS_PIN_HASH)
+            prefs.remove(Keys.DURESS_PIN_SALT)
+            prefs.remove(Keys.DURESS_PIN_KDF_ITERATIONS)
+        }
+    }
+
+    override suspend fun clearDuressPin() {
+        dataStore.edit { prefs ->
+            prefs.remove(Keys.DURESS_PIN_HASH)
+            prefs.remove(Keys.DURESS_PIN_SALT)
+            prefs.remove(Keys.DURESS_PIN_KDF_ITERATIONS)
         }
     }
 
@@ -214,6 +261,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val lockedUntil = snapshot[Keys.PIN_LOCKED_UNTIL] ?: 0L
         val failedAttempts = snapshot[Keys.PIN_FAILED_ATTEMPTS] ?: 0
         val lastFailure = snapshot[Keys.PIN_LAST_FAILURE]
+        val duressHash = snapshot[Keys.DURESS_PIN_HASH]
+        val duressSalt = snapshot[Keys.DURESS_PIN_SALT]
+        val duressIterations = snapshot[Keys.DURESS_PIN_KDF_ITERATIONS] ?: PIN_KDF_ITERATIONS
 
         val now = System.currentTimeMillis()
         if (lockedUntil > now) {
@@ -223,6 +273,13 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val saltBytes = decodeBase64(storedSalt)
         val storedHashBytes = decodeBase64(storedHash)
         val derived = derivePinHash(normalised, saltBytes, iterations)
+        val duressHashBytes = duressHash?.let(::decodeBase64)
+        val duressSaltBytes = duressSalt?.let(::decodeBase64)
+        val duressDerived = if (duressHashBytes != null && duressSaltBytes != null) {
+            derivePinHash(normalised, duressSaltBytes, duressIterations)
+        } else {
+            null
+        }
         if (MessageDigest.isEqual(derived, storedHashBytes)) {
             dataStore.edit { prefs ->
                 prefs[Keys.PIN_FAILED_ATTEMPTS] = 0
@@ -231,6 +288,23 @@ class DefaultAppPreferencesRepository @Inject constructor(
                 prefs[Keys.PIN_LAST_UNLOCKED_AT] = now
             }
             return PinVerificationResult.Success
+        }
+        if (
+            duressHashBytes != null &&
+            duressDerived != null &&
+            MessageDigest.isEqual(duressDerived, duressHashBytes)
+        ) {
+            val decoyBalance = Random.nextLong(
+                MIN_DURESS_DECOY_BALANCE_SATS,
+                MAX_DURESS_DECOY_BALANCE_SATS + 1
+            )
+            dataStore.edit { prefs ->
+                prefs[Keys.PIN_FAILED_ATTEMPTS] = 0
+                prefs[Keys.PIN_LOCKED_UNTIL] = 0L
+                prefs.remove(Keys.PIN_LAST_FAILURE)
+                prefs[Keys.PIN_LAST_UNLOCKED_AT] = now
+            }
+            return PinVerificationResult.DuressTriggered(decoyBalance)
         }
 
         val baselineAttempts =
@@ -759,6 +833,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val PIN_LAST_FAILURE = longPreferencesKey("pin_last_failure")
         val PIN_AUTO_LOCK_MINUTES = intPreferencesKey("pin_auto_lock_minutes")
         val PIN_LAST_UNLOCKED_AT = longPreferencesKey("pin_last_unlocked_at")
+        val DURESS_PIN_HASH = stringPreferencesKey("duress_pin_hash")
+        val DURESS_PIN_SALT = stringPreferencesKey("duress_pin_salt")
+        val DURESS_PIN_KDF_ITERATIONS = intPreferencesKey("duress_pin_kdf_iterations")
         val NODE_CONNECTION_OPTION = stringPreferencesKey("node_connection_option")
         val NODE_ADDRESS_OPTION = stringPreferencesKey("node_address_option")
         val NODE_SELECTED_PUBLIC_ID = stringPreferencesKey("node_selected_public_id")

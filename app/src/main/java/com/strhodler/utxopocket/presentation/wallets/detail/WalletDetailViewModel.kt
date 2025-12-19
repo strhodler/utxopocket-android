@@ -600,7 +600,7 @@ class WalletDetailViewModel @Inject constructor(
     fun verifyPin(pin: String, onResult: (PinVerificationResult) -> Unit) {
         viewModelScope.launch {
             val result = appPreferencesRepository.verifyPin(pin)
-            if (result is PinVerificationResult.Success) {
+            if (result is PinVerificationResult.Success || result is PinVerificationResult.DuressTriggered) {
                 appPreferencesRepository.markPinUnlocked()
             }
             onResult(result)

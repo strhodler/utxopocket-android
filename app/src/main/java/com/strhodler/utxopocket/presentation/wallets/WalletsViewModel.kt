@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.DuressSessionState
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.WalletSummary
@@ -21,6 +22,7 @@ import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.service.DuressManager
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.presentation.wallets.sync.WalletSyncState
 import com.strhodler.utxopocket.presentation.wallets.sync.resolveWalletSyncState
@@ -42,10 +44,12 @@ class WalletsViewModel @Inject constructor(
     private val walletRepository: WalletRepository,
     private val torManager: TorManager,
     private val appPreferencesRepository: AppPreferencesRepository,
-    private val nodeConfigurationRepository: NodeConfigurationRepository
+    private val nodeConfigurationRepository: NodeConfigurationRepository,
+    private val duressManager: DuressManager
 ) : ViewModel() {
 
     private val selectedNetwork = MutableStateFlow(BitcoinNetwork.DEFAULT)
+    private val duressState = duressManager.state
 
     private val walletData = selectedNetwork.flatMapLatest { network ->
         walletRepository.observeWalletSummaries(network)
@@ -116,8 +120,11 @@ class WalletsViewModel @Inject constructor(
             balanceUnit = base.balanceUnit,
             balancesHidden = base.balancesHidden,
             hapticsEnabled = base.hapticsEnabled,
-            nodeConfig = nodeConfig
+            nodeConfig = nodeConfig,
+            duressState = DuressSessionState.Inactive
         )
+    }.combine(duressState) { snapshot, duress ->
+        snapshot.copy(duressState = duress)
     }
 
     val uiState: StateFlow<WalletsUiState> = walletSnapshot.map { snapshot ->
@@ -127,33 +134,68 @@ class WalletsViewModel @Inject constructor(
         val torStatus = snapshot.torStatus
         val balanceUnit = snapshot.balanceUnit
         val hapticsEnabled = snapshot.hapticsEnabled
-        val torRequired = snapshot.nodeConfig.requiresTor(data.network)
-
-        val snapshotMatchesNetwork = nodeSnapshot.network == data.network
-        val effectiveNodeStatus = if (snapshotMatchesNetwork) {
-            nodeSnapshot.status
+        val duressActive = snapshot.duressState is DuressSessionState.FakeActive
+        val decoyBalanceSats = (snapshot.duressState as? DuressSessionState.FakeActive)
+            ?.decoyBalanceSats ?: 0L
+        val walletList = if (duressActive) {
+            listOf(
+                WalletSummary(
+                    id = -1L,
+                    name = "Wallet",
+                    balanceSats = decoyBalanceSats,
+                    transactionCount = 0,
+                    network = data.network,
+                    lastSyncStatus = NodeStatus.Idle,
+                    lastSyncTime = null,
+                    viewOnly = true
+                )
+            )
         } else {
-            NodeStatus.Idle
+            data.wallets
         }
-        val isRefreshing = syncStatus.isRefreshing && syncStatus.network == data.network
-        val torError = if (torRequired && torStatus is TorStatus.Error) torStatus.message else null
+
+        val torRequired = !duressActive && snapshot.nodeConfig.requiresTor(data.network)
+        val snapshotMatchesNetwork = nodeSnapshot.network == data.network
+        val effectiveNodeStatus = when {
+            duressActive -> NodeStatus.Idle
+            snapshotMatchesNetwork -> nodeSnapshot.status
+            else -> NodeStatus.Idle
+        }
+        val effectiveTorStatus = if (duressActive) TorStatus.Stopped else torStatus
+        val isRefreshing = !duressActive &&
+            syncStatus.isRefreshing &&
+            syncStatus.network == data.network
+        val torError = if (torRequired && effectiveTorStatus is TorStatus.Error) {
+            effectiveTorStatus.message
+        } else {
+            null
+        }
         val errorMessage = when {
+            duressActive -> null
             snapshotMatchesNetwork && effectiveNodeStatus is NodeStatus.Error -> effectiveNodeStatus.message
             torError != null -> torError
             else -> null
         }
-        val connectedNodeLabel = resolveConnectedNodeLabel(
-            nodeConfig = snapshot.nodeConfig,
-            network = data.network
-        ) ?: snapshot.nodeSnapshot.endpoint?.substringAfter("://")?.trimEnd('/')
-        val activeOperation = if (syncStatus.network == data.network) syncStatus.activeOperation else null
-        val queuedOperations = if (syncStatus.network == data.network) {
+        val connectedNodeLabel = if (duressActive) {
+            null
+        } else {
+            resolveConnectedNodeLabel(
+                nodeConfig = snapshot.nodeConfig,
+                network = data.network
+            ) ?: snapshot.nodeSnapshot.endpoint?.substringAfter("://")?.trimEnd('/')
+        }
+        val activeOperation = if (!duressActive && syncStatus.network == data.network) {
+            syncStatus.activeOperation
+        } else {
+            null
+        }
+        val queuedOperations = if (!duressActive && syncStatus.network == data.network) {
             syncStatus.queued.associate { it.walletId to it.operation }
         } else {
             emptyMap()
         }
-        val walletSyncStates = if (syncStatus.network == data.network) {
-            data.wallets.associate { wallet ->
+        val walletSyncStates = if (!duressActive && syncStatus.network == data.network) {
+            walletList.associate { wallet ->
                 wallet.id to resolveWalletSyncState(
                     walletId = wallet.id,
                     walletNetwork = data.network,
@@ -166,26 +208,34 @@ class WalletsViewModel @Inject constructor(
         }
         WalletsUiState(
             isRefreshing = isRefreshing,
-            wallets = data.wallets,
+            wallets = walletList,
             selectedNetwork = data.network,
             nodeStatus = effectiveNodeStatus,
-            torStatus = torStatus,
+            torStatus = effectiveTorStatus,
             torRequired = torRequired,
             balanceUnit = balanceUnit,
             balancesHidden = snapshot.balancesHidden,
             hapticsEnabled = hapticsEnabled,
-            totalBalanceSats = data.wallets.sumOf { it.balanceSats },
-            blockHeight = if (snapshotMatchesNetwork) nodeSnapshot.blockHeight else null,
-            feeRateSatPerVb = if (snapshotMatchesNetwork) nodeSnapshot.feeRateSatPerVb else null,
+            totalBalanceSats = walletList.sumOf { it.balanceSats },
+            blockHeight = if (!duressActive && snapshotMatchesNetwork) nodeSnapshot.blockHeight else null,
+            feeRateSatPerVb = if (!duressActive && snapshotMatchesNetwork) nodeSnapshot.feeRateSatPerVb else null,
             errorMessage = errorMessage,
-            hasActiveNodeSelection = snapshot.nodeConfig.hasActiveSelection(data.network),
-            refreshingWalletIds = syncStatus.refreshingWalletIds,
-            activeWalletId = syncStatus.activeWalletId.takeIf { syncStatus.network == data.network },
-            queuedWalletIds = if (syncStatus.network == data.network) syncStatus.queuedWalletIds else emptyList(),
+            hasActiveNodeSelection = !duressActive && snapshot.nodeConfig.hasActiveSelection(data.network),
+            refreshingWalletIds = if (duressActive) emptySet() else syncStatus.refreshingWalletIds,
+            activeWalletId = syncStatus.activeWalletId.takeIf {
+                !duressActive && syncStatus.network == data.network
+            },
+            queuedWalletIds = if (!duressActive && syncStatus.network == data.network) {
+                syncStatus.queuedWalletIds
+            } else {
+                emptyList()
+            },
             activeOperation = activeOperation,
             queuedOperations = queuedOperations,
             connectedNodeLabel = connectedNodeLabel,
-            walletSyncStates = walletSyncStates
+            walletSyncStates = walletSyncStates,
+            duressActive = duressActive,
+            decoyBalanceSats = decoyBalanceSats
         )
     }.stateIn(
         scope = viewModelScope,
@@ -222,7 +272,8 @@ class WalletsViewModel @Inject constructor(
         val balanceUnit: BalanceUnit,
         val balancesHidden: Boolean,
         val hapticsEnabled: Boolean,
-        val nodeConfig: NodeConfig
+        val nodeConfig: NodeConfig,
+        val duressState: DuressSessionState
     )
 
     private data class WalletSnapshotBase(
@@ -273,5 +324,7 @@ data class WalletsUiState(
     val activeOperation: SyncOperation? = null,
     val queuedOperations: Map<Long, SyncOperation> = emptyMap(),
     val connectedNodeLabel: String? = null,
-    val walletSyncStates: Map<Long, WalletSyncState> = emptyMap()
+    val walletSyncStates: Map<Long, WalletSyncState> = emptyMap(),
+    val duressActive: Boolean = false,
+    val decoyBalanceSats: Long = 0L
 )

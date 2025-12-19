@@ -229,9 +229,12 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val networkLogsEnabled: Flow<Boolean> = flowOf(false)
     override val networkLogsInfoSeen: Flow<Boolean> = flowOf(false)
     override val blockExplorerPreferences: Flow<BlockExplorerPreferences> = flowOf(BlockExplorerPreferences.DEFAULT)
+    override val duressConfigured: Flow<Boolean> = flowOf(false)
     override suspend fun setOnboardingCompleted(completed: Boolean) = Unit
     override suspend fun setPreferredNetwork(network: BitcoinNetwork) = Unit
     override suspend fun setPin(pin: String) = Unit
+    override suspend fun setDuressPin(pin: String) = Unit
+    override suspend fun clearDuressPin() = Unit
     override suspend fun clearPin() = Unit
     override suspend fun verifyPin(pin: String): PinVerificationResult = PinVerificationResult.NotConfigured
     override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) = Unit

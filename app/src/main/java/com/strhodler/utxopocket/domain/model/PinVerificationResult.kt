@@ -4,6 +4,14 @@ sealed class PinVerificationResult {
     data object Success : PinVerificationResult()
 
     /**
+     * Returned when the duress PIN matches. Callers should treat this as a successful unlock
+     * while the domain switches into fake mode.
+     */
+    data class DuressTriggered(
+        val decoyBalanceSats: Long
+    ) : PinVerificationResult()
+
+    /**
      * Returned when an incorrect PIN was provided and a new backoff window
      * has been scheduled. The caller should inform the user about the delay
      * before another attempt is permitted.

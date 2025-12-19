@@ -172,6 +172,7 @@ class NodeStatusViewModelTest {
         override val networkLogsEnabled: StateFlow<Boolean> = _networkLogsEnabled
         override val networkLogsInfoSeen: StateFlow<Boolean> = _networkLogsInfoSeen
         override val blockExplorerPreferences: StateFlow<BlockExplorerPreferences> = blockExplorerPreferencesState
+        override val duressConfigured: StateFlow<Boolean> = MutableStateFlow(false)
 
         override suspend fun setOnboardingCompleted(completed: Boolean) = Unit
 
@@ -180,6 +181,8 @@ class NodeStatusViewModelTest {
         }
 
         override suspend fun setPin(pin: String) = Unit
+        override suspend fun setDuressPin(pin: String) = Unit
+        override suspend fun clearDuressPin() = Unit
         override suspend fun clearPin() = Unit
         override suspend fun verifyPin(pin: String) = PinVerificationResult.NotConfigured
         override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) = Unit

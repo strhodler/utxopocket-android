@@ -21,6 +21,7 @@ import com.strhodler.utxopocket.presentation.motion.sharedAxisXEnter
 import com.strhodler.utxopocket.presentation.motion.sharedAxisXExit
 import com.strhodler.utxopocket.presentation.motion.sharedAxisYEnter
 import com.strhodler.utxopocket.presentation.motion.sharedAxisYExit
+import com.strhodler.utxopocket.domain.model.DuressSessionState
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.glossary.GlossaryDetailRoute
@@ -72,7 +73,8 @@ import com.strhodler.utxopocket.presentation.wiki.WikiContent
 fun MainNavHost(
     navController: NavHostController,
     modifier: Modifier = Modifier,
-    statusBarState: StatusBarUiState
+    statusBarState: StatusBarUiState,
+    duressState: DuressSessionState
 ) {
     val reducedMotion = rememberReducedMotionEnabled()
     NavHost(
@@ -103,6 +105,7 @@ fun MainNavHost(
                         null as String?
                     )
                 }
+                val duressActive = duressState is DuressSessionState.FakeActive
                 val createdMessageFlow = remember(backStackEntry) {
                     backStackEntry.savedStateHandle.getStateFlow(
                         WalletsNavigation.WalletCreatedMessageKey,
@@ -113,7 +116,12 @@ fun MainNavHost(
                 val createdMessage by createdMessageFlow.collectAsState()
                 val snackbarMessage = createdMessage ?: deletedMessage
                 WalletsRoute(
-                    onAddWallet = { navController.navigate(WalletsNavigation.AddRoute) },
+                    duressState = duressState,
+                    onAddWallet = {
+                        if (!duressActive) {
+                            navController.navigate(WalletsNavigation.AddRoute)
+                        }
+                    },
                     onOpenWiki = {
                         navController.navigate(WikiNavigation.ListRoute) {
                             popUpTo(navController.graph.findStartDestination().id) {
@@ -133,6 +141,7 @@ fun MainNavHost(
                         }
                     },
                     onSelectNode = {
+                        if (duressActive) return@WalletsRoute
                         navController.navigate(
                             WalletsNavigation.nodeStatusRoute(
                                 WalletsNavigation.NodeStatusTabDestination.Management
@@ -142,6 +151,7 @@ fun MainNavHost(
                         }
                     },
                     onConnectTor = {
+                        if (duressActive) return@WalletsRoute
                         navController.navigate(
                             WalletsNavigation.nodeStatusRoute(
                                 WalletsNavigation.NodeStatusTabDestination.Tor
@@ -151,6 +161,7 @@ fun MainNavHost(
                         }
                     },
                     onWalletSelected = { walletId, walletName ->
+                        if (duressActive) return@WalletsRoute
                         navController.navigate(WalletsNavigation.detailRoute(walletId, walletName)) {
                             launchSingleTop = true
                         }

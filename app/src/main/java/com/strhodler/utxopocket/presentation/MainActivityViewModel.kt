@@ -5,9 +5,10 @@ package com.strhodler.utxopocket.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.model.AppLanguage
-import com.strhodler.utxopocket.domain.model.BitcoinNetwork
-import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
 import com.strhodler.utxopocket.domain.model.BalanceUnit
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.DuressSessionState
+import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
@@ -20,6 +21,7 @@ import com.strhodler.utxopocket.domain.model.hasActiveSelection
 import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
 import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
+import com.strhodler.utxopocket.domain.service.DuressManager
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.domain.service.IncomingTxWatcher
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
@@ -81,7 +83,8 @@ data class AppEntryUiState(
     val pinLockEnabled: Boolean = false,
     val hapticsEnabled: Boolean = true,
     val pinShuffleEnabled: Boolean = false,
-    val appLocked: Boolean = false
+    val appLocked: Boolean = false,
+    val duressState: DuressSessionState = DuressSessionState.Inactive
 )
 
 data class IncomingPlaceholderGroup(
@@ -99,7 +102,8 @@ class MainActivityViewModel @Inject constructor(
     private val networkStatusMonitor: NetworkStatusMonitor,
     private val incomingTxWatcher: IncomingTxWatcher,
     private val incomingTxCoordinator: IncomingTxCoordinator,
-    private val incomingTxPreferencesRepository: IncomingTxPreferencesRepository
+    private val incomingTxPreferencesRepository: IncomingTxPreferencesRepository,
+    private val duressManager: DuressManager
 ) : ViewModel() {
 
     private val pinEnabledState = appPreferencesRepository.pinLockEnabled.stateIn(
@@ -133,6 +137,7 @@ class MainActivityViewModel @Inject constructor(
             started = SharingStarted.Eagerly,
             initialValue = false
         )
+    private val duressState = duressManager.state
     private val incomingSheetAutoOpenEnabled = incomingTxPreferencesRepository.globalPreferences()
         .map { prefs -> prefs.showDialog }
         .stateIn(
@@ -205,6 +210,7 @@ class MainActivityViewModel @Inject constructor(
     // When true, ignore the next background event (used for config changes).
     private var ignoreNextBackgroundEvent = false
     private var nodeMetadataPollJob: Job? = null
+    private var lastDuressState: DuressSessionState = DuressSessionState.Inactive
 
     init {
         viewModelScope.launch {
@@ -232,6 +238,10 @@ class MainActivityViewModel @Inject constructor(
                 if (!incomingSheetAutoOpenEnabled.value) {
                     return@collect
                 }
+                if (duressState.value is DuressSessionState.FakeActive) {
+                    pendingIncomingSheet.value = false
+                    return@collect
+                }
                 if (appLockedState.value) {
                     pendingIncomingSheet.value = true
                 } else {
@@ -242,11 +252,24 @@ class MainActivityViewModel @Inject constructor(
         viewModelScope.launch {
             appLockedState.drop(1).collect { locked ->
                 if (!locked && pendingIncomingSheet.value) {
+                    if (duressState.value is DuressSessionState.FakeActive) {
+                        pendingIncomingSheet.value = false
+                        return@collect
+                    }
                     if (incomingSheetAutoOpenEnabled.value) {
                         triggerIncomingSheet()
                     } else {
                         pendingIncomingSheet.value = false
                     }
+                }
+            }
+        }
+        viewModelScope.launch {
+            duressState.drop(1).collect { state ->
+                val previous = lastDuressState
+                lastDuressState = state
+                if (previous is DuressSessionState.FakeActive && state is DuressSessionState.Inactive) {
+                    handleDuressRestore()
                 }
             }
         }
@@ -271,7 +294,8 @@ class MainActivityViewModel @Inject constructor(
         appPreferencesRepository.balanceUnit,
         appPreferencesRepository.balancesHidden,
         incomingPlaceholderCount,
-        incomingPlaceholderGroups
+        incomingPlaceholderGroups,
+        duressState
     ) { values ->
         val onboarding = values[0] as Boolean
         val torStatus = values[1] as TorStatus
@@ -292,29 +316,37 @@ class MainActivityViewModel @Inject constructor(
         val balancesHidden = values[16] as Boolean
         val incomingTxCount = values[17] as Int
         val incomingGroups = values[18] as List<IncomingPlaceholderGroup>
+        val duress = values[19] as DuressSessionState
+        val duressActive = duress is DuressSessionState.FakeActive
 
         val snapshotMatchesNetwork = nodeSnapshot.network == network
-        val effectiveNodeStatus = if (snapshotMatchesNetwork) {
+        val effectiveNodeStatus = if (duressActive) {
+            NodeStatus.Idle
+        } else if (snapshotMatchesNetwork) {
             nodeSnapshot.status
         } else {
             NodeStatus.Idle
         }
-        val isSyncing = syncStatus.network == network &&
+        val isSyncing = !duressActive &&
+            syncStatus.network == network &&
             nodeSnapshot.status is NodeStatus.Synced &&
             (syncStatus.isRefreshing || syncStatus.activeWalletId != null || syncStatus.refreshingWalletIds.isNotEmpty())
-        val torRequired = nodeConfig.requiresTor(network)
+        val torRequired = !duressActive && nodeConfig.requiresTor(network)
 
-        val effectiveTorLog = when (torStatus) {
+        val effectiveTorStatus = if (duressActive) TorStatus.Stopped else torStatus
+        val effectiveTorLog = when (effectiveTorStatus) {
             is TorStatus.Connecting,
             is TorStatus.Running -> torLog
             else -> ""
         }
+        val effectiveIncomingGroups = if (duressActive) emptyList() else incomingGroups
+        val effectiveIncomingCount = if (duressActive) 0 else incomingTxCount
 
         AppEntryUiState(
             isReady = true,
             onboardingCompleted = onboarding,
             status = StatusBarUiState(
-                torStatus = torStatus,
+                torStatus = effectiveTorStatus,
                 torLog = effectiveTorLog,
                 nodeStatus = effectiveNodeStatus,
                 isSyncing = isSyncing,
@@ -326,8 +358,8 @@ class MainActivityViewModel @Inject constructor(
                 network = network,
                 torRequired = torRequired,
                 isNetworkOnline = isNetworkOnline,
-                incomingTxCount = incomingTxCount,
-                incomingPlaceholderGroups = incomingGroups
+                incomingTxCount = effectiveIncomingCount,
+                incomingPlaceholderGroups = effectiveIncomingGroups
         ),
         themePreference = themePreference,
         themeProfile = themeProfile,
@@ -337,7 +369,8 @@ class MainActivityViewModel @Inject constructor(
         pinLockEnabled = pinEnabled,
             hapticsEnabled = hapticsEnabled,
             pinShuffleEnabled = pinShuffleEnabled,
-            appLocked = pinEnabled && locked && onboarding
+            appLocked = pinEnabled && locked && onboarding,
+            duressState = duress
         )
     }.stateIn(
         scope = viewModelScope,
@@ -349,6 +382,12 @@ class MainActivityViewModel @Inject constructor(
         val shouldSkipRefresh = skipLockRefresh || skipNextLockRefresh || !wasBackgrounded
         if (!shouldSkipRefresh) {
             refreshLockState()
+        }
+        if (isDuressActive()) {
+            walletRepository.setSyncForegroundState(false)
+            incomingTxWatcher.setForeground(false)
+            stopNodeMetadataPolling()
+            return
         }
         skipNextLockRefresh = false
         wasBackgrounded = false
@@ -380,6 +419,7 @@ class MainActivityViewModel @Inject constructor(
     fun refreshIncomingWallets(walletIds: Collection<Long>) {
         val distinctIds = walletIds.toSet()
         if (distinctIds.isEmpty()) return
+        if (isDuressActive()) return
         viewModelScope.launch {
             distinctIds.forEach { walletId ->
                 walletRepository.refreshWallet(walletId)
@@ -395,9 +435,19 @@ class MainActivityViewModel @Inject constructor(
                 return@launch
             }
             val result = appPreferencesRepository.verifyPin(pin)
-            if (result is PinVerificationResult.Success) {
-                appPreferencesRepository.markPinUnlocked()
-                lockState.value = false
+            when (result) {
+                is PinVerificationResult.Success -> {
+                    appPreferencesRepository.markPinUnlocked()
+                    lockState.value = false
+                }
+
+                is PinVerificationResult.DuressTriggered -> {
+                    appPreferencesRepository.markPinUnlocked()
+                    lockState.value = false
+                    handleDuressActivation(result.decoyBalanceSats)
+                }
+
+                else -> {}
             }
             onResult(result)
         }
@@ -406,6 +456,9 @@ class MainActivityViewModel @Inject constructor(
     fun onNetworkSelected(network: BitcoinNetwork) {
         val currentNetwork = uiState.value.status.network
         val status = uiState.value.status
+        if (isDuressActive()) {
+            return
+        }
         val nodeBusy = status.nodeStatus is NodeStatus.Connecting ||
             status.nodeStatus is NodeStatus.Disconnecting ||
             status.nodeStatus == NodeStatus.WaitingForTor ||
@@ -421,6 +474,9 @@ class MainActivityViewModel @Inject constructor(
 
     fun retryNodeConnection() {
         val status = uiState.value.status
+        if (isDuressActive()) {
+            return
+        }
         if (
             status.nodeStatus is NodeStatus.Connecting ||
             status.nodeStatus is NodeStatus.Disconnecting ||
@@ -435,6 +491,9 @@ class MainActivityViewModel @Inject constructor(
     }
 
     private suspend fun resumeNodeIfNeeded() {
+        if (isDuressActive()) {
+            return
+        }
         val config = nodeConfigurationRepository.nodeConfig.first()
         val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
         if (!config.hasActiveSelection(preferredNetwork)) {
@@ -449,6 +508,7 @@ class MainActivityViewModel @Inject constructor(
     }
 
     private fun startNodeMetadataPolling() {
+        if (isDuressActive()) return
         if (nodeMetadataPollJob?.isActive == true) return
         nodeMetadataPollJob = viewModelScope.launch {
             while (true) {
@@ -464,6 +524,9 @@ class MainActivityViewModel @Inject constructor(
     }
 
     private suspend fun refreshNodeMetadataIfActive() {
+        if (isDuressActive()) {
+            return
+        }
         val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
         val nodeConfig = nodeConfigurationRepository.nodeConfig.first()
         val isOnline = networkStatusMonitor.isOnline.first()
@@ -487,6 +550,32 @@ class MainActivityViewModel @Inject constructor(
     private fun triggerIncomingSheet() {
         pendingIncomingSheet.value = false
         _incomingSheetRequests.tryEmit(Unit)
+    }
+
+    private fun handleDuressActivation(decoyBalanceSats: Long) {
+        duressManager.activateFake(decoyBalanceSats)
+        pendingIncomingSheet.value = false
+        viewModelScope.launch {
+            val network = appPreferencesRepository.preferredNetwork.first()
+            walletRepository.setSyncForegroundState(false)
+            walletRepository.disconnect(network)
+            incomingTxWatcher.setForeground(false)
+            torManager.stop()
+        }
+    }
+
+    private fun isDuressActive(): Boolean = duressState.value is DuressSessionState.FakeActive
+
+    private fun handleDuressRestore() {
+        viewModelScope.launch {
+            duressManager.restore()
+            walletRepository.setSyncForegroundState(true)
+            incomingTxWatcher.setForeground(true)
+            startNodeMetadataPolling()
+            resumeNodeIfNeeded()
+            val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
+            walletRepository.refresh(preferredNetwork)
+        }
     }
 
     private fun shouldLockNow(

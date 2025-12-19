@@ -32,11 +32,14 @@ interface AppPreferencesRepository {
     val networkLogsEnabled: Flow<Boolean>
     val networkLogsInfoSeen: Flow<Boolean>
     val blockExplorerPreferences: Flow<BlockExplorerPreferences>
+    val duressConfigured: Flow<Boolean>
 
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setPreferredNetwork(network: BitcoinNetwork)
     suspend fun setPin(pin: String)
     suspend fun clearPin()
+    suspend fun setDuressPin(pin: String)
+    suspend fun clearDuressPin()
     suspend fun verifyPin(pin: String): PinVerificationResult
     suspend fun setPinAutoLockTimeoutMinutes(minutes: Int)
     suspend fun markPinUnlocked(timestampMillis: Long = System.currentTimeMillis())

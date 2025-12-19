@@ -70,6 +70,7 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.DuressSessionState
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.WalletSummary
@@ -104,10 +105,38 @@ fun WalletsRoute(
     snackbarMessage: String? = null,
     onSnackbarConsumed: () -> Unit = {},
     statusBarState: StatusBarUiState,
+    duressState: DuressSessionState,
     viewModel: WalletsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val view = LocalView.current
+    val duressActive = remember(state.duressActive, duressState) {
+        state.duressActive || duressState is DuressSessionState.FakeActive
+    }
+    val guardedOnWalletSelected = remember(onWalletSelected, duressActive) {
+        walletTap@{ walletId: Long, walletName: String ->
+            if (duressActive) return@walletTap
+            onWalletSelected(walletId, walletName)
+        }
+    }
+    val guardedOnSelectNode = remember(onSelectNode, duressActive) {
+        selectNode@{
+            if (duressActive) return@selectNode
+            onSelectNode()
+        }
+    }
+    val guardedOnConnectTor = remember(onConnectTor, duressActive) {
+        connectTor@{
+            if (duressActive) return@connectTor
+            onConnectTor()
+        }
+    }
+    val guardedOnAddWallet = remember(onAddWallet, duressActive) {
+        addWallet@{
+            if (duressActive) return@addWallet
+            onAddWallet()
+        }
+    }
     val onCycleBalanceDisplay = remember(state.hapticsEnabled, view) {
         {
             if (state.hapticsEnabled) {
@@ -119,17 +148,18 @@ fun WalletsRoute(
     SetPrimaryTopBar()
     WalletsScreen(
         state = state,
-        onAddWallet = onAddWallet,
+        onAddWallet = guardedOnAddWallet,
         onOpenWiki = onOpenWiki,
         onOpenWikiTopic = onOpenWikiTopic,
-        onSelectNode = onSelectNode,
-        onConnectTor = onConnectTor,
-        onWalletSelected = onWalletSelected,
+        onSelectNode = guardedOnSelectNode,
+        onConnectTor = guardedOnConnectTor,
+        onWalletSelected = guardedOnWalletSelected,
         snackbarMessage = snackbarMessage,
-    onSnackbarConsumed = onSnackbarConsumed,
-    isNetworkOnline = statusBarState.isNetworkOnline,
-    onCycleBalanceDisplay = onCycleBalanceDisplay
-)
+        onSnackbarConsumed = onSnackbarConsumed,
+        isNetworkOnline = statusBarState.isNetworkOnline,
+        onCycleBalanceDisplay = onCycleBalanceDisplay,
+        duressActive = duressActive
+    )
 }
 
 @Composable
@@ -145,6 +175,7 @@ fun WalletsScreen(
     onSnackbarConsumed: () -> Unit = {},
     isNetworkOnline: Boolean,
     onCycleBalanceDisplay: () -> Unit,
+    duressActive: Boolean,
     modifier: Modifier = Modifier
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -182,6 +213,7 @@ fun WalletsScreen(
             onCycleBalanceDisplay = onCycleBalanceDisplay,
             blockHeight = state.blockHeight,
             selectedNetwork = state.selectedNetwork,
+            duressActive = duressActive,
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
@@ -202,10 +234,11 @@ private fun WalletsContent(
     onCycleBalanceDisplay: () -> Unit,
     blockHeight: Long?,
     selectedNetwork: BitcoinNetwork,
+    duressActive: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val canAddWallet = state.hasActiveNodeSelection || !isNetworkOnline
-    val showNodePrompt = state.wallets.isEmpty() && !state.hasActiveNodeSelection && isNetworkOnline
+    val canAddWallet = !duressActive && (state.hasActiveNodeSelection || !isNetworkOnline)
+    val showNodePrompt = state.wallets.isEmpty() && !state.hasActiveNodeSelection && isNetworkOnline && !duressActive
 
     val torStatus = state.torStatus
     val showTorStatusBanner = state.torRequired || torStatus !is TorStatus.Stopped
@@ -218,6 +251,7 @@ private fun WalletsContent(
         state.nodeStatus !is NodeStatus.Connecting &&
         state.nodeStatus !is NodeStatus.Disconnecting &&
         !state.isRefreshing
+    val disabledIconTint = if (duressActive) Color.Transparent else null
 
     val banner: (@Composable () -> Unit)? = when {
         !isNetworkOnline -> {
@@ -229,7 +263,8 @@ private fun WalletsContent(
                     icon = Icons.Outlined.Warning,
                     containerColor = scheme.surfaceContainer,
                     contentColor = scheme.onSurface,
-                    onClick = onConnectTor
+                    iconTint = disabledIconTint,
+                    onClick = if (duressActive) null else onConnectTor
                 )
             }
         }
@@ -243,7 +278,8 @@ private fun WalletsContent(
                         icon = ImageVector.vectorResource(id = R.drawable.ic_tor_monochrome),
                         containerColor = scheme.surfaceContainer,
                         contentColor = scheme.onSurface,
-                        onClick = onConnectTor
+                        iconTint = disabledIconTint,
+                        onClick = if (duressActive) null else onConnectTor
                     )
 
                     is TorStatus.Error -> ActionableStatusBanner(
@@ -252,7 +288,8 @@ private fun WalletsContent(
                         icon = Icons.Outlined.Warning,
                         containerColor = scheme.errorContainer,
                         contentColor = scheme.onErrorContainer,
-                        onClick = onConnectTor
+                        iconTint = disabledIconTint,
+                        onClick = if (duressActive) null else onConnectTor
                     )
 
                     TorStatus.Stopped -> ActionableStatusBanner(
@@ -261,7 +298,8 @@ private fun WalletsContent(
                         icon = Icons.Outlined.Warning,
                         containerColor = scheme.surfaceContainer,
                         contentColor = scheme.onSurface,
-                        onClick = onConnectTor
+                        iconTint = disabledIconTint,
+                        onClick = if (duressActive) null else onConnectTor
                     )
 
                     is TorStatus.Running -> null
@@ -274,9 +312,10 @@ private fun WalletsContent(
                     title = stringResource(id = R.string.wallets_node_disconnecting_banner),
                     supporting = stringResource(id = R.string.wallets_manage_connection_action),
                     icon = Icons.Outlined.Router,
-                    onClick = onSelectNode,
+                    onClick = if (duressActive) null else onSelectNode,
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    contentColor = MaterialTheme.colorScheme.onSurface
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    iconTint = disabledIconTint
                 )
             }
         }
@@ -289,9 +328,10 @@ private fun WalletsContent(
                     title = stringResource(id = R.string.wallets_node_connecting_banner),
                     supporting = supportingText,
                     icon = Icons.Outlined.Router,
-                    onClick = onSelectNode,
+                    onClick = if (duressActive) null else onSelectNode,
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    contentColor = MaterialTheme.colorScheme.onSurface
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    iconTint = disabledIconTint
                 )
             }
         }
@@ -301,7 +341,12 @@ private fun WalletsContent(
                     ConnectionStatusBanner(
                         message = message,
                         primaryLabel = stringResource(id = R.string.wallets_manage_connection_action),
-                        onPrimaryClick = onSelectNode,
+                        onPrimaryClick = {
+                            if (!duressActive) {
+                                onSelectNode()
+                            }
+                        },
+                        primaryEnabled = !duressActive,
                         style = ConnectionStatusBannerStyle.Error,
                         containerColorOverride = MaterialTheme.colorScheme.surfaceContainer,
                         contentColorOverride = MaterialTheme.colorScheme.onSurface
@@ -316,9 +361,10 @@ private fun WalletsContent(
                         title = title,
                         supporting = supporting,
                         icon = Icons.Outlined.Router,
-                        onClick = onSelectNode,
+                        onClick = if (duressActive) null else onSelectNode,
                         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        contentColor = MaterialTheme.colorScheme.onSurface
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        iconTint = disabledIconTint
                     )
                 }
             }
@@ -338,9 +384,10 @@ private fun WalletsContent(
                     icon = Icons.Outlined.Router,
                     trailingIcon = Icons.AutoMirrored.Outlined.ArrowForward,
                     trailingIconTint = MaterialTheme.colorScheme.onSurface,
-                    onClick = onSelectNode,
+                    onClick = if (duressActive) null else onSelectNode,
                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    contentColor = MaterialTheme.colorScheme.onSurface
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    iconTint = disabledIconTint
                 )
             }
         }

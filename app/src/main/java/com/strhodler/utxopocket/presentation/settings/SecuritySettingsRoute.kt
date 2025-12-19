@@ -83,6 +83,13 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+private const val DURESS_TAP_THRESHOLD = 7
+private const val DURESS_TOGGLE_VISIBILITY_TIMEOUT_MS = 60_000L
+private enum class DuressAction {
+    Enable,
+    Disable
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SecuritySettingsRoute(
@@ -107,6 +114,15 @@ fun SecuritySettingsRoute(
     var showPanicFirstConfirmation by rememberSaveable { mutableStateOf(false) }
     var showPanicFinalConfirmation by rememberSaveable { mutableStateOf(false) }
     var isPanicInProgress by remember { mutableStateOf(false) }
+    var duressTapCount by rememberSaveable { mutableStateOf(0) }
+    var duressToggleVisible by rememberSaveable { mutableStateOf(false) }
+    var showDuressPinPrompt by rememberSaveable { mutableStateOf(false) }
+    var showDuressSetup by rememberSaveable { mutableStateOf(false) }
+    var duressPinError by remember { mutableStateOf<String?>(null) }
+    var duressLockoutExpiry by remember { mutableStateOf<Long?>(null) }
+    var duressLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
+    var pendingDuressAction by rememberSaveable { mutableStateOf<DuressAction?>(null) }
+    var duressFlowInProgress by rememberSaveable { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     var showNetworkLogsInfoSheet by rememberSaveable { mutableStateOf(false) }
     val networkLogsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -132,6 +148,35 @@ fun SecuritySettingsRoute(
         }
     }
 
+    LaunchedEffect(duressLockoutExpiry, duressLockoutType) {
+        val expiry = duressLockoutExpiry
+        val type = duressLockoutType
+        if (expiry == null || type == null) return@LaunchedEffect
+        while (true) {
+            val remaining = expiry - System.currentTimeMillis()
+            if (remaining <= 0L) {
+                duressPinError = null
+                duressLockoutExpiry = null
+                duressLockoutType = null
+                break
+            }
+            duressPinError = formatPinCountdownMessage(
+                resourcesState.value,
+                type,
+                remaining
+            )
+            delay(1_000)
+        }
+    }
+
+    LaunchedEffect(duressToggleVisible) {
+        if (duressToggleVisible) {
+            delay(DURESS_TOGGLE_VISIBILITY_TIMEOUT_MS)
+        }
+        duressToggleVisible = false
+        duressTapCount = 0
+    }
+
     LaunchedEffect(state.pinEnabled) {
         if (state.pinEnabled) {
             showPinSetup = false
@@ -141,6 +186,15 @@ fun SecuritySettingsRoute(
             pinDisableError = null
             pinDisableLockoutExpiry = null
             pinDisableLockoutType = null
+            duressToggleVisible = false
+            duressTapCount = 0
+            showDuressPinPrompt = false
+            showDuressSetup = false
+            pendingDuressAction = null
+            duressPinError = null
+            duressLockoutExpiry = null
+            duressLockoutType = null
+            duressFlowInProgress = false
         }
     }
 
@@ -148,6 +202,31 @@ fun SecuritySettingsRoute(
         title = stringResource(id = R.string.settings_section_security),
         onBackClick = onBack
     )
+
+    val duressCountdownMessages = remember {
+        mapOf(
+            2 to "Duress toggle: 3 taps left",
+            1 to "Duress toggle: 2 taps left",
+            0 to "Duress toggle: 1 tap left"
+        )
+    }
+
+    fun handleDuressTapUnlock() {
+        if (!state.pinEnabled) return
+        val newCount = duressTapCount + 1
+        duressTapCount = newCount
+        val remaining = DURESS_TAP_THRESHOLD - newCount
+        duressCountdownMessages[remaining]?.let { message ->
+            coroutineScope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short)
+            }
+        }
+        if (newCount >= DURESS_TAP_THRESHOLD) {
+            duressToggleVisible = true
+            duressTapCount = 0
+        }
+    }
 
     var snackbarBottomInset by remember { mutableStateOf(0.dp) }
 
@@ -180,6 +259,17 @@ fun SecuritySettingsRoute(
                         showPinDisable = true
                     }
                 },
+                onDuressToggleRequested = { enabled ->
+                    if (duressFlowInProgress) return@SecuritySettingsScreen
+                    duressFlowInProgress = true
+                    pendingDuressAction = if (enabled) DuressAction.Enable else DuressAction.Disable
+                    duressPinError = null
+                    duressLockoutExpiry = null
+                    duressLockoutType = null
+                    showDuressPinPrompt = true
+                },
+                onDuressTapUnlock = { handleDuressTapUnlock() },
+                duressToggleVisible = duressToggleVisible,
                 onPinShuffleChanged = viewModel::onPinShuffleChanged,
                 onPinAutoLockTimeoutSelected = viewModel::onPinAutoLockTimeoutSelected,
                 onConnectionIdleTimeoutSelected = viewModel::onConnectionIdleTimeoutSelected,
@@ -317,7 +407,8 @@ fun SecuritySettingsRoute(
                         val resources = resourcesState.value
                         viewModel.disablePin(pin) { result ->
                             when (result) {
-                                PinVerificationResult.Success -> {
+                                PinVerificationResult.Success,
+                                is PinVerificationResult.DuressTriggered -> {
                                     pinDisableError = null
                                     pinDisableLockoutExpiry = null
                                     pinDisableLockoutType = null
@@ -354,6 +445,123 @@ fun SecuritySettingsRoute(
                                         result.remainingMillis
                                     )
                                 }
+                            }
+                        }
+                    },
+                    hapticsEnabled = state.hapticsEnabled,
+                    shuffleDigits = state.pinShuffleEnabled
+                )
+            }
+
+            if (showDuressPinPrompt) {
+                PinVerificationScreen(
+                    title = "Confirm PIN",
+                    description = "Enter your PIN to manage the duress PIN.",
+                    errorMessage = duressPinError,
+                    onDismiss = {
+                        showDuressPinPrompt = false
+                        duressPinError = null
+                        duressLockoutExpiry = null
+                        duressLockoutType = null
+                        pendingDuressAction = null
+                        duressFlowInProgress = false
+                    },
+                    onPinVerified = { pin ->
+                        val resources = resourcesState.value
+                        viewModel.verifyPin(pin) { result ->
+                            when (result) {
+                                PinVerificationResult.Success,
+                                is PinVerificationResult.DuressTriggered -> {
+                                    duressPinError = null
+                                    duressLockoutExpiry = null
+                                    duressLockoutType = null
+                                    showDuressPinPrompt = false
+                                    when (pendingDuressAction) {
+                                        DuressAction.Enable -> showDuressSetup = true
+                                        DuressAction.Disable -> {
+                                            viewModel.clearDuressPin { success ->
+                                                if (!success) {
+                                                    coroutineScope.launch {
+                                                        snackbarHostState.showSnackbar(
+                                                            message = "Could not disable duress PIN",
+                                                            duration = SnackbarDuration.Short
+                                                        )
+                                                    }
+                                                }
+                                                duressFlowInProgress = false
+                                            }
+                                        }
+
+                                        null -> {}
+                                    }
+                                    pendingDuressAction = null
+                                }
+
+                                PinVerificationResult.InvalidFormat,
+                                PinVerificationResult.NotConfigured -> {
+                                    duressLockoutExpiry = null
+                                    duressLockoutType = null
+                                    duressPinError = formatPinStaticError(resources, result)
+                                }
+
+                                is PinVerificationResult.Incorrect -> {
+                                    val expiresAt =
+                                        System.currentTimeMillis() + result.lockDurationMillis
+                                    duressLockoutType = PinLockoutMessageType.Incorrect
+                                    duressLockoutExpiry = expiresAt
+                                    duressPinError = formatPinCountdownMessage(
+                                        resources,
+                                        PinLockoutMessageType.Incorrect,
+                                        result.lockDurationMillis
+                                    )
+                                }
+
+                                is PinVerificationResult.Locked -> {
+                                    val expiresAt =
+                                        System.currentTimeMillis() + result.remainingMillis
+                                    duressLockoutType = PinLockoutMessageType.Locked
+                                    duressLockoutExpiry = expiresAt
+                                    duressPinError = formatPinCountdownMessage(
+                                        resources,
+                                        PinLockoutMessageType.Locked,
+                                        result.remainingMillis
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    hapticsEnabled = state.hapticsEnabled,
+                    shuffleDigits = state.pinShuffleEnabled
+                )
+            }
+
+            if (showDuressSetup) {
+                PinSetupScreen(
+                    title = "Set duress PIN",
+                    description = "Enter a duress PIN for fake wallet mode.",
+                    confirmDescription = "Confirm the duress PIN.",
+                    errorMessage = duressPinError,
+                    onDismiss = {
+                        showDuressSetup = false
+                        duressPinError = null
+                        pendingDuressAction = null
+                        duressFlowInProgress = false
+                    },
+                    onPinConfirmed = { pin ->
+                        viewModel.setDuressPin(pin) { success, errorMessage ->
+                            if (success) {
+                                duressPinError = null
+                                showDuressSetup = false
+                                pendingDuressAction = null
+                                duressFlowInProgress = false
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "Duress PIN enabled",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            } else {
+                                duressPinError = errorMessage ?: genericSetupErrorText
                             }
                         }
                     },
@@ -401,6 +609,9 @@ fun SecuritySettingsRoute(
 private fun SecuritySettingsScreen(
     state: SettingsUiState,
     onPinToggleRequested: (Boolean) -> Unit,
+    onDuressToggleRequested: (Boolean) -> Unit,
+    onDuressTapUnlock: () -> Unit,
+    duressToggleVisible: Boolean,
     onPinShuffleChanged: (Boolean) -> Unit,
     onPinAutoLockTimeoutSelected: (Int) -> Unit,
     onConnectionIdleTimeoutSelected: (Int) -> Unit,
@@ -476,6 +687,7 @@ private fun SecuritySettingsScreen(
         ) {
             item {
                 ListItem(
+                    modifier = Modifier.clickable(onClick = onDuressTapUnlock),
                     headlineContent = {
                         Text(
                             text = stringResource(id = R.string.settings_pin_title),
@@ -500,6 +712,30 @@ private fun SecuritySettingsScreen(
                 )
             }
             if (state.pinEnabled) {
+                if (duressToggleVisible) {
+                    item {
+                        ListItem(
+                            headlineContent = {
+                                Text(text = "Duress PIN (fake mode)")
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = "Shows only a decoy wallet list; connections UI disabled.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = state.duressConfigured,
+                                    onCheckedChange = onDuressToggleRequested,
+                                    colors = SwitchDefaults.colors()
+                                )
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+                    }
+                }
                 item {
                     ListItem(
                         headlineContent = {
