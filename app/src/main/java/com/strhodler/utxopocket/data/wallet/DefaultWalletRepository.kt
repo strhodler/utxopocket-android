@@ -3,6 +3,7 @@
 package com.strhodler.utxopocket.data.wallet
 
 import android.content.Context
+import android.os.Process
 import android.os.SystemClock
 import androidx.annotation.VisibleForTesting
 import com.strhodler.utxopocket.R
@@ -83,6 +84,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -90,6 +92,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -221,6 +224,8 @@ class DefaultWalletRepository @Inject constructor(
     )
     private lateinit var nodeSyncRunner: NodeSyncRunner
     private val appInForeground = AtomicBoolean(true)
+    private val panicWipeInProgress = AtomicBoolean(false)
+    private val panicWipeState = MutableStateFlow(false)
     @Volatile
     private var backgroundGraceExpiryMillis: Long = 0L
     @Volatile
@@ -305,9 +310,14 @@ class DefaultWalletRepository @Inject constructor(
     private val deletingWallets = ConcurrentHashMap<Long, Boolean>()
 
     override fun observeWalletSummaries(network: BitcoinNetwork): Flow<List<WalletSummary>> =
-        walletDao.observeWalletsWithUtxoCount(network.name)
-            .map { rows -> rows.map { it.wallet.toDomain(it.utxoCount) } }
-            .flowOn(ioDispatcher)
+        panicWipeState.flatMapLatest { wiping ->
+            if (wiping) {
+                flowOf(emptyList())
+            } else {
+                walletDao.observeWalletsWithUtxoCount(network.name)
+                    .map { rows -> rows.map { it.wallet.toDomain(it.utxoCount) } }
+            }
+        }.flowOn(ioDispatcher)
 
     override fun pageWalletTransactions(
         id: Long,
@@ -450,6 +460,7 @@ class DefaultWalletRepository @Inject constructor(
         sealAfterUse: Boolean = false,
         block: suspend (Wallet, Persister, WalletMaterializationSource?) -> T
     ): T {
+        ensureNotWiping()
         seedSyncGapIfMissing(entity, walletSyncPreferencesRepository)
         if (sealAfterUse) {
             val managed = walletFactory.create(entity)
@@ -478,6 +489,12 @@ class DefaultWalletRepository @Inject constructor(
 
     private fun markWalletDeletionPending(id: Long) {
         deletingWallets[id] = true
+    }
+
+    private fun ensureNotWiping() {
+        if (panicWipeInProgress.get()) {
+            throw CancellationException("Panic wipe in progress")
+        }
     }
 
     private fun clearWalletDeletionPending(id: Long) {
@@ -996,25 +1013,74 @@ class DefaultWalletRepository @Inject constructor(
     }
 
     override suspend fun wipeAllWalletData() = withContext(ioDispatcher) {
-        val wallets = walletDao.getAllWallets()
-        wallets.forEach { entity ->
-            invalidateWalletCache(entity.id)
+        if (!panicWipeInProgress.compareAndSet(false, true)) return@withContext
+        panicWipeState.value = true
+        val errors = mutableListOf<Throwable>()
+        try {
+            // Stop background jobs to avoid touching a DB that is about to be dropped.
+            repositoryScope.coroutineContext.cancelChildren()
+            // Release cached wallets/persisters.
+            walletCacheMutex.withLock {
+                walletCache.values.forEach { cached ->
+                    cached.lock.withLock {
+                        runCatching { cached.managed.wallet.destroy() }
+                        runCatching { cached.managed.release() }
+                    }
+                }
+                walletCache.clear()
+            }
+
+            val wallets = runCatching { walletDao.getAllWallets() }
+                .getOrElse { error ->
+                    errors += error
+                    emptyList()
+                }
+
+            wallets.forEach { entity ->
+                invalidateWalletCache(entity.id)
+            }
+            wallets.forEach { entity ->
+                val network = BitcoinNetwork.valueOf(entity.network)
+                runCatching { walletFactory.removeStorage(entity.id, network) }
+                    .onFailure { errors += it }
+            }
+
+            runCatching { database.close() }.onFailure { errors += it }
+            runCatching { resetEncryptedDatabase() }.onFailure { errors += it }
+            runCatching { applicationContext.getDatabasePath(NetworkErrorLogDatabase.NAME).delete() }
+            runCatching { torManager.stop() }.onFailure { errors += it }
+            runCatching { torManager.clearPersistentState() }.onFailure { errors += it }
+            runCatching { clearCacheDirectories() }.onFailure { errors += it }
+            runCatching {
+                applicationContext.databaseList()?.forEach { name ->
+                    val dbFile = applicationContext.getDatabasePath(name)
+                    runCatching { applicationContext.deleteDatabase(name) }.onFailure { errors += it }
+                    val wal = File("${dbFile.absolutePath}-wal")
+                    val shm = File("${dbFile.absolutePath}-shm")
+                    val targets = listOf(dbFile, wal, shm)
+                    targets.forEach { file ->
+                        runCatching {
+                            if (file.isDirectory) {
+                                file.deleteRecursively()
+                            } else {
+                                file.delete()
+                            }
+                        }.onFailure { errors += it }
+                    }
+                }
+            }.onFailure { errors += it }
+        } finally {
+            runCatching { appPreferencesRepository.wipeAll() }.onFailure { errors += it }
+            panicWipeInProgress.set(false)
+            panicWipeState.value = false
         }
-        wallets.forEach { entity ->
-            val network = BitcoinNetwork.valueOf(entity.network)
-            runCatching { walletFactory.removeStorage(entity.id, network) }
+
+        if (errors.isNotEmpty()) {
+            errors.forEach { error ->
+                SecureLog.w(TAG, error) { "Panic wipe encountered an error; continuing cleanup." }
+            }
         }
-        walletDao.clearAllTransactionOutputs()
-        walletDao.clearAllTransactionInputs()
-        walletDao.clearAllTransactions()
-        walletDao.clearAllUtxos()
-        walletDao.clearAllPendingLabels()
-        walletDao.deleteAllWallets()
-        resetEncryptedDatabase()
-        appPreferencesRepository.wipeAll()
-        runCatching { applicationContext.getDatabasePath(NetworkErrorLogDatabase.NAME).delete() }
-        torManager.clearPersistentState()
-        clearCacheDirectories()
+        Process.killProcess(Process.myPid())
     }
 
     override suspend fun updateWalletColor(id: Long, color: WalletColor) = withContext(ioDispatcher) {
