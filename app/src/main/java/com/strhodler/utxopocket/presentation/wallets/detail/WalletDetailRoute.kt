@@ -268,9 +268,10 @@ fun WalletDetailRoute(
     }
 
     LaunchedEffect(pagerState, availableTabs) {
-        snapshotFlow { pagerState.currentPage }
+        snapshotFlow { pagerState.currentPage to pagerState.isScrollInProgress }
             .distinctUntilChanged()
-            .collect { page ->
+            .collect { (page, isScrolling) ->
+                if (isScrolling) return@collect
                 val tab = availableTabs.getOrNull(page) ?: return@collect
                 if (selectedTab != tab) {
                     selectedTab = tab

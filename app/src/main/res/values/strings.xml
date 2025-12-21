@@ -1118,6 +1118,17 @@
     <string name="pin_duress_prompt_title">Confirm PIN</string>
     <string name="pin_duress_prompt_description">Enter your PIN to manage the duress PIN.</string>
     <string name="pin_duress_verifying">Verifying PIN...</string>
+    <plurals name="settings_duress_toggle_taps_left">
+        <item quantity="one">Duress toggle: %d tap left</item>
+        <item quantity="other">Duress toggle: %d taps left</item>
+    </plurals>
+    <string name="settings_duress_disable_error">Could not disable duress PIN</string>
+    <string name="settings_duress_setup_title">Set duress PIN</string>
+    <string name="settings_duress_setup_description">Enter a duress PIN for fake wallet mode.</string>
+    <string name="settings_duress_setup_confirm_description">Confirm the duress PIN.</string>
+    <string name="settings_duress_enabled_message">Duress PIN enabled</string>
+    <string name="settings_duress_toggle_title">Duress PIN</string>
+    <string name="settings_duress_toggle_subtitle">Shows only a decoy wallet list; connections UI disabled.</string>
     <string name="pin_error_incorrect">PIN does not match. Please try again.</string>
     <string name="pin_error_length">PIN must be exactly 6 digits.</string>
     <string name="pin_error_mismatch">PIN entries do not match.</string>

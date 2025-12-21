@@ -564,6 +564,17 @@
     <string name="pin_duress_prompt_title">Confirmar PIN</string>
     <string name="pin_duress_prompt_description">Introduce tu PIN para gestionar el PIN de coacción.</string>
     <string name="pin_duress_verifying">Verificando PIN...</string>
+    <plurals name="settings_duress_toggle_taps_left">
+        <item quantity="one">Activación de coacción: queda %d toque</item>
+        <item quantity="other">Activación de coacción: quedan %d toques</item>
+    </plurals>
+    <string name="settings_duress_disable_error">No se pudo desactivar el PIN de coacción</string>
+    <string name="settings_duress_setup_title">Configurar PIN de coacción</string>
+    <string name="settings_duress_setup_description">Introduce un PIN de coacción para el modo de billetera falsa.</string>
+    <string name="settings_duress_setup_confirm_description">Confirma el PIN de coacción.</string>
+    <string name="settings_duress_enabled_message">PIN de coacción activado</string>
+    <string name="settings_duress_toggle_title">PIN de coacción</string>
+    <string name="settings_duress_toggle_subtitle">Muestra solo una lista de billeteras señuelo; la interfaz de conexiones está desactivada.</string>
     <string name="pin_error_incorrect">El PIN no coincide. Inténtalo de nuevo.</string>
     <string name="pin_error_length">El PIN debe tener exactamente 6 dígitos.</string>
     <string name="pin_error_mismatch">Los PIN introducidos no coinciden.</string>

@@ -62,7 +62,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Divider
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
@@ -873,10 +873,11 @@ private fun WalletTabs(
     val selectedTextColor = MaterialTheme.colorScheme.onSurface
     val unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     val selectedIndex = tabs.indexOf(selected).coerceAtLeast(0)
-    TabRow(
+    ScrollableTabRow(
         modifier = modifier.fillMaxWidth(),
         selectedTabIndex = selectedIndex,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        edgePadding = 16.dp,
         indicator = { tabPositions ->
             TabRowDefaults.SecondaryIndicator(
                 modifier = Modifier.tabIndicatorOffset(tabPositions[selectedIndex]),

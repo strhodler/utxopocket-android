@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DuressSessionState
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
@@ -39,6 +40,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private const val DURESS_FAKE_LAST_SYNC_OFFSET_MS = (2 * 60 * 60 * 1000L) + (37 * 60 * 1000L)
+
 @HiltViewModel
 class WalletsViewModel @Inject constructor(
     private val walletRepository: WalletRepository,
@@ -50,6 +53,7 @@ class WalletsViewModel @Inject constructor(
 
     private val selectedNetwork = MutableStateFlow(BitcoinNetwork.DEFAULT)
     private val duressState = duressManager.state
+    private val fakeLastSyncTime = MutableStateFlow<Long?>(null)
 
     private val walletData = selectedNetwork.flatMapLatest { network ->
         walletRepository.observeWalletSummaries(network)
@@ -82,6 +86,17 @@ class WalletsViewModel @Inject constructor(
         viewModelScope.launch {
             walletData.collect { data ->
                 // No-op collector to keep snapshot flow active on network changes.
+            }
+        }
+        viewModelScope.launch {
+            duressState.collect { state ->
+                fakeLastSyncTime.value = when (state) {
+                    is DuressSessionState.FakeActive -> {
+                        fakeLastSyncTime.value
+                            ?: (System.currentTimeMillis() - DURESS_FAKE_LAST_SYNC_OFFSET_MS)
+                    }
+                    DuressSessionState.Inactive -> null
+                }
             }
         }
         // Removed auto-refresh on node connect; syncing is now user-driven or targeted.
@@ -125,6 +140,8 @@ class WalletsViewModel @Inject constructor(
         )
     }.combine(duressState) { snapshot, duress ->
         snapshot.copy(duressState = duress)
+    }.combine(fakeLastSyncTime) { snapshot, lastSyncTime ->
+        snapshot.copy(fakeLastSyncTime = lastSyncTime)
     }
 
     val uiState: StateFlow<WalletsUiState> = walletSnapshot.map { snapshot ->
@@ -138,15 +155,19 @@ class WalletsViewModel @Inject constructor(
         val decoyBalanceSats = (snapshot.duressState as? DuressSessionState.FakeActive)
             ?.decoyBalanceSats ?: 0L
         val walletList = if (duressActive) {
+            val fakeLastSyncTime = snapshot.fakeLastSyncTime
+                ?: (System.currentTimeMillis() - DURESS_FAKE_LAST_SYNC_OFFSET_MS)
             listOf(
                 WalletSummary(
                     id = -1L,
                     name = "Wallet",
                     balanceSats = decoyBalanceSats,
-                    transactionCount = 0,
+                    transactionCount = 2,
+                    utxoCount = 2,
                     network = data.network,
-                    lastSyncStatus = NodeStatus.Idle,
-                    lastSyncTime = null,
+                    lastSyncStatus = NodeStatus.Synced,
+                    lastSyncTime = fakeLastSyncTime,
+                    descriptorType = DescriptorType.P2WPKH,
                     viewOnly = true
                 )
             )
@@ -273,7 +294,8 @@ class WalletsViewModel @Inject constructor(
         val balancesHidden: Boolean,
         val hapticsEnabled: Boolean,
         val nodeConfig: NodeConfig,
-        val duressState: DuressSessionState
+        val duressState: DuressSessionState,
+        val fakeLastSyncTime: Long? = null
     )
 
     private data class WalletSnapshotBase(

@@ -54,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -106,6 +107,11 @@ fun SecuritySettingsRoute(
     var pinDisableLockoutExpiry by remember { mutableStateOf<Long?>(null) }
     var pinDisableLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
     val genericSetupErrorText = stringResource(id = R.string.pin_setup_error_generic)
+    val duressDisableErrorMessage = stringResource(id = R.string.settings_duress_disable_error)
+    val duressSetupTitle = stringResource(id = R.string.settings_duress_setup_title)
+    val duressSetupDescription = stringResource(id = R.string.settings_duress_setup_description)
+    val duressSetupConfirmDescription = stringResource(id = R.string.settings_duress_setup_confirm_description)
+    val duressEnabledMessage = stringResource(id = R.string.settings_duress_enabled_message)
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val resourcesState = rememberUpdatedState(context.resources)
@@ -208,13 +214,11 @@ fun SecuritySettingsRoute(
         onBackClick = onBack
     )
 
-    val duressCountdownMessages = remember {
-        mapOf(
-            2 to "Duress toggle: 3 taps left",
-            1 to "Duress toggle: 2 taps left",
-            0 to "Duress toggle: 1 tap left"
-        )
-    }
+    val duressCountdownMessages = mapOf(
+        2 to pluralStringResource(id = R.plurals.settings_duress_toggle_taps_left, count = 3, 3),
+        1 to pluralStringResource(id = R.plurals.settings_duress_toggle_taps_left, count = 2, 2),
+        0 to pluralStringResource(id = R.plurals.settings_duress_toggle_taps_left, count = 1, 1)
+    )
 
     fun handleDuressTapUnlock() {
         if (!state.pinEnabled) return
@@ -513,7 +517,7 @@ fun SecuritySettingsRoute(
                                                 if (!success) {
                                                     coroutineScope.launch {
                                                         snackbarHostState.showSnackbar(
-                                                            message = "Could not disable duress PIN",
+                                                            message = duressDisableErrorMessage,
                                                             duration = SnackbarDuration.Short
                                                         )
                                                     }
@@ -581,9 +585,9 @@ fun SecuritySettingsRoute(
 
             if (showDuressSetup) {
                 PinSetupScreen(
-                    title = "Set duress PIN",
-                    description = "Enter a duress PIN for fake wallet mode.",
-                    confirmDescription = "Confirm the duress PIN.",
+                    title = duressSetupTitle,
+                    description = duressSetupDescription,
+                    confirmDescription = duressSetupConfirmDescription,
                     errorMessage = duressPinError,
                     onDismiss = {
                         showDuressSetup = false
@@ -600,7 +604,7 @@ fun SecuritySettingsRoute(
                                 duressFlowInProgress = false
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
-                                        message = "Duress PIN enabled",
+                                        message = duressEnabledMessage,
                                         duration = SnackbarDuration.Short
                                     )
                                 }
@@ -762,11 +766,11 @@ private fun SecuritySettingsScreen(
                     item {
                         ListItem(
                             headlineContent = {
-                                Text(text = "Duress PIN (fake mode)")
+                                Text(text = stringResource(id = R.string.settings_duress_toggle_title))
                             },
                             supportingContent = {
                                 Text(
-                                    text = "Shows only a decoy wallet list; connections UI disabled.",
+                                    text = stringResource(id = R.string.settings_duress_toggle_subtitle),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

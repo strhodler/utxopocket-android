@@ -239,6 +239,7 @@ private fun WalletsContent(
     modifier: Modifier = Modifier
 ) {
     val canAddWallet = !duressActive && (state.hasActiveNodeSelection || !isNetworkOnline)
+    val showAddWalletDisabledHint = !duressActive && !canAddWallet
     val showNodePrompt = state.wallets.isEmpty() && !state.hasActiveNodeSelection && isNetworkOnline && !duressActive
 
     val torStatus = state.torStatus
@@ -254,113 +255,67 @@ private fun WalletsContent(
         !state.isRefreshing
     val disabledIconTint = if (duressActive) Color.Transparent else null
 
-    val banner: (@Composable () -> Unit)? = when {
-        !isNetworkOnline -> {
-            {
-                val scheme = MaterialTheme.colorScheme
-                ActionableStatusBanner(
-                    title = stringResource(id = R.string.tor_status_banner_offline_title),
-                    supporting = stringResource(id = R.string.tor_status_banner_offline_supporting),
-                    icon = Icons.Outlined.Warning,
-                    containerColor = scheme.surfaceContainer,
-                    contentColor = scheme.onSurface,
-                    iconTint = disabledIconTint,
-                    onClick = if (duressActive) null else onConnectTor
-                )
-            }
-        }
-        showTorStatusBanner && torStatus !is TorStatus.Running -> {
-            {
-                val scheme = MaterialTheme.colorScheme
-                when (torStatus) {
-                    is TorStatus.Connecting -> ActionableStatusBanner(
-                        title = stringResource(id = R.string.tor_status_banner_connecting_title),
-                        supporting = torStatus.message ?: stringResource(id = R.string.tor_status_banner_action),
-                        icon = ImageVector.vectorResource(id = R.drawable.ic_tor_monochrome),
-                        containerColor = scheme.surfaceContainer,
-                        contentColor = scheme.onSurface,
-                        iconTint = disabledIconTint,
-                        onClick = if (duressActive) null else onConnectTor
-                    )
-
-                    is TorStatus.Error -> ActionableStatusBanner(
-                        title = stringResource(id = R.string.tor_status_banner_error_title, torStatus.message),
-                        supporting = stringResource(id = R.string.tor_status_banner_action),
-                        icon = Icons.Outlined.Warning,
-                        containerColor = scheme.errorContainer,
-                        contentColor = scheme.onErrorContainer,
-                        iconTint = disabledIconTint,
-                        onClick = if (duressActive) null else onConnectTor
-                    )
-
-                    TorStatus.Stopped -> ActionableStatusBanner(
-                        title = stringResource(id = R.string.tor_status_banner_stopped_title),
-                        supporting = stringResource(id = R.string.tor_status_banner_action),
-                        icon = Icons.Outlined.Warning,
-                        containerColor = scheme.surfaceContainer,
-                        contentColor = scheme.onSurface,
-                        iconTint = disabledIconTint,
-                        onClick = if (duressActive) null else onConnectTor
-                    )
-
-                    is TorStatus.Running -> null
-                }
-            }
-        }
-        isNodeDisconnecting -> {
-            {
-                ActionableStatusBanner(
-                    title = stringResource(id = R.string.wallets_node_disconnecting_banner),
-                    supporting = stringResource(id = R.string.wallets_manage_connection_action),
-                    icon = Icons.Outlined.Router,
-                    onClick = if (duressActive) null else onSelectNode,
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    iconTint = disabledIconTint
-                )
-            }
-        }
-        isNodeConnecting -> {
-            {
-                val supportingText = state.connectedNodeLabel?.let { nodeLabel ->
-                    stringResource(id = R.string.wallets_node_connecting_banner_supporting, nodeLabel)
-                } ?: stringResource(id = R.string.wallets_manage_connection_action)
-                ActionableStatusBanner(
-                    title = stringResource(id = R.string.wallets_node_connecting_banner),
-                    supporting = supportingText,
-                    icon = Icons.Outlined.Router,
-                    onClick = if (duressActive) null else onSelectNode,
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    iconTint = disabledIconTint
-                )
-            }
-        }
-        showDisconnectedBanner -> {
-            sanitizedErrorMessage?.let { message ->
+    val banner: (@Composable () -> Unit)? = if (duressActive) {
+        null
+    } else {
+        when {
+            !isNetworkOnline -> {
                 {
-                    ConnectionStatusBanner(
-                        message = message,
-                        primaryLabel = stringResource(id = R.string.wallets_manage_connection_action),
-                        onPrimaryClick = {
-                            if (!duressActive) {
-                                onSelectNode()
-                            }
-                        },
-                        primaryEnabled = !duressActive,
-                        style = ConnectionStatusBannerStyle.Error,
-                        containerColorOverride = MaterialTheme.colorScheme.surfaceContainer,
-                        contentColorOverride = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            } ?: run {
-                {
-                    val (title, supporting) =
-                        stringResource(id = R.string.wallets_node_disconnected_banner) to
-                            stringResource(id = R.string.wallets_manage_connection_action)
+                    val scheme = MaterialTheme.colorScheme
                     ActionableStatusBanner(
-                        title = title,
-                        supporting = supporting,
+                        title = stringResource(id = R.string.tor_status_banner_offline_title),
+                        supporting = stringResource(id = R.string.tor_status_banner_offline_supporting),
+                        icon = Icons.Outlined.Warning,
+                        containerColor = scheme.surfaceContainer,
+                        contentColor = scheme.onSurface,
+                        iconTint = disabledIconTint,
+                        onClick = if (duressActive) null else onConnectTor
+                    )
+                }
+            }
+            showTorStatusBanner && torStatus !is TorStatus.Running -> {
+                {
+                    val scheme = MaterialTheme.colorScheme
+                    when (torStatus) {
+                        is TorStatus.Connecting -> ActionableStatusBanner(
+                            title = stringResource(id = R.string.tor_status_banner_connecting_title),
+                            supporting = torStatus.message ?: stringResource(id = R.string.tor_status_banner_action),
+                            icon = ImageVector.vectorResource(id = R.drawable.ic_tor_monochrome),
+                            containerColor = scheme.surfaceContainer,
+                            contentColor = scheme.onSurface,
+                            iconTint = disabledIconTint,
+                            onClick = if (duressActive) null else onConnectTor
+                        )
+
+                        is TorStatus.Error -> ActionableStatusBanner(
+                            title = stringResource(id = R.string.tor_status_banner_error_title, torStatus.message),
+                            supporting = stringResource(id = R.string.tor_status_banner_action),
+                            icon = Icons.Outlined.Warning,
+                            containerColor = scheme.errorContainer,
+                            contentColor = scheme.onErrorContainer,
+                            iconTint = disabledIconTint,
+                            onClick = if (duressActive) null else onConnectTor
+                        )
+
+                        TorStatus.Stopped -> ActionableStatusBanner(
+                            title = stringResource(id = R.string.tor_status_banner_stopped_title),
+                            supporting = stringResource(id = R.string.tor_status_banner_action),
+                            icon = Icons.Outlined.Warning,
+                            containerColor = scheme.surfaceContainer,
+                            contentColor = scheme.onSurface,
+                            iconTint = disabledIconTint,
+                            onClick = if (duressActive) null else onConnectTor
+                        )
+
+                        is TorStatus.Running -> null
+                    }
+                }
+            }
+            isNodeDisconnecting -> {
+                {
+                    ActionableStatusBanner(
+                        title = stringResource(id = R.string.wallets_node_disconnecting_banner),
+                        supporting = stringResource(id = R.string.wallets_manage_connection_action),
                         icon = Icons.Outlined.Router,
                         onClick = if (duressActive) null else onSelectNode,
                         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -369,30 +324,80 @@ private fun WalletsContent(
                     )
                 }
             }
-        }
-        isNodeConnected -> {
-            {
-                val nodeName = state.connectedNodeLabel
-                val title = stringResource(id = R.string.wallets_node_connected_banner)
-                val supporting = if (!nodeName.isNullOrBlank()) {
-                    stringResource(id = R.string.wallets_node_connected_banner_with_name, nodeName)
-                } else {
-                    stringResource(id = R.string.wallets_node_connected_banner_generic_supporting)
+            isNodeConnecting -> {
+                {
+                    val supportingText = state.connectedNodeLabel?.let { nodeLabel ->
+                        stringResource(id = R.string.wallets_node_connecting_banner_supporting, nodeLabel)
+                    } ?: stringResource(id = R.string.wallets_manage_connection_action)
+                    ActionableStatusBanner(
+                        title = stringResource(id = R.string.wallets_node_connecting_banner),
+                        supporting = supportingText,
+                        icon = Icons.Outlined.Router,
+                        onClick = if (duressActive) null else onSelectNode,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        iconTint = disabledIconTint
+                    )
                 }
-                ActionableStatusBanner(
-                    title = title,
-                    supporting = supporting,
-                    icon = Icons.Outlined.Router,
-                    trailingIcon = Icons.AutoMirrored.Outlined.ArrowForward,
-                    trailingIconTint = MaterialTheme.colorScheme.onSurface,
-                    onClick = if (duressActive) null else onSelectNode,
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    iconTint = disabledIconTint
-                )
             }
+            showDisconnectedBanner -> {
+                sanitizedErrorMessage?.let { message ->
+                    {
+                        ConnectionStatusBanner(
+                            message = message,
+                            primaryLabel = stringResource(id = R.string.wallets_manage_connection_action),
+                            onPrimaryClick = {
+                                if (!duressActive) {
+                                    onSelectNode()
+                                }
+                            },
+                            primaryEnabled = !duressActive,
+                            style = ConnectionStatusBannerStyle.Error,
+                            containerColorOverride = MaterialTheme.colorScheme.surfaceContainer,
+                            contentColorOverride = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                } ?: run {
+                    {
+                        val (title, supporting) =
+                            stringResource(id = R.string.wallets_node_disconnected_banner) to
+                                stringResource(id = R.string.wallets_manage_connection_action)
+                        ActionableStatusBanner(
+                            title = title,
+                            supporting = supporting,
+                            icon = Icons.Outlined.Router,
+                            onClick = if (duressActive) null else onSelectNode,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            iconTint = disabledIconTint
+                        )
+                    }
+                }
+            }
+            isNodeConnected -> {
+                {
+                    val nodeName = state.connectedNodeLabel
+                    val title = stringResource(id = R.string.wallets_node_connected_banner)
+                    val supporting = if (!nodeName.isNullOrBlank()) {
+                        stringResource(id = R.string.wallets_node_connected_banner_with_name, nodeName)
+                    } else {
+                        stringResource(id = R.string.wallets_node_connected_banner_generic_supporting)
+                    }
+                    ActionableStatusBanner(
+                        title = title,
+                        supporting = supporting,
+                        icon = Icons.Outlined.Router,
+                        trailingIcon = Icons.AutoMirrored.Outlined.ArrowForward,
+                        trailingIconTint = MaterialTheme.colorScheme.onSurface,
+                        onClick = if (duressActive) null else onSelectNode,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        iconTint = disabledIconTint
+                    )
+                }
+            }
+            else -> null
         }
-        else -> null
     }
     val bannerContent = banner
 
@@ -407,6 +412,7 @@ private fun WalletsContent(
             onWalletSelected = onWalletSelected,
             onAddWallet = onAddWallet,
             canAddWallet = canAddWallet,
+            showAddWalletDisabledHint = showAddWalletDisabledHint,
             showNodePrompt = showNodePrompt,
             walletSyncStates = state.walletSyncStates,
             nodeStatus = state.nodeStatus,
@@ -430,6 +436,7 @@ private fun WalletsList(
     onWalletSelected: (Long, String) -> Unit,
     onAddWallet: () -> Unit,
     canAddWallet: Boolean,
+    showAddWalletDisabledHint: Boolean,
     showNodePrompt: Boolean,
     walletSyncStates: Map<Long, WalletSyncState> = emptyMap(),
     nodeStatus: NodeStatus,
@@ -459,7 +466,8 @@ private fun WalletsList(
                     EmptyState(
                         onOpenWiki = onOpenWiki,
                         onAddWallet = onAddWallet,
-                        canAddWallet = canAddWallet
+                        canAddWallet = canAddWallet,
+                        showAddWalletDisabledHint = showAddWalletDisabledHint
                     )
                 }
             }
@@ -518,7 +526,7 @@ private fun WalletsList(
                     onClick = onAddWallet
                 )
                 Spacer(modifier = Modifier.height(AddDescriptorBottomSpacing))
-                if (!canAddWallet) {
+                if (showAddWalletDisabledHint) {
                     Text(
                         text = stringResource(id = R.string.wallets_add_wallet_disabled_hint),
                         style = MaterialTheme.typography.bodySmall,
@@ -943,6 +951,7 @@ private fun EmptyState(
     onOpenWiki: () -> Unit,
     onAddWallet: () -> Unit,
     canAddWallet: Boolean,
+    showAddWalletDisabledHint: Boolean,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -971,7 +980,7 @@ private fun EmptyState(
                     .widthIn(max = 360.dp)
                     .fillMaxWidth()
             )
-            if (!canAddWallet) {
+            if (showAddWalletDisabledHint) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = stringResource(id = R.string.wallets_add_wallet_disabled_hint),
