@@ -118,6 +118,8 @@ import com.strhodler.utxopocket.presentation.components.BalancePoint
 import com.strhodler.utxopocket.presentation.components.RefreshableContent
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.components.StepLineChart
+import com.strhodler.utxopocket.presentation.format.confirmationLabel
+import com.strhodler.utxopocket.presentation.format.nodeStatusLabel
 import com.strhodler.utxopocket.presentation.common.QrCodeDisplayDialog
 import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
@@ -1711,7 +1713,12 @@ private fun TransactionDetailedCard(
             dateFormat.format(Date(timestamp))
         }
     } ?: stringResource(id = R.string.transaction_detail_unknown_date)
-    val confirmationText = confirmationLabel(transaction.confirmations)
+    val confirmationText = confirmationLabel(
+        confirmations = transaction.confirmations,
+        pendingResId = R.string.wallet_detail_pending_confirmation,
+        singleResId = R.string.wallet_detail_single_confirmation,
+        pluralResId = R.string.wallet_detail_confirmations
+    )
     val displayTransactionId = remember(transaction.id) { ellipsizeMiddle(transaction.id) }
 
     val utxoCardColor = MaterialTheme.colorScheme.surfaceContainer
@@ -1826,7 +1833,12 @@ internal fun UtxoDetailedCard(
     trailingContent: (@Composable () -> Unit)? = null
 ) {
     val amountText = balanceText(utxo.valueSats, unit, hidden = balancesHidden)
-    val confirmationText = confirmationLabel(utxo.confirmations)
+    val confirmationText = confirmationLabel(
+        confirmations = utxo.confirmations,
+        pendingResId = R.string.wallet_detail_pending_confirmation,
+        singleResId = R.string.wallet_detail_single_confirmation,
+        pluralResId = R.string.wallet_detail_confirmations
+    )
     val displayAddress = remember(utxo.address) {
         utxo.address?.let { ellipsizeMiddle(it) }
     }
@@ -2052,24 +2064,6 @@ private fun LabelOrPlaceholder(
         textAlign = textAlign,
         modifier = modifier
     )
-}
-
-@Composable
-private fun nodeStatusLabel(status: NodeStatus): String = when (status) {
-    NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
-    NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
-    NodeStatus.Disconnecting -> stringResource(id = R.string.wallets_state_disconnecting)
-    NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
-    NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
-    NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
-    is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
-}
-
-@Composable
-private fun confirmationLabel(confirmations: Int): String = when {
-    confirmations <= 0 -> stringResource(id = R.string.wallet_detail_pending_confirmation)
-    confirmations == 1 -> stringResource(id = R.string.wallet_detail_single_confirmation)
-    else -> stringResource(id = R.string.wallet_detail_confirmations, confirmations)
 }
 
 enum class WalletDetailTab {

@@ -17,7 +17,7 @@ object WalletMigrations {
                     val nextOrder = nextOrderByNetwork.getOrDefault(network, 0)
                     database.execSQL(
                         "UPDATE wallets SET sort_order = ? WHERE id = ?",
-                        arrayOf(nextOrder, walletId)
+                        arrayOf<Any?>(nextOrder.toLong(), walletId)
                     )
                     nextOrderByNetwork[network] = nextOrder + 1
                 }

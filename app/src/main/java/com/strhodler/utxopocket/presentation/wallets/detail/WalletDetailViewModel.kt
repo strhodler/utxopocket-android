@@ -153,32 +153,45 @@ class WalletDetailViewModel @Inject constructor(
         }
         .cachedIn(viewModelScope)
 
-    private val baseState = combine(
+    private val baseStateCoreInputs = combine(
         walletRepository.observeWalletDetail(walletId),
         canvasRepository.observeCanvasSnapshot(walletId),
         walletRepository.observeNodeStatus(),
         walletRepository.observeSyncStatus(),
-        torManager.status,
+        torManager.status
+    ) { detail, canvasSnapshot, nodeSnapshot, syncStatus, torStatus ->
+        BaseStateCoreInputs(
+            detail = detail,
+            canvasSnapshot = canvasSnapshot,
+            nodeSnapshot = nodeSnapshot,
+            syncStatus = syncStatus,
+            torStatus = torStatus
+        )
+    }
+
+    private val baseStatePreferenceInputs = combine(
         appPreferencesRepository.balanceUnit,
         appPreferencesRepository.balancesHidden,
         appPreferencesRepository.advancedMode,
         appPreferencesRepository.dustThresholdSats,
-        appPreferencesRepository.hapticsEnabled,
+        appPreferencesRepository.hapticsEnabled
+    ) { balanceUnit, balancesHidden, advancedMode, dustThreshold, hapticsEnabled ->
+        BaseStatePreferenceInputs(
+            balanceUnit = balanceUnit,
+            balancesHidden = balancesHidden,
+            advancedMode = advancedMode,
+            dustThreshold = dustThreshold,
+            hapticsEnabled = hapticsEnabled
+        )
+    }
+
+    private val baseState = combine(
+        baseStateCoreInputs,
+        baseStatePreferenceInputs,
         appPreferencesRepository.pinLockEnabled,
         appPreferencesRepository.pinShuffleEnabled
-    ) { values: Array<Any?> ->
-        val detail = values[0] as WalletDetail?
-        val canvasSnapshot = values[1] as UtxoCanvasSnapshot
-        val nodeSnapshot = values[2] as NodeStatusSnapshot
-        val syncStatus = values[3] as SyncStatusSnapshot
-        val torStatus = values[4] as TorStatus
-        val balanceUnit = values[5] as BalanceUnit
-        val balancesHidden = values[6] as Boolean
-        val advancedMode = values[7] as Boolean
-        val dustThreshold = values[8] as Long
-        val hapticsEnabled = values[9] as Boolean
-        val pinLockEnabled = values[10] as Boolean
-        val pinShuffleEnabled = values[11] as Boolean
+    ) { coreInputs, preferenceInputs, pinLockEnabled, pinShuffleEnabled ->
+        val detail = coreInputs.detail
         val balanceHistoryPoints = detail?.let { walletDetail ->
             if (walletDetail.transactions.isEmpty()) {
                 emptyList()
@@ -196,15 +209,15 @@ class WalletDetailViewModel @Inject constructor(
         } ?: emptyList()
         BaseSnapshot(
             detail = detail,
-            canvasSnapshot = canvasSnapshot,
-            nodeSnapshot = nodeSnapshot,
-            syncStatus = syncStatus,
-            torStatus = torStatus,
-            balanceUnit = balanceUnit,
-            balancesHidden = balancesHidden,
-            hapticsEnabled = hapticsEnabled,
-            advancedMode = advancedMode,
-            dustThresholdSats = dustThreshold,
+            canvasSnapshot = coreInputs.canvasSnapshot,
+            nodeSnapshot = coreInputs.nodeSnapshot,
+            syncStatus = coreInputs.syncStatus,
+            torStatus = coreInputs.torStatus,
+            balanceUnit = preferenceInputs.balanceUnit,
+            balancesHidden = preferenceInputs.balancesHidden,
+            hapticsEnabled = preferenceInputs.hapticsEnabled,
+            advancedMode = preferenceInputs.advancedMode,
+            dustThresholdSats = preferenceInputs.dustThreshold,
             balanceHistory = balanceHistoryPoints,
             pinLockEnabled = pinLockEnabled,
             pinShuffleEnabled = pinShuffleEnabled
@@ -226,68 +239,95 @@ class WalletDetailViewModel @Inject constructor(
             initialValue = null
         )
 
-    private val uiInputs = combine(
+    private val uiInputsPrimary = combine(
         baseState,
         transactionSortState,
         showPendingState,
         utxoSortState,
-        selectedBalanceRangeState,
-        showBalanceChartState,
-        incomingPlaceholders,
-        syncGap
-    ) { values: Array<Any?> ->
-        val baseSnapshot = values[0] as BaseSnapshot
-        val transactionSort = values[1] as WalletTransactionSort
-        val showPending = values[2] as Boolean
-        val utxoSort = values[3] as WalletUtxoSort
-        val selectedRange = values[4] as BalanceRange
-        val showBalanceChart = values[5] as Boolean
-        @Suppress("UNCHECKED_CAST")
-        val placeholders = values[6] as List<IncomingTxPlaceholder>
-        val syncGapValue = values[7] as Int?
-        UiInputs(
+        selectedBalanceRangeState
+    ) { baseSnapshot, transactionSort, showPending, utxoSort, selectedRange ->
+        UiInputsPrimary(
             baseSnapshot = baseSnapshot,
             transactionSort = transactionSort,
             showPending = showPending,
             utxoSort = utxoSort,
-            selectedRange = selectedRange,
+            selectedRange = selectedRange
+        )
+    }
+
+    private val uiInputsSecondary = combine(
+        showBalanceChartState,
+        incomingPlaceholders,
+        syncGap
+    ) { showBalanceChart, placeholders, syncGapValue ->
+        UiInputsSecondary(
             showBalanceChart = showBalanceChart,
             incomingPlaceholders = placeholders,
             syncGap = syncGapValue
         )
     }
 
-    val uiState: StateFlow<WalletDetailUiState> = combine(
+    private val uiInputs = combine(
+        uiInputsPrimary,
+        uiInputsSecondary
+    ) { primary, secondary ->
+        UiInputs(
+            baseSnapshot = primary.baseSnapshot,
+            transactionSort = primary.transactionSort,
+            showPending = primary.showPending,
+            utxoSort = primary.utxoSort,
+            selectedRange = primary.selectedRange,
+            showBalanceChart = secondary.showBalanceChart,
+            incomingPlaceholders = secondary.incomingPlaceholders,
+            syncGap = secondary.syncGap
+        )
+    }
+
+    private val uiStatePrimaryInputs = combine(
         uiInputs,
         utxoLabelFilterState,
         transactionLabelFilterState,
         utxoHistogramModeState,
-        utxoTreemapColorModeState,
-        utxoTreemapRangeState,
-        utxoTreemapRequestedState
-    ) { values: Array<Any?> ->
-        val inputs = values[0] as UiInputs
-        val utxoLabelFilter = values[1] as UtxoLabelFilter
-        val transactionLabelFilter = values[2] as TransactionLabelFilter
-        val utxoHistogramMode = values[3] as UtxoHistogramMode
-        val utxoTreemapColorMode = values[4] as UtxoTreemapColorMode
-        val utxoTreemapRange = values[5] as LongRange?
-        val utxoTreemapRequested = values[6] as Boolean
-        buildUiState(
-            baseSnapshot = inputs.baseSnapshot,
-            transactionSort = inputs.transactionSort,
-            showPending = inputs.showPending,
-            utxoSort = inputs.utxoSort,
-            selectedRange = inputs.selectedRange,
+        utxoTreemapColorModeState
+    ) { inputs, utxoLabelFilter, transactionLabelFilter, utxoHistogramMode, utxoTreemapColorMode ->
+        UiStatePrimaryInputs(
+            inputs = inputs,
             utxoLabelFilter = utxoLabelFilter,
             transactionLabelFilter = transactionLabelFilter,
-            showBalanceChart = inputs.showBalanceChart,
-            incomingPlaceholders = inputs.incomingPlaceholders,
-            syncGap = inputs.syncGap,
             utxoHistogramMode = utxoHistogramMode,
-            utxoTreemapColorMode = utxoTreemapColorMode,
+            utxoTreemapColorMode = utxoTreemapColorMode
+        )
+    }
+
+    private val uiStateSecondaryInputs = combine(
+        utxoTreemapRangeState,
+        utxoTreemapRequestedState
+    ) { utxoTreemapRange, utxoTreemapRequested ->
+        UiStateSecondaryInputs(
             utxoTreemapRange = utxoTreemapRange,
             utxoTreemapRequested = utxoTreemapRequested
+        )
+    }
+
+    val uiState: StateFlow<WalletDetailUiState> = combine(
+        uiStatePrimaryInputs,
+        uiStateSecondaryInputs
+    ) { primary, secondary ->
+        buildUiState(
+            baseSnapshot = primary.inputs.baseSnapshot,
+            transactionSort = primary.inputs.transactionSort,
+            showPending = primary.inputs.showPending,
+            utxoSort = primary.inputs.utxoSort,
+            selectedRange = primary.inputs.selectedRange,
+            utxoLabelFilter = primary.utxoLabelFilter,
+            transactionLabelFilter = primary.transactionLabelFilter,
+            showBalanceChart = primary.inputs.showBalanceChart,
+            incomingPlaceholders = primary.inputs.incomingPlaceholders,
+            syncGap = primary.inputs.syncGap,
+            utxoHistogramMode = primary.utxoHistogramMode,
+            utxoTreemapColorMode = primary.utxoTreemapColorMode,
+            utxoTreemapRange = secondary.utxoTreemapRange,
+            utxoTreemapRequested = secondary.utxoTreemapRequested
         )
     }.stateIn(
         scope = viewModelScope,
@@ -895,6 +935,49 @@ class WalletDetailViewModel @Inject constructor(
             }
         }
     }
+
+    private data class BaseStateCoreInputs(
+        val detail: WalletDetail?,
+        val canvasSnapshot: UtxoCanvasSnapshot,
+        val nodeSnapshot: NodeStatusSnapshot,
+        val syncStatus: SyncStatusSnapshot,
+        val torStatus: TorStatus
+    )
+
+    private data class BaseStatePreferenceInputs(
+        val balanceUnit: BalanceUnit,
+        val balancesHidden: Boolean,
+        val advancedMode: Boolean,
+        val dustThreshold: Long,
+        val hapticsEnabled: Boolean
+    )
+
+    private data class UiInputsPrimary(
+        val baseSnapshot: BaseSnapshot,
+        val transactionSort: WalletTransactionSort,
+        val showPending: Boolean,
+        val utxoSort: WalletUtxoSort,
+        val selectedRange: BalanceRange
+    )
+
+    private data class UiInputsSecondary(
+        val showBalanceChart: Boolean,
+        val incomingPlaceholders: List<IncomingTxPlaceholder>,
+        val syncGap: Int?
+    )
+
+    private data class UiStatePrimaryInputs(
+        val inputs: UiInputs,
+        val utxoLabelFilter: UtxoLabelFilter,
+        val transactionLabelFilter: TransactionLabelFilter,
+        val utxoHistogramMode: UtxoHistogramMode,
+        val utxoTreemapColorMode: UtxoTreemapColorMode
+    )
+
+    private data class UiStateSecondaryInputs(
+        val utxoTreemapRange: LongRange?,
+        val utxoTreemapRequested: Boolean
+    )
 
     private data class UiInputs(
         val baseSnapshot: BaseSnapshot,

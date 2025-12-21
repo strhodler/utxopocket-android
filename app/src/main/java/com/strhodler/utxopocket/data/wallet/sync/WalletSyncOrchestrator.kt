@@ -63,7 +63,7 @@ internal class WalletSyncOrchestrator(
     )
     private val syncQueueMutex = Mutex()
     private val pendingWalletQueues = mutableMapOf<BitcoinNetwork, ArrayDeque<Long>>()
-    private val pendingWalletOperations = mutableMapOf<Long, SyncOperation>()
+    private val pendingWalletOperations = ConcurrentHashMap<Long, SyncOperation>()
     private val activeWalletByNetwork = mutableMapOf<BitcoinNetwork, Long?>()
     private val runningSyncJobs = mutableMapOf<BitcoinNetwork, Job>()
     private val orchestratorIntents = MutableSharedFlow<NetworkIntent>(

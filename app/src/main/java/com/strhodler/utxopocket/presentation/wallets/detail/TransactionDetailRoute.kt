@@ -110,6 +110,7 @@ import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.components.UtxoIdenticon
+import com.strhodler.utxopocket.presentation.format.confirmationLabel
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.wiki.WikiContent
@@ -984,7 +985,12 @@ private fun TransactionDetailContent(
             hidden = state.balancesHidden
         )
     }
-    val confirmationsLabel = confirmationLabel(transaction.confirmations)
+    val confirmationsLabel = confirmationLabel(
+        confirmations = transaction.confirmations,
+        pendingResId = R.string.transaction_detail_pending_confirmation,
+        singleResId = R.string.transaction_detail_single_confirmation,
+        pluralResId = R.string.transaction_detail_confirmations
+    )
     val dateLabel = transaction.timestamp?.let {
         remember(it) {
             DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(it))
@@ -2376,11 +2382,4 @@ private fun ErrorPlaceholder(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-}
-
-@Composable
-private fun confirmationLabel(confirmations: Int): String = when {
-    confirmations <= 0 -> stringResource(id = R.string.transaction_detail_pending_confirmation)
-    confirmations == 1 -> stringResource(id = R.string.transaction_detail_single_confirmation)
-    else -> stringResource(id = R.string.transaction_detail_confirmations, confirmations)
 }

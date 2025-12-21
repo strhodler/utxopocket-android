@@ -82,6 +82,7 @@ import com.strhodler.utxopocket.presentation.components.ConnectionStatusBanner
 import com.strhodler.utxopocket.presentation.components.ConnectionStatusBannerStyle
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
+import com.strhodler.utxopocket.presentation.format.nodeStatusLabel
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
 import com.strhodler.utxopocket.presentation.motion.rememberLazyHeaderFadeAlpha
 import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
@@ -1047,22 +1048,6 @@ private fun <T> MutableList<T>.move(from: Int, to: Int) {
     val item = removeAt(from)
     val targetIndex = to.coerceIn(0, size)
     add(targetIndex, item)
-}
-
-@Composable
-private fun nodeStatusLabel(status: NodeStatus, isSyncing: Boolean): String {
-    if (isSyncing) {
-        return stringResource(id = R.string.wallets_state_syncing)
-    }
-    return when (status) {
-        NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
-        NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
-        NodeStatus.Disconnecting -> stringResource(id = R.string.wallets_state_disconnecting)
-        NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
-        NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
-        NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
-        is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
-    }
 }
 
 @Composable
