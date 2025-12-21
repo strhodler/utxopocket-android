@@ -374,30 +374,36 @@ class TransactionDetailViewModel @Inject constructor(
         savedStateHandle.get<String>(WalletsNavigation.TransactionIdArg)
             ?: error("Transaction id is required")
 
-    val uiState: StateFlow<TransactionDetailUiState> = combine(
-        walletRepository.observeWalletDetail(walletId),
+    private val preferenceInputs = combine(
         appPreferencesRepository.balanceUnit,
         appPreferencesRepository.balancesHidden,
         appPreferencesRepository.advancedMode,
         appPreferencesRepository.hapticsEnabled,
         appPreferencesRepository.blockExplorerPreferences
-    ) { values: Array<Any?> ->
-        val detail = values[0] as WalletDetail?
-        val balanceUnit = values[1] as BalanceUnit
-        val balancesHidden = values[2] as Boolean
-        val advancedMode = values[3] as Boolean
-        val hapticsEnabled = values[4] as Boolean
-        val blockExplorerPrefs = values[5] as BlockExplorerPreferences
+    ) { balanceUnit, balancesHidden, advancedMode, hapticsEnabled, blockExplorerPrefs ->
+        TransactionDetailPreferences(
+            balanceUnit = balanceUnit,
+            balancesHidden = balancesHidden,
+            advancedMode = advancedMode,
+            hapticsEnabled = hapticsEnabled,
+            blockExplorerPrefs = blockExplorerPrefs
+        )
+    }
+
+    val uiState: StateFlow<TransactionDetailUiState> = combine(
+        walletRepository.observeWalletDetail(walletId),
+        preferenceInputs
+    ) { detail, preferences ->
         val transaction = detail?.transactions?.firstOrNull { it.id == transactionId }
         when {
             detail == null -> TransactionDetailUiState(
                 isLoading = false,
                 walletSummary = null,
                 transaction = null,
-                balanceUnit = balanceUnit,
-                balancesHidden = balancesHidden,
-                hapticsEnabled = hapticsEnabled,
-                advancedMode = advancedMode,
+                balanceUnit = preferences.balanceUnit,
+                balancesHidden = preferences.balancesHidden,
+                hapticsEnabled = preferences.hapticsEnabled,
+                advancedMode = preferences.advancedMode,
                 error = TransactionDetailError.NotFound,
                 blockExplorerOptions = emptyList()
             )
@@ -406,25 +412,29 @@ class TransactionDetailViewModel @Inject constructor(
                 isLoading = false,
                 walletSummary = detail.summary,
                 transaction = null,
-                balanceUnit = balanceUnit,
-                balancesHidden = balancesHidden,
-                hapticsEnabled = hapticsEnabled,
-                advancedMode = advancedMode,
+                balanceUnit = preferences.balanceUnit,
+                balancesHidden = preferences.balancesHidden,
+                hapticsEnabled = preferences.hapticsEnabled,
+                advancedMode = preferences.advancedMode,
                 error = TransactionDetailError.NotFound,
                 blockExplorerOptions = emptyList()
             )
 
             else -> {
                 val explorerOptions =
-                    resolveBlockExplorerOptions(detail.summary.network, transaction.id, blockExplorerPrefs)
+                    resolveBlockExplorerOptions(
+                        detail.summary.network,
+                        transaction.id,
+                        preferences.blockExplorerPrefs
+                    )
                 TransactionDetailUiState(
                     isLoading = false,
                     walletSummary = detail.summary,
                     transaction = transaction,
-                    balanceUnit = balanceUnit,
-                    balancesHidden = balancesHidden,
-                    advancedMode = advancedMode,
-                    hapticsEnabled = hapticsEnabled,
+                    balanceUnit = preferences.balanceUnit,
+                    balancesHidden = preferences.balancesHidden,
+                    advancedMode = preferences.advancedMode,
+                    hapticsEnabled = preferences.hapticsEnabled,
                     error = null,
                     blockExplorerOptions = explorerOptions
                 )
@@ -434,6 +444,14 @@ class TransactionDetailViewModel @Inject constructor(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = TransactionDetailUiState()
+    )
+
+    private data class TransactionDetailPreferences(
+        val balanceUnit: BalanceUnit,
+        val balancesHidden: Boolean,
+        val advancedMode: Boolean,
+        val hapticsEnabled: Boolean,
+        val blockExplorerPrefs: BlockExplorerPreferences
     )
 
     fun updateLabel(label: String?, onResult: (Result<Unit>) -> Unit) {
@@ -578,22 +596,27 @@ class UtxoDetailViewModel @Inject constructor(
         ?: savedStateHandle.get<String>(WalletsNavigation.UtxoVoutArg)?.toIntOrNull()
         ?: error("UTXO vout is required")
 
-    val uiState: StateFlow<UtxoDetailUiState> = combine(
-        walletRepository.observeWalletDetail(walletId),
-        canvasRepository.observeCanvasSnapshot(walletId),
+    private val preferenceInputs = combine(
         appPreferencesRepository.balanceUnit,
         appPreferencesRepository.balancesHidden,
         appPreferencesRepository.advancedMode,
         appPreferencesRepository.hapticsEnabled,
         appPreferencesRepository.blockExplorerPreferences
-    ) { values: Array<Any?> ->
-        val detail = values[0] as WalletDetail?
-        val canvasSnapshot = values[1] as UtxoCanvasSnapshot
-        val balanceUnit = values[2] as BalanceUnit
-        val balancesHidden = values[3] as Boolean
-        val advancedMode = values[4] as Boolean
-        val hapticsEnabled = values[5] as Boolean
-        val blockExplorerPrefs = values[6] as BlockExplorerPreferences
+    ) { balanceUnit, balancesHidden, advancedMode, hapticsEnabled, blockExplorerPrefs ->
+        UtxoDetailPreferences(
+            balanceUnit = balanceUnit,
+            balancesHidden = balancesHidden,
+            advancedMode = advancedMode,
+            hapticsEnabled = hapticsEnabled,
+            blockExplorerPrefs = blockExplorerPrefs
+        )
+    }
+
+    val uiState: StateFlow<UtxoDetailUiState> = combine(
+        walletRepository.observeWalletDetail(walletId),
+        canvasRepository.observeCanvasSnapshot(walletId),
+        preferenceInputs
+    ) { detail, canvasSnapshot, preferences ->
         val utxo = detail?.utxos?.firstOrNull { it.txid == txId && it.vout == vout }
         val depositTimestamp = utxo?.let { candidate ->
             detail?.transactions
@@ -607,10 +630,10 @@ class UtxoDetailViewModel @Inject constructor(
                 isLoading = false,
                 walletSummary = null,
                 utxo = null,
-                balanceUnit = balanceUnit,
-                balancesHidden = balancesHidden,
-                hapticsEnabled = hapticsEnabled,
-                advancedMode = advancedMode,
+                balanceUnit = preferences.balanceUnit,
+                balancesHidden = preferences.balancesHidden,
+                hapticsEnabled = preferences.hapticsEnabled,
+                advancedMode = preferences.advancedMode,
                 collections = emptyList(),
                 assignedCollection = null,
                 error = UtxoDetailError.NotFound,
@@ -621,10 +644,10 @@ class UtxoDetailViewModel @Inject constructor(
                 isLoading = false,
                 walletSummary = detail.summary,
                 utxo = null,
-                balanceUnit = balanceUnit,
-                balancesHidden = balancesHidden,
-                hapticsEnabled = hapticsEnabled,
-                advancedMode = advancedMode,
+                balanceUnit = preferences.balanceUnit,
+                balancesHidden = preferences.balancesHidden,
+                hapticsEnabled = preferences.hapticsEnabled,
+                advancedMode = preferences.advancedMode,
                 collections = collections,
                 assignedCollection = assignedCollection,
                 error = UtxoDetailError.NotFound,
@@ -635,10 +658,10 @@ class UtxoDetailViewModel @Inject constructor(
                 isLoading = false,
                 walletSummary = detail.summary,
                 utxo = utxo,
-                balanceUnit = balanceUnit,
-                balancesHidden = balancesHidden,
-                hapticsEnabled = hapticsEnabled,
-                advancedMode = advancedMode,
+                balanceUnit = preferences.balanceUnit,
+                balancesHidden = preferences.balancesHidden,
+                hapticsEnabled = preferences.hapticsEnabled,
+                advancedMode = preferences.advancedMode,
                 collections = collections,
                 assignedCollection = assignedCollection,
                 error = null,
@@ -646,7 +669,7 @@ class UtxoDetailViewModel @Inject constructor(
                 blockExplorerOptions = resolveBlockExplorerOptions(
                     detail.summary.network,
                     utxo.txid,
-                    blockExplorerPrefs
+                    preferences.blockExplorerPrefs
                 )
             )
         }
@@ -654,6 +677,14 @@ class UtxoDetailViewModel @Inject constructor(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = UtxoDetailUiState()
+    )
+
+    private data class UtxoDetailPreferences(
+        val balanceUnit: BalanceUnit,
+        val balancesHidden: Boolean,
+        val advancedMode: Boolean,
+        val hapticsEnabled: Boolean,
+        val blockExplorerPrefs: BlockExplorerPreferences
     )
 
     fun updateLabel(label: String?, onResult: (Result<Unit>) -> Unit) {

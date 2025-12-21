@@ -44,71 +44,87 @@ class SettingsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
+    private val settingsSnapshot = combine(
+        appPreferencesRepository.preferredNetwork,
+        appPreferencesRepository.pinLockEnabled,
+        appPreferencesRepository.themePreference,
+        appPreferencesRepository.themeProfile,
+        appPreferencesRepository.appLanguage
+    ) { preferredNetwork, pinEnabled, themePreference, themeProfile, appLanguage ->
+        SettingsSnapshot(
+            preferredNetwork = preferredNetwork,
+            pinEnabled = pinEnabled,
+            themePreference = themePreference,
+            themeProfile = themeProfile,
+            appLanguage = appLanguage
+        )
+    }
+        .combine(appPreferencesRepository.balanceUnit) { snapshot, balanceUnit ->
+            snapshot.copy(preferredUnit = balanceUnit)
+        }
+        .combine(appPreferencesRepository.hapticsEnabled) { snapshot, hapticsEnabled ->
+            snapshot.copy(hapticsEnabled = hapticsEnabled)
+        }
+        .combine(appPreferencesRepository.pinShuffleEnabled) { snapshot, pinShuffleEnabled ->
+            snapshot.copy(pinShuffleEnabled = pinShuffleEnabled)
+        }
+        .combine(appPreferencesRepository.advancedMode) { snapshot, advancedMode ->
+            snapshot.copy(advancedMode = advancedMode)
+        }
+        .combine(appPreferencesRepository.pinAutoLockTimeoutMinutes) { snapshot, pinAutoLockTimeoutMinutes ->
+            snapshot.copy(pinAutoLockTimeoutMinutes = pinAutoLockTimeoutMinutes)
+        }
+        .combine(appPreferencesRepository.connectionIdleTimeoutMinutes) { snapshot, connectionIdleTimeoutMinutes ->
+            snapshot.copy(connectionIdleTimeoutMinutes = connectionIdleTimeoutMinutes)
+        }
+        .combine(networkErrorLogRepository.loggingEnabled) { snapshot, loggingEnabled ->
+            snapshot.copy(networkLogsEnabled = loggingEnabled)
+        }
+        .combine(appPreferencesRepository.dustThresholdSats) { snapshot, dustThreshold ->
+            snapshot.copy(dustThresholdSats = dustThreshold)
+        }
+        .combine(appPreferencesRepository.blockExplorerPreferences) { snapshot, blockExplorerPrefs ->
+            snapshot.copy(blockExplorerPrefs = blockExplorerPrefs)
+        }
+        .combine(appPreferencesRepository.duressConfigured) { snapshot, duressConfigured ->
+            snapshot.copy(duressConfigured = duressConfigured)
+        }
+        .combine(incomingTxPreferencesRepository.globalPreferences()) { snapshot, incomingPrefs ->
+            snapshot.copy(incomingPrefs = incomingPrefs)
+        }
+
     init {
         viewModelScope.launch {
-            combine(
-                appPreferencesRepository.preferredNetwork,
-                appPreferencesRepository.pinLockEnabled,
-                appPreferencesRepository.themePreference,
-                appPreferencesRepository.themeProfile,
-                appPreferencesRepository.appLanguage,
-                appPreferencesRepository.balanceUnit,
-                appPreferencesRepository.hapticsEnabled,
-                appPreferencesRepository.pinShuffleEnabled,
-                appPreferencesRepository.advancedMode,
-                appPreferencesRepository.pinAutoLockTimeoutMinutes,
-                appPreferencesRepository.connectionIdleTimeoutMinutes,
-                networkErrorLogRepository.loggingEnabled,
-                appPreferencesRepository.dustThresholdSats,
-                appPreferencesRepository.blockExplorerPreferences,
-                appPreferencesRepository.duressConfigured,
-                incomingTxPreferencesRepository.globalPreferences()
-            ) { values: Array<Any?> ->
-                val preferredNetwork = values[0] as BitcoinNetwork
-                val pinEnabled = values[1] as Boolean
-                val themePreference = values[2] as ThemePreference
-                val themeProfile = values[3] as ThemeProfile
-                val appLanguage = values[4] as AppLanguage
-                val balanceUnit = values[5] as BalanceUnit
-                val hapticsEnabled = values[6] as Boolean
-                val pinShuffleEnabled = values[7] as Boolean
-                val advancedMode = values[8] as Boolean
-                val pinAutoLockTimeoutMinutes = values[9] as Int
-                val connectionIdleTimeoutMinutes = values[10] as Int
-                val networkLogsEnabled = values[11] as Boolean
-                val dustThreshold = values[12] as Long
-                val blockExplorerPrefs = values[13] as BlockExplorerPreferences
-                val duressConfigured = values[14] as Boolean
-                val incomingPrefs = values[15] as IncomingTxPreferences
+            settingsSnapshot.collect { snapshot ->
                 val previous = _uiState.value
 
-                val networkExplorerPrefs = blockExplorerPrefs.forNetwork(preferredNetwork)
+                val networkExplorerPrefs = snapshot.blockExplorerPrefs.forNetwork(snapshot.preferredNetwork)
                 val customNormal = networkExplorerPrefs.customNormalUrl.orEmpty()
                 val customOnion = networkExplorerPrefs.customOnionUrl.orEmpty()
                 val customNormalName = networkExplorerPrefs.customNormalName.orEmpty()
                 val customOnionName = networkExplorerPrefs.customOnionName.orEmpty()
-                val normalPresetIds = BlockExplorerCatalog.presetsFor(preferredNetwork, BlockExplorerBucket.NORMAL).map { it.id }.toSet()
-                val onionPresetIds = BlockExplorerCatalog.presetsFor(preferredNetwork, BlockExplorerBucket.ONION).map { it.id }.toSet()
+                val normalPresetIds = BlockExplorerCatalog.presetsFor(snapshot.preferredNetwork, BlockExplorerBucket.NORMAL).map { it.id }.toSet()
+                val onionPresetIds = BlockExplorerCatalog.presetsFor(snapshot.preferredNetwork, BlockExplorerBucket.ONION).map { it.id }.toSet()
                 val hiddenNormal = networkExplorerPrefs.hiddenPresetIds.filter { it in normalPresetIds }.toSet()
                 val hiddenOnion = networkExplorerPrefs.hiddenPresetIds.filter { it in onionPresetIds }.toSet()
                 val removedNormal = networkExplorerPrefs.removedPresetIds.filter { it in normalPresetIds }.toSet()
                 val removedOnion = networkExplorerPrefs.removedPresetIds.filter { it in onionPresetIds }.toSet()
 
-                previous.copy(
-                    preferredNetwork = preferredNetwork,
-                    themePreference = themePreference,
-                    themeProfile = themeProfile,
-                    appLanguage = appLanguage,
-                    pinEnabled = pinEnabled,
-                    preferredUnit = balanceUnit,
-                    advancedMode = advancedMode,
-                    hapticsEnabled = hapticsEnabled,
-                    pinAutoLockTimeoutMinutes = pinAutoLockTimeoutMinutes,
-                    pinShuffleEnabled = pinShuffleEnabled,
-                    connectionIdleTimeoutMinutes = connectionIdleTimeoutMinutes,
-                    networkLogsEnabled = networkLogsEnabled,
-                    dustThresholdSats = dustThreshold,
-                    dustThresholdInput = if (dustThreshold > 0L) dustThreshold.toString() else "",
+                _uiState.value = previous.copy(
+                    preferredNetwork = snapshot.preferredNetwork,
+                    themePreference = snapshot.themePreference,
+                    themeProfile = snapshot.themeProfile,
+                    appLanguage = snapshot.appLanguage,
+                    pinEnabled = snapshot.pinEnabled,
+                    preferredUnit = snapshot.preferredUnit,
+                    advancedMode = snapshot.advancedMode,
+                    hapticsEnabled = snapshot.hapticsEnabled,
+                    pinAutoLockTimeoutMinutes = snapshot.pinAutoLockTimeoutMinutes,
+                    pinShuffleEnabled = snapshot.pinShuffleEnabled,
+                    connectionIdleTimeoutMinutes = snapshot.connectionIdleTimeoutMinutes,
+                    networkLogsEnabled = snapshot.networkLogsEnabled,
+                    dustThresholdSats = snapshot.dustThresholdSats,
+                    dustThresholdInput = if (snapshot.dustThresholdSats > 0L) snapshot.dustThresholdSats.toString() else "",
                     blockExplorerEnabled = networkExplorerPrefs.enabled,
                     blockExplorerBucket = networkExplorerPrefs.bucket,
                     blockExplorerNormalPresetId = networkExplorerPrefs.normalPresetId,
@@ -121,15 +137,32 @@ class SettingsViewModel @Inject constructor(
                     blockExplorerOnionCustomInput = customOnion,
                     blockExplorerNormalCustomNameInput = customNormalName,
                     blockExplorerOnionCustomNameInput = customOnionName,
-                    incomingDetectionIntervalSeconds = incomingPrefs.intervalSeconds,
-                    incomingDetectionDialogEnabled = incomingPrefs.showDialog,
-                    duressConfigured = duressConfigured
+                    incomingDetectionIntervalSeconds = snapshot.incomingPrefs.intervalSeconds,
+                    incomingDetectionDialogEnabled = snapshot.incomingPrefs.showDialog,
+                    duressConfigured = snapshot.duressConfigured
                 )
-            }.collect { state ->
-                _uiState.value = state
             }
         }
     }
+
+    private data class SettingsSnapshot(
+        val preferredNetwork: BitcoinNetwork,
+        val pinEnabled: Boolean,
+        val themePreference: ThemePreference,
+        val themeProfile: ThemeProfile,
+        val appLanguage: AppLanguage,
+        val preferredUnit: BalanceUnit = BalanceUnit.DEFAULT,
+        val advancedMode: Boolean = false,
+        val hapticsEnabled: Boolean = false,
+        val pinAutoLockTimeoutMinutes: Int = MIN_PIN_AUTO_LOCK_MINUTES,
+        val pinShuffleEnabled: Boolean = false,
+        val connectionIdleTimeoutMinutes: Int = MIN_CONNECTION_IDLE_MINUTES,
+        val networkLogsEnabled: Boolean = false,
+        val dustThresholdSats: Long = 0L,
+        val blockExplorerPrefs: BlockExplorerPreferences = BlockExplorerPreferences(),
+        val duressConfigured: Boolean = false,
+        val incomingPrefs: IncomingTxPreferences = IncomingTxPreferences()
+    )
 
     fun onUnitSelected(unit: BalanceUnit) {
         _uiState.update { it.copy(preferredUnit = unit) }
