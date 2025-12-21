@@ -93,11 +93,10 @@ abstract public class OnionProxyContext {
             SecureLog.i(TAG, "installFiles: success ".concat(String.valueOf(success)));
 
         } catch (IOException e) {
-            e.printStackTrace();
-
+            SecureLog.e(TAG, e, "installFiles failed");
             SecureLog.i(TAG, "installFiles: ".concat(e.getMessage()));
         } catch (Exception e) {
-            e.printStackTrace();
+            SecureLog.e(TAG, e, "installFiles failed");
             SecureLog.i(TAG, "installFiles: ".concat(e.getMessage()));
 
         }

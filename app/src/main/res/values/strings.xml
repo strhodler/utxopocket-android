@@ -747,7 +747,7 @@
     <string name="tor_status_connecting_label">Tor connecting</string>
     <string name="tor_status_stopped_label">Tor stopped</string>
     <string name="tor_status_error_label">Tor error</string>
-    <string name="wallets_last_sync">Last sync: %1$s</string>
+    <string name="wallets_last_sync">Synced: %1$s</string>
     <string name="wallets_sync_error_icon_description">Wallet synchronization warning</string>
     <string name="wallets_testnet_faucet_banner_title">Get testnet bitcoin from a faucet</string>
     <string name="wallets_testnet_faucet_banner_body">Use a %1$s faucet to rehearse transactions without risking mainnet funds.</string>

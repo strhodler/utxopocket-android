@@ -77,7 +77,7 @@
     <string name="tor_status_connecting_label">Tor conectando</string>
     <string name="tor_status_stopped_label">Tor detenido</string>
     <string name="tor_status_error_label">Error de Tor</string>
-    <string name="wallets_last_sync">Última sincronización: %1$s</string>
+    <string name="wallets_last_sync">Sincronizada %1$s</string>
     <string name="wallets_sync_error_icon_description">Advertencia de sincronización</string>
 
     <!-- Onboarding -->

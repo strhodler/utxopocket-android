@@ -118,8 +118,6 @@ dependencies {
     implementation(libs.tor.android) {
         exclude(group = "info.guardianproject", module = "jtorctl")
     }
-    implementation(libs.slf4j.api)
-    implementation(libs.slf4j.android)
     implementation(libs.jbox2d.library)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.zxing.android.embedded)

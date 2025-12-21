@@ -69,15 +69,12 @@ package com.msopentech.thali.toronionproxy;
 
 import com.strhodler.utxopocket.common.logging.SecureLog;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class FileUtilities {
-    private static final Logger LOG = LoggerFactory.getLogger(FileUtilities.class);
+    private static final String TAG = "FileUtilities";
 
     private FileUtilities() {}
 
@@ -120,7 +117,7 @@ public class FileUtilities {
                 listFilesToLog(child);
             }
         } else {
-            LOG.info(f.getAbsolutePath());
+            SecureLog.i(TAG, f.getAbsolutePath());
         }
     }
 
@@ -153,7 +150,7 @@ public class FileUtilities {
 
         OutputStream out = new FileOutputStream(fileToWriteTo);
         FileUtilities.copy(readFrom, out);
-        SecureLog.i("cleanInstallOneFile", "cleanInstallOneFile: ".concat(fileToWriteTo.getAbsolutePath()));
+        SecureLog.i(TAG, "cleanInstallOneFile: ".concat(fileToWriteTo.getAbsolutePath()));
     }
 
     public static void recursiveFileDelete(File fileOrDirectory) {

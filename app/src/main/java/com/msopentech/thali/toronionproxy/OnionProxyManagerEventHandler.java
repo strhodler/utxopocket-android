@@ -29,9 +29,8 @@ See the Apache 2 License for the specific language governing permissions and lim
 
 package com.msopentech.thali.toronionproxy;
 
+import com.strhodler.utxopocket.common.logging.SecureLog;
 import net.freehaven.tor.control.EventHandler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Iterator;
 import java.util.List;
@@ -40,7 +39,7 @@ import java.util.List;
  * Logs the data we get from notifications from the Tor OP. This is really just meant for debugging.
  */
 public class OnionProxyManagerEventHandler implements EventHandler {
-    private static final Logger LOG = LoggerFactory.getLogger(OnionProxyManagerEventHandler.class);
+    private static final String TAG = "OnionProxyManagerEventHandler";
     private String lastLog="";
     public String getLastLog()
     {
@@ -56,7 +55,7 @@ public class OnionProxyManagerEventHandler implements EventHandler {
         String rendQuery = info.get("REND_QUERY");
         if(rendQuery != null) msg += ", service: " + rendQuery;
         if(!path.isEmpty()) msg += ", path: " + shortenPath(path);
-        LOG.info(msg);
+        SecureLog.i(TAG, msg);
     }*/
     public void circuitStatus(String status, String circID, String path) {
         String msg = "CircuitStatus: " + circID + " " + status;
@@ -67,20 +66,20 @@ public class OnionProxyManagerEventHandler implements EventHandler {
         //String rendQuery = info.get("REND_QUERY");
         //if(rendQuery != null) msg += ", service: " + rendQuery;
         if(!path.isEmpty()) msg += ", path: " + shortenPath(path);
-//        LOG.info(msg);
+//        SecureLog.i(TAG, msg);
         lastLog=msg;
     }
 
     public void streamStatus(String status, String id, String target) {
-        LOG.info("streamStatus: status: " + status + ", id: " + id + ", target: " + target);
+        SecureLog.i(TAG, "streamStatus: status: " + status + ", id: " + id + ", target: " + target);
     }
 
     public void orConnStatus(String status, String orName) {
-        LOG.info("OR connection: status: " + status + ", orName: " + orName);
+        SecureLog.i(TAG, "OR connection: status: " + status + ", orName: " + orName);
     }
 
     public void bandwidthUsed(long read, long written) {
-        LOG.info("bandwidthUsed: read: " + read + ", written: " + written);
+        SecureLog.i(TAG, "bandwidthUsed: read: " + read + ", written: " + written);
     }
 
     public void newDescriptors(List<String> orList) {
@@ -89,16 +88,16 @@ public class OnionProxyManagerEventHandler implements EventHandler {
         while(iterator.hasNext()) {
             stringBuilder.append(iterator.next());
         }
-        LOG.info("newDescriptors: " + stringBuilder.toString());
+        SecureLog.i(TAG, "newDescriptors: " + stringBuilder.toString());
     }
 
     public void message(String severity, String msg) {
-        LOG.info("message: severity: " + severity + ", msg: " + msg);
+        SecureLog.i(TAG, "message: severity: " + severity + ", msg: " + msg);
         lastLog=msg;
     }
 
     public void unrecognized(String type, String msg) {
-        LOG.info("unrecognized: type: " + type + ", msg: " + msg);
+        SecureLog.i(TAG, "unrecognized: type: " + type + ", msg: " + msg);
         lastLog=msg;
     }
 

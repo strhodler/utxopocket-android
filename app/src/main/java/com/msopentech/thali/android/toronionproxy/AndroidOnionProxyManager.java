@@ -38,9 +38,6 @@ import android.net.ConnectivityManager;
 import com.msopentech.thali.toronionproxy.OnionProxyManager;
 import com.strhodler.utxopocket.common.logging.SecureLog;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -50,9 +47,8 @@ import io.reactivex.disposables.Disposable;
 import io.reactivex.schedulers.Schedulers;
 
 public class AndroidOnionProxyManager extends OnionProxyManager {
-    private static final Logger LOG = LoggerFactory.getLogger(AndroidOnionProxyManager.class);
     private Disposable onlineSubscription;
-    private static final String TAG = "AndroidOnionProxyManage";
+    private static final String TAG = "AndroidOnionProxyManager";
 
     private volatile BroadcastReceiver networkStateReceiver;
     private final Context context;
@@ -93,7 +89,7 @@ public class AndroidOnionProxyManager extends OnionProxyManager {
                     // There is a race condition where if someone calls stop before installAndStartTorOp is done
                     // then we could get an exception because the network state receiver might not be properly
                     // registered.
-                    LOG.info("Someone tried to call stop before we had finished registering the receiver", e);
+                    SecureLog.w(TAG, e, "Someone tried to call stop before we had finished registering the receiver");
                 }
             }
         }
