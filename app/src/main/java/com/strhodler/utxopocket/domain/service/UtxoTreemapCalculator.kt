@@ -9,7 +9,7 @@ import com.strhodler.utxopocket.domain.model.UtxoTreemapEntry
 import com.strhodler.utxopocket.domain.model.UtxoTreemapTile
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletUtxo
-import android.util.Log
+import com.strhodler.utxopocket.common.logging.SecureLog
 import java.time.Duration
 import javax.inject.Inject
 import kotlin.math.abs
@@ -84,10 +84,11 @@ class UtxoTreemapCalculator @Inject constructor() {
         val filteredValue = utxos.filter { it.valueSats in boundedRange }.sumOf { it.valueSats }
         val filteredCount = utxos.count { it.valueSats in boundedRange }
         val aggregatedCount = groups.filter { it.isAggregate }.sumOf { it.entries.size }
-        Log.d(
-            TAG,
-            "treemap calc: utxos=${utxos.size}, filtered=$filteredCount, tiles=${tiles.size}, bounds=$availableRange, selected=$boundedRange, total=$totalValue, filteredValue=$filteredValue, aggregated=$aggregatedCount"
-        )
+        SecureLog.d(TAG) {
+            "treemap calc: utxos=${utxos.size}, filtered=$filteredCount, tiles=${tiles.size}, " +
+                "bounds=$availableRange, selected=$boundedRange, total=$totalValue, " +
+                "filteredValue=$filteredValue, aggregated=$aggregatedCount"
+        }
         return UtxoTreemapData(
             tiles = tiles,
             availableRange = availableRange,

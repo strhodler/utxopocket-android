@@ -28,7 +28,12 @@ enum class UtxoCollectionColor(val storageKey: String) {
     Lime("lime"),
     Sand("sand"),
     Plum("plum"),
-    Copper("copper");
+    Copper("copper"),
+    Navy("navy"),
+    Moss("moss"),
+    Peach("peach"),
+    Ruby("ruby"),
+    Graphite("graphite");
 
     companion object {
         fun fromStorageKey(value: String?): UtxoCollectionColor =

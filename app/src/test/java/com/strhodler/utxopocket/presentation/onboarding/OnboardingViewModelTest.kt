@@ -113,6 +113,8 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun verifyPin(pin: String): PinVerificationResult = PinVerificationResult.NotConfigured
 
+    override suspend fun verifyPinIgnoringDuress(pin: String): PinVerificationResult = verifyPin(pin)
+
     override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) = Unit
 
     override suspend fun markPinUnlocked(timestampMillis: Long) = Unit

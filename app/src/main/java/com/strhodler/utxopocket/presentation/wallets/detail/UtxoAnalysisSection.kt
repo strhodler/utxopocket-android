@@ -1,6 +1,6 @@
 package com.strhodler.utxopocket.presentation.wallets.detail
 
-import android.util.Log
+import com.strhodler.utxopocket.common.logging.SecureLog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -928,10 +928,9 @@ private fun TreemapCanvas(
                 }
             }
     ) {
-        Log.d(
-            "TreemapCanvas",
+        SecureLog.d("TreemapCanvas") {
             "canvas=${size.width}x${size.height}, rects=${tileRects.size}, tiles=${tiles.size}"
-        )
+        }
         drawRect(
             color = canvasBackground,
             size = size

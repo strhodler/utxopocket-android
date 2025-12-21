@@ -170,6 +170,10 @@ private fun UtxoCanvasScreen(
     var collectionColor by remember { mutableStateOf(UtxoCollectionColor.Mint) }
     val blankNameError = stringResource(id = R.string.wallet_utxo_canvas_collection_name_error_blank)
     val duplicateNameError = stringResource(id = R.string.wallet_utxo_canvas_collection_name_error_exists)
+    val availableColors = remember(state.collections) {
+        availableCollectionColors(state.collections)
+    }
+    val hasAvailableColors = availableColors.isNotEmpty()
     val nextColor = remember(state.collections) {
         nextCollectionColor(state.collections)
     }
@@ -179,7 +183,14 @@ private fun UtxoCanvasScreen(
             collectionName = ""
             collectionNameError = null
         } else {
-            collectionColor = nextColor
+            if (hasAvailableColors) {
+                collectionColor = nextColor
+            }
+        }
+    }
+    LaunchedEffect(availableColors) {
+        if (availableColors.isNotEmpty() && collectionColor !in availableColors) {
+            collectionColor = availableColors.first()
         }
     }
 
@@ -229,6 +240,7 @@ private fun UtxoCanvasScreen(
                     CollectionColorPicker(
                         selectedColor = collectionColor,
                         onColorSelected = { collectionColor = it },
+                        availableColors = availableColors,
                         modifier = Modifier.fillMaxWidth()
                     )
                     collectionNameError?.let { error ->
@@ -256,7 +268,8 @@ private fun UtxoCanvasScreen(
                                 pendingDraft = null
                             }
                         }
-                    }
+                    },
+                    enabled = hasAvailableColors
                 ) {
                     Text(text = stringResource(id = R.string.wallet_utxo_canvas_collection_create_action))
                 }
@@ -779,12 +792,15 @@ private fun reorderItems(
     return mutable.toList()
 }
 
-private fun nextCollectionColor(collections: List<UtxoCollectionUi>): UtxoCollectionColor {
-    val palette = UtxoCollectionColor.entries
-    if (palette.isEmpty()) return UtxoCollectionColor.Mint
-    val index = collections.size % palette.size
-    return palette[index]
+private fun availableCollectionColors(
+    collections: List<UtxoCollectionUi>
+): List<UtxoCollectionColor> {
+    val used = collections.map { it.color }.toSet()
+    return UtxoCollectionColor.entries.filterNot { it in used }
 }
+
+private fun nextCollectionColor(collections: List<UtxoCollectionUi>): UtxoCollectionColor =
+    availableCollectionColors(collections).firstOrNull() ?: UtxoCollectionColor.Mint
 
 private data class DragState(
     val itemKey: String,

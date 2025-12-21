@@ -102,6 +102,7 @@ fun SecuritySettingsRoute(
     var showPinDisable by rememberSaveable { mutableStateOf(false) }
     var pinSetupError by remember { mutableStateOf<String?>(null) }
     var pinDisableError by remember { mutableStateOf<String?>(null) }
+    var pinDisableInProgress by rememberSaveable { mutableStateOf(false) }
     var pinDisableLockoutExpiry by remember { mutableStateOf<Long?>(null) }
     var pinDisableLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
     val genericSetupErrorText = stringResource(id = R.string.pin_setup_error_generic)
@@ -111,6 +112,7 @@ fun SecuritySettingsRoute(
     val panicSuccessMessage = stringResource(id = R.string.settings_panic_success_message)
     val panicFailureMessage = stringResource(id = R.string.settings_panic_failure_message)
     val panicInProgressLabel = stringResource(id = R.string.settings_panic_wiping)
+    val incorrectPinMessage = stringResource(id = R.string.pin_error_incorrect)
     var showPanicFirstConfirmation by rememberSaveable { mutableStateOf(false) }
     var showPanicFinalConfirmation by rememberSaveable { mutableStateOf(false) }
     var isPanicInProgress by remember { mutableStateOf(false) }
@@ -123,6 +125,7 @@ fun SecuritySettingsRoute(
     var duressLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
     var pendingDuressAction by rememberSaveable { mutableStateOf<DuressAction?>(null) }
     var duressFlowInProgress by rememberSaveable { mutableStateOf(false) }
+    var duressPinVerifying by rememberSaveable { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     var showNetworkLogsInfoSheet by rememberSaveable { mutableStateOf(false) }
     val networkLogsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -184,6 +187,7 @@ fun SecuritySettingsRoute(
         } else {
             showPinDisable = false
             pinDisableError = null
+            pinDisableInProgress = false
             pinDisableLockoutExpiry = null
             pinDisableLockoutType = null
             duressToggleVisible = false
@@ -195,6 +199,7 @@ fun SecuritySettingsRoute(
             duressLockoutExpiry = null
             duressLockoutType = null
             duressFlowInProgress = false
+            duressPinVerifying = false
         }
     }
 
@@ -278,6 +283,7 @@ fun SecuritySettingsRoute(
                 onOpenNetworkLogs = onOpenNetworkLogs,
                 onTriggerPanicWipe = { showPanicFirstConfirmation = true },
                 panicEnabled = !isPanicInProgress,
+                pinToggleEnabled = !pinDisableInProgress && !showPinSetup && !showPinDisable,
                 modifier = Modifier.fillMaxSize()
             )
 
@@ -393,26 +399,40 @@ fun SecuritySettingsRoute(
             }
 
             if (showPinDisable) {
+                val pinDisableDescription = if (pinDisableInProgress) {
+                    stringResource(id = R.string.pin_disable_verifying)
+                } else {
+                    stringResource(id = R.string.pin_disable_description)
+                }
                 PinVerificationScreen(
                     title = stringResource(id = R.string.pin_disable_title),
-                    description = stringResource(id = R.string.pin_disable_description),
+                    description = pinDisableDescription,
                     errorMessage = pinDisableError,
+                    allowDismiss = !pinDisableInProgress,
                     onDismiss = {
                         showPinDisable = false
                         pinDisableError = null
+                        pinDisableInProgress = false
                         pinDisableLockoutExpiry = null
                         pinDisableLockoutType = null
                     },
                     onPinVerified = { pin ->
+                        if (pinDisableInProgress) return@PinVerificationScreen
+                        pinDisableInProgress = true
                         val resources = resourcesState.value
                         viewModel.disablePin(pin) { result ->
                             when (result) {
-                                PinVerificationResult.Success,
-                                is PinVerificationResult.DuressTriggered -> {
+                                PinVerificationResult.Success -> {
                                     pinDisableError = null
                                     pinDisableLockoutExpiry = null
                                     pinDisableLockoutType = null
                                     showPinDisable = false
+                                }
+
+                                is PinVerificationResult.DuressTriggered -> {
+                                    pinDisableLockoutExpiry = null
+                                    pinDisableLockoutType = null
+                                    pinDisableError = incorrectPinMessage
                                 }
 
                                 PinVerificationResult.InvalidFormat,
@@ -446,6 +466,7 @@ fun SecuritySettingsRoute(
                                     )
                                 }
                             }
+                            pinDisableInProgress = false
                         }
                     },
                     hapticsEnabled = state.hapticsEnabled,
@@ -454,10 +475,16 @@ fun SecuritySettingsRoute(
             }
 
             if (showDuressPinPrompt) {
+                val duressPinDescription = if (duressPinVerifying) {
+                    stringResource(id = R.string.pin_duress_verifying)
+                } else {
+                    stringResource(id = R.string.pin_duress_prompt_description)
+                }
                 PinVerificationScreen(
-                    title = "Confirm PIN",
-                    description = "Enter your PIN to manage the duress PIN.",
+                    title = stringResource(id = R.string.pin_duress_prompt_title),
+                    description = duressPinDescription,
                     errorMessage = duressPinError,
+                    allowDismiss = !duressPinVerifying,
                     onDismiss = {
                         showDuressPinPrompt = false
                         duressPinError = null
@@ -465,13 +492,15 @@ fun SecuritySettingsRoute(
                         duressLockoutType = null
                         pendingDuressAction = null
                         duressFlowInProgress = false
+                        duressPinVerifying = false
                     },
                     onPinVerified = { pin ->
+                        if (duressPinVerifying) return@PinVerificationScreen
+                        duressPinVerifying = true
                         val resources = resourcesState.value
                         viewModel.verifyPin(pin) { result ->
                             when (result) {
-                                PinVerificationResult.Success,
-                                is PinVerificationResult.DuressTriggered -> {
+                                PinVerificationResult.Success -> {
                                     duressPinError = null
                                     duressLockoutExpiry = null
                                     duressLockoutType = null
@@ -480,6 +509,7 @@ fun SecuritySettingsRoute(
                                         DuressAction.Enable -> showDuressSetup = true
                                         DuressAction.Disable -> {
                                             viewModel.clearDuressPin { success ->
+                                                duressPinVerifying = false
                                                 if (!success) {
                                                     coroutineScope.launch {
                                                         snackbarHostState.showSnackbar(
@@ -495,6 +525,17 @@ fun SecuritySettingsRoute(
                                         null -> {}
                                     }
                                     pendingDuressAction = null
+                                    duressPinVerifying = false
+                                }
+
+                                is PinVerificationResult.DuressTriggered -> {
+                                    duressLockoutExpiry = null
+                                    duressLockoutType = null
+                                    duressPinError = null
+                                    showDuressPinPrompt = false
+                                    pendingDuressAction = null
+                                    duressFlowInProgress = false
+                                    duressPinVerifying = false
                                 }
 
                                 PinVerificationResult.InvalidFormat,
@@ -502,6 +543,7 @@ fun SecuritySettingsRoute(
                                     duressLockoutExpiry = null
                                     duressLockoutType = null
                                     duressPinError = formatPinStaticError(resources, result)
+                                    duressPinVerifying = false
                                 }
 
                                 is PinVerificationResult.Incorrect -> {
@@ -514,6 +556,7 @@ fun SecuritySettingsRoute(
                                         PinLockoutMessageType.Incorrect,
                                         result.lockDurationMillis
                                     )
+                                    duressPinVerifying = false
                                 }
 
                                 is PinVerificationResult.Locked -> {
@@ -526,6 +569,7 @@ fun SecuritySettingsRoute(
                                         PinLockoutMessageType.Locked,
                                         result.remainingMillis
                                     )
+                                    duressPinVerifying = false
                                 }
                             }
                         }
@@ -620,6 +664,7 @@ private fun SecuritySettingsScreen(
     onOpenNetworkLogs: () -> Unit,
     onTriggerPanicWipe: () -> Unit,
     panicEnabled: Boolean,
+    pinToggleEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
     val view = LocalView.current
@@ -705,7 +750,8 @@ private fun SecuritySettingsScreen(
                         Switch(
                             checked = state.pinEnabled,
                             onCheckedChange = onPinToggleRequested,
-                            colors = SwitchDefaults.colors()
+                            colors = SwitchDefaults.colors(),
+                            enabled = pinToggleEnabled
                         )
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)

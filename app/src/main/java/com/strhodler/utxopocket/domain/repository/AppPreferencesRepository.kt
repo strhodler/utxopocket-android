@@ -41,6 +41,7 @@ interface AppPreferencesRepository {
     suspend fun setDuressPin(pin: String)
     suspend fun clearDuressPin()
     suspend fun verifyPin(pin: String): PinVerificationResult
+    suspend fun verifyPinIgnoringDuress(pin: String): PinVerificationResult
     suspend fun setPinAutoLockTimeoutMinutes(minutes: Int)
     suspend fun markPinUnlocked(timestampMillis: Long = System.currentTimeMillis())
     suspend fun setThemePreference(themePreference: ThemePreference)

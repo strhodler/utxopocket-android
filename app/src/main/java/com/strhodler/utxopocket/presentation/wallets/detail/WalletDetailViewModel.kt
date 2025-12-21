@@ -41,6 +41,7 @@ import com.strhodler.utxopocket.domain.model.UtxoCanvasSnapshot
 import com.strhodler.utxopocket.domain.model.UtxoCollectionColor
 import com.strhodler.utxopocket.domain.model.UtxoTreemapColorMode
 import com.strhodler.utxopocket.domain.model.UtxoTreemapData
+import com.strhodler.utxopocket.domain.model.DuressSessionState
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
@@ -48,6 +49,7 @@ import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepositor
 import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
+import com.strhodler.utxopocket.domain.service.DuressManager
 import com.strhodler.utxopocket.domain.service.UtxoTreemapCalculator
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.components.BalancePoint
@@ -82,6 +84,7 @@ class WalletDetailViewModel @Inject constructor(
     private val walletRepository: WalletRepository,
     private val torManager: TorManager,
     private val appPreferencesRepository: AppPreferencesRepository,
+    private val duressManager: DuressManager,
     private val canvasRepository: UtxoCanvasRepository,
     private val incomingTxCoordinator: IncomingTxCoordinator,
     private val utxoVisualizationCalculator: UtxoVisualizationCalculator,
@@ -599,13 +602,32 @@ class WalletDetailViewModel @Inject constructor(
 
     fun verifyPin(pin: String, onResult: (PinVerificationResult) -> Unit) {
         viewModelScope.launch {
-            val result = appPreferencesRepository.verifyPin(pin)
-            if (result is PinVerificationResult.Success || result is PinVerificationResult.DuressTriggered) {
-                appPreferencesRepository.markPinUnlocked()
+            val duressActive = isDuressActive()
+            val result = if (duressActive) {
+                appPreferencesRepository.verifyPinIgnoringDuress(pin)
+            } else {
+                appPreferencesRepository.verifyPin(pin)
+            }
+            when (result) {
+                is PinVerificationResult.Success -> {
+                    appPreferencesRepository.markPinUnlocked()
+                }
+
+                is PinVerificationResult.DuressTriggered -> {
+                    if (!duressActive) {
+                        appPreferencesRepository.markPinUnlocked()
+                        duressManager.activateFake(result.decoyBalanceSats)
+                    }
+                }
+
+                else -> Unit
             }
             onResult(result)
         }
     }
+
+    private fun isDuressActive(): Boolean =
+        duressManager.state.value is DuressSessionState.FakeActive
 
     init {
         observeBalanceRangePreference()

@@ -160,6 +160,7 @@
     <string name="wallet_utxo_collection_edit_title">Edit collection</string>
     <string name="wallet_utxo_collection_edit_save">Save</string>
     <string name="wallet_utxo_collection_color_label">Collection color</string>
+    <string name="wallet_utxo_collection_color_unavailable">All collection colors are in use.</string>
     <string name="wallet_utxo_collection_color_mint">Mint</string>
     <string name="wallet_utxo_collection_color_amber">Amber</string>
     <string name="wallet_utxo_collection_color_coral">Coral</string>
@@ -172,8 +173,14 @@
     <string name="wallet_utxo_collection_color_sand">Sand</string>
     <string name="wallet_utxo_collection_color_plum">Plum</string>
     <string name="wallet_utxo_collection_color_copper">Copper</string>
-    <string name="wallet_detail_open_utxo_canvas">UTXO Canvas</string>
-    <string name="wallet_detail_utxo_canvas_content_description">Open UTXO Canvas</string>
+    <string name="wallet_utxo_collection_color_navy">Navy</string>
+    <string name="wallet_utxo_collection_color_moss">Moss</string>
+    <string name="wallet_utxo_collection_color_peach">Peach</string>
+    <string name="wallet_utxo_collection_color_ruby">Ruby</string>
+    <string name="wallet_utxo_collection_color_graphite">Graphite</string>
+    <string name="wallet_detail_open_utxo_canvas">Collections manager</string>
+    <string name="wallet_detail_utxo_canvas_content_description">Open Collections manager</string>
+    <string name="wallet_detail_collections_manager_supporting">Visual workspace to manage and rearrange collections.</string>
     <string name="wallet_utxo_visualization_tab_histogram">Age distribution</string>
     <string name="wallet_utxo_visualization_tab_spendability">Spendability</string>
     <string name="wallet_utxo_visualization_tab_size">Value buckets</string>
@@ -1106,7 +1113,11 @@
     <string name="pin_setup_error_generic">Could not save PIN. Please try again.</string>
     <string name="pin_disable_title">Disable PIN lock</string>
     <string name="pin_disable_description">Enter your current PIN to disable the lock.</string>
+    <string name="pin_disable_verifying">Verifying PIN...</string>
     <string name="pin_disable_confirm">Disable PIN</string>
+    <string name="pin_duress_prompt_title">Confirm PIN</string>
+    <string name="pin_duress_prompt_description">Enter your PIN to manage the duress PIN.</string>
+    <string name="pin_duress_verifying">Verifying PIN...</string>
     <string name="pin_error_incorrect">PIN does not match. Please try again.</string>
     <string name="pin_error_length">PIN must be exactly 6 digits.</string>
     <string name="pin_error_mismatch">PIN entries do not match.</string>

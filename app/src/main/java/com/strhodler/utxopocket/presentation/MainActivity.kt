@@ -221,12 +221,12 @@ class MainActivity : AppCompatActivity() {
                             val active = uiState.duressState is DuressSessionState.FakeActive
                             if (active && !lastDuressActive) {
                                 showIncomingSheet = false
-                                navController.navigate(MainDestination.Wallets.route) {
+                                navController.navigate(WalletsNavigation.ListRoute) {
                                     popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                                        saveState = false
                                     }
                                     launchSingleTop = true
-                                    restoreState = true
+                                    restoreState = false
                                 }
                             }
                             lastDuressActive = active
@@ -461,11 +461,18 @@ class MainActivity : AppCompatActivity() {
                                                     val resources = resourcesState.value
                                                     viewModel.unlockWithPin(pin) { result ->
                                                         when (result) {
-                                                            PinVerificationResult.Success,
-                                                            is PinVerificationResult.DuressTriggered -> {
+                                                            PinVerificationResult.Success -> {
                                                                 pinErrorMessage = null
                                                                 pinLockoutExpiry = null
                                                                 pinLockoutType = null
+                                                            }
+
+                                                            is PinVerificationResult.DuressTriggered -> {
+                                                                pinLockoutExpiry = null
+                                                                pinLockoutType = null
+                                                                pinErrorMessage = resources.getString(
+                                                                    R.string.pin_error_incorrect
+                                                                )
                                                             }
 
                                                             PinVerificationResult.InvalidFormat,

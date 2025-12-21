@@ -20,6 +20,7 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Compa
 import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.model.DuressSessionState
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -451,18 +452,59 @@ class SettingsViewModel @Inject constructor(
 
     fun disablePin(pin: String, onResult: (PinVerificationResult) -> Unit) {
         viewModelScope.launch {
-            val result = appPreferencesRepository.verifyPin(pin)
-            if (result is PinVerificationResult.Success || result is PinVerificationResult.DuressTriggered) {
-                appPreferencesRepository.clearPin()
-                duressManager.restore()
+            val duressActive = isDuressActive()
+            val result = if (duressActive) {
+                appPreferencesRepository.verifyPinIgnoringDuress(pin)
+            } else {
+                appPreferencesRepository.verifyPin(pin)
             }
-            onResult(result)
+            when (result) {
+                is PinVerificationResult.Success -> {
+                    appPreferencesRepository.clearPin()
+                    duressManager.restore()
+                }
+
+                is PinVerificationResult.DuressTriggered -> {
+                    if (!duressActive) {
+                        appPreferencesRepository.markPinUnlocked()
+                        duressManager.activateFake(result.decoyBalanceSats)
+                    }
+                }
+
+                else -> {}
+            }
+            val uiResult = if (result is PinVerificationResult.DuressTriggered && !duressActive) {
+                PinVerificationResult.Success
+            } else {
+                result
+            }
+            onResult(uiResult)
         }
     }
 
     fun verifyPin(pin: String, onResult: (PinVerificationResult) -> Unit) {
         viewModelScope.launch {
-            onResult(appPreferencesRepository.verifyPin(pin))
+            val duressActive = isDuressActive()
+            val result = if (duressActive) {
+                appPreferencesRepository.verifyPinIgnoringDuress(pin)
+            } else {
+                appPreferencesRepository.verifyPin(pin)
+            }
+            when (result) {
+                is PinVerificationResult.Success -> {
+                    appPreferencesRepository.markPinUnlocked()
+                }
+
+                is PinVerificationResult.DuressTriggered -> {
+                    if (!duressActive) {
+                        appPreferencesRepository.markPinUnlocked()
+                        duressManager.activateFake(result.decoyBalanceSats)
+                    }
+                }
+
+                else -> Unit
+            }
+            onResult(result)
         }
     }
 
@@ -511,4 +553,7 @@ class SettingsViewModel @Inject constructor(
     private companion object {
         private const val MAX_THRESHOLD_LENGTH = 18
     }
+
+    private fun isDuressActive(): Boolean =
+        duressManager.state.value is DuressSessionState.FakeActive
 }

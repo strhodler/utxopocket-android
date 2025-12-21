@@ -181,6 +181,7 @@ fun WalletDetailRoute(
     val renameExistsErrorText = context.getString(R.string.wallet_detail_rename_error_exists)
     val renameGenericErrorText = context.getString(R.string.wallet_detail_rename_error_generic)
     val forceRescanErrorMessage = stringResource(id = R.string.wallet_detail_force_rescan_failed)
+    val incorrectPinMessage = stringResource(id = R.string.pin_error_incorrect)
     val outerListState = rememberLazyListState()
     val allTabs = remember { WalletDetailTab.entries.toTypedArray() }
     val bottomBarScrollBehavior = BottomAppBarDefaults.exitAlwaysScrollBehavior()
@@ -613,13 +614,19 @@ fun WalletDetailRoute(
                 val resources = resourcesState.value
                 viewModel.verifyPin(pin) { result ->
                     when (result) {
-                        PinVerificationResult.Success,
-                        is PinVerificationResult.DuressTriggered -> {
+                        PinVerificationResult.Success -> {
                             descriptorPinError = null
                             descriptorPinLockoutExpiry = null
                             descriptorPinLockoutType = null
                             showDescriptorPinPrompt = false
                             onOpenDescriptors(walletId, displayTitle)
+                        }
+
+                        is PinVerificationResult.DuressTriggered -> {
+                            descriptorPinLockoutExpiry = null
+                            descriptorPinLockoutType = null
+                            descriptorPinError = null
+                            showDescriptorPinPrompt = false
                         }
 
                         PinVerificationResult.InvalidFormat,
@@ -995,4 +1002,3 @@ private fun WalletDetailBottomBar(
         )
     }
 }
-

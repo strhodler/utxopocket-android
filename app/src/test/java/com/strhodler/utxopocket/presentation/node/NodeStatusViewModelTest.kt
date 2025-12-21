@@ -185,6 +185,8 @@ class NodeStatusViewModelTest {
         override suspend fun clearDuressPin() = Unit
         override suspend fun clearPin() = Unit
         override suspend fun verifyPin(pin: String) = PinVerificationResult.NotConfigured
+
+        override suspend fun verifyPinIgnoringDuress(pin: String) = verifyPin(pin)
         override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) = Unit
         override suspend fun markPinUnlocked(timestampMillis: Long) = Unit
         override suspend fun setThemePreference(themePreference: ThemePreference) = Unit

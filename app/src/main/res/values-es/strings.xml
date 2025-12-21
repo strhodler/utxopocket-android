@@ -237,6 +237,7 @@
     <string name="wallet_utxo_collection_edit_title">Editar colección</string>
     <string name="wallet_utxo_collection_edit_save">Guardar</string>
     <string name="wallet_utxo_collection_color_label">Color de la colección</string>
+    <string name="wallet_utxo_collection_color_unavailable">Todos los colores de la colección están en uso.</string>
     <string name="wallet_utxo_collection_color_mint">Menta</string>
     <string name="wallet_utxo_collection_color_amber">Ámbar</string>
     <string name="wallet_utxo_collection_color_coral">Coral</string>
@@ -249,8 +250,14 @@
     <string name="wallet_utxo_collection_color_sand">Arena</string>
     <string name="wallet_utxo_collection_color_plum">Ciruela</string>
     <string name="wallet_utxo_collection_color_copper">Cobre</string>
-    <string name="wallet_detail_open_utxo_canvas">Canvas de UTXO</string>
-    <string name="wallet_detail_utxo_canvas_content_description">Abrir canvas de UTXO</string>
+    <string name="wallet_utxo_collection_color_navy">Azul marino</string>
+    <string name="wallet_utxo_collection_color_moss">Musgo</string>
+    <string name="wallet_utxo_collection_color_peach">Durazno</string>
+    <string name="wallet_utxo_collection_color_ruby">Rubí</string>
+    <string name="wallet_utxo_collection_color_graphite">Grafito</string>
+    <string name="wallet_detail_open_utxo_canvas">Gestor de colecciones</string>
+    <string name="wallet_detail_utxo_canvas_content_description">Abrir gestor de colecciones</string>
+    <string name="wallet_detail_collections_manager_supporting">Espacio visual para gestionar y reordenar colecciones.</string>
     <string name="wallet_utxo_visualization_tab_histogram">Distribución por antigüedad</string>
     <string name="wallet_utxo_visualization_tab_spendability">Gastables</string>
     <string name="wallet_utxo_visualization_tab_size">Bandas de valor</string>
@@ -552,7 +559,11 @@
     <string name="pin_setup_error_generic">No se pudo guardar el PIN. Inténtalo de nuevo.</string>
     <string name="pin_disable_title">Desactivar PIN</string>
     <string name="pin_disable_description">Introduce tu PIN actual para desactivar el bloqueo.</string>
+    <string name="pin_disable_verifying">Verificando PIN...</string>
     <string name="pin_disable_confirm">Desactivar PIN</string>
+    <string name="pin_duress_prompt_title">Confirmar PIN</string>
+    <string name="pin_duress_prompt_description">Introduce tu PIN para gestionar el PIN de coacción.</string>
+    <string name="pin_duress_verifying">Verificando PIN...</string>
     <string name="pin_error_incorrect">El PIN no coincide. Inténtalo de nuevo.</string>
     <string name="pin_error_length">El PIN debe tener exactamente 6 dígitos.</string>
     <string name="pin_error_mismatch">Los PIN introducidos no coinciden.</string>

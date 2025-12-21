@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
@@ -22,9 +23,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,9 +58,9 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
+import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
-import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
@@ -182,6 +185,12 @@ fun UtxoCollectionRoute(
 
     if (showEditDialog && state.collection != null) {
         val current = requireNotNull(state.collection)
+        val usedColors = state.collections
+            .filter { it.id != current.id }
+            .map { it.color }
+            .toSet()
+        val availableColors = UtxoCollectionColor.entries
+            .filter { it == current.color || it !in usedColors }
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
             title = { Text(text = stringResource(id = R.string.wallet_utxo_collection_edit_title)) },
@@ -202,6 +211,7 @@ fun UtxoCollectionRoute(
                     CollectionColorPicker(
                         selectedColor = editColor,
                         onColorSelected = { editColor = it },
+                        availableColors = availableColors,
                         modifier = Modifier.fillMaxWidth()
                     )
                     editError?.let { error ->
@@ -259,34 +269,27 @@ private fun UtxoCollectionScreen(
     val summary = state.summary ?: return
     val walletTheme = rememberWalletColorTheme(summary.color)
     LazyColumn(
-        modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = balanceText(collection.totalValueSats, state.balanceUnit, hidden = state.balancesHidden),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = stringResource(
-                        id = R.string.wallet_utxo_canvas_collection_count,
-                        collection.memberKeys.size
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+        item(key = "collection_header") {
+            CollectionDetailHeader(
+                collection = collection,
+                balanceUnit = state.balanceUnit,
+                balancesHidden = state.balancesHidden,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
-
         if (state.utxos.isEmpty()) {
             item {
                 Text(
                     text = stringResource(id = R.string.wallet_utxo_collection_empty),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
                 )
             }
         } else {
@@ -307,10 +310,67 @@ private fun UtxoCollectionScreen(
                                 )
                             )
                         }
-                    }
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun CollectionDetailHeader(
+    collection: UtxoCollectionUi,
+    balanceUnit: BalanceUnit,
+    balancesHidden: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            RollingBalanceText(
+                balanceSats = collection.totalValueSats,
+                unit = balanceUnit,
+                hidden = balancesHidden,
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                autoScale = true
+            )
+            UtxoCountBadge(
+                count = collection.memberKeys.size
+            )
+        }
+    }
+}
+
+@Composable
+private fun UtxoCountBadge(
+    count: Int,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier
+    ) {
+        Text(
+            text = stringResource(id = R.string.wallet_utxo_canvas_collection_count, count),
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        )
     }
 }
 

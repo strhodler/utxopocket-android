@@ -37,9 +37,11 @@ import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -217,10 +219,12 @@ class DefaultAppPreferencesRepository @Inject constructor(
         }
         val salt = generateSalt()
         val derivedHash = derivePinHash(normalised, salt, PIN_KDF_ITERATIONS)
+        val now = System.currentTimeMillis()
         dataStore.edit { prefs ->
             prefs[Keys.DURESS_PIN_HASH] = derivedHash.toBase64()
             prefs[Keys.DURESS_PIN_SALT] = salt.toBase64()
             prefs[Keys.DURESS_PIN_KDF_ITERATIONS] = PIN_KDF_ITERATIONS
+            prefs[Keys.PIN_LAST_UNLOCKED_AT] = now
         }
     }
 
@@ -241,14 +245,29 @@ class DefaultAppPreferencesRepository @Inject constructor(
     }
 
     override suspend fun clearDuressPin() {
+        val now = System.currentTimeMillis()
         dataStore.edit { prefs ->
             prefs.remove(Keys.DURESS_PIN_HASH)
             prefs.remove(Keys.DURESS_PIN_SALT)
             prefs.remove(Keys.DURESS_PIN_KDF_ITERATIONS)
+            prefs[Keys.PIN_LAST_UNLOCKED_AT] = now
         }
     }
 
-    override suspend fun verifyPin(pin: String): PinVerificationResult {
+    override suspend fun verifyPin(pin: String): PinVerificationResult =
+        withContext(Dispatchers.Default) {
+            verifyPinInternal(pin, allowDuress = true)
+        }
+
+    override suspend fun verifyPinIgnoringDuress(pin: String): PinVerificationResult =
+        withContext(Dispatchers.Default) {
+            verifyPinInternal(pin, allowDuress = false)
+        }
+
+    private suspend fun verifyPinInternal(
+        pin: String,
+        allowDuress: Boolean
+    ): PinVerificationResult {
         val normalised = pin.filter { it.isDigit() }
         if (normalised.length != PIN_LENGTH) {
             return PinVerificationResult.InvalidFormat
@@ -261,9 +280,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val lockedUntil = snapshot[Keys.PIN_LOCKED_UNTIL] ?: 0L
         val failedAttempts = snapshot[Keys.PIN_FAILED_ATTEMPTS] ?: 0
         val lastFailure = snapshot[Keys.PIN_LAST_FAILURE]
-        val duressHash = snapshot[Keys.DURESS_PIN_HASH]
-        val duressSalt = snapshot[Keys.DURESS_PIN_SALT]
-        val duressIterations = snapshot[Keys.DURESS_PIN_KDF_ITERATIONS] ?: PIN_KDF_ITERATIONS
 
         val now = System.currentTimeMillis()
         if (lockedUntil > now) {
@@ -273,13 +289,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val saltBytes = decodeBase64(storedSalt)
         val storedHashBytes = decodeBase64(storedHash)
         val derived = derivePinHash(normalised, saltBytes, iterations)
-        val duressHashBytes = duressHash?.let(::decodeBase64)
-        val duressSaltBytes = duressSalt?.let(::decodeBase64)
-        val duressDerived = if (duressHashBytes != null && duressSaltBytes != null) {
-            derivePinHash(normalised, duressSaltBytes, duressIterations)
-        } else {
-            null
-        }
         if (MessageDigest.isEqual(derived, storedHashBytes)) {
             dataStore.edit { prefs ->
                 prefs[Keys.PIN_FAILED_ATTEMPTS] = 0
@@ -289,22 +298,34 @@ class DefaultAppPreferencesRepository @Inject constructor(
             }
             return PinVerificationResult.Success
         }
-        if (
-            duressHashBytes != null &&
-            duressDerived != null &&
-            MessageDigest.isEqual(duressDerived, duressHashBytes)
-        ) {
-            val decoyBalance = Random.nextLong(
-                MIN_DURESS_DECOY_BALANCE_SATS,
-                MAX_DURESS_DECOY_BALANCE_SATS + 1
-            )
-            dataStore.edit { prefs ->
-                prefs[Keys.PIN_FAILED_ATTEMPTS] = 0
-                prefs[Keys.PIN_LOCKED_UNTIL] = 0L
-                prefs.remove(Keys.PIN_LAST_FAILURE)
-                prefs[Keys.PIN_LAST_UNLOCKED_AT] = now
+
+        if (allowDuress) {
+            val duressHash = snapshot[Keys.DURESS_PIN_HASH]
+            val duressSalt = snapshot[Keys.DURESS_PIN_SALT]
+            val duressIterations = snapshot[Keys.DURESS_PIN_KDF_ITERATIONS] ?: PIN_KDF_ITERATIONS
+            val duressHashBytes = duressHash?.let(::decodeBase64)
+            val duressSaltBytes = duressSalt?.let(::decodeBase64)
+            val duressDerived = if (duressHashBytes != null && duressSaltBytes != null) {
+                derivePinHash(normalised, duressSaltBytes, duressIterations)
+            } else {
+                null
             }
-            return PinVerificationResult.DuressTriggered(decoyBalance)
+            if (
+                duressHashBytes != null &&
+                duressDerived != null &&
+                MessageDigest.isEqual(duressDerived, duressHashBytes)
+            ) {
+                val decoyBalance = Random.nextLong(
+                    MIN_DURESS_DECOY_BALANCE_SATS,
+                    MAX_DURESS_DECOY_BALANCE_SATS + 1
+                )
+                dataStore.edit { prefs ->
+                    prefs[Keys.PIN_FAILED_ATTEMPTS] = 0
+                    prefs[Keys.PIN_LOCKED_UNTIL] = 0L
+                    prefs.remove(Keys.PIN_LAST_FAILURE)
+                }
+                return PinVerificationResult.DuressTriggered(decoyBalance)
+            }
         }
 
         val baselineAttempts =

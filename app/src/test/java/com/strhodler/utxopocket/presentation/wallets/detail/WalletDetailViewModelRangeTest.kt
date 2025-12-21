@@ -47,6 +47,7 @@ import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
+import com.strhodler.utxopocket.domain.service.DuressManager
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.service.UtxoTreemapCalculator
 import com.strhodler.utxopocket.domain.service.UtxoVisualizationCalculator
@@ -111,6 +112,7 @@ class WalletDetailViewModelRangeTest {
         val preferences = RecordingAppPreferencesRepository()
         private val walletRepository = StaticWalletRepository()
         private val torManager = StaticTorManager()
+        private val duressManager = DuressManager()
         private val canvasRepository = InMemoryUtxoCanvasRepository()
         private val incomingPlaceholders = InMemoryIncomingTxPlaceholderRepository()
         private val incomingTxCoordinator = IncomingTxCoordinator(
@@ -130,6 +132,7 @@ class WalletDetailViewModelRangeTest {
                 walletRepository = walletRepository,
                 torManager = torManager,
                 appPreferencesRepository = preferences,
+                duressManager = duressManager,
                 canvasRepository = canvasRepository,
                 incomingTxCoordinator = incomingTxCoordinator,
                 utxoVisualizationCalculator = utxoVisualizationCalculator,
@@ -429,6 +432,8 @@ class WalletDetailViewModelRangeTest {
         override suspend fun clearPin() = Unit
 
         override suspend fun verifyPin(pin: String): PinVerificationResult = PinVerificationResult.NotConfigured
+
+        override suspend fun verifyPinIgnoringDuress(pin: String): PinVerificationResult = verifyPin(pin)
 
         override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) {
             pinAutoLockTimeoutMinutesState.value = minutes

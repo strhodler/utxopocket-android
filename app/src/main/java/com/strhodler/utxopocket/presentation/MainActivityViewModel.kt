@@ -268,8 +268,13 @@ class MainActivityViewModel @Inject constructor(
             duressState.drop(1).collect { state ->
                 val previous = lastDuressState
                 lastDuressState = state
-                if (previous is DuressSessionState.FakeActive && state is DuressSessionState.Inactive) {
-                    handleDuressRestore()
+                when {
+                    previous is DuressSessionState.FakeActive && state is DuressSessionState.Inactive -> {
+                        handleDuressRestore()
+                    }
+                    previous !is DuressSessionState.FakeActive && state is DuressSessionState.FakeActive -> {
+                        handleDuressActivated()
+                    }
                 }
             }
         }
@@ -434,20 +439,34 @@ class MainActivityViewModel @Inject constructor(
                 onResult(PinVerificationResult.Success)
                 return@launch
             }
-            val result = appPreferencesRepository.verifyPin(pin)
+            val duressActive = isDuressActive()
+            val result = if (duressActive) {
+                appPreferencesRepository.verifyPinIgnoringDuress(pin)
+            } else {
+                appPreferencesRepository.verifyPin(pin)
+            }
             when (result) {
                 is PinVerificationResult.Success -> {
                     appPreferencesRepository.markPinUnlocked()
                     lockState.value = false
+                    onResult(result)
+                    return@launch
                 }
 
                 is PinVerificationResult.DuressTriggered -> {
-                    appPreferencesRepository.markPinUnlocked()
-                    lockState.value = false
-                    handleDuressActivation(result.decoyBalanceSats)
+                    if (!duressActive) {
+                        appPreferencesRepository.markPinUnlocked()
+                        lockState.value = false
+                        duressManager.activateFake(result.decoyBalanceSats)
+                        onResult(PinVerificationResult.Success)
+                        return@launch
+                    }
                 }
 
-                else -> {}
+                else -> {
+                    onResult(result)
+                    return@launch
+                }
             }
             onResult(result)
         }
@@ -552,8 +571,7 @@ class MainActivityViewModel @Inject constructor(
         _incomingSheetRequests.tryEmit(Unit)
     }
 
-    private fun handleDuressActivation(decoyBalanceSats: Long) {
-        duressManager.activateFake(decoyBalanceSats)
+    private fun handleDuressActivated() {
         pendingIncomingSheet.value = false
         viewModelScope.launch {
             val network = appPreferencesRepository.preferredNetwork.first()
