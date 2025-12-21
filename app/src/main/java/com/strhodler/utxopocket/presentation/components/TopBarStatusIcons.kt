@@ -61,6 +61,7 @@ fun TopBarNodeStatusIcon(status: NodeStatus) {
         )
 
         NodeStatus.Connecting,
+        NodeStatus.Syncing,
         NodeStatus.Disconnecting,
         NodeStatus.WaitingForTor -> {
             Box(contentAlignment = Alignment.Center) {

@@ -72,6 +72,8 @@
     <string name="wallets_node_disconnected_banner">No node connection</string>
     <string name="wallets_node_connecting_banner">Connecting to node</string>
     <string name="wallets_node_connecting_banner_supporting">Connecting to… %1$s</string>
+    <string name="wallets_node_syncing_banner">Syncing with node</string>
+    <string name="wallets_node_syncing_banner_supporting">Updating your wallets</string>
     <string name="wallets_node_disconnecting_banner">Disconnecting from node</string>
     <string name="wallets_node_connected_banner">Connected to node</string>
     <string name="wallets_node_connected_banner_with_name">Connected to %1$s using Tor</string>
@@ -725,10 +727,12 @@
     <string name="wallets_state_connecting">Connecting</string>
     <string name="wallets_state_disconnecting">Disconnecting</string>
     <string name="wallets_state_waiting_for_tor">Waiting for Tor</string>
+    <string name="wallets_state_syncing_connecting">Syncing (connecting)</string>
     <string name="wallets_state_waiting_for_node">Waiting for node</string>
     <string name="wallets_state_syncing">Syncing</string>
     <string name="wallets_state_syncing_with_elapsed">Syncing (%1$s)</string>
     <string name="wallets_state_queued">Queued</string>
+    <string name="wallets_state_sync_paused">Sync paused (offline)</string>
     <string name="wallets_state_full_rescan_syncing">Full rescan</string>
     <string name="wallets_state_full_rescan_queued">Full rescan queued</string>
     <string name="wallets_state_full_rescan_syncing_gap">Full rescan (gap %1$d)</string>
@@ -748,6 +752,7 @@
     <string name="tor_status_stopped_label">Tor stopped</string>
     <string name="tor_status_error_label">Tor error</string>
     <string name="wallets_last_sync">Synced: %1$s</string>
+    <string name="node_status_no_internet_connection">No internet connection</string>
     <string name="wallets_sync_error_icon_description">Wallet synchronization warning</string>
     <string name="wallets_testnet_faucet_banner_title">Get testnet bitcoin from a faucet</string>
     <string name="wallets_testnet_faucet_banner_body">Use a %1$s faucet to rehearse transactions without risking mainnet funds.</string>

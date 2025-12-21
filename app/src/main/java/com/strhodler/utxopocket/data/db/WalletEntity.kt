@@ -325,6 +325,7 @@ fun NodeStatus.toStorage(): Pair<String, String?> = when (this) {
     NodeStatus.Offline -> "OFFLINE" to null
     NodeStatus.Disconnecting -> "DISCONNECTING" to null
     NodeStatus.Connecting -> "CONNECTING" to null
+    NodeStatus.Syncing -> "SYNCING" to null
     NodeStatus.WaitingForTor -> "WAITING_FOR_TOR" to null
     NodeStatus.Synced -> "SYNCED" to null
     is NodeStatus.Error -> "ERROR" to this.message
@@ -335,6 +336,7 @@ private fun String.toNodeStatus(error: String?): NodeStatus = when (uppercase())
     "DISCONNECTING" -> NodeStatus.Disconnecting
     "WAITING_FOR_TOR" -> NodeStatus.WaitingForTor
     "SYNCED" -> NodeStatus.Synced
+    "SYNCING" -> NodeStatus.Syncing
     "ERROR" -> NodeStatus.Error(error ?: "Unknown error")
     "OFFLINE" -> NodeStatus.Offline
     else -> NodeStatus.Idle

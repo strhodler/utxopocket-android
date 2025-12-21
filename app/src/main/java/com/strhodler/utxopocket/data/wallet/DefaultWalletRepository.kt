@@ -252,6 +252,7 @@ class DefaultWalletRepository @Inject constructor(
             torManager = torManager,
             torProxyProvider = torProxyProvider,
             nodeConfigurationRepository = nodeConfigurationRepository,
+            networkStatusMonitor = networkStatusMonitor,
             walletSyncPreferencesRepository = walletSyncPreferencesRepository,
             walletSyncOrchestrator = walletSyncOrchestrator,
             walletDao = walletDao,

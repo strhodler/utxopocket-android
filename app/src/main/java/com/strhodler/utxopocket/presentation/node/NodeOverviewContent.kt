@@ -124,16 +124,17 @@ fun NodeTorStatusSection(
     ) {
     val resources = LocalContext.current.resources
     val latestLog = remember(status.torLog) { latestTorLogEntry(status.torLog) }
-    val proxyValue = remember(status.torStatus) {
-        (status.torStatus as? TorStatus.Running)?.let {
+    val displayTorStatus = if (!status.isNetworkOnline) TorStatus.Stopped else status.torStatus
+    val proxyValue = remember(displayTorStatus) {
+        (displayTorStatus as? TorStatus.Running)?.let {
             resources.getString(R.string.tor_overview_proxy_value, it.proxy.host, it.proxy.port)
         } ?: resources.getString(R.string.tor_overview_proxy_unavailable)
     }
-    val bootstrapValue = remember(status.torStatus) {
-        when (status.torStatus) {
+    val bootstrapValue = remember(displayTorStatus) {
+        when (displayTorStatus) {
             is TorStatus.Connecting -> resources.getString(
                 R.string.tor_overview_bootstrap_percent_value,
-                status.torStatus.progress.coerceIn(0, 100)
+                displayTorStatus.progress.coerceIn(0, 100)
             )
             is TorStatus.Running -> resources.getString(
                 R.string.tor_overview_bootstrap_percent_value,
@@ -142,7 +143,7 @@ fun NodeTorStatusSection(
             else -> resources.getString(R.string.tor_overview_bootstrap_pending)
         }
     }
-    val statusLabel = when (status.torStatus) {
+    val statusLabel = when (displayTorStatus) {
         is TorStatus.Running -> stringResource(id = R.string.tor_overview_status_connected)
         is TorStatus.Connecting -> stringResource(id = R.string.tor_overview_status_connecting)
         else -> stringResource(id = R.string.tor_overview_status_not_connected)
@@ -246,7 +247,7 @@ fun NodeTorStatusSection(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.padding(top = 12.dp)
                     ) {
-                        when (val torStatus = status.torStatus) {
+                        when (val torStatus = displayTorStatus) {
                             is TorStatus.Connecting -> LinearProgressIndicator(
                                 progress = (torStatus.progress.coerceIn(0, 100) / 100f),
                                 modifier = Modifier.fillMaxWidth(),

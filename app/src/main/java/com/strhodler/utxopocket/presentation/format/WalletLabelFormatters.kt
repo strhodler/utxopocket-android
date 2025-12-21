@@ -16,6 +16,7 @@ fun nodeStatusLabel(status: NodeStatus, isSyncing: Boolean = false): String {
         NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
         NodeStatus.Disconnecting -> stringResource(id = R.string.wallets_state_disconnecting)
         NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
+        NodeStatus.Syncing -> stringResource(id = R.string.wallets_state_syncing)
         NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
         NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
         is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)

@@ -315,20 +315,26 @@ private fun NodeHeroHeader(
         status.nodeStatus == NodeStatus.WaitingForTor ||
         status.nodeStatus is NodeStatus.Error
     val torStatus = status.torStatus
+    val showTorOffline = !status.isNetworkOnline
     val torRunning = torStatus is TorStatus.Running
     val torConnecting = torStatus is TorStatus.Connecting
-    val torBadgeLabel = torStatusMessage(torStatus)
-    val torBadgeContainer = when (torStatus) {
+    val torBadgeLabel = if (showTorOffline) {
+        stringResource(id = R.string.wallets_state_offline)
+    } else {
+        torStatusMessage(torStatus)
+    }
+    val torBadgeStatus = if (showTorOffline) TorStatus.Stopped else torStatus
+    val torBadgeContainer = when (torBadgeStatus) {
         is TorStatus.Running -> colorScheme.tertiary
         is TorStatus.Connecting -> colorScheme.surfaceVariant
         else -> colorScheme.errorContainer
     }
-    val torBadgeContent = when (torStatus) {
+    val torBadgeContent = when (torBadgeStatus) {
         is TorStatus.Running -> colorScheme.onTertiary
         is TorStatus.Connecting -> colorScheme.onSurfaceVariant
         else -> colorScheme.onErrorContainer
     }
-    val torBadgeLeading: (@Composable () -> Unit)? = when (torStatus) {
+    val torBadgeLeading: (@Composable () -> Unit)? = when (torBadgeStatus) {
         is TorStatus.Running -> {
             {
                 Icon(
@@ -460,13 +466,23 @@ private fun NodeHeroHeader(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                lastSync?.let {
-                    Text(
-                        text = stringResource(id = R.string.wallets_last_sync, it),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = secondaryContentColor,
-                        textAlign = TextAlign.Center
-                    )
+                when {
+                    !status.isNetworkOnline -> {
+                        Text(
+                            text = stringResource(id = R.string.node_status_no_internet_connection),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = secondaryContentColor,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    lastSync != null -> {
+                        Text(
+                            text = stringResource(id = R.string.wallets_last_sync, lastSync),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = secondaryContentColor,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
 
@@ -545,6 +561,7 @@ private fun nodeStatusMessage(status: NodeStatus): String = when (status) {
     NodeStatus.Offline -> stringResource(id = R.string.node_status_offline)
     NodeStatus.Disconnecting -> stringResource(id = R.string.node_status_disconnecting)
     NodeStatus.Connecting -> stringResource(id = R.string.node_status_connecting)
+    NodeStatus.Syncing -> stringResource(id = R.string.node_status_connecting)
     NodeStatus.WaitingForTor -> stringResource(id = R.string.node_status_waiting_for_tor)
     NodeStatus.Synced -> stringResource(id = R.string.node_status_connected)
     is NodeStatus.Error -> stringResource(id = R.string.node_status_error)

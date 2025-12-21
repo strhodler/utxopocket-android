@@ -28,7 +28,7 @@ fun resolveWalletSyncState(
     val queuedOperation = syncStatus.queuedOperationFor(walletId)
     val runningOperation = syncStatus.activeOperation
 
-    if (isActive && nodeStatus is NodeStatus.Synced) {
+    if (isActive && (nodeStatus is NodeStatus.Synced || nodeStatus is NodeStatus.Syncing)) {
         return WalletSyncState.Running(runningOperation ?: SyncOperation.Refresh)
     }
 

@@ -43,6 +43,7 @@ sealed class NodeStatus {
     data object Offline : NodeStatus()
     data object Disconnecting : NodeStatus()
     data object Connecting : NodeStatus()
+    data object Syncing : NodeStatus()
     data object Synced : NodeStatus()
     data object WaitingForTor : NodeStatus()
     data class Error(val message: String) : NodeStatus()

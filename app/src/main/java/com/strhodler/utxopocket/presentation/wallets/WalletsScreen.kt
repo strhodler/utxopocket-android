@@ -246,9 +246,14 @@ private fun WalletsContent(
     val showTorStatusBanner = state.torRequired || torStatus !is TorStatus.Stopped
     val isNodeConnected = state.nodeStatus is NodeStatus.Synced
     val isNodeConnecting = state.nodeStatus is NodeStatus.Connecting
+    val isNodeSyncing = state.nodeStatus is NodeStatus.Syncing
     val isNodeDisconnecting = state.nodeStatus is NodeStatus.Disconnecting
     val hasWalletErrors = state.wallets.any { it.lastSyncStatus is NodeStatus.Error }
-    val sanitizedErrorMessage = state.errorMessage.takeUnless { hasWalletErrors }?.takeIf { it.isNotBlank() }
+    val sanitizedErrorMessage = state.errorMessage
+        .takeUnless { hasWalletErrors }
+        ?.takeIf { it.isNotBlank() }
+        // Suppress node errors while we are actively retrying (Connecting/Syncing)
+        ?.takeUnless { state.nodeStatus is NodeStatus.Error || state.nodeStatus is NodeStatus.Connecting || state.nodeStatus is NodeStatus.Syncing }
     val showDisconnectedBanner = !isNodeConnected &&
         state.nodeStatus !is NodeStatus.Connecting &&
         state.nodeStatus !is NodeStatus.Disconnecting &&
@@ -324,13 +329,23 @@ private fun WalletsContent(
                     )
                 }
             }
-            isNodeConnecting -> {
+            isNodeConnecting || isNodeSyncing -> {
                 {
-                    val supportingText = state.connectedNodeLabel?.let { nodeLabel ->
-                        stringResource(id = R.string.wallets_node_connecting_banner_supporting, nodeLabel)
-                    } ?: stringResource(id = R.string.wallets_manage_connection_action)
+                    val supportingText = stringResource(
+                        id = if (isNodeSyncing) {
+                            R.string.wallets_node_syncing_banner_supporting
+                        } else {
+                            R.string.wallets_manage_connection_action
+                        }
+                    )
                     ActionableStatusBanner(
-                        title = stringResource(id = R.string.wallets_node_connecting_banner),
+                        title = stringResource(
+                            id = if (isNodeSyncing) {
+                                R.string.wallets_node_syncing_banner
+                            } else {
+                                R.string.wallets_node_connecting_banner
+                            }
+                        ),
                         supporting = supportingText,
                         icon = Icons.Outlined.Router,
                         onClick = if (duressActive) null else onSelectNode,
@@ -628,14 +643,16 @@ private fun WalletCard(
     )
     val isSyncing = syncState is WalletSyncState.Running
     val isNodeSynced = nodeStatus is NodeStatus.Synced
+    val isNodeSyncing = nodeStatus is NodeStatus.Syncing
     val runningOperation = (syncState as? WalletSyncState.Running)?.operation
     val queuedOperation = (syncState as? WalletSyncState.Queued)?.operation
     val syncingElapsed = rememberSyncElapsed(
         syncStartedAt = wallet.syncStartedAt,
-        isSyncing = isSyncing && isNodeSynced
+        isSyncing = isSyncing && (isNodeSynced || isNodeSyncing)
     )
     val statusLabel = when {
-        nodeStatus is NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
+        syncState is WalletSyncState.Queued && nodeStatus is NodeStatus.Offline ->
+            stringResource(id = R.string.wallets_state_sync_paused)
         runningOperation == SyncOperation.FullRescan -> {
             val gapValue = resolveSyncGap(wallet.fullScanStopGap, wallet)
             if (syncingElapsed != null) {
@@ -651,7 +668,7 @@ private fun WalletCard(
                 )
             }
         }
-        isSyncing && isNodeSynced -> syncingElapsed?.let {
+        isSyncing && (isNodeSynced || nodeStatus is NodeStatus.Syncing) -> syncingElapsed?.let {
             stringResource(id = R.string.wallets_state_syncing_with_elapsed, it)
         } ?: stringResource(id = R.string.wallets_state_syncing)
         queuedOperation == SyncOperation.FullRescan -> stringResource(
@@ -659,6 +676,7 @@ private fun WalletCard(
             resolveSyncGap(wallet.fullScanStopGap, wallet)
         )
         syncState is WalletSyncState.Queued -> stringResource(id = R.string.wallets_state_queued)
+        nodeStatus is NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
         lastSyncText == null && nodeStatus is NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
         nodeStatus is NodeStatus.Disconnecting -> stringResource(id = R.string.wallets_state_disconnecting)
         lastSyncText == null && nodeStatus is NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_waiting_for_node)

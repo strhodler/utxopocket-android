@@ -22,6 +22,7 @@ import com.strhodler.utxopocket.data.db.markFullScanCompleted
 import com.strhodler.utxopocket.data.db.withSyncFailure
 import com.strhodler.utxopocket.data.db.withSyncResult
 import com.strhodler.utxopocket.data.node.toTorAwareMessage
+import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
@@ -66,6 +67,7 @@ internal class NodeSyncRunner(
     private val torManager: TorManager,
     private val torProxyProvider: TorProxyProvider,
     private val nodeConfigurationRepository: NodeConfigurationRepository,
+    private val networkStatusMonitor: NetworkStatusMonitor,
     private val walletSyncPreferencesRepository: WalletSyncPreferencesRepository,
     private val walletSyncOrchestrator: WalletSyncOrchestrator,
     private val walletDao: WalletDao,
@@ -130,6 +132,11 @@ internal class NodeSyncRunner(
             val policy = retryPolicyFor(network)
             var attempt = 0
             while (attempt < policy.maxAttempts && !shouldStop) {
+                if (!networkStatusMonitor.isOnline.value) {
+                    SecureLog.i(logTag) { "Skipping wallet refresh for $network because network is offline" }
+                    shouldStop = true
+                    break
+                }
                 if (!isSyncAllowed(network)) {
                     SecureLog.i(logTag) { "Skipping wallet refresh for $network because background grace expired" }
                     shouldStop = true
@@ -154,6 +161,11 @@ internal class NodeSyncRunner(
                     SecureLog.i(logTag) { "Wallet refresh cancelled for $network" }
                     shouldStop = true
                 } catch (error: Exception) {
+                    if (!networkStatusMonitor.isOnline.value) {
+                        SecureLog.i(logTag) { "Wallet refresh cancelled for $network because network is offline" }
+                        shouldStop = true
+                        break
+                    }
                     val attemptIndex = attempt + 1
                     SecureLog.w(logTag, error) { "Node refresh attempt $attemptIndex failed for $network" }
                     runCatching {
@@ -186,7 +198,7 @@ internal class NodeSyncRunner(
                 walletSyncOrchestrator.onManagedRefreshCompleted(network, refreshSucceeded)
             }
         }
-        attemptCompleted
+        refreshSucceeded
     }
 
     private suspend fun performRefreshAttempt(
@@ -201,7 +213,9 @@ internal class NodeSyncRunner(
         var shouldSignalConnecting =
             previousSnapshot.network != network || previousSnapshot.status !is NodeStatus.Synced
         val previousEndpoint = previousSnapshot.endpoint.takeIf { previousSnapshot.network == network }
-        val cancellationSignal = SyncCancellationSignal { !isSyncAllowed(network) }
+        val cancellationSignal = SyncCancellationSignal {
+            !isSyncAllowed(network) || !networkStatusMonitor.isOnline.value
+        }
         fun ensureForeground() {
             if (cancellationSignal.shouldCancel()) {
                 throw CancellationException("Sync cancelled for $network")
@@ -271,23 +285,23 @@ internal class NodeSyncRunner(
             }
             suspend fun runSyncWithProxy(proxy: SocksProxyConfig?) {
                 ensureForeground()
-                val session = blockchainFactory.create(electrumEndpoint, proxy)
-                endpoint = session.endpoint.url
-                if (previousEndpoint != endpoint) {
-                    shouldSignalConnecting = true
-                }
-                if (shouldSignalConnecting) {
-                    nodeStatus.value = NodeStatusSnapshot(
-                        status = NodeStatus.Connecting,
-                        blockHeight = blockHeight,
-                        serverInfo = serverInfo,
-                        endpoint = endpoint,
-                        lastSyncCompletedAt = lastSyncForNetwork,
-                        network = network,
-                        feeRateSatPerVb = estimatedFeeRateSatPerVb
-                    )
-                    SecureLog.d(logTag) { "Node status -> Connecting network=$network endpoint=$endpoint" }
-                }
+                        val session = blockchainFactory.create(electrumEndpoint, proxy)
+                        endpoint = session.endpoint.url
+                        if (previousEndpoint != endpoint) {
+                            shouldSignalConnecting = true
+                        }
+                        if (shouldSignalConnecting) {
+                            nodeStatus.value = NodeStatusSnapshot(
+                                status = NodeStatus.Connecting,
+                                blockHeight = blockHeight,
+                                serverInfo = serverInfo,
+                                endpoint = endpoint,
+                                lastSyncCompletedAt = lastSyncForNetwork,
+                                network = network,
+                                feeRateSatPerVb = estimatedFeeRateSatPerVb
+                            )
+                            SecureLog.d(logTag) { "Node status -> Connecting network=$network endpoint=$endpoint" }
+                        }
                 SecureLog.d(logTag) {
                     if (activeTransport == NodeTransport.TOR && proxy != null) {
                         "Starting electrum sync via $endpoint using proxy ${proxy.host}:${proxy.port}"
@@ -326,7 +340,7 @@ internal class NodeSyncRunner(
                     estimatedFeeRateSatPerVb = metadata?.feeRateSatPerVb ?: estimatedFeeRateSatPerVb
                     if (shouldSignalConnecting) {
                         nodeStatus.value = NodeStatusSnapshot(
-                            status = NodeStatus.Connecting,
+                            status = NodeStatus.Syncing,
                             blockHeight = blockHeight,
                             serverInfo = serverInfo,
                             endpoint = endpoint,
@@ -334,6 +348,7 @@ internal class NodeSyncRunner(
                             network = network,
                             feeRateSatPerVb = estimatedFeeRateSatPerVb
                         )
+                        SecureLog.d(logTag) { "Node status -> Syncing network=$network endpoint=$endpoint" }
                     }
                     ensureForeground()
                     if (!syncWallets) {
@@ -369,9 +384,7 @@ internal class NodeSyncRunner(
                     }
                     SecureLog.d(logTag) { "Syncing ${filteredWallets.size} wallet(s) on $network target=$targetLabelForLog" }
                     var remainingQueue = filteredWallets.map { it.id }
-                    remainingQueue.forEach { id ->
-                        walletSyncOrchestrator.ensurePendingOperation(id, SyncOperation.Refresh)
-                    }
+                    walletSyncOrchestrator.ensurePendingOperations(remainingQueue, SyncOperation.Refresh)
                     if (manageSyncStatus && remainingQueue.isNotEmpty()) {
                         walletSyncOrchestrator.updateSyncStatus(
                             network = network,
@@ -383,7 +396,7 @@ internal class NodeSyncRunner(
                         walletSyncOrchestrator.clearSyncStatus(network)
                     }
                     var hadWalletErrors = false
-                    filteredWallets.forEach { entity ->
+                    for (entity in filteredWallets) {
                         val walletAlias = WalletLogAliasProvider.alias(entity.id)
                         ensureForeground()
                         if (isWalletDeletionPending(entity.id)) {
@@ -397,7 +410,7 @@ internal class NodeSyncRunner(
                                     isRunning = remainingQueue.isNotEmpty()
                                 )
                             }
-                            return@forEach
+                            continue
                         }
                         val metricsEnabled = BuildConfig.DEBUG
                         val walletSyncStart = if (metricsEnabled) SystemClock.elapsedRealtime() else 0L
@@ -415,15 +428,26 @@ internal class NodeSyncRunner(
                                 id = entity.id,
                                 sessionId = sessionId,
                                 tipHeight = blockHeight,
-                                tipHash = null,
-                                startedAt = System.currentTimeMillis()
-                            )
-                        }.onFailure { error ->
-                            SecureLog.w(logTag, error) { "Unable to record sync session start for $walletAlias" }
-                        }
-                        val syncResult = runCatching {
-                            withWallet(entity, true) { wallet, persister, materializationSource ->
-                                ensureForeground()
+                        tipHash = null,
+                        startedAt = System.currentTimeMillis()
+                    )
+                }.onFailure { error ->
+                    SecureLog.w(logTag, error) { "Unable to record sync session start for $walletAlias" }
+                }
+                if (shouldSignalConnecting) {
+                    nodeStatus.value = NodeStatusSnapshot(
+                        status = NodeStatus.Syncing,
+                        blockHeight = blockHeight,
+                        serverInfo = serverInfo,
+                        endpoint = endpoint,
+                        lastSyncCompletedAt = lastSyncForNetwork,
+                        network = network,
+                        feeRateSatPerVb = estimatedFeeRateSatPerVb
+                    )
+                }
+                val syncResult = runCatching {
+                    withWallet(entity, true) { wallet, persister, materializationSource ->
+                        ensureForeground()
                                 val isFreshMaterialization =
                                     materializationSource == WalletMaterializationSource.EMPTY
                                 val fullScanReasons = mutableListOf<String>()
@@ -677,28 +701,32 @@ internal class NodeSyncRunner(
                                 }
                             }
                         }
-                        syncResult.onFailure { error ->
+                        val syncError = syncResult.exceptionOrNull()
+                        if (syncError != null) {
+                            if (!networkStatusMonitor.isOnline.value) {
+                                throw CancellationException("Sync cancelled for $network because network is offline")
+                            }
                             if (metricsEnabled) {
-                                metricsError = error
+                                metricsError = syncError
                             }
                             if (isWalletDeletionPending(entity.id)) {
                                 SecureLog.d(logTag) { "Wallet $walletAlias sync aborted because it is being deleted." }
-                                return@forEach
+                                continue
                             }
-                            if (error is CancellationException) {
-                                throw error
+                            if (syncError is CancellationException) {
+                                throw syncError
                             }
                             hadWalletErrors = true
                             invalidateWalletCache(entity.id)
-                            val reason = error.toTorAwareMessage(
-                                defaultMessage = error.message.orEmpty().ifBlank { "Wallet sync failed" },
+                            val reason = syncError.toTorAwareMessage(
+                                defaultMessage = syncError.message.orEmpty().ifBlank { "Wallet sync failed" },
                                 endpoint = endpoint,
                                 usedTor = activeTransport == NodeTransport.TOR
                             )
                             if (lastWalletError == null) {
                                 lastWalletError = reason
                             }
-                            SecureLog.e(logTag, error) { "Sync failed for wallet ${entity.name} ($walletAlias)" }
+                            SecureLog.e(logTag, syncError) { "Sync failed for wallet ${entity.name} ($walletAlias)" }
                             val failure = entity.withSyncFailure(
                                 status = NodeStatus.Error(reason),
                                 timestamp = System.currentTimeMillis()
