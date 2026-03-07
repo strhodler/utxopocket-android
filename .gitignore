@@ -40,3 +40,10 @@ output-metadata.json
 # === Misc ===
 AGENTS.md
 /local.properties.wsl
+context/
+.opencode/
+opencode.json
+/plans/
+/.worktrees/
+/worktrees/
+knowledge/

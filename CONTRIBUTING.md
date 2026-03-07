@@ -23,6 +23,11 @@ Thanks for helping keep this privacy-first watch-only wallet moving. This docume
 - Every user-facing change must update the relevant docs in the same PR (README, `docs/` guides, wiki Markdown, release notes).
 - Mention any new onboarding copy, glossary entries, or wiki topics in the PR template so the docs team can audit terminology quickly.
 
+Canonical docs to keep in sync when behavior changes:
+- Root docs: `README.md`, `SECURITY.md`, `CONTRIBUTING.md`, `NOTICE`, `docs/project-setup.md`, `.github/RELEASE_TEMPLATE.md`.
+- User docs: `docs/getting-started.md`, `docs/guides/**`, `docs/wiki/**`, `docs/glossary/**`.
+- Internal docs: `knowledge/**` (English only).
+
 ### 4.1 Contributing Wiki/Glossary Content
 You can contribute articles to our built-in wiki (`/docs/wiki`) and glossary (`/docs/glossary`).
 
@@ -45,6 +50,12 @@ Files to read before submitting:
   2. Open the Translation Editor, filter for “Untranslated”, and fill in the other locales. Preserve placeholders (`%1$s`, `%d`), HTML markup, and newline escapes.
   3. For strings that intentionally remain English (brand names, technical terms), mark them with `translatable="false"` so Android Studio stops flagging them.
 - Keep character length and tone consistent with the source; prefer concise, neutral language. If nuance is unclear, leave a comment in the PR so the docs team can review.
+
+### 4.3 Local docs stewardship workflow
+- This repository includes a local docs subagent (`docs-steward`) and commands in `opencode.json`.
+- Run `docs-impact` after feature changes to produce a documentation impact report.
+- Run `docs-sync` to draft/sync canonical docs and `knowledge/**` updates.
+- Write docs as current behavior and guarantees; do not use changelog style in canonical docs.
 
 ## 5. Pull Request Checklist
 1. Reference the issue ID and summarize the change in English.

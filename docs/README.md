@@ -6,4 +6,4 @@ This directory hosts user-facing guides you can share with the community. Everyt
 - [Getting Started With UtxoPocket](getting-started.md) — walkthrough for installing the app, importing descriptors, and exploring privacy-first monitoring.
 - [Project Setup For Contributors](project-setup.md) — instructions for developers who want to build the project locally or contribute code.
 
-More guides (feature spotlights, release notes, FAQ) can be added here in future PRs. Internal audits, design explorations, and legacy material stay private outside this folder.
+More guides (feature spotlights, release notes, FAQ) can be added here in future PRs. Internal audits, design explorations, and engineering context belong in `knowledge/` instead of this folder.

@@ -69,6 +69,41 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 
 ---
 
+## Run from source
+- Prerequisites: JDK 21, Android SDK 36, and a physical ARM64 device (or ARM64 emulator).
+- Project bootstrap:
+  ```bash
+  git clone https://github.com/strhodler/utxopocket-android.git
+  cd utxopocket-android
+  ```
+- Set `local.properties` with your SDK path:
+  ```text
+  sdk.dir=/absolute/path/to/Android/Sdk
+  ```
+- Build and install from Linux/macOS:
+  ```bash
+  ./gradlew :app:installDebug
+  adb shell am start -n com.strhodler.utxopocket/.presentation.MainActivity
+  ```
+- WSL + USB fallback (when Linux `adb devices` is empty):
+  ```bash
+  ./gradlew :app:assembleDebug
+  "/mnt/c/Users/<windows-user>/AppData/Local/Android/Sdk/platform-tools/adb.exe" install -r "app/build/outputs/apk/debug/app-debug.apk"
+  "/mnt/c/Users/<windows-user>/AppData/Local/Android/Sdk/platform-tools/adb.exe" shell am start -n com.strhodler.utxopocket/.presentation.MainActivity
+  ```
+- Full contributor setup and troubleshooting: `docs/project-setup.md`.
+
+---
+
+## Documentation model
+- Public and in-app docs live in `docs/` (guides, wiki, glossary).
+- Internal project context for engineering and LLM workflows lives in `knowledge/` (English only).
+- Local docs stewardship commands are available in OpenCode:
+  - `docs-impact` to analyze what documentation should change for current code diffs.
+  - `docs-sync` to draft and apply documentation updates as current-state truth.
+
+---
+
 ## Descriptor compatibility
 - Accepts standard public descriptors: `wpkh`, `sh(wpkh)`, `tr`, Miniscript (BDK‑supported), multisig `wsh(sortedmulti)`, and `addr(...)` exports.
 - Supports BIP‑389 multipath (`/<0;1>/*`) and change branches; requires wildcard derivation and rejects any private‑key material.

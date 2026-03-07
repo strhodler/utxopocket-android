@@ -40,6 +40,17 @@ adb devices             # ensure your target shows “device”
 ```
 Launch the “UtxoPocket” icon, complete onboarding, and verify Tor bootstrap. Keep the device awake the first time so Electrum syncs without being backgrounded.
 
+### 4.1 WSL + USB Devices
+On WSL, Gradle's `:app:installDebug` may not detect USB devices even when `adb.exe` from Windows does. Use this fallback flow:
+
+```bash
+./gradlew :app:assembleDebug
+"/mnt/c/Users/<windows-user>/AppData/Local/Android/Sdk/platform-tools/adb.exe" install -r "app/build/outputs/apk/debug/app-debug.apk"
+"/mnt/c/Users/<windows-user>/AppData/Local/Android/Sdk/platform-tools/adb.exe" shell am start -n com.strhodler.utxopocket/.presentation.MainActivity
+```
+
+If your Android SDK lives in another Windows profile, replace `<windows-user>` in the path.
+
 ## 5. Sanity Checklist
 - Switch network selector (Mainnet → Signet) and confirm presets change.
 - Import a testnet descriptor pair, sync, and confirm balance/UTXO lists populate.
@@ -54,5 +65,7 @@ Launch the “UtxoPocket” icon, complete onboarding, and verify Tor bootstrap.
 - **Tor stuck** → ensure you are using an ARM64 image and that host firewalls allow outbound Tor connections. Inspect `adb logcat | grep TorRuntimeManager`.
 - **Descriptor rejected** → confirm it is public (tpub/zpub, no `xprv`) and includes `*` or BIP-389 multipath notation.
 - **Gradle cache issues** → run `./gradlew --stop && ./gradlew clean` or nuke `.gradle`/`.idea` directories when IDE sync drifts.
+- **No connected devices (WSL)** → if Linux `adb devices` is empty but `adb.exe devices` shows your phone, use the fallback commands from section **4.1 WSL + USB Devices**.
+- **Toolchain mismatch** → this project requires Java 21. If `java -version` is not 21.x, set `JAVA_HOME` to a JDK 21 installation.
 
 With the environment ready, follow the workflow in `CONTRIBUTING.md` (issue-first planning, `feature/<descriptor>` branches, lint/tests, documentation updates) and coordinate with reviewers/testers as needed.
