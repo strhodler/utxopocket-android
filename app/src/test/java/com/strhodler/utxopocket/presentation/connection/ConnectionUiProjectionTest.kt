@@ -1,4 +1,4 @@
-package com.strhodler.utxopocket.presentation
+package com.strhodler.utxopocket.presentation.connection
 
 import com.strhodler.utxopocket.domain.connection.ConnectionSnapshot
 import com.strhodler.utxopocket.domain.connection.ConnectionState
@@ -7,30 +7,22 @@ import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.TorStatus
-import com.strhodler.utxopocket.presentation.connection.projectConnectionUi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class MainActivityStatusProjectionTest {
+class ConnectionUiProjectionTest {
 
     @Test
-    fun matchingNetworkUsesConnectionSnapshotStatus() {
-        val snapshot = ConnectionSnapshot(
-            state = ConnectionState.CONNECTED,
-            torStatus = TorStatus.Running(SocksProxyConfig("127.0.0.1", 9050)),
-            nodeStatus = NodeStatusSnapshot(
-                status = NodeStatus.Synced,
-                network = BitcoinNetwork.TESTNET
-            )
-        )
-
-        val projection = projectStatusBarConnection(
-            connectionSnapshot = snapshot,
-            selectedNetwork = BitcoinNetwork.TESTNET,
-            duressActive = false
-        )
-        val sharedProjection = projectConnectionUi(
-            connectionSnapshot = snapshot,
+    fun matchingNetworkUsesSnapshotStatusAndTor() {
+        val projection = projectConnectionUi(
+            connectionSnapshot = ConnectionSnapshot(
+                state = ConnectionState.CONNECTED,
+                torStatus = TorStatus.Running(SocksProxyConfig("127.0.0.1", 9050)),
+                nodeStatus = NodeStatusSnapshot(
+                    status = NodeStatus.Synced,
+                    network = BitcoinNetwork.TESTNET
+                )
+            ),
             selectedNetwork = BitcoinNetwork.TESTNET,
             duressActive = false
         )
@@ -38,14 +30,14 @@ class MainActivityStatusProjectionTest {
         assertEquals(true, projection.snapshotMatchesNetwork)
         assertEquals(NodeStatus.Synced, projection.nodeStatus)
         assertEquals(TorStatus.Running(SocksProxyConfig("127.0.0.1", 9050)), projection.torStatus)
-        assertEquals(sharedProjection, projection)
     }
 
     @Test
-    fun mismatchedNetworkFallsBackToIdleNodeStatus() {
-        val projection = projectStatusBarConnection(
+    fun mismatchedNetworkFallsBackToIdleButKeepsTorStatus() {
+        val projection = projectConnectionUi(
             connectionSnapshot = ConnectionSnapshot(
                 state = ConnectionState.CONNECTED,
+                torStatus = TorStatus.Running(SocksProxyConfig("127.0.0.1", 9050)),
                 nodeStatus = NodeStatusSnapshot(
                     status = NodeStatus.Synced,
                     network = BitcoinNetwork.MAINNET
@@ -57,11 +49,12 @@ class MainActivityStatusProjectionTest {
 
         assertEquals(false, projection.snapshotMatchesNetwork)
         assertEquals(NodeStatus.Idle, projection.nodeStatus)
+        assertEquals(TorStatus.Running(SocksProxyConfig("127.0.0.1", 9050)), projection.torStatus)
     }
 
     @Test
-    fun duressAlwaysForcesIdleAndTorStopped() {
-        val projection = projectStatusBarConnection(
+    fun duressForcesIdleAndStopped() {
+        val projection = projectConnectionUi(
             connectionSnapshot = ConnectionSnapshot(
                 state = ConnectionState.ERROR,
                 torStatus = TorStatus.Error("Tor failed"),

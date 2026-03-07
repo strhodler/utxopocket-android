@@ -35,6 +35,10 @@ import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepositor
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.TorManager
+import com.strhodler.utxopocket.presentation.connection.canRetryConnection
+import com.strhodler.utxopocket.presentation.connection.isNodeBusyForManualConnectionAction
+import com.strhodler.utxopocket.presentation.connection.ConnectionUiProjection
+import com.strhodler.utxopocket.presentation.connection.projectConnectionUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.BufferOverflow
@@ -93,36 +97,17 @@ data class IncomingPlaceholderGroup(
     val placeholders: List<IncomingTxPlaceholder>
 )
 
-internal data class StatusBarConnectionProjection(
-    val nodeStatus: NodeStatus,
-    val torStatus: TorStatus,
-    val snapshotMatchesNetwork: Boolean
-)
+internal typealias StatusBarConnectionProjection = ConnectionUiProjection
 
 internal fun projectStatusBarConnection(
     connectionSnapshot: ConnectionSnapshot,
     selectedNetwork: BitcoinNetwork,
     duressActive: Boolean
-): StatusBarConnectionProjection {
-    if (duressActive) {
-        return StatusBarConnectionProjection(
-            nodeStatus = NodeStatus.Idle,
-            torStatus = TorStatus.Stopped,
-            snapshotMatchesNetwork = false
-        )
-    }
-
-    val snapshotMatchesNetwork = connectionSnapshot.network == selectedNetwork
-    return StatusBarConnectionProjection(
-        nodeStatus = if (snapshotMatchesNetwork) {
-            connectionSnapshot.nodeStatus.status
-        } else {
-            NodeStatus.Idle
-        },
-        torStatus = connectionSnapshot.torStatus,
-        snapshotMatchesNetwork = snapshotMatchesNetwork
-    )
-}
+): StatusBarConnectionProjection = projectConnectionUi(
+    connectionSnapshot = connectionSnapshot,
+    selectedNetwork = selectedNetwork,
+    duressActive = duressActive
+)
 
 @HiltViewModel
 class MainActivityViewModel @Inject constructor(
@@ -492,10 +477,10 @@ class MainActivityViewModel @Inject constructor(
         if (isDuressActive()) {
             return
         }
-        val nodeBusy = status.nodeStatus is NodeStatus.Connecting ||
-            status.nodeStatus is NodeStatus.Disconnecting ||
-            status.nodeStatus == NodeStatus.WaitingForTor ||
-            status.isSyncing
+        val nodeBusy = isNodeBusyForManualConnectionAction(
+            nodeStatus = status.nodeStatus,
+            isSyncBusy = status.isSyncing
+        )
         if (currentNetwork == network && nodeBusy) {
             return
         }
@@ -510,12 +495,11 @@ class MainActivityViewModel @Inject constructor(
         if (isDuressActive()) {
             return
         }
-        if (
-            status.nodeStatus is NodeStatus.Connecting ||
-            status.nodeStatus is NodeStatus.Disconnecting ||
-            status.nodeStatus == NodeStatus.WaitingForTor ||
-            status.isSyncing
-        ) {
+        if (!canRetryConnection(
+                duressActive = isDuressActive(),
+                nodeStatus = status.nodeStatus,
+                isSyncBusy = status.isSyncing
+            )) {
             return
         }
         connectionOrchestrator.onIntent(ConnectionIntent.Retry)

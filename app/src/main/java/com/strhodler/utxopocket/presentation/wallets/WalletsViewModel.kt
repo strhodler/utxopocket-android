@@ -25,6 +25,7 @@ import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.DuressManager
+import com.strhodler.utxopocket.presentation.connection.projectConnectionUi
 import com.strhodler.utxopocket.presentation.wallets.sync.WalletSyncState
 import com.strhodler.utxopocket.presentation.wallets.sync.resolveWalletSyncState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -146,10 +147,14 @@ class WalletsViewModel @Inject constructor(
         val syncStatus = snapshot.syncStatus
         val connectionSnapshot = snapshot.connectionSnapshot
         val nodeSnapshot = connectionSnapshot.nodeStatus
-        val torStatus = connectionSnapshot.torStatus
         val balanceUnit = snapshot.balanceUnit
         val hapticsEnabled = snapshot.hapticsEnabled
         val duressActive = snapshot.duressState is DuressSessionState.FakeActive
+        val connectionProjection = projectConnectionUi(
+            connectionSnapshot = connectionSnapshot,
+            selectedNetwork = data.network,
+            duressActive = duressActive
+        )
         val decoyBalanceSats = (snapshot.duressState as? DuressSessionState.FakeActive)
             ?.decoyBalanceSats ?: 0L
         val walletList = if (duressActive) {
@@ -174,13 +179,9 @@ class WalletsViewModel @Inject constructor(
         }
 
         val torRequired = !duressActive && snapshot.nodeConfig.requiresTor(data.network)
-        val snapshotMatchesNetwork = nodeSnapshot.network == data.network
-        val effectiveNodeStatus = when {
-            duressActive -> NodeStatus.Idle
-            snapshotMatchesNetwork -> nodeSnapshot.status
-            else -> NodeStatus.Idle
-        }
-        val effectiveTorStatus = if (duressActive) TorStatus.Stopped else torStatus
+        val snapshotMatchesNetwork = connectionProjection.snapshotMatchesNetwork
+        val effectiveNodeStatus = connectionProjection.nodeStatus
+        val effectiveTorStatus = connectionProjection.torStatus
         val isRefreshing = !duressActive &&
             syncStatus.isRefreshing &&
             syncStatus.network == data.network
