@@ -46,6 +46,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
@@ -68,6 +69,7 @@ class WalletsViewModelTest {
     private lateinit var connectionOrchestrator: TestConnectionOrchestrator
     private lateinit var preferencesRepository: TestAppPreferencesRepository
     private lateinit var nodeConfigurationRepository: TestNodeConfigurationRepository
+    private lateinit var duressManager: DuressManager
     private lateinit var viewModel: WalletsViewModel
 
     @BeforeTest
@@ -78,12 +80,13 @@ class WalletsViewModelTest {
         connectionOrchestrator = TestConnectionOrchestrator()
         preferencesRepository = TestAppPreferencesRepository()
         nodeConfigurationRepository = TestNodeConfigurationRepository()
+        duressManager = DuressManager()
         viewModel = WalletsViewModel(
             walletRepository = walletRepository,
             connectionOrchestrator = connectionOrchestrator,
             appPreferencesRepository = preferencesRepository,
             nodeConfigurationRepository = nodeConfigurationRepository,
-            duressManager = DuressManager()
+            duressManager = duressManager
         )
     }
 
@@ -105,6 +108,7 @@ class WalletsViewModelTest {
                     network = BitcoinNetwork.TESTNET
                 ),
                 torStatus = TorStatus.Running(TEST_PROXY),
+                isOnline = true,
                 errorMessage = errorMessage
             )
         )
@@ -113,6 +117,62 @@ class WalletsViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals(errorMessage, state.errorMessage)
+        assertEquals(
+            WalletsConnectionBannerModel.NodeDisconnected(errorMessage = null),
+            state.connectionBannerModel
+        )
+        collection.cancel()
+    }
+
+    @Test
+    fun offlineConnectionMapsToOfflineBannerModel() = runTest(dispatcher) {
+        val collection = backgroundScope.launch { viewModel.uiState.collect { } }
+        connectionOrchestrator.setSnapshot(
+            ConnectionSnapshot(
+                state = ConnectionState.DISCONNECTED,
+                nodeStatus = NodeStatusSnapshot(
+                    status = NodeStatus.Offline,
+                    network = BitcoinNetwork.TESTNET
+                ),
+                torStatus = TorStatus.Stopped,
+                isOnline = false
+            )
+        )
+
+        advanceUntilIdle()
+
+        assertEquals(
+            WalletsConnectionBannerModel.Offline,
+            viewModel.uiState.value.connectionBannerModel
+        )
+        collection.cancel()
+    }
+
+    @Test
+    fun duressModeHidesConnectionBannerModel() = runTest(dispatcher) {
+        val collection = backgroundScope.launch { viewModel.uiState.collect { } }
+        connectionOrchestrator.setSnapshot(
+            ConnectionSnapshot(
+                state = ConnectionState.CONNECTED,
+                nodeStatus = NodeStatusSnapshot(
+                    status = NodeStatus.Synced,
+                    network = BitcoinNetwork.TESTNET
+                ),
+                torStatus = TorStatus.Running(TEST_PROXY),
+                isOnline = true
+            )
+        )
+        advanceUntilIdle()
+        assertEquals(
+            WalletsConnectionBannerModel.NodeConnected(nodeLabel = null),
+            viewModel.uiState.value.connectionBannerModel
+        )
+
+        duressManager.activateFake()
+        advanceUntilIdle()
+
+        assertEquals(true, viewModel.uiState.value.duressActive)
+        assertNull(viewModel.uiState.value.connectionBannerModel)
         collection.cancel()
     }
 

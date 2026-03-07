@@ -179,6 +179,7 @@ class WalletsViewModel @Inject constructor(
         }
 
         val torRequired = !duressActive && snapshot.nodeConfig.requiresTor(data.network)
+        val isNetworkOnline = if (duressActive) false else connectionSnapshot.isOnline
         val snapshotMatchesNetwork = connectionProjection.snapshotMatchesNetwork
         val effectiveNodeStatus = connectionProjection.nodeStatus
         val effectiveTorStatus = connectionProjection.torStatus
@@ -205,6 +206,18 @@ class WalletsViewModel @Inject constructor(
                 network = data.network
             ) ?: connectionSnapshot.nodeStatus.endpoint?.substringAfter("://")?.trimEnd('/')
         }
+        val hasWalletErrors = walletList.any { it.lastSyncStatus is NodeStatus.Error }
+        val connectionBannerModel = projectWalletsConnectionBannerModel(
+            isNetworkOnline = isNetworkOnline,
+            torRequired = torRequired,
+            torStatus = effectiveTorStatus,
+            nodeStatus = effectiveNodeStatus,
+            isRefreshing = isRefreshing,
+            errorMessage = errorMessage,
+            hasWalletErrors = hasWalletErrors,
+            connectedNodeLabel = connectedNodeLabel,
+            duressActive = duressActive
+        )
         val activeOperation = if (!duressActive && syncStatus.network == data.network) {
             syncStatus.activeOperation
         } else {
@@ -254,6 +267,7 @@ class WalletsViewModel @Inject constructor(
             activeOperation = activeOperation,
             queuedOperations = queuedOperations,
             connectedNodeLabel = connectedNodeLabel,
+            connectionBannerModel = connectionBannerModel,
             walletSyncStates = walletSyncStates,
             duressActive = duressActive,
             decoyBalanceSats = decoyBalanceSats
@@ -344,6 +358,7 @@ data class WalletsUiState(
     val activeOperation: SyncOperation? = null,
     val queuedOperations: Map<Long, SyncOperation> = emptyMap(),
     val connectedNodeLabel: String? = null,
+    val connectionBannerModel: WalletsConnectionBannerModel? = null,
     val walletSyncStates: Map<Long, WalletSyncState> = emptyMap(),
     val duressActive: Boolean = false,
     val decoyBalanceSats: Long = 0L
