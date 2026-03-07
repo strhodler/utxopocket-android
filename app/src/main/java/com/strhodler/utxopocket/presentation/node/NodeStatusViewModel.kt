@@ -7,6 +7,7 @@ import com.strhodler.utxopocket.domain.connection.ConnectionIntent
 import com.strhodler.utxopocket.domain.connection.ConnectionState
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
+import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
 import com.strhodler.utxopocket.domain.model.NodeStatus
@@ -22,6 +23,9 @@ import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
+import com.strhodler.utxopocket.presentation.connection.canRetryConnection
+import com.strhodler.utxopocket.presentation.connection.isSyncBusyForNetwork
+import com.strhodler.utxopocket.presentation.connection.reconcileConnectionIntentForNodeConfigChange
 import com.strhodler.utxopocket.presentation.node.NodeQrParseResult
 import com.strhodler.utxopocket.common.logging.SecureLog
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -82,10 +86,7 @@ class NodeStatusViewModel @Inject constructor(
                 val snapshotMatchesNetwork = connectionSnapshot.network == network
                 val isConnected = snapshotMatchesNetwork && connectionSnapshot.state == ConnectionState.CONNECTED
                 val isConnecting = snapshotMatchesNetwork && connectionSnapshot.state == ConnectionState.CONNECTING
-                val syncBusy = syncStatus.network == network &&
-                    (syncStatus.isRefreshing ||
-                        syncStatus.activeWalletId != null ||
-                        syncStatus.queuedWalletIds.isNotEmpty())
+                val syncBusy = isSyncBusyForNetwork(syncStatus, network)
                 val nodeSnapshot = connectionSnapshot.nodeStatus
                 SecureLog.d(TAG) {
                     "NodeStatusViewModel snapshot status=${nodeSnapshot.status} network=${nodeSnapshot.network} " +
@@ -126,6 +127,21 @@ class NodeStatusViewModel @Inject constructor(
     }
 
     fun retryNodeConnection() {
+        val status = connectionOrchestrator.snapshot.value.nodeStatus.status
+        if (!canRetryConnection(
+                duressActive = false,
+                nodeStatus = status,
+                isSyncBusy = _uiState.value.isSyncBusy
+            )) {
+            viewModelScope.launch {
+                _events.tryEmit(
+                    NodeStatusEvent.Info(
+                        message = R.string.node_interaction_blocked_sync
+                    )
+                )
+            }
+            return
+        }
         connectionOrchestrator.onIntent(ConnectionIntent.Retry)
     }
 
@@ -202,21 +218,18 @@ class NodeStatusViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
-            nodeConfigurationRepository.updateNodeConfig { current ->
+            updateNodeConfigAndReconcileConnection { current ->
                 current.copy(
                     connectionOption = NodeConnectionOption.PUBLIC,
                     selectedPublicNodeId = nodeId
                 )
             }
-            connectionOrchestrator.onIntent(ConnectionIntent.Start)
         }
     }
 
     fun onRemovePublicNode(nodeId: String) {
         val state = _uiState.value
         val network = state.preferredNetwork
-        val wasActiveSelection = state.nodeConnectionOption == NodeConnectionOption.PUBLIC &&
-            state.selectedPublicNodeId == nodeId
         val remainingNodes = state.publicNodes.filterNot { it.id == nodeId }
         val fallback = remainingNodes.firstOrNull()?.id
 
@@ -232,7 +245,7 @@ class NodeStatusViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            nodeConfigurationRepository.updateNodeConfig { current ->
+            updateNodeConfigAndReconcileConnection { current ->
                 val updatedRemoved = current.removedPublicNodeIds.toMutableMap()
                 val updatedSet = updatedRemoved[network]?.toMutableSet() ?: mutableSetOf()
                 updatedSet.add(nodeId)
@@ -247,13 +260,6 @@ class NodeStatusViewModel @Inject constructor(
                         current.selectedPublicNodeId
                     }
                 )
-            }
-            if (wasActiveSelection) {
-                if (fallback != null) {
-                    connectionOrchestrator.onIntent(ConnectionIntent.Start)
-                } else {
-                    connectionOrchestrator.onIntent(ConnectionIntent.Disconnect)
-                }
             }
         }
     }
@@ -275,16 +281,13 @@ class NodeStatusViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            nodeConfigurationRepository.updateNodeConfig { current ->
+            updateNodeConfigAndReconcileConnection { current ->
                 val updatedRemoved = current.removedPublicNodeIds.toMutableMap()
                 updatedRemoved[network] = emptySet()
                 current.copy(
                     removedPublicNodeIds = updatedRemoved,
                     selectedPublicNodeId = if (shouldSelectFirst) restoredSelection else current.selectedPublicNodeId
                 )
-            }
-            if (shouldSelectFirst && restoredSelection != null && state.nodeConnectionOption == NodeConnectionOption.PUBLIC) {
-                connectionOrchestrator.onIntent(ConnectionIntent.Start)
             }
         }
     }
@@ -302,13 +305,12 @@ class NodeStatusViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
-            nodeConfigurationRepository.updateNodeConfig { current ->
+            updateNodeConfigAndReconcileConnection { current ->
                 current.copy(
                     connectionOption = NodeConnectionOption.CUSTOM,
                     selectedCustomNodeId = nodeId
                 )
             }
-            connectionOrchestrator.onIntent(ConnectionIntent.Start)
         }
     }
 
@@ -346,16 +348,13 @@ class NodeStatusViewModel @Inject constructor(
 
     fun onDeleteCustomNode(nodeId: String) {
         viewModelScope.launch {
-            var removedActive = false
             var removedNode = false
-            nodeConfigurationRepository.updateNodeConfig { current ->
+            updateNodeConfigAndReconcileConnection { current ->
                 val remaining = current.customNodes.filterNot { it.id == nodeId }
                 if (remaining.size == current.customNodes.size) {
-                    return@updateNodeConfig current
+                    return@updateNodeConfigAndReconcileConnection current
                 }
                 removedNode = true
-                removedActive = current.connectionOption == NodeConnectionOption.CUSTOM &&
-                    current.selectedCustomNodeId == nodeId
                 val newSelected = current.selectedCustomNodeId?.takeIf { id ->
                     id != nodeId && remaining.any { it.id == id }
                 }
@@ -363,9 +362,6 @@ class NodeStatusViewModel @Inject constructor(
                     customNodes = remaining,
                     selectedCustomNodeId = newSelected
                 )
-            }
-            if (removedActive) {
-                connectionOrchestrator.onIntent(ConnectionIntent.Start)
             }
             if (_uiState.value.editingCustomNodeId == nodeId) {
                 updateEditorState {
@@ -513,7 +509,7 @@ class NodeStatusViewModel @Inject constructor(
             val result = nodeConnectionTester.test(candidateNode)
             when (result) {
                 is NodeConnectionTestResult.Success -> {
-                    nodeConfigurationRepository.updateNodeConfig { current ->
+                    updateNodeConfigAndReconcileConnection { current ->
                         val existing = current.customNodes
                         val alreadyPresent = existing.any { existingNode ->
                             existingNode.endpointLabel().equals(duplicateKey, ignoreCase = true)
@@ -544,7 +540,6 @@ class NodeStatusViewModel @Inject constructor(
                             customNodeFormValid = false
                         )
                     }
-                    connectionOrchestrator.onIntent(ConnectionIntent.Start)
                 }
 
                 is NodeConnectionTestResult.Failure -> {
@@ -615,6 +610,28 @@ class NodeStatusViewModel @Inject constructor(
         }
     }
 
+    private suspend fun updateNodeConfigAndReconcileConnection(
+        network: BitcoinNetwork = _uiState.value.preferredNetwork,
+        mutator: (NodeConfig) -> NodeConfig
+    ) {
+        var previous: NodeConfig? = null
+        var updated: NodeConfig? = null
+        nodeConfigurationRepository.updateNodeConfig { current ->
+            previous = current
+            val next = mutator(current)
+            updated = next
+            next
+        }
+        val previousConfig = previous ?: return
+        val updatedConfig = updated ?: return
+        val intent = reconcileConnectionIntentForNodeConfigChange(
+            previous = previousConfig,
+            updated = updatedConfig,
+            network = network
+        ) ?: return
+        connectionOrchestrator.onIntent(intent)
+    }
+
     private fun updateEditorState(transform: (NodeStatusUiState) -> NodeStatusUiState) {
         _uiState.update { current ->
             val updated = transform(current)
@@ -645,10 +662,7 @@ class NodeStatusViewModel @Inject constructor(
 
     private suspend fun isSyncActive(network: BitcoinNetwork): Boolean {
         val syncStatus = walletRepository.observeSyncStatus().first()
-        return syncStatus.network == network &&
-            (syncStatus.isRefreshing ||
-                syncStatus.activeWalletId != null ||
-                syncStatus.queuedWalletIds.isNotEmpty())
+        return isSyncBusyForNetwork(syncStatus, network)
     }
 
     private fun NodeStatusUiState.buildCustomNodeCandidate(existingId: String?): Pair<String?, CustomNode?> {

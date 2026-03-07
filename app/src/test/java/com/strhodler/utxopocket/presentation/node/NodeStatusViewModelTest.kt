@@ -140,6 +140,86 @@ class NodeStatusViewModelTest {
     }
 
     @Test
+    fun removingActivePublicNodeWithFallbackRequestsReconnect() = runTest {
+        nodeConfigurationRepository.setPublicNodes(
+            BitcoinNetwork.TESTNET,
+            listOf(
+                PublicNode(
+                    id = "pub-a",
+                    displayName = "A",
+                    endpoint = "ssl://a:50002",
+                    network = BitcoinNetwork.TESTNET
+                ),
+                PublicNode(
+                    id = "pub-b",
+                    displayName = "B",
+                    endpoint = "ssl://b:50002",
+                    network = BitcoinNetwork.TESTNET
+                )
+            )
+        )
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionOption = NodeConnectionOption.PUBLIC, selectedPublicNodeId = "pub-a")
+        }
+        advanceUntilIdle()
+
+        viewModel.onRemovePublicNode("pub-a")
+        advanceUntilIdle()
+
+        assertEquals(ConnectionIntent.Start, connectionOrchestrator.intents.last())
+        assertEquals("pub-b", nodeConfigurationRepository.nodeConfig.value.selectedPublicNodeId)
+    }
+
+    @Test
+    fun removingLastActivePublicNodeRequestsDisconnect() = runTest {
+        nodeConfigurationRepository.setPublicNodes(
+            BitcoinNetwork.TESTNET,
+            listOf(
+                PublicNode(
+                    id = "pub-only",
+                    displayName = "Only",
+                    endpoint = "ssl://solo:50002",
+                    network = BitcoinNetwork.TESTNET
+                )
+            )
+        )
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionOption = NodeConnectionOption.PUBLIC, selectedPublicNodeId = "pub-only")
+        }
+        advanceUntilIdle()
+
+        viewModel.onRemovePublicNode("pub-only")
+        advanceUntilIdle()
+
+        assertEquals(ConnectionIntent.Disconnect, connectionOrchestrator.intents.last())
+        assertNull(nodeConfigurationRepository.nodeConfig.value.selectedPublicNodeId)
+    }
+
+    @Test
+    fun deletingActiveCustomNodeWithoutFallbackRequestsDisconnect() = runTest {
+        val custom = CustomNode(
+            id = "custom-1",
+            endpoint = "tcp://abc123def.onion:50001",
+            name = "Custom",
+            network = BitcoinNetwork.TESTNET
+        )
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(
+                connectionOption = NodeConnectionOption.CUSTOM,
+                customNodes = listOf(custom),
+                selectedCustomNodeId = custom.id
+            )
+        }
+        advanceUntilIdle()
+
+        viewModel.onDeleteCustomNode(custom.id)
+        advanceUntilIdle()
+
+        assertEquals(ConnectionIntent.Disconnect, connectionOrchestrator.intents.last())
+        assertNull(nodeConfigurationRepository.nodeConfig.value.selectedCustomNodeId)
+    }
+
+    @Test
     fun onionEndpointsUpdatePortFromInlineValue() = runTest {
         viewModel.onAddCustomNodeClicked()
         viewModel.onNewCustomOnionChanged("abc123def.onion:60002")
@@ -347,13 +427,18 @@ class NodeStatusViewModelTest {
 
     private class TestNodeConfigurationRepository : NodeConfigurationRepository {
         private val mutableConfig = MutableStateFlow(NodeConfig())
+        private val mutablePublicNodes = MutableStateFlow<Map<BitcoinNetwork, List<PublicNode>>>(emptyMap())
         override val nodeConfig: StateFlow<NodeConfig> = mutableConfig
 
         override fun publicNodesFor(network: BitcoinNetwork, excludedIds: Set<String>): List<PublicNode> =
-            emptyList()
+            mutablePublicNodes.value[network].orEmpty().filterNot { it.id in excludedIds }
 
         override suspend fun updateNodeConfig(mutator: (NodeConfig) -> NodeConfig) {
             mutableConfig.value = mutator(mutableConfig.value)
+        }
+
+        fun setPublicNodes(network: BitcoinNetwork, nodes: List<PublicNode>) {
+            mutablePublicNodes.value = mutablePublicNodes.value + (network to nodes)
         }
     }
 
