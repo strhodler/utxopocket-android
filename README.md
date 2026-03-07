@@ -52,6 +52,7 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 - Watch-only monitoring across multiple wallets with labels, UTXOs, and history.
 - Home-screen UTXO canvas with drag-and-drop collections, color tags, and automatic Dust grouping.
 - Private-by-default networking over Tor with curated nodes and custom onion endpoints. Tor remains mandatory; direct LAN/IP hosts and SSL toggles have been removed to keep behavior consistent.
+- Connection retries do not auto-rotate bundled presets; switching presets remains an explicit user action.
 - Multi-network support (Mainnet, Testnet3/4, Signet) with per-network presets.
 - Per-wallet Analysis section with age distribution and hold-wave views to assess how long coins have been sitting and where value concentrates.
 - Fast onboarding and descriptor import (paste or QR), plus a searchable offline wiki.

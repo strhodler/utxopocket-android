@@ -12,12 +12,14 @@ import com.strhodler.utxopocket.data.wiki.WikiRepository
 import com.strhodler.utxopocket.data.glossary.DefaultGlossaryRepository
 import com.strhodler.utxopocket.data.glossary.GlossaryRepository
 import com.strhodler.utxopocket.data.logs.DefaultNetworkErrorLogRepository
+import com.strhodler.utxopocket.data.connection.ConnectionOrchestratorV2
 import com.strhodler.utxopocket.data.utxo.DefaultUtxoCanvasRepository
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepository
+import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
@@ -48,6 +50,12 @@ abstract class RepositoryModule {
     abstract fun bindTorManager(
         impl: DefaultTorManager
     ): TorManager
+
+    @Binds
+    @Singleton
+    abstract fun bindConnectionOrchestrator(
+        impl: ConnectionOrchestratorV2
+    ): ConnectionOrchestrator
 
     @Binds
     @Singleton

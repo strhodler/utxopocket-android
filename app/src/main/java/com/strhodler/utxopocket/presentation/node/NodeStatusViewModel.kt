@@ -3,6 +3,8 @@ package com.strhodler.utxopocket.presentation.node
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.domain.connection.ConnectionIntent
+import com.strhodler.utxopocket.domain.connection.ConnectionState
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
@@ -18,6 +20,7 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.presentation.node.NodeQrParseResult
 import com.strhodler.utxopocket.common.logging.SecureLog
@@ -41,7 +44,8 @@ class NodeStatusViewModel @Inject constructor(
     private val nodeConfigurationRepository: NodeConfigurationRepository,
     private val nodeConnectionTester: NodeConnectionTester,
     private val walletRepository: WalletRepository,
-    private val networkErrorLogRepository: NetworkErrorLogRepository
+    private val networkErrorLogRepository: NetworkErrorLogRepository,
+    private val connectionOrchestrator: ConnectionOrchestrator
 ) : ViewModel() {
     private companion object {
         private const val TAG = "NodeStatusViewModel"
@@ -62,10 +66,10 @@ class NodeStatusViewModel @Inject constructor(
             combine(
                 appPreferencesRepository.preferredNetwork,
                 nodeConfigurationRepository.nodeConfig,
-                walletRepository.observeNodeStatus(),
+                connectionOrchestrator.snapshot,
                 walletRepository.observeSyncStatus(),
                 networkErrorLogRepository.loggingEnabled
-            ) { network, config, nodeSnapshot, syncStatus, loggingEnabled ->
+            ) { network, config, connectionSnapshot, syncStatus, loggingEnabled ->
                 val removedPublic = config.removedPublicNodesFor(network)
                 val publicNodes = nodeConfigurationRepository.publicNodesFor(network, removedPublic)
                 val selectedPublic = config.selectedPublicNodeId?.takeIf { id ->
@@ -75,15 +79,14 @@ class NodeStatusViewModel @Inject constructor(
                 val selectedCustom = config.selectedCustomNodeId?.takeIf { id ->
                     customNodes.any { it.id == id }
                 }
-                val snapshotMatchesNetwork = nodeSnapshot.network == network
-                val isConnected = nodeSnapshot.status is NodeStatus.Synced && snapshotMatchesNetwork
-                val isConnecting = snapshotMatchesNetwork &&
-                    (nodeSnapshot.status is NodeStatus.Connecting ||
-                        nodeSnapshot.status is NodeStatus.Disconnecting)
+                val snapshotMatchesNetwork = connectionSnapshot.network == network
+                val isConnected = snapshotMatchesNetwork && connectionSnapshot.state == ConnectionState.CONNECTED
+                val isConnecting = snapshotMatchesNetwork && connectionSnapshot.state == ConnectionState.CONNECTING
                 val syncBusy = syncStatus.network == network &&
                     (syncStatus.isRefreshing ||
                         syncStatus.activeWalletId != null ||
                         syncStatus.queuedWalletIds.isNotEmpty())
+                val nodeSnapshot = connectionSnapshot.nodeStatus
                 SecureLog.d(TAG) {
                     "NodeStatusViewModel snapshot status=${nodeSnapshot.status} network=${nodeSnapshot.network} " +
                         "connected=$isConnected connecting=$isConnecting syncBusy=$syncBusy " +
@@ -123,9 +126,7 @@ class NodeStatusViewModel @Inject constructor(
     }
 
     fun retryNodeConnection() {
-        viewModelScope.launch {
-            walletRepository.refresh(_uiState.value.preferredNetwork)
-        }
+        connectionOrchestrator.onIntent(ConnectionIntent.Retry)
     }
 
     fun onNetworkSelected(network: BitcoinNetwork) {
@@ -149,7 +150,7 @@ class NodeStatusViewModel @Inject constructor(
                     selectedCustomNodeId = null
                 )
             }
-            walletRepository.refresh(network)
+            connectionOrchestrator.onIntent(ConnectionIntent.Start)
         }
     }
 
@@ -163,7 +164,7 @@ class NodeStatusViewModel @Inject constructor(
                     selectedCustomNodeId = null
                 )
             }
-            walletRepository.disconnect(state.preferredNetwork)
+            connectionOrchestrator.onIntent(ConnectionIntent.Disconnect)
             disconnectRequested.emit(Unit)
         }
     }
@@ -201,15 +202,13 @@ class NodeStatusViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
-            val network = _uiState.value.preferredNetwork
-            walletRepository.disconnect(network)
             nodeConfigurationRepository.updateNodeConfig { current ->
                 current.copy(
                     connectionOption = NodeConnectionOption.PUBLIC,
                     selectedPublicNodeId = nodeId
                 )
             }
-            walletRepository.refresh(network)
+            connectionOrchestrator.onIntent(ConnectionIntent.Start)
         }
     }
 
@@ -250,8 +249,11 @@ class NodeStatusViewModel @Inject constructor(
                 )
             }
             if (wasActiveSelection) {
-                walletRepository.disconnect(network)
-                fallback?.let { walletRepository.refresh(network) }
+                if (fallback != null) {
+                    connectionOrchestrator.onIntent(ConnectionIntent.Start)
+                } else {
+                    connectionOrchestrator.onIntent(ConnectionIntent.Disconnect)
+                }
             }
         }
     }
@@ -282,8 +284,7 @@ class NodeStatusViewModel @Inject constructor(
                 )
             }
             if (shouldSelectFirst && restoredSelection != null && state.nodeConnectionOption == NodeConnectionOption.PUBLIC) {
-                walletRepository.disconnect(network)
-                walletRepository.refresh(network)
+                connectionOrchestrator.onIntent(ConnectionIntent.Start)
             }
         }
     }
@@ -301,15 +302,13 @@ class NodeStatusViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
-            val network = _uiState.value.preferredNetwork
-            walletRepository.disconnect(network)
             nodeConfigurationRepository.updateNodeConfig { current ->
                 current.copy(
                     connectionOption = NodeConnectionOption.CUSTOM,
                     selectedCustomNodeId = nodeId
                 )
             }
-            walletRepository.refresh(network)
+            connectionOrchestrator.onIntent(ConnectionIntent.Start)
         }
     }
 
@@ -366,7 +365,7 @@ class NodeStatusViewModel @Inject constructor(
                 )
             }
             if (removedActive) {
-                walletRepository.refresh(_uiState.value.preferredNetwork)
+                connectionOrchestrator.onIntent(ConnectionIntent.Start)
             }
             if (_uiState.value.editingCustomNodeId == nodeId) {
                 updateEditorState {
@@ -545,7 +544,7 @@ class NodeStatusViewModel @Inject constructor(
                             customNodeFormValid = false
                         )
                     }
-                    walletRepository.refresh(_uiState.value.preferredNetwork)
+                    connectionOrchestrator.onIntent(ConnectionIntent.Start)
                 }
 
                 is NodeConnectionTestResult.Failure -> {

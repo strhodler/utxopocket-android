@@ -4,6 +4,9 @@ package com.strhodler.utxopocket.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.strhodler.utxopocket.domain.connection.ConnectionIntent
+import com.strhodler.utxopocket.domain.connection.ConnectionSnapshot
+import com.strhodler.utxopocket.domain.connection.ConnectionState
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
@@ -11,7 +14,6 @@ import com.strhodler.utxopocket.domain.model.DuressSessionState
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeStatus
-import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemeProfile
@@ -31,8 +33,8 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Compa
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.TorManager
-import com.strhodler.utxopocket.presentation.tor.TorLifecycleController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.BufferOverflow
@@ -93,6 +95,37 @@ data class IncomingPlaceholderGroup(
     val placeholders: List<IncomingTxPlaceholder>
 )
 
+internal data class StatusBarConnectionProjection(
+    val nodeStatus: NodeStatus,
+    val torStatus: TorStatus,
+    val snapshotMatchesNetwork: Boolean
+)
+
+internal fun projectStatusBarConnection(
+    connectionSnapshot: ConnectionSnapshot,
+    selectedNetwork: BitcoinNetwork,
+    duressActive: Boolean
+): StatusBarConnectionProjection {
+    if (duressActive) {
+        return StatusBarConnectionProjection(
+            nodeStatus = NodeStatus.Idle,
+            torStatus = TorStatus.Stopped,
+            snapshotMatchesNetwork = false
+        )
+    }
+
+    val snapshotMatchesNetwork = connectionSnapshot.network == selectedNetwork
+    return StatusBarConnectionProjection(
+        nodeStatus = if (snapshotMatchesNetwork) {
+            connectionSnapshot.nodeStatus.status
+        } else {
+            NodeStatus.Idle
+        },
+        torStatus = connectionSnapshot.torStatus,
+        snapshotMatchesNetwork = snapshotMatchesNetwork
+    )
+}
+
 @HiltViewModel
 class MainActivityViewModel @Inject constructor(
     private val appPreferencesRepository: AppPreferencesRepository,
@@ -103,7 +136,8 @@ class MainActivityViewModel @Inject constructor(
     private val incomingTxWatcher: IncomingTxWatcher,
     private val incomingTxCoordinator: IncomingTxCoordinator,
     private val incomingTxPreferencesRepository: IncomingTxPreferencesRepository,
-    private val duressManager: DuressManager
+    private val duressManager: DuressManager,
+    private val connectionOrchestrator: ConnectionOrchestrator
 ) : ViewModel() {
 
     private val pinEnabledState = appPreferencesRepository.pinLockEnabled.stateIn(
@@ -192,16 +226,6 @@ class MainActivityViewModel @Inject constructor(
             started = SharingStarted.Eagerly,
             initialValue = emptyMap()
         )
-    private val torLifecycleController = TorLifecycleController(
-        scope = viewModelScope,
-        torManager = torManager,
-        refreshWallets = { network -> walletRepository.refresh(network) },
-        nodeConfigFlow = nodeConfigurationRepository.nodeConfig,
-        networkFlow = appPreferencesRepository.preferredNetwork,
-        networkStatusFlow = networkStatusMonitor.isOnline,
-        syncStatusFlow = walletRepository.observeSyncStatus()
-    )
-
     // Skips the next lock refresh when the activity is recreated without leaving the app
     // (e.g., configuration changes like orientation).
     private var skipNextLockRefresh = false
@@ -231,7 +255,6 @@ class MainActivityViewModel @Inject constructor(
                 lockState.value = shouldLock
             }
         }
-        torLifecycleController.start()
         refreshLockState()
         viewModelScope.launch {
             incomingTxCoordinator.sheetTriggers.collect { _ ->
@@ -282,8 +305,7 @@ class MainActivityViewModel @Inject constructor(
 
     val uiState: StateFlow<AppEntryUiState> = combine(
         onboardingCompletedState,
-        torManager.status,
-        walletRepository.observeNodeStatus(),
+        connectionOrchestrator.snapshot,
         walletRepository.observeSyncStatus(),
         appPreferencesRepository.preferredNetwork,
         torManager.latestLog,
@@ -293,7 +315,6 @@ class MainActivityViewModel @Inject constructor(
         pinEnabledState,
         lockState,
         nodeConfigurationRepository.nodeConfig,
-        networkStatusMonitor.isOnline,
         appPreferencesRepository.hapticsEnabled,
         appPreferencesRepository.pinShuffleEnabled,
         appPreferencesRepository.balanceUnit,
@@ -303,42 +324,41 @@ class MainActivityViewModel @Inject constructor(
         duressState
     ) { values ->
         val onboarding = values[0] as Boolean
-        val torStatus = values[1] as TorStatus
-        val nodeSnapshot = values[2] as NodeStatusSnapshot
-        val syncStatus = values[3] as SyncStatusSnapshot
-        val network = values[4] as BitcoinNetwork
-        val torLog = values[5] as String
-        val themePreference = values[6] as ThemePreference
-        val themeProfile = values[7] as ThemeProfile
-        val appLanguage = values[8] as AppLanguage
-        val pinEnabled = values[9] as Boolean
-        val locked = values[10] as Boolean
-        val nodeConfig = values[11] as NodeConfig
-        val isNetworkOnline = values[12] as Boolean
-        val hapticsEnabled = values[13] as Boolean
-        val pinShuffleEnabled = values[14] as Boolean
-        val balanceUnit = values[15] as BalanceUnit
-        val balancesHidden = values[16] as Boolean
-        val incomingTxCount = values[17] as Int
-        val incomingGroups = values[18] as List<IncomingPlaceholderGroup>
-        val duress = values[19] as DuressSessionState
+        val connectionSnapshot = values[1] as ConnectionSnapshot
+        val syncStatus = values[2] as SyncStatusSnapshot
+        val network = values[3] as BitcoinNetwork
+        val torLog = values[4] as String
+        val themePreference = values[5] as ThemePreference
+        val themeProfile = values[6] as ThemeProfile
+        val appLanguage = values[7] as AppLanguage
+        val pinEnabled = values[8] as Boolean
+        val locked = values[9] as Boolean
+        val nodeConfig = values[10] as NodeConfig
+        val hapticsEnabled = values[11] as Boolean
+        val pinShuffleEnabled = values[12] as Boolean
+        val balanceUnit = values[13] as BalanceUnit
+        val balancesHidden = values[14] as Boolean
+        val incomingTxCount = values[15] as Int
+        val incomingGroups = values[16] as List<IncomingPlaceholderGroup>
+        val duress = values[17] as DuressSessionState
         val duressActive = duress is DuressSessionState.FakeActive
 
-        val snapshotMatchesNetwork = nodeSnapshot.network == network
-        val effectiveNodeStatus = if (duressActive) {
-            NodeStatus.Idle
-        } else if (snapshotMatchesNetwork) {
-            nodeSnapshot.status
-        } else {
-            NodeStatus.Idle
-        }
+        val statusProjection = projectStatusBarConnection(
+            connectionSnapshot = connectionSnapshot,
+            selectedNetwork = network,
+            duressActive = duressActive
+        )
+        val nodeSnapshot = connectionSnapshot.nodeStatus
+        val snapshotMatchesNetwork = statusProjection.snapshotMatchesNetwork
+        val effectiveNodeStatus = statusProjection.nodeStatus
+        val effectiveTorStatus = statusProjection.torStatus
+        val isNetworkOnline = if (duressActive) false else connectionSnapshot.isOnline
         val isSyncing = !duressActive &&
             syncStatus.network == network &&
-            nodeSnapshot.status is NodeStatus.Synced &&
+            effectiveNodeStatus is NodeStatus.Synced &&
             (syncStatus.isRefreshing || syncStatus.activeWalletId != null || syncStatus.refreshingWalletIds.isNotEmpty())
         val torRequired = !duressActive && nodeConfig.requiresTor(network)
 
-        val effectiveTorStatus = if (duressActive) TorStatus.Stopped else torStatus
         val effectiveTorLog = when (effectiveTorStatus) {
             is TorStatus.Connecting,
             is TorStatus.Running -> torLog
@@ -357,21 +377,21 @@ class MainActivityViewModel @Inject constructor(
                 isSyncing = isSyncing,
                 nodeBlockHeight = nodeSnapshot.blockHeight.takeIf { snapshotMatchesNetwork },
                 nodeFeeRateSatPerVb = nodeSnapshot.feeRateSatPerVb.takeIf { snapshotMatchesNetwork },
-            nodeEndpoint = nodeSnapshot.endpoint.takeIf { snapshotMatchesNetwork },
-            nodeServerInfo = nodeSnapshot.serverInfo.takeIf { snapshotMatchesNetwork },
+                nodeEndpoint = nodeSnapshot.endpoint.takeIf { snapshotMatchesNetwork },
+                nodeServerInfo = nodeSnapshot.serverInfo.takeIf { snapshotMatchesNetwork },
                 nodeLastSync = nodeSnapshot.lastSyncCompletedAt.takeIf { snapshotMatchesNetwork },
                 network = network,
                 torRequired = torRequired,
                 isNetworkOnline = isNetworkOnline,
                 incomingTxCount = effectiveIncomingCount,
                 incomingPlaceholderGroups = effectiveIncomingGroups
-        ),
-        themePreference = themePreference,
-        themeProfile = themeProfile,
-        appLanguage = appLanguage,
-        balanceUnit = balanceUnit,
-        balancesHidden = balancesHidden,
-        pinLockEnabled = pinEnabled,
+            ),
+            themePreference = themePreference,
+            themeProfile = themeProfile,
+            appLanguage = appLanguage,
+            balanceUnit = balanceUnit,
+            balancesHidden = balancesHidden,
+            pinLockEnabled = pinEnabled,
             hapticsEnabled = hapticsEnabled,
             pinShuffleEnabled = pinShuffleEnabled,
             appLocked = pinEnabled && locked && onboarding,
@@ -398,6 +418,7 @@ class MainActivityViewModel @Inject constructor(
         wasBackgrounded = false
         walletRepository.setSyncForegroundState(true)
         incomingTxWatcher.setForeground(true)
+        connectionOrchestrator.onIntent(ConnectionIntent.OnAppForeground)
         viewModelScope.launch {
             resumeNodeIfNeeded()
             refreshNodeMetadataIfActive()
@@ -487,7 +508,7 @@ class MainActivityViewModel @Inject constructor(
         }
         viewModelScope.launch {
             appPreferencesRepository.setPreferredNetwork(network)
-            walletRepository.refresh(network)
+            connectionOrchestrator.onIntent(ConnectionIntent.Start)
         }
     }
 
@@ -504,9 +525,7 @@ class MainActivityViewModel @Inject constructor(
         ) {
             return
         }
-        viewModelScope.launch {
-            walletRepository.refresh(status.network)
-        }
+        connectionOrchestrator.onIntent(ConnectionIntent.Retry)
     }
 
     private suspend fun resumeNodeIfNeeded() {
@@ -518,11 +537,11 @@ class MainActivityViewModel @Inject constructor(
         if (!config.hasActiveSelection(preferredNetwork)) {
             return
         }
-        val nodeSnapshot = walletRepository.observeNodeStatus().first()
-        val snapshotMatchesNetwork = nodeSnapshot.network == preferredNetwork
-        val isConnected = snapshotMatchesNetwork && nodeSnapshot.status is NodeStatus.Synced
+        val connectionSnapshot = connectionOrchestrator.snapshot.value
+        val snapshotMatchesNetwork = connectionSnapshot.network == preferredNetwork
+        val isConnected = snapshotMatchesNetwork && connectionSnapshot.state == ConnectionState.CONNECTED
         if (!isConnected) {
-            walletRepository.refresh(preferredNetwork)
+            connectionOrchestrator.onIntent(ConnectionIntent.Start)
         }
     }
 
@@ -552,7 +571,7 @@ class MainActivityViewModel @Inject constructor(
         if (!isOnline || !nodeConfig.hasActiveSelection(preferredNetwork)) {
             return
         }
-        walletRepository.refresh(preferredNetwork)
+        connectionOrchestrator.onIntent(ConnectionIntent.Start)
     }
 
     private fun refreshLockState() {
@@ -591,8 +610,7 @@ class MainActivityViewModel @Inject constructor(
             incomingTxWatcher.setForeground(true)
             startNodeMetadataPolling()
             resumeNodeIfNeeded()
-            val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
-            walletRepository.refresh(preferredNetwork)
+            connectionOrchestrator.onIntent(ConnectionIntent.Start)
         }
     }
 

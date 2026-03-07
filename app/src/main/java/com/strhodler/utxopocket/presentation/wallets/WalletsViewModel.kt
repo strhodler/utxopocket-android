@@ -4,6 +4,7 @@ package com.strhodler.utxopocket.presentation.wallets
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.strhodler.utxopocket.domain.connection.ConnectionSnapshot
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.DescriptorType
@@ -11,7 +12,6 @@ import com.strhodler.utxopocket.domain.model.DuressSessionState
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.WalletSummary
-import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.NodeConfig
@@ -23,8 +23,8 @@ import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.DuressManager
-import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.presentation.wallets.sync.WalletSyncState
 import com.strhodler.utxopocket.presentation.wallets.sync.resolveWalletSyncState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,7 +45,7 @@ private const val DURESS_FAKE_LAST_SYNC_OFFSET_MS = (2 * 60 * 60 * 1000L) + (37 
 @HiltViewModel
 class WalletsViewModel @Inject constructor(
     private val walletRepository: WalletRepository,
-    private val torManager: TorManager,
+    private val connectionOrchestrator: ConnectionOrchestrator,
     private val appPreferencesRepository: AppPreferencesRepository,
     private val nodeConfigurationRepository: NodeConfigurationRepository,
     private val duressManager: DuressManager
@@ -106,16 +106,14 @@ class WalletsViewModel @Inject constructor(
     private val walletSnapshot = combine(
         combine(
             walletData,
-            walletRepository.observeNodeStatus(),
             walletRepository.observeSyncStatus(),
-            torManager.status,
+            connectionOrchestrator.snapshot,
             appPreferencesRepository.balanceUnit
-        ) { data, nodeSnapshot, syncStatus, torStatus, balanceUnit ->
+        ) { data, syncStatus, connectionSnapshot, balanceUnit ->
             WalletSnapshotBase(
                 data = data,
-                nodeSnapshot = nodeSnapshot,
                 syncStatus = syncStatus,
-                torStatus = torStatus,
+                connectionSnapshot = connectionSnapshot,
                 balanceUnit = balanceUnit,
                 balancesHidden = false,
                 hapticsEnabled = true
@@ -129,9 +127,8 @@ class WalletsViewModel @Inject constructor(
     }.combine(nodeConfigurationRepository.nodeConfig) { base, nodeConfig ->
         WalletSnapshot(
             data = base.data,
-            nodeSnapshot = base.nodeSnapshot,
             syncStatus = base.syncStatus,
-            torStatus = base.torStatus,
+            connectionSnapshot = base.connectionSnapshot,
             balanceUnit = base.balanceUnit,
             balancesHidden = base.balancesHidden,
             hapticsEnabled = base.hapticsEnabled,
@@ -146,9 +143,10 @@ class WalletsViewModel @Inject constructor(
 
     val uiState: StateFlow<WalletsUiState> = walletSnapshot.map { snapshot ->
         val data = snapshot.data
-        val nodeSnapshot = snapshot.nodeSnapshot
         val syncStatus = snapshot.syncStatus
-        val torStatus = snapshot.torStatus
+        val connectionSnapshot = snapshot.connectionSnapshot
+        val nodeSnapshot = connectionSnapshot.nodeStatus
+        val torStatus = connectionSnapshot.torStatus
         val balanceUnit = snapshot.balanceUnit
         val hapticsEnabled = snapshot.hapticsEnabled
         val duressActive = snapshot.duressState is DuressSessionState.FakeActive
@@ -193,6 +191,7 @@ class WalletsViewModel @Inject constructor(
         }
         val errorMessage = when {
             duressActive -> null
+            connectionSnapshot.errorMessage != null -> connectionSnapshot.errorMessage
             snapshotMatchesNetwork && effectiveNodeStatus is NodeStatus.Error -> effectiveNodeStatus.message
             torError != null -> torError
             else -> null
@@ -203,7 +202,7 @@ class WalletsViewModel @Inject constructor(
             resolveConnectedNodeLabel(
                 nodeConfig = snapshot.nodeConfig,
                 network = data.network
-            ) ?: snapshot.nodeSnapshot.endpoint?.substringAfter("://")?.trimEnd('/')
+            ) ?: connectionSnapshot.nodeStatus.endpoint?.substringAfter("://")?.trimEnd('/')
         }
         val activeOperation = if (!duressActive && syncStatus.network == data.network) {
             syncStatus.activeOperation
@@ -287,9 +286,8 @@ class WalletsViewModel @Inject constructor(
 
     private data class WalletSnapshot(
         val data: WalletData,
-        val nodeSnapshot: NodeStatusSnapshot,
         val syncStatus: SyncStatusSnapshot,
-        val torStatus: TorStatus,
+        val connectionSnapshot: ConnectionSnapshot,
         val balanceUnit: BalanceUnit,
         val balancesHidden: Boolean,
         val hapticsEnabled: Boolean,
@@ -300,9 +298,8 @@ class WalletsViewModel @Inject constructor(
 
     private data class WalletSnapshotBase(
         val data: WalletData,
-        val nodeSnapshot: NodeStatusSnapshot,
         val syncStatus: SyncStatusSnapshot,
-        val torStatus: TorStatus,
+        val connectionSnapshot: ConnectionSnapshot,
         val balanceUnit: BalanceUnit,
         val balancesHidden: Boolean,
         val hapticsEnabled: Boolean

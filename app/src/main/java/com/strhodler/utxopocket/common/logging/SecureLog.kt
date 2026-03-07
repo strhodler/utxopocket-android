@@ -19,7 +19,7 @@ object SecureLog {
      */
     inline fun d(tag: String, message: () -> String) {
         if (enabled()) {
-            Log.d(tag, message())
+            emit { Log.d(tag, message()) }
         }
     }
 
@@ -28,7 +28,7 @@ object SecureLog {
      */
     inline fun i(tag: String, message: () -> String) {
         if (enabled()) {
-            Log.i(tag, message())
+            emit { Log.i(tag, message()) }
         }
     }
 
@@ -38,9 +38,9 @@ object SecureLog {
     inline fun w(tag: String, throwable: Throwable? = null, message: () -> String) {
         if (enabled()) {
             if (throwable != null) {
-                Log.w(tag, message(), throwable)
+                emit { Log.w(tag, message(), throwable) }
             } else {
-                Log.w(tag, message())
+                emit { Log.w(tag, message()) }
             }
         }
     }
@@ -51,9 +51,9 @@ object SecureLog {
     inline fun e(tag: String, throwable: Throwable? = null, message: () -> String) {
         if (enabled()) {
             if (throwable != null) {
-                Log.e(tag, message(), throwable)
+                emit { Log.e(tag, message(), throwable) }
             } else {
-                Log.e(tag, message())
+                emit { Log.e(tag, message()) }
             }
         }
     }
@@ -62,42 +62,59 @@ object SecureLog {
     @JvmStatic
     fun d(tag: String, message: String) {
         if (enabled()) {
-            Log.d(tag, message)
+            emit { Log.d(tag, message) }
         }
     }
 
     @JvmStatic
     fun i(tag: String, message: String) {
         if (enabled()) {
-            Log.i(tag, message)
+            emit { Log.i(tag, message) }
         }
     }
 
     @JvmStatic
     fun w(tag: String, message: String) {
         if (enabled()) {
-            Log.w(tag, message)
+            emit { Log.w(tag, message) }
         }
     }
 
     @JvmStatic
     fun w(tag: String, throwable: Throwable, message: String) {
         if (enabled()) {
-            Log.w(tag, message, throwable)
+            emit { Log.w(tag, message, throwable) }
         }
     }
 
     @JvmStatic
     fun e(tag: String, message: String) {
         if (enabled()) {
-            Log.e(tag, message)
+            emit { Log.e(tag, message) }
         }
     }
 
     @JvmStatic
     fun e(tag: String, throwable: Throwable, message: String) {
         if (enabled()) {
-            Log.e(tag, message, throwable)
+            emit { Log.e(tag, message, throwable) }
         }
+    }
+
+    @PublishedApi
+    internal inline fun emit(block: () -> Unit) {
+        try {
+            block()
+        } catch (error: RuntimeException) {
+            if (!isAndroidStubFailure(error)) {
+                throw error
+            }
+        }
+    }
+
+    @PublishedApi
+    internal fun isAndroidStubFailure(error: RuntimeException): Boolean {
+        val message = error.message ?: return false
+        return message.contains("Method") && message.contains("not mocked")
     }
 }

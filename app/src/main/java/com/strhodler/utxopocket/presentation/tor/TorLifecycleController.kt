@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
+@Deprecated(
+    message = "Connection lifecycle moved to ConnectionOrchestratorV2; keep only for legacy compatibility"
+)
 class TorLifecycleController @Inject constructor(
     private val scope: CoroutineScope,
     private val torManager: TorManager,

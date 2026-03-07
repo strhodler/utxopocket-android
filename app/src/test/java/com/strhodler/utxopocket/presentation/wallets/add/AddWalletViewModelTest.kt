@@ -15,6 +15,7 @@ import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.ThemeProfile
@@ -392,7 +393,7 @@ private class FakeWalletRepository : WalletRepository {
         )
 
     override suspend fun refresh(network: BitcoinNetwork) = Unit
-    override suspend fun refreshWallet(walletId: Long) = Unit
+    override suspend fun refreshWallet(walletId: Long, operation: SyncOperation) = Unit
     override suspend fun disconnect(network: BitcoinNetwork) = Unit
     override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
 
@@ -453,6 +454,8 @@ private class FakeWalletRepository : WalletRepository {
         Bip329ImportResult(0, 0, 0, 0, 0, 0)
 
     override fun setSyncForegroundState(isForeground: Boolean) = Unit
+
+    override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> = null to null
 }
 
 private class FakeAppPreferencesRepository : AppPreferencesRepository {

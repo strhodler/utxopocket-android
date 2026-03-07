@@ -23,4 +23,4 @@ keywords: [tor, node, electrum, connectivity, networking]
 ## Connectivity checks
 - Compare the reported block height and fee rate in the app bar with another trusted source. Large mismatches indicate a stale or malicious server.
 - Renew your Tor identity from the Tor status screen if you suspect the circuit is sluggish or the server is unreachable.
-- Keep at least one fallback server configured. If the primary onion host is down, switching to a known-good peer keeps monitoring uninterrupted.
+- Keep at least one fallback server configured. If the primary onion host is down, switch to a known-good peer manually. UtxoPocket does not auto-rotate presets.

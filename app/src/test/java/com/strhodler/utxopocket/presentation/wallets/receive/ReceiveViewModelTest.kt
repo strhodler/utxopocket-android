@@ -6,10 +6,12 @@ import com.strhodler.utxopocket.domain.model.AddressUsage
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
+import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
+import com.strhodler.utxopocket.domain.model.WalletColor
 import com.strhodler.utxopocket.domain.model.WalletDetail
 import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
 import com.strhodler.utxopocket.domain.model.WalletSummary
@@ -265,7 +267,7 @@ private class FakeWalletRepository : WalletRepository {
 
     override suspend fun refresh(network: BitcoinNetwork) = Unit
 
-    override suspend fun refreshWallet(walletId: Long) = Unit
+    override suspend fun refreshWallet(walletId: Long, operation: SyncOperation) = Unit
 
     override suspend fun disconnect(network: BitcoinNetwork) = Unit
 

@@ -270,7 +270,6 @@ class DefaultWalletRepository @Inject constructor(
             isWalletDeletionPending = ::isWalletDeletionPending,
             isSyncAllowed = ::isSyncAllowed,
             maxFullScanStopGap = MAX_FULL_SCAN_STOP_GAP,
-            applicationContext = applicationContext,
             ioDispatcher = ioDispatcher,
             logTag = TAG
         )

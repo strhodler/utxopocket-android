@@ -104,8 +104,11 @@ private class FakeNodeConfigRepository(
 
     override val nodeConfig: Flow<NodeConfig> = state
 
-    override fun publicNodesFor(network: BitcoinNetwork): List<PublicNode> =
-        publicNodes[network] ?: emptyList()
+    override fun publicNodesFor(
+        network: BitcoinNetwork,
+        excludedIds: Set<String>
+    ): List<PublicNode> =
+        publicNodes[network].orEmpty().filterNot { it.id in excludedIds }
 
     override suspend fun updateNodeConfig(mutator: (NodeConfig) -> NodeConfig) {
         state.value = mutator(state.value)
