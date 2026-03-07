@@ -145,7 +145,7 @@ class WalletDetailViewModelRangeTest {
         }
     }
 
-    private class InMemoryIncomingTxPlaceholderRepository : IncomingTxPlaceholderRepository {
+    internal class InMemoryIncomingTxPlaceholderRepository : IncomingTxPlaceholderRepository {
         private val state = MutableStateFlow<Map<Long, List<IncomingTxPlaceholder>>>(emptyMap())
         override val placeholders: Flow<Map<Long, List<IncomingTxPlaceholder>>> = state
 
@@ -160,7 +160,7 @@ class WalletDetailViewModelRangeTest {
         }
     }
 
-    private class InMemoryUtxoCanvasRepository : UtxoCanvasRepository {
+    internal class InMemoryUtxoCanvasRepository : UtxoCanvasRepository {
         private val snapshot = UtxoCanvasSnapshot(
             collections = emptyList(),
             memberships = emptyList(),
@@ -365,7 +365,7 @@ class WalletDetailViewModelRangeTest {
         override fun onIntent(intent: ConnectionIntent) = Unit
     }
 
-    private class RecordingAppPreferencesRepository : AppPreferencesRepository {
+    internal class RecordingAppPreferencesRepository : AppPreferencesRepository {
         private val onboardingCompletedState = MutableStateFlow(true)
         private val preferredNetworkState = MutableStateFlow(BitcoinNetwork.TESTNET)
         private val pinLockEnabledState = MutableStateFlow(false)
@@ -603,7 +603,7 @@ class WalletDetailViewModelRangeTest {
         }
     }
 
-    private class InMemoryWalletSyncPreferencesRepository : WalletSyncPreferencesRepository {
+    internal class InMemoryWalletSyncPreferencesRepository : WalletSyncPreferencesRepository {
         private val state = MutableStateFlow<Map<Long, Int>>(emptyMap())
         override suspend fun setGap(walletId: Long, gap: Int) {
             state.value = state.value.toMutableMap().apply { put(walletId, gap) }

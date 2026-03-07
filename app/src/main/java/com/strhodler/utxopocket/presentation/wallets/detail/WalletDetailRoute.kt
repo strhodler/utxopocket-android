@@ -463,7 +463,7 @@ fun WalletDetailRoute(
                         onClick = {
                             menuExpanded = false
                             val summary = state.summary
-                            if (forceRescanInProgress || summary?.requiresFullScan == true || summary == null || state.isRefreshing) {
+                            if (summary == null) {
                                 return@DropdownMenuItem
                             }
                             val gapForRescan = resolveSyncGap(state.syncGap, summary)
@@ -579,9 +579,7 @@ fun WalletDetailRoute(
                     hasChartData = state.displayBalancePoints.isNotEmpty(),
                     showBalanceChart = state.showBalanceChart,
                     onSyncClick = {
-                        if (!state.isRefreshing && !state.isQueued) {
-                            viewModel.refresh()
-                        }
+                        viewModel.refresh()
                     },
                     onToggleChart = { viewModel.setShowBalanceChart(!state.showBalanceChart) },
                     onReceiveClick = { onOpenReceive(walletId) },
