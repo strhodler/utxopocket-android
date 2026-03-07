@@ -15,11 +15,14 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class WalletDaoTest {
 
-    private lateinit var database: UtxoPocketDatabase
+    private var database: UtxoPocketDatabase? = null
     private lateinit var walletDao: WalletDao
 
     @BeforeTest
@@ -28,12 +31,13 @@ class WalletDaoTest {
         database = Room.inMemoryDatabaseBuilder(context, UtxoPocketDatabase::class.java)
             .allowMainThreadQueries()
             .build()
-        walletDao = database.walletDao()
+        walletDao = requireNotNull(database).walletDao()
     }
 
     @AfterTest
     fun tearDown() {
-        database.close()
+        database?.close()
+        database = null
     }
 
     @Test

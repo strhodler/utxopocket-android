@@ -33,10 +33,14 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -71,11 +75,13 @@ class ReceiveViewModelTest {
         repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
 
         val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertFalse(state.isLoading)
         assertEquals(primaryDetail, state.address)
+        observer.cancel()
     }
 
     @Test
@@ -85,6 +91,7 @@ class ReceiveViewModelTest {
         repository.unusedAddresses = listOf(primaryAddress)
         repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
         val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
         advanceUntilIdle()
 
         repository.nextAddress = secondaryAddress
@@ -96,6 +103,7 @@ class ReceiveViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(secondaryDetail, state.address)
         assertFalse(state.isAdvancing)
+        observer.cancel()
     }
 
     @Test
@@ -105,12 +113,14 @@ class ReceiveViewModelTest {
         repository.unusedAddresses = emptyList()
 
         val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertFalse(state.isLoading)
         assertNull(state.address)
         assertIs<ReceiveError.NoAddress>(state.error)
+        observer.cancel()
     }
 
     @Test
@@ -134,10 +144,12 @@ class ReceiveViewModelTest {
         )
 
         val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertEquals(secondaryDetail, state.address)
+        observer.cancel()
     }
 
     @Test
@@ -147,6 +159,7 @@ class ReceiveViewModelTest {
         repository.unusedAddresses = listOf(primaryAddress)
         repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
         val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
         advanceUntilIdle()
 
         repository.nextAddress = secondaryAddress
@@ -166,7 +179,13 @@ class ReceiveViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(secondaryDetail, state.address)
         assertFalse(state.isAdvancing)
+        observer.cancel()
     }
+
+    private fun TestScope.observeUiState(viewModel: ReceiveViewModel): Job =
+        backgroundScope.launch {
+            viewModel.uiState.collect {}
+        }
 
     private fun createViewModel(): ReceiveViewModel {
         val handle = SavedStateHandle(mapOf(WalletsNavigation.WalletIdArg to 1L))

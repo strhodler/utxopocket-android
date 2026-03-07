@@ -38,6 +38,7 @@ paging = "3.4.1"
 jbox2d = "2.2.1.1"
 identikon = "1.0.0"
 tink = "1.20.0"
+robolectric = "4.14.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -96,6 +97,7 @@ jbox2d-library = { group = "org.jbox2d", name = "jbox2d-library", version.ref = 
 identikon = { group = "io.github.thibseisel.identikon", name = "identikon", version.ref = "identikon" }
 google-tink-android = { group = "com.google.crypto.tink", name = "tink-android", version.ref = "tink" }
 koalaplot-core = { group = "io.github.koalaplot", name = "koalaplot-core", version.ref = "koalaplot" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

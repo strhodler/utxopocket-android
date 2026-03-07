@@ -41,8 +41,8 @@ class NodeEndpointClassifierTest {
     }
 
     @Test
-    fun detectsLocalHostnames() {
+    fun treatsMdnsHostnamesAsPublic() {
         val normalized = NodeEndpointClassifier.normalize("ssl://mynode.local:50002")
-        assertEquals(EndpointKind.LOCAL, normalized.kind)
+        assertEquals(EndpointKind.PUBLIC, normalized.kind)
     }
 }

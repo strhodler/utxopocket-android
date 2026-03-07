@@ -71,7 +71,6 @@ class AddWalletViewModelTest {
         "wpkh([4ebcb1eb/84'/1'/0']tpubDC2Q4xK4XH72JGuTT792eTfxBibfTyyLCK3HYwdmJXJY1bKKvQ1y6Fgrd78EBYtFUJmZRAEBpuJp3SGMJ2QpYeaGmgQAfDGcTaqmYtD9uP6/1/*)#yepzsleq"
     private val sampleXpub =
         "xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9YwgmzM2dVn1EzvQnUnxekxXGr1XcsU8ZP8KX2HFqRSbuuSSMzdg3NofM8JrjVNewc19h"
-    private val scriptTypeRequiredMessage = "Select the script type that matches your wallet export."
 
     @BeforeTest
     fun setUp() {
@@ -264,7 +263,7 @@ class AddWalletViewModelTest {
     }
 
     @Test
-    fun extendedKeyDetectionRequiresManualScriptSelectionBeforeValidation() = runTest {
+    fun extendedKeyDetectionPrefillsScriptSelectionAndValidates() = runTest {
         val expectedDescriptor = "pkh($sampleXpub/0/*)"
         val expectedChange = "pkh($sampleXpub/1/*)"
         walletRepository.validationResult = DescriptorValidationResult.Valid(
@@ -280,10 +279,10 @@ class AddWalletViewModelTest {
         val initialState = viewModel.uiState.value
         assertEquals(WalletImportMode.EXTENDED_KEY, initialState.importMode)
         assertEquals(sampleXpub, initialState.extendedForm.extendedKey)
-        assertNull(initialState.extendedForm.scriptType)
-        assertEquals(scriptTypeRequiredMessage, initialState.extendedForm.errorMessage)
+        assertEquals(ExtendedKeyScriptType.P2PKH, initialState.extendedForm.scriptType)
+        assertNull(initialState.extendedForm.errorMessage)
         val dialog = assertNotNull(initialState.extendedDialog)
-        assertNull(dialog.selectedType)
+        assertEquals(ExtendedKeyScriptType.P2PKH, dialog.selectedType)
 
         viewModel.onExtendedDialogTypeSelected(ExtendedKeyScriptType.P2PKH)
         viewModel.onExtendedDialogConfirmed()
@@ -296,13 +295,13 @@ class AddWalletViewModelTest {
     }
 
     @Test
-    fun extendedKeyModeRequiresExtendedKeyButKeepsGlobalErrorClear() = runTest {
+    fun extendedKeyModeKeepsGlobalAndFieldErrorsClearUntilInput() = runTest {
         viewModel.onImportModeSelected(WalletImportMode.EXTENDED_KEY)
 
         val state = viewModel.uiState.value
         assertEquals(WalletImportMode.EXTENDED_KEY, state.importMode)
         assertNull(state.formError)
-        assertEquals("Extended public key is required for Extended Key import.", state.extendedForm.errorMessage)
+        assertNull(state.extendedForm.errorMessage)
     }
 
     @Test
