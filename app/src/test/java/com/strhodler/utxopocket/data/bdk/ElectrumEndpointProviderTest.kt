@@ -13,7 +13,6 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 
 class ElectrumEndpointProviderTest {
 
@@ -42,7 +41,7 @@ class ElectrumEndpointProviderTest {
     }
 
     @Test
-    fun rotatesToNextPresetWhenRequested() = runTest {
+    fun usesSelectedPublicPresetWithoutMutatingSelection() = runTest {
         val publicNodes = listOf(
             PublicNode(
                 id = "a",
@@ -63,18 +62,19 @@ class ElectrumEndpointProviderTest {
         )
         val provider = ElectrumEndpointProvider(repository)
 
-        val rotated = provider.rotateToNextPreset(BitcoinNetwork.TESTNET, "a")
-
-        assertEquals("b", rotated?.id)
         val endpoint = provider.endpointFor(BitcoinNetwork.TESTNET)
-        assertEquals("ssl://beta:50002", endpoint.url)
-        assertEquals("b", endpoint.nodeId)
+        val endpointAfterSecondRead = provider.endpointFor(BitcoinNetwork.TESTNET)
+
+        assertEquals("ssl://alpha:50002", endpoint.url)
+        assertEquals("a", endpoint.nodeId)
+        assertEquals(endpoint, endpointAfterSecondRead)
+        assertEquals("a", repository.currentConfig().selectedPublicNodeId)
     }
 
     @Test
-    fun rotationSkipsWhenOnlyOnePresetAvailable() = runTest {
+    fun fallsBackToFirstPublicPresetWhenSelectionMissing() = runTest {
         val repository = FakeNodeConfigRepository(
-            NodeConfig(connectionOption = NodeConnectionOption.PUBLIC, selectedPublicNodeId = "solo"),
+            NodeConfig(connectionOption = NodeConnectionOption.PUBLIC, selectedPublicNodeId = "missing"),
             publicNodes = mapOf(
                 BitcoinNetwork.MAINNET to listOf(
                     PublicNode(
@@ -88,10 +88,8 @@ class ElectrumEndpointProviderTest {
         )
         val provider = ElectrumEndpointProvider(repository)
 
-        val rotated = provider.rotateToNextPreset(BitcoinNetwork.MAINNET, "solo")
-
-        assertNull(rotated)
         val endpoint = provider.endpointFor(BitcoinNetwork.MAINNET)
+
         assertEquals("solo", endpoint.nodeId)
     }
 }
@@ -113,4 +111,6 @@ private class FakeNodeConfigRepository(
     override suspend fun updateNodeConfig(mutator: (NodeConfig) -> NodeConfig) {
         state.value = mutator(state.value)
     }
+
+    fun currentConfig(): NodeConfig = state.value
 }

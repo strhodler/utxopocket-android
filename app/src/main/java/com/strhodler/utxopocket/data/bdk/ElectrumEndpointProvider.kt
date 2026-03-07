@@ -4,7 +4,6 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeTransport
-import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.customNodesFor
 import com.strhodler.utxopocket.domain.model.removedPublicNodesFor
 import com.strhodler.utxopocket.domain.model.activeTransport
@@ -25,42 +24,6 @@ class ElectrumEndpointProvider @Inject constructor(
             NodeConnectionOption.PUBLIC -> publicEndpoint(network, config)
             NodeConnectionOption.CUSTOM -> customEndpoint(config, network) ?: publicEndpoint(network, config)
         }
-    }
-
-    suspend fun rotateToNextPreset(
-        network: BitcoinNetwork,
-        failedNodeId: String?
-    ): PublicNode? {
-        val config = nodeConfigurationRepository.nodeConfig.first()
-        val available = nodeConfigurationRepository.publicNodesFor(
-            network,
-            config.removedPublicNodesFor(network)
-        )
-        if (available.size <= 1) {
-            return null
-        }
-        if (config.connectionOption != NodeConnectionOption.PUBLIC) {
-            return null
-        }
-        val currentId = failedNodeId ?: config.selectedPublicNodeId ?: available.first().id
-        val currentIndex = available.indexOfFirst { it.id == currentId }
-        val nextIndex = if (currentIndex >= 0) {
-            (currentIndex + 1) % available.size
-        } else {
-            0
-        }
-        if (currentIndex == nextIndex) {
-            return null
-        }
-        val nextNode = available[nextIndex]
-        nodeConfigurationRepository.updateNodeConfig { existing ->
-            if (existing.connectionOption != NodeConnectionOption.PUBLIC) {
-                existing
-            } else {
-                existing.copy(selectedPublicNodeId = nextNode.id)
-            }
-        }
-        return nextNode
     }
 
     private fun publicEndpoint(network: BitcoinNetwork, config: NodeConfig): ElectrumEndpoint {
