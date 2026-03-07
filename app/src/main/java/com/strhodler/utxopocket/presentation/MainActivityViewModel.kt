@@ -52,8 +52,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.Job
 import kotlin.time.Duration.Companion.minutes
 
 data class StatusBarUiState(
@@ -233,7 +231,6 @@ class MainActivityViewModel @Inject constructor(
     private var wasBackgrounded = true
     // When true, ignore the next background event (used for config changes).
     private var ignoreNextBackgroundEvent = false
-    private var nodeMetadataPollJob: Job? = null
     private var lastDuressState: DuressSessionState = DuressSessionState.Inactive
 
     init {
@@ -411,7 +408,6 @@ class MainActivityViewModel @Inject constructor(
         if (isDuressActive()) {
             walletRepository.setSyncForegroundState(false)
             incomingTxWatcher.setForeground(false)
-            stopNodeMetadataPolling()
             return
         }
         skipNextLockRefresh = false
@@ -421,9 +417,7 @@ class MainActivityViewModel @Inject constructor(
         connectionOrchestrator.onIntent(ConnectionIntent.OnAppForeground)
         viewModelScope.launch {
             resumeNodeIfNeeded()
-            refreshNodeMetadataIfActive()
         }
-        startNodeMetadataPolling()
     }
 
     fun onAppBackgrounded(fromConfigurationChange: Boolean = false) {
@@ -431,7 +425,6 @@ class MainActivityViewModel @Inject constructor(
         ignoreNextBackgroundEvent = fromConfigurationChange
         walletRepository.setSyncForegroundState(false)
         incomingTxWatcher.setForeground(false)
-        stopNodeMetadataPolling()
     }
 
     fun onAppSentToBackground() {
@@ -545,35 +538,6 @@ class MainActivityViewModel @Inject constructor(
         }
     }
 
-    private fun startNodeMetadataPolling() {
-        if (isDuressActive()) return
-        if (nodeMetadataPollJob?.isActive == true) return
-        nodeMetadataPollJob = viewModelScope.launch {
-            while (true) {
-                refreshNodeMetadataIfActive()
-                delay(NODE_METADATA_POLL_INTERVAL_MS)
-            }
-        }
-    }
-
-    private fun stopNodeMetadataPolling() {
-        nodeMetadataPollJob?.cancel()
-        nodeMetadataPollJob = null
-    }
-
-    private suspend fun refreshNodeMetadataIfActive() {
-        if (isDuressActive()) {
-            return
-        }
-        val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
-        val nodeConfig = nodeConfigurationRepository.nodeConfig.first()
-        val isOnline = networkStatusMonitor.isOnline.first()
-        if (!isOnline || !nodeConfig.hasActiveSelection(preferredNetwork)) {
-            return
-        }
-        connectionOrchestrator.onIntent(ConnectionIntent.Start)
-    }
-
     private fun refreshLockState() {
         viewModelScope.launch {
             val shouldLock = shouldLockNow(
@@ -608,7 +572,6 @@ class MainActivityViewModel @Inject constructor(
             duressManager.restore()
             walletRepository.setSyncForegroundState(true)
             incomingTxWatcher.setForeground(true)
-            startNodeMetadataPolling()
             resumeNodeIfNeeded()
             connectionOrchestrator.onIntent(ConnectionIntent.Start)
         }
@@ -636,6 +599,5 @@ class MainActivityViewModel @Inject constructor(
 
     private companion object {
         private const val IMMEDIATE_TIMEOUT_GRACE_MS = 1_000L
-        private const val NODE_METADATA_POLL_INTERVAL_MS = 60_000L
     }
 }
