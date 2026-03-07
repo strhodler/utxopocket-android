@@ -68,7 +68,6 @@ class ConnectionOrchestratorV2 internal constructor(
     private val logTag = "ConnectionOrchestratorV2"
 
     private val intentChannel = Channel<ConnectionIntent>(capacity = Channel.BUFFERED)
-    private val networkOverride = MutableStateFlow<Boolean?>(null)
     private val _snapshot = MutableStateFlow(ConnectionSnapshot())
     override val snapshot: StateFlow<ConnectionSnapshot> = _snapshot.asStateFlow()
 
@@ -78,9 +77,7 @@ class ConnectionOrchestratorV2 internal constructor(
         initialValue = BitcoinNetwork.DEFAULT
     )
 
-    private val effectiveNetworkOnline = combine(networkOnlineFlow, networkOverride) { online, override ->
-        override ?: online
-    }.stateIn(
+    private val effectiveNetworkOnline = networkOnlineFlow.stateIn(
         scope = applicationScope,
         started = SharingStarted.Eagerly,
         initialValue = true
@@ -135,8 +132,7 @@ class ConnectionOrchestratorV2 internal constructor(
     private suspend fun processIntent(intent: ConnectionIntent) {
         when (intent) {
             ConnectionIntent.Start -> {
-                startHeartbeatIfNeeded()
-                refreshWithSingleRetry()
+                handleStartOrForeground()
             }
 
             ConnectionIntent.Retry -> {
@@ -144,18 +140,7 @@ class ConnectionOrchestratorV2 internal constructor(
             }
 
             ConnectionIntent.OnAppForeground -> {
-                startHeartbeatIfNeeded()
-                refreshWithSingleRetry()
-            }
-
-            is ConnectionIntent.OnNetworkChanged -> {
-                networkOverride.value = intent.isOnline
-                if (intent.isOnline) {
-                    startHeartbeatIfNeeded()
-                    refreshWithSingleRetry(assumeOnline = true)
-                } else {
-                    stopHeartbeat()
-                }
+                handleStartOrForeground()
             }
 
             ConnectionIntent.Disconnect -> {
@@ -165,6 +150,11 @@ class ConnectionOrchestratorV2 internal constructor(
                 }
             }
         }
+    }
+
+    private suspend fun handleStartOrForeground() {
+        startHeartbeatIfNeeded()
+        refreshWithSingleRetry()
     }
 
     private fun startHeartbeatIfNeeded() {
@@ -192,7 +182,6 @@ class ConnectionOrchestratorV2 internal constructor(
     }
 
     private suspend fun refreshWithSingleRetry(assumeOnline: Boolean = false) {
-        val currentSnapshot = snapshot.value
         val network = preferredNetwork.value
         if (!assumeOnline && !effectiveNetworkOnline.value) {
             return

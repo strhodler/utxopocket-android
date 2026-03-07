@@ -105,17 +105,18 @@ class ConnectionOrchestratorV2Test {
     }
 
     @Test
-    fun networkChangedIntentUpdatesConnectivityAndReconnectsWhenOnlineAgain() = runTest {
+    fun flowDrivenNetworkStatusReconnectsWhenOnlineAgain() = runTest {
         val harness = createHarness(this)
         try {
-            harness.orchestrator.onIntent(ConnectionIntent.OnNetworkChanged(isOnline = false))
+            harness.networkOnline.value = false
             runCurrent()
 
             assertFalse(harness.orchestrator.snapshot.value.isOnline)
             assertEquals(ConnectionState.DISCONNECTED, harness.orchestrator.snapshot.value.state)
 
             val callsBeforeReconnect = harness.walletRepository.refreshCalls.size
-            harness.orchestrator.onIntent(ConnectionIntent.OnNetworkChanged(isOnline = true))
+            harness.networkOnline.value = true
+            harness.orchestrator.onIntent(ConnectionIntent.Start)
             runCurrent()
 
             assertTrue(harness.orchestrator.snapshot.value.isOnline)
@@ -160,14 +161,16 @@ class ConnectionOrchestratorV2Test {
         return Harness(
             orchestrator = orchestrator,
             walletRepository = walletRepository,
-            appScope = appScope
+            appScope = appScope,
+            networkOnline = networkOnline
         )
     }
 
     private data class Harness(
         val orchestrator: ConnectionOrchestratorV2,
         val walletRepository: TestWalletRepository,
-        val appScope: TestScope
+        val appScope: TestScope,
+        val networkOnline: MutableStateFlow<Boolean>
     ) {
         fun close() {
             orchestrator.shutdown()

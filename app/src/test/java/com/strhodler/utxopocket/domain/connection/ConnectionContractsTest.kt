@@ -4,7 +4,6 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 class ConnectionContractsTest {
 
@@ -23,9 +22,12 @@ class ConnectionContractsTest {
     }
 
     @Test
-    fun networkChangedIntentCarriesConnectivitySignal() {
-        assertTrue((ConnectionIntent.OnNetworkChanged(isOnline = true)).isOnline)
-        assertFalse((ConnectionIntent.OnNetworkChanged(isOnline = false)).isOnline)
+    fun connectionIntentsRemainDistinctSingletons() {
+        assertEquals(ConnectionIntent.Start, ConnectionIntent.Start)
+        assertEquals(ConnectionIntent.Retry, ConnectionIntent.Retry)
+        assertEquals(ConnectionIntent.Disconnect, ConnectionIntent.Disconnect)
+        assertEquals(ConnectionIntent.OnAppForeground, ConnectionIntent.OnAppForeground)
+        assertFalse(ConnectionIntent.Start == ConnectionIntent.Retry)
     }
 
     @Test
