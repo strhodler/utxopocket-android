@@ -7,7 +7,10 @@ import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.TorStatus
+import com.strhodler.utxopocket.presentation.connection.TopBarConnectionBadge
+import com.strhodler.utxopocket.presentation.connection.TopBarConnectionIcon
 import com.strhodler.utxopocket.presentation.connection.projectConnectionUi
+import com.strhodler.utxopocket.presentation.connection.projectTopBarConnectionIndicator
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -39,6 +42,10 @@ class MainActivityStatusProjectionTest {
         assertEquals(NodeStatus.Synced, projection.nodeStatus)
         assertEquals(TorStatus.Running(SocksProxyConfig("127.0.0.1", 9050)), projection.torStatus)
         assertEquals(sharedProjection, projection)
+
+        val indicator = projectTopBarConnectionIndicator(projection.nodeStatus)
+        assertEquals(TopBarConnectionIcon.Wifi, indicator.icon)
+        assertEquals(TopBarConnectionBadge.Connected, indicator.badge)
     }
 
     @Test
@@ -57,6 +64,10 @@ class MainActivityStatusProjectionTest {
 
         assertEquals(false, projection.snapshotMatchesNetwork)
         assertEquals(NodeStatus.Idle, projection.nodeStatus)
+
+        val indicator = projectTopBarConnectionIndicator(projection.nodeStatus)
+        assertEquals(TopBarConnectionIcon.NetworkCheck, indicator.icon)
+        assertEquals(TopBarConnectionBadge.Disconnected, indicator.badge)
     }
 
     @Test
@@ -77,5 +88,9 @@ class MainActivityStatusProjectionTest {
         assertEquals(false, projection.snapshotMatchesNetwork)
         assertEquals(NodeStatus.Idle, projection.nodeStatus)
         assertEquals(TorStatus.Stopped, projection.torStatus)
+
+        val indicator = projectTopBarConnectionIndicator(projection.nodeStatus)
+        assertEquals(TopBarConnectionIcon.NetworkCheck, indicator.icon)
+        assertEquals(TopBarConnectionBadge.Disconnected, indicator.badge)
     }
 }

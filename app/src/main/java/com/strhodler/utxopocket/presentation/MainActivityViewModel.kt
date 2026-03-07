@@ -38,7 +38,9 @@ import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.presentation.connection.canRetryConnection
 import com.strhodler.utxopocket.presentation.connection.isNodeBusyForManualConnectionAction
 import com.strhodler.utxopocket.presentation.connection.ConnectionUiProjection
+import com.strhodler.utxopocket.presentation.connection.TopBarConnectionIndicatorModel
 import com.strhodler.utxopocket.presentation.connection.projectConnectionUi
+import com.strhodler.utxopocket.presentation.connection.projectTopBarConnectionIndicator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.BufferOverflow
@@ -68,6 +70,8 @@ data class StatusBarUiState(
     val nodeEndpoint: String? = null,
     val nodeServerInfo: ElectrumServerInfo? = null,
     val nodeLastSync: Long? = null,
+    val connectionIndicatorModel: TopBarConnectionIndicatorModel =
+        projectTopBarConnectionIndicator(NodeStatus.Idle),
     val network: BitcoinNetwork = BitcoinNetwork.DEFAULT,
     val torRequired: Boolean = false,
     val isNetworkOnline: Boolean = true,
@@ -340,6 +344,7 @@ class MainActivityViewModel @Inject constructor(
             effectiveNodeStatus is NodeStatus.Synced &&
             (syncStatus.isRefreshing || syncStatus.activeWalletId != null || syncStatus.refreshingWalletIds.isNotEmpty())
         val torRequired = !duressActive && nodeConfig.requiresTor(network)
+        val connectionIndicatorModel = projectTopBarConnectionIndicator(effectiveNodeStatus)
 
         val effectiveTorLog = when (effectiveTorStatus) {
             is TorStatus.Connecting,
@@ -362,6 +367,7 @@ class MainActivityViewModel @Inject constructor(
                 nodeEndpoint = nodeSnapshot.endpoint.takeIf { snapshotMatchesNetwork },
                 nodeServerInfo = nodeSnapshot.serverInfo.takeIf { snapshotMatchesNetwork },
                 nodeLastSync = nodeSnapshot.lastSyncCompletedAt.takeIf { snapshotMatchesNetwork },
+                connectionIndicatorModel = connectionIndicatorModel,
                 network = network,
                 torRequired = torRequired,
                 isNetworkOnline = isNetworkOnline,

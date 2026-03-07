@@ -19,15 +19,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.strhodler.utxopocket.domain.model.NodeStatus
+import com.strhodler.utxopocket.presentation.connection.TopBarConnectionBadge
+import com.strhodler.utxopocket.presentation.connection.TopBarConnectionIcon
+import com.strhodler.utxopocket.presentation.connection.TopBarConnectionIndicatorModel
 
 @Composable
 fun TopBarStatusActionIcon(
     onClick: () -> Unit,
-    indicatorColor: Color?,
+    indicator: TopBarConnectionIndicatorModel,
     contentDescription: String,
-    icon: @Composable () -> Unit
+    icon: @Composable (TopBarConnectionIcon) -> Unit
 ) {
+    val indicatorColor = indicatorBadgeColor(indicator.badge)
     IconButton(
         onClick = onClick,
         modifier = Modifier
@@ -44,26 +47,23 @@ fun TopBarStatusActionIcon(
                 }
             }
         ) {
-            icon()
+            icon(indicator.icon)
         }
     }
 }
 
 @Composable
-fun TopBarNodeStatusIcon(status: NodeStatus) {
+fun TopBarNodeStatusIcon(icon: TopBarConnectionIcon) {
     val iconTint = LocalContentColor.current
-    when (status) {
-        NodeStatus.Synced -> Icon(
+    when (icon) {
+        TopBarConnectionIcon.Wifi -> Icon(
             imageVector = Icons.Outlined.Wifi,
             contentDescription = null,
             tint = iconTint,
             modifier = Modifier.size(20.dp)
         )
 
-        NodeStatus.Connecting,
-        NodeStatus.Syncing,
-        NodeStatus.Disconnecting,
-        NodeStatus.WaitingForTor -> {
+        TopBarConnectionIcon.WifiBusy -> {
             Box(contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
@@ -79,15 +79,14 @@ fun TopBarNodeStatusIcon(status: NodeStatus) {
             }
         }
 
-        NodeStatus.Idle,
-        NodeStatus.Offline -> Icon(
+        TopBarConnectionIcon.NetworkCheck -> Icon(
             imageVector = Icons.Outlined.NetworkCheck,
             contentDescription = null,
             tint = iconTint,
             modifier = Modifier.size(20.dp)
         )
 
-        is NodeStatus.Error -> Icon(
+        TopBarConnectionIcon.Info -> Icon(
             imageVector = Icons.Outlined.Info,
             contentDescription = null,
             tint = iconTint,
@@ -96,13 +95,10 @@ fun TopBarNodeStatusIcon(status: NodeStatus) {
     }
 }
 
-fun nodeStatusIndicatorColor(status: NodeStatus): Color? = when (status) {
-    NodeStatus.Synced -> ConnectedBadgeColor
-    NodeStatus.Idle,
-    NodeStatus.Offline,
-    NodeStatus.Disconnecting,
-    is NodeStatus.Error -> DisconnectedBadgeColor
-    else -> null
+fun indicatorBadgeColor(badge: TopBarConnectionBadge?): Color? = when (badge) {
+    TopBarConnectionBadge.Connected -> ConnectedBadgeColor
+    TopBarConnectionBadge.Disconnected -> DisconnectedBadgeColor
+    null -> null
 }
 
 private val ConnectedBadgeColor = Color(0xFF2ECC71)

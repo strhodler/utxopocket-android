@@ -104,7 +104,6 @@ import com.strhodler.utxopocket.presentation.pin.formatPinStaticError
 import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.components.TopBarNodeStatusIcon
 import com.strhodler.utxopocket.presentation.components.TopBarStatusActionIcon
-import com.strhodler.utxopocket.presentation.components.nodeStatusIndicatorColor
 import com.strhodler.utxopocket.presentation.format.formatBlockHeight
 import com.strhodler.utxopocket.presentation.format.formatFeeRateSatPerVb
 import com.strhodler.utxopocket.presentation.format.sanitizeFeeRateSatPerVb
@@ -599,7 +598,7 @@ private fun StatusBar(
             val formattedFee = remember(rate) { formatFeeRateSatPerVb(rate) }
             stringResource(id = R.string.status_fee_rate_short, formattedFee)
         }
-        val fallbackSubtitle = when (val status = state.nodeStatus) {
+        val fallbackSubtitle = when (val status = state.connectionIndicatorModel.subtitleFallbackStatus) {
             NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
             NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
             NodeStatus.Disconnecting -> stringResource(id = R.string.wallets_state_disconnecting)
@@ -657,10 +656,10 @@ private fun StatusBar(
                 if (!duressActive) {
                     TopBarStatusActionIcon(
                         onClick = onNodeStatusClick,
-                        indicatorColor = nodeStatusIndicatorColor(state.nodeStatus),
+                        indicator = state.connectionIndicatorModel,
                         contentDescription = stringResource(id = R.string.status_node_action_description)
                     ) {
-                        TopBarNodeStatusIcon(state.nodeStatus)
+                        TopBarNodeStatusIcon(it)
                     }
                 }
             },
