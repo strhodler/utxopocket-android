@@ -18,6 +18,7 @@ import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.PublicNode
+import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.ThemeProfile
@@ -28,7 +29,6 @@ import com.strhodler.utxopocket.domain.model.WalletDetail
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
-import com.strhodler.utxopocket.domain.model.WalletTransactionSortOrder
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
@@ -152,7 +152,7 @@ private class RecordingWalletRepository : WalletRepository {
     override fun observeUtxoCount(id: Long): Flow<Int> = flowOf(0)
     override fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>> = flowOf(emptyMap())
     override suspend fun refresh(network: BitcoinNetwork) = Unit
-    override suspend fun refreshWallet(walletId: Long) = Unit
+    override suspend fun refreshWallet(walletId: Long, operation: SyncOperation) = Unit
     override suspend fun disconnect(network: BitcoinNetwork) = Unit
     override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
     override suspend fun validateDescriptor(descriptor: String, changeDescriptor: String?, network: BitcoinNetwork) =
@@ -197,15 +197,24 @@ private class InMemoryIncomingTxPlaceholderRepository : IncomingTxPlaceholderRep
 
 private class FakeIncomingTxPreferencesRepository : IncomingTxPreferencesRepository {
     private val state = MutableStateFlow<Map<Long, IncomingTxPreferences>>(emptyMap())
+    private val globalState = MutableStateFlow(IncomingTxPreferences())
+
+    override fun preferences(walletId: Long): Flow<IncomingTxPreferences> =
+        state.map { it[walletId] ?: IncomingTxPreferences() }
+
     override fun preferencesMap(): Flow<Map<Long, IncomingTxPreferences>> = state
-    override fun globalPreferences(): Flow<IncomingTxPreferences> = MutableStateFlow(IncomingTxPreferences())
-    override suspend fun setPreferences(walletId: Long, prefs: IncomingTxPreferences) {
-        state.value = state.value.toMutableMap().apply { put(walletId, prefs) }
+    override fun globalPreferences(): Flow<IncomingTxPreferences> = globalState
+
+    override suspend fun setShowDialog(walletId: Long, enabled: Boolean) {
+        state.value = state.value.toMutableMap().apply {
+            val current = this[walletId] ?: IncomingTxPreferences()
+            put(walletId, current.copy(showDialog = enabled))
+        }
     }
-    override suspend fun clearPreferences(walletId: Long) {
-        state.value = state.value.toMutableMap().apply { remove(walletId) }
+
+    override suspend fun setGlobalShowDialog(enabled: Boolean) {
+        globalState.value = globalState.value.copy(showDialog = enabled)
     }
-    override suspend fun setGlobalPreferences(prefs: IncomingTxPreferences) = Unit
 }
 
 private class FakeAppPreferencesRepository : AppPreferencesRepository {
@@ -218,7 +227,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val balanceUnit: Flow<BalanceUnit> = flowOf(BalanceUnit.SATS)
     override val balancesHidden: Flow<Boolean> = flowOf(false)
     override val hapticsEnabled: Flow<Boolean> = flowOf(true)
-    override val walletBalanceRange: Flow<BalanceRange> = flowOf(BalanceRange.DEFAULT)
+    override val walletBalanceRange: Flow<BalanceRange> = flowOf(BalanceRange.All)
     override val showBalanceChart: Flow<Boolean> = flowOf(false)
     override val pinShuffleEnabled: Flow<Boolean> = flowOf(true)
     override val advancedMode: Flow<Boolean> = flowOf(false)
@@ -228,7 +237,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val dustThresholdSats: Flow<Long> = flowOf(0)
     override val networkLogsEnabled: Flow<Boolean> = flowOf(false)
     override val networkLogsInfoSeen: Flow<Boolean> = flowOf(false)
-    override val blockExplorerPreferences: Flow<BlockExplorerPreferences> = flowOf(BlockExplorerPreferences.DEFAULT)
+    override val blockExplorerPreferences: Flow<BlockExplorerPreferences> = flowOf(BlockExplorerPreferences())
     override val duressConfigured: Flow<Boolean> = flowOf(false)
     override suspend fun setOnboardingCompleted(completed: Boolean) = Unit
     override suspend fun setPreferredNetwork(network: BitcoinNetwork) = Unit
@@ -267,7 +276,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
 
 private class NoopTorManager : TorManager {
     override val status: MutableStateFlow<com.strhodler.utxopocket.domain.model.TorStatus> =
-        MutableStateFlow(com.strhodler.utxopocket.domain.model.TorStatus.Disabled)
+        MutableStateFlow(com.strhodler.utxopocket.domain.model.TorStatus.Stopped)
     override val latestLog: MutableStateFlow<String> = MutableStateFlow("")
     override suspend fun start(config: com.strhodler.utxopocket.domain.model.TorConfig): Result<com.strhodler.utxopocket.domain.model.SocksProxyConfig> =
         Result.success(com.strhodler.utxopocket.domain.model.SocksProxyConfig("localhost", 9050))
@@ -285,14 +294,12 @@ private class NoopTorManager : TorManager {
 private class FakeNodeConfigurationRepository : NodeConfigurationRepository {
     private val state = MutableStateFlow(
         NodeConfig(
-            connectionOption = NodeConnectionOption.PUBLIC,
-            publicNode = null,
-            customNode = null,
-            transport = com.strhodler.utxopocket.domain.model.NodeTransport.TOR
+            connectionOption = NodeConnectionOption.PUBLIC
         )
     )
     override val nodeConfig: Flow<NodeConfig> = state
-    override fun publicNodesFor(network: BitcoinNetwork): List<PublicNode> = emptyList()
+    override fun publicNodesFor(network: BitcoinNetwork, excludedIds: Set<String>): List<PublicNode> =
+        emptyList()
     override suspend fun updateNodeConfig(mutator: (NodeConfig) -> NodeConfig) {
         state.value = mutator(state.value)
     }

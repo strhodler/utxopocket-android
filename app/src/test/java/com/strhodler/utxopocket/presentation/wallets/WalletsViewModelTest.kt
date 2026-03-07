@@ -1,6 +1,9 @@
 package com.strhodler.utxopocket.presentation.wallets
 
 import androidx.paging.PagingData
+import com.strhodler.utxopocket.domain.connection.ConnectionIntent
+import com.strhodler.utxopocket.domain.connection.ConnectionSnapshot
+import com.strhodler.utxopocket.domain.connection.ConnectionState
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
@@ -20,7 +23,6 @@ import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.ThemeProfile
-import com.strhodler.utxopocket.domain.model.TorConfig
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
@@ -38,7 +40,8 @@ import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
-import com.strhodler.utxopocket.domain.service.TorManager
+import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
+import com.strhodler.utxopocket.domain.service.DuressManager
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -55,13 +58,14 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.launch
 
 class WalletsViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
     private lateinit var scope: TestScope
     private lateinit var walletRepository: TestWalletRepository
-    private lateinit var torManager: TestTorManager
+    private lateinit var connectionOrchestrator: TestConnectionOrchestrator
     private lateinit var preferencesRepository: TestAppPreferencesRepository
     private lateinit var nodeConfigurationRepository: TestNodeConfigurationRepository
     private lateinit var viewModel: WalletsViewModel
@@ -71,14 +75,15 @@ class WalletsViewModelTest {
         Dispatchers.setMain(dispatcher)
         scope = TestScope(dispatcher)
         walletRepository = TestWalletRepository()
-        torManager = TestTorManager()
+        connectionOrchestrator = TestConnectionOrchestrator()
         preferencesRepository = TestAppPreferencesRepository()
         nodeConfigurationRepository = TestNodeConfigurationRepository()
         viewModel = WalletsViewModel(
             walletRepository = walletRepository,
-            torManager = torManager,
+            connectionOrchestrator = connectionOrchestrator,
             appPreferencesRepository = preferencesRepository,
-            nodeConfigurationRepository = nodeConfigurationRepository
+            nodeConfigurationRepository = nodeConfigurationRepository,
+            duressManager = DuressManager()
         )
     }
 
@@ -89,21 +94,31 @@ class WalletsViewModelTest {
     }
 
     @Test
-    fun nodeErrorPropagatesToUiState() = runTest {
+    fun nodeErrorPropagatesToUiState() = runTest(dispatcher) {
+        val collection = backgroundScope.launch { viewModel.uiState.collect { } }
         val errorMessage = "Connection refused (os error 111)"
-        walletRepository.nodeStatus.value = NodeStatusSnapshot(
-            status = NodeStatus.Error(errorMessage),
-            network = BitcoinNetwork.TESTNET
+        connectionOrchestrator.setSnapshot(
+            ConnectionSnapshot(
+                state = ConnectionState.ERROR,
+                nodeStatus = NodeStatusSnapshot(
+                    status = NodeStatus.Error(errorMessage),
+                    network = BitcoinNetwork.TESTNET
+                ),
+                torStatus = TorStatus.Running(TEST_PROXY),
+                errorMessage = errorMessage
+            )
         )
 
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertEquals(errorMessage, state.errorMessage)
+        collection.cancel()
     }
 
     @Test
-    fun hasActiveNodeSelectionReflectsNodeConfig() = runTest {
+    fun hasActiveNodeSelectionReflectsNodeConfig() = runTest(dispatcher) {
+        val collection = backgroundScope.launch { viewModel.uiState.collect { } }
         nodeConfigurationRepository.updateNodeConfig {
             it.copy(
                 connectionOption = NodeConnectionOption.PUBLIC,
@@ -118,6 +133,7 @@ class WalletsViewModelTest {
         }
         advanceUntilIdle()
         assertEquals(false, viewModel.uiState.value.hasActiveNodeSelection)
+        collection.cancel()
     }
 }
 
@@ -228,35 +244,32 @@ private class TestWalletRepository : WalletRepository {
         Bip329ImportResult(0, 0, 0, 0, 0, 0)
 
     override fun setSyncForegroundState(isForeground: Boolean) = Unit
+
+    override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> = null to null
 }
 
-private class TestTorManager : TorManager {
-    private val proxy = SocksProxyConfig(host = "127.0.0.1", port = 9050)
-    private val mutableStatus = MutableStateFlow<TorStatus>(TorStatus.Running(proxy))
-    override val status: StateFlow<TorStatus> = mutableStatus
-    override val latestLog: StateFlow<String> = MutableStateFlow("")
+private class TestConnectionOrchestrator : ConnectionOrchestrator {
+    private val mutableSnapshot = MutableStateFlow(
+        ConnectionSnapshot(
+            state = ConnectionState.IDLE,
+            nodeStatus = NodeStatusSnapshot(
+                status = NodeStatus.Idle,
+                network = BitcoinNetwork.TESTNET
+            ),
+            torStatus = TorStatus.Running(TEST_PROXY)
+        )
+    )
 
-    fun setStatus(value: TorStatus) {
-        mutableStatus.value = value
+    override val snapshot: StateFlow<ConnectionSnapshot> = mutableSnapshot
+
+    override fun onIntent(intent: ConnectionIntent) = Unit
+
+    fun setSnapshot(value: ConnectionSnapshot) {
+        mutableSnapshot.value = value
     }
-
-    override suspend fun start(config: TorConfig): Result<SocksProxyConfig> = Result.success(proxy)
-
-    override suspend fun <T> withTorProxy(
-        config: TorConfig,
-        block: suspend (SocksProxyConfig) -> T
-    ): T = block(proxy)
-
-    override suspend fun stop() = Unit
-
-    override suspend fun renewIdentity(): Boolean = true
-
-    override fun currentProxy(): SocksProxyConfig = proxy
-
-    override suspend fun awaitProxy(): SocksProxyConfig = proxy
-
-    override suspend fun clearPersistentState() = Unit
 }
+
+private val TEST_PROXY = SocksProxyConfig(host = "127.0.0.1", port = 9050)
 
 private class TestAppPreferencesRepository : AppPreferencesRepository {
     private val _preferredNetwork = MutableStateFlow(BitcoinNetwork.TESTNET)
@@ -459,7 +472,8 @@ private class TestNodeConfigurationRepository : NodeConfigurationRepository {
     private val mutableConfig = MutableStateFlow(NodeConfig())
     override val nodeConfig: Flow<NodeConfig> = mutableConfig
 
-    override fun publicNodesFor(network: BitcoinNetwork): List<PublicNode> = emptyList()
+    override fun publicNodesFor(network: BitcoinNetwork, excludedIds: Set<String>): List<PublicNode> =
+        emptyList()
 
     override suspend fun updateNodeConfig(mutator: (NodeConfig) -> NodeConfig) {
         mutableConfig.value = mutator(mutableConfig.value)

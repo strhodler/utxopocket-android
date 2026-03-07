@@ -47,7 +47,7 @@ import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import com.strhodler.utxopocket.common.logging.SecureLog
-import com.strhodler.utxopocket.domain.service.TorManager
+import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.domain.service.DuressManager
 import com.strhodler.utxopocket.domain.service.UtxoTreemapCalculator
@@ -82,7 +82,7 @@ import kotlin.math.min
 class WalletDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val walletRepository: WalletRepository,
-    private val torManager: TorManager,
+    private val connectionOrchestrator: ConnectionOrchestrator,
     private val appPreferencesRepository: AppPreferencesRepository,
     private val duressManager: DuressManager,
     private val canvasRepository: UtxoCanvasRepository,
@@ -156,16 +156,15 @@ class WalletDetailViewModel @Inject constructor(
     private val baseStateCoreInputs = combine(
         walletRepository.observeWalletDetail(walletId),
         canvasRepository.observeCanvasSnapshot(walletId),
-        walletRepository.observeNodeStatus(),
         walletRepository.observeSyncStatus(),
-        torManager.status
-    ) { detail, canvasSnapshot, nodeSnapshot, syncStatus, torStatus ->
+        connectionOrchestrator.snapshot
+    ) { detail, canvasSnapshot, syncStatus, connectionSnapshot ->
         BaseStateCoreInputs(
             detail = detail,
             canvasSnapshot = canvasSnapshot,
-            nodeSnapshot = nodeSnapshot,
+            nodeSnapshot = connectionSnapshot.nodeStatus,
             syncStatus = syncStatus,
-            torStatus = torStatus
+            torStatus = connectionSnapshot.torStatus
         )
     }
 

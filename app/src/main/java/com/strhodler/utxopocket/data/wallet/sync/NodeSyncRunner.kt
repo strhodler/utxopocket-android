@@ -1,9 +1,7 @@
 package com.strhodler.utxopocket.data.wallet.sync
 
-import android.content.Context
 import android.os.SystemClock
 import com.strhodler.utxopocket.BuildConfig
-import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.common.logging.WalletLogAliasProvider
 import com.strhodler.utxopocket.data.bdk.BdkBlockchainFactory
@@ -23,6 +21,7 @@ import com.strhodler.utxopocket.data.db.withSyncFailure
 import com.strhodler.utxopocket.data.db.withSyncResult
 import com.strhodler.utxopocket.data.node.toTorAwareMessage
 import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
+import com.strhodler.utxopocket.domain.connection.TransportPolicy
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
@@ -84,7 +83,6 @@ internal class NodeSyncRunner(
     private val isWalletDeletionPending: (Long) -> Boolean,
     private val isSyncAllowed: (BitcoinNetwork) -> Boolean,
     private val maxFullScanStopGap: Int,
-    private val applicationContext: Context,
     private val ioDispatcher: CoroutineDispatcher,
     private val logTag: String
 ) {
@@ -124,7 +122,6 @@ internal class NodeSyncRunner(
         if (manageSyncStatus) {
             walletSyncOrchestrator.clearSyncStatus(network)
         }
-        val triedPresetKeys = mutableSetOf<String>()
         var refreshSucceeded = false
         var attemptCompleted = false
         var shouldStop = false
@@ -175,12 +172,8 @@ internal class NodeSyncRunner(
                             attemptIndex = attemptIndex
                         )
                     }
-                    val exhaustedAttempts = attempt >= policy.maxAttempts - 1
-                    if (exhaustedAttempts) {
-                        if (handlePresetRotationOnFailure(network, triedPresetKeys)) {
-                            attempt = 0
-                            continue
-                        }
+                    val shouldRetry = shouldRetryAttempt(attempt, policy.maxAttempts)
+                    if (!shouldRetry) {
                         SecureLog.w(logTag, error) {
                             "Node refresh giving up after ${policy.maxAttempts} attempts for $network"
                         }
@@ -266,6 +259,23 @@ internal class NodeSyncRunner(
             lastEndpointMetadata = EndpointAttemptMetadata(network, electrumEndpoint)
             activeTransport = electrumEndpoint.transport
             val pendingEndpointUrl = electrumEndpoint.url
+            val requiredTransport = TransportPolicy.default().resolveTransportOrNull(vpnDirectEnabled = false)
+            if (!isTransportAllowedByPolicy(activeTransport)) {
+                val reason = "Connection blocked by transport policy. Tor transport is required."
+                nodeStatus.value = NodeStatusSnapshot(
+                    status = NodeStatus.Error(reason),
+                    blockHeight = blockHeight,
+                    serverInfo = serverInfo,
+                    endpoint = pendingEndpointUrl,
+                    lastSyncCompletedAt = lastSyncForNetwork,
+                    network = network,
+                    feeRateSatPerVb = estimatedFeeRateSatPerVb
+                )
+                SecureLog.w(logTag) {
+                    "Blocking endpoint due transport policy: required=$requiredTransport actual=$activeTransport"
+                }
+                return
+            }
             val endpointChanged = previousEndpoint != null && previousEndpoint != pendingEndpointUrl
             if (endpointChanged) {
                 shouldSignalConnecting = true
@@ -859,47 +869,6 @@ internal class NodeSyncRunner(
         }
     }
 
-    private suspend fun handlePresetRotationOnFailure(
-        network: BitcoinNetwork,
-        triedPresetKeys: MutableSet<String>
-    ): Boolean {
-        val metadata = lastEndpointMetadata ?: return false
-        if (metadata.network != network) {
-            return false
-        }
-        if (metadata.endpoint.source != ElectrumEndpointSource.PUBLIC) {
-            return false
-        }
-        val attemptKey = (metadata.endpoint.nodeId ?: metadata.endpoint.url).orEmpty()
-        if (!triedPresetKeys.add(attemptKey)) {
-            return false
-        }
-        val rotated = blockchainFactory.rotatePublicEndpoint(network, metadata.endpoint.nodeId) ?: return false
-        val previousSnapshot = nodeStatus.value
-        val previousLabel = metadata.endpoint.displayName ?: metadata.endpoint.url
-        val nextLabel = rotated.displayName ?: rotated.endpoint
-        val rotationMessage = if (metadata.endpoint.displayName.isNullOrBlank()) {
-            applicationContext.getString(
-                R.string.node_preset_rotation_message_generic,
-                nextLabel
-            )
-        } else {
-            applicationContext.getString(
-                R.string.node_preset_rotation_message,
-                previousLabel,
-                nextLabel
-            )
-        }
-        nodeStatus.value = previousSnapshot.copy(
-            status = NodeStatus.Error(rotationMessage)
-        )
-        SecureLog.w(logTag) { "Preset $previousLabel unreachable, rotating to ${rotated.displayName}" }
-        SecureLog.d(logTag) {
-            "Node status -> Error(rotation) network=$network endpoint=${rotated.endpoint} lastSync=${previousSnapshot.lastSyncCompletedAt}"
-        }
-        return true
-    }
-
     internal suspend fun recordNetworkFailure(
         error: Throwable,
         durationMs: Long?,
@@ -922,6 +891,7 @@ internal class NodeSyncRunner(
                 endpointTypeHint = endpoint?.let {
                     when (it.transport) {
                         NodeTransport.TOR -> NetworkEndpointType.Onion
+                        NodeTransport.VPN_DIRECT -> NetworkEndpointType.Clearnet
                     }
                 },
                 transport = when {
@@ -1466,4 +1436,18 @@ internal class NodeSyncRunner(
             append((value.toInt() and 0xFF).toString(16).padStart(2, '0'))
         }
     }
+}
+
+internal fun shouldRetryAttempt(attempt: Int, maxAttempts: Int): Boolean {
+    require(maxAttempts > 0) { "maxAttempts must be positive" }
+    return attempt < maxAttempts - 1
+}
+
+internal fun isTransportAllowedByPolicy(
+    transport: NodeTransport,
+    policy: TransportPolicy = TransportPolicy.default(),
+    vpnDirectEnabled: Boolean = false
+): Boolean {
+    val allowedTransport = policy.resolveTransportOrNull(vpnDirectEnabled = vpnDirectEnabled) ?: return false
+    return transport == allowedTransport
 }

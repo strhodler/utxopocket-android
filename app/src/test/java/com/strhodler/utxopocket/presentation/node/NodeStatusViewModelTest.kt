@@ -1,5 +1,8 @@
 package com.strhodler.utxopocket.presentation.node
 
+import com.strhodler.utxopocket.domain.connection.ConnectionIntent
+import com.strhodler.utxopocket.domain.connection.ConnectionSnapshot
+import com.strhodler.utxopocket.domain.connection.ConnectionState
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
@@ -24,9 +27,11 @@ import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
+import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.ThemeProfile
+import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
@@ -44,6 +49,7 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -72,6 +78,7 @@ class NodeStatusViewModelTest {
     private lateinit var walletRepository: TestWalletRepository
     private lateinit var nodeConnectionTester: RecordingNodeConnectionTester
     private lateinit var networkErrorLogRepository: TestNetworkErrorLogRepository
+    private lateinit var connectionOrchestrator: TestConnectionOrchestrator
     private lateinit var viewModel: NodeStatusViewModel
 
     @BeforeTest
@@ -83,12 +90,14 @@ class NodeStatusViewModelTest {
         walletRepository = TestWalletRepository()
         nodeConnectionTester = RecordingNodeConnectionTester()
         networkErrorLogRepository = TestNetworkErrorLogRepository()
+        connectionOrchestrator = TestConnectionOrchestrator()
         viewModel = NodeStatusViewModel(
             appPreferencesRepository = preferencesRepository,
             nodeConfigurationRepository = nodeConfigurationRepository,
             nodeConnectionTester = nodeConnectionTester,
             walletRepository = walletRepository,
-            networkErrorLogRepository = networkErrorLogRepository
+            networkErrorLogRepository = networkErrorLogRepository,
+            connectionOrchestrator = connectionOrchestrator
         )
     }
 
@@ -99,7 +108,7 @@ class NodeStatusViewModelTest {
     }
 
     @Test
-    fun disconnectNodeClearsSelectionsAndRefreshes() = runTest {
+    fun disconnectNodeClearsSelectionsAndSendsOrchestratorIntent() = runTest {
         nodeConfigurationRepository.updateNodeConfig {
             it.copy(
                 connectionOption = NodeConnectionOption.PUBLIC,
@@ -113,7 +122,21 @@ class NodeStatusViewModelTest {
 
         val updatedConfig = nodeConfigurationRepository.nodeConfig.value
         assertNull(updatedConfig.selectedPublicNodeId)
-        assertEquals(listOf(BitcoinNetwork.TESTNET), walletRepository.refreshCalls)
+        assertEquals(
+            listOf<ConnectionIntent>(ConnectionIntent.Disconnect),
+            connectionOrchestrator.intents
+        )
+    }
+
+    @Test
+    fun retryNodeConnectionSendsRetryIntent() = runTest {
+        viewModel.retryNodeConnection()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf<ConnectionIntent>(ConnectionIntent.Retry),
+            connectionOrchestrator.intents
+        )
     }
 
     @Test
@@ -326,7 +349,7 @@ class NodeStatusViewModelTest {
         private val mutableConfig = MutableStateFlow(NodeConfig())
         override val nodeConfig: StateFlow<NodeConfig> = mutableConfig
 
-        override fun publicNodesFor(network: BitcoinNetwork): List<PublicNode> =
+        override fun publicNodesFor(network: BitcoinNetwork, excludedIds: Set<String>): List<PublicNode> =
             emptyList()
 
         override suspend fun updateNodeConfig(mutator: (NodeConfig) -> NodeConfig) {
@@ -335,8 +358,6 @@ class NodeStatusViewModelTest {
     }
 
     private class TestWalletRepository : WalletRepository {
-        val refreshCalls = mutableListOf<BitcoinNetwork>()
-
         override fun observeWalletSummaries(network: BitcoinNetwork): Flow<List<WalletSummary>> =
             flowOf(emptyList())
 
@@ -384,11 +405,9 @@ class NodeStatusViewModelTest {
 
         override fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>> = flowOf(emptyMap())
 
-        override suspend fun refresh(network: BitcoinNetwork) {
-            refreshCalls += network
-        }
+        override suspend fun refresh(network: BitcoinNetwork) = Unit
 
-        override suspend fun refreshWallet(walletId: Long) = Unit
+        override suspend fun refreshWallet(walletId: Long, operation: SyncOperation) = Unit
         override suspend fun disconnect(network: BitcoinNetwork) = Unit
         override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
 
@@ -453,6 +472,8 @@ class NodeStatusViewModelTest {
             Bip329ImportResult(0, 0, 0, 0, 0, 0)
 
         override fun setSyncForegroundState(isForeground: Boolean) = Unit
+
+        override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> = null to null
     }
 
     private class RecordingNodeConnectionTester : NodeConnectionTester {
@@ -461,6 +482,17 @@ class NodeStatusViewModelTest {
         override suspend fun test(node: CustomNode): NodeConnectionTestResult {
             lastNode = node
             return NodeConnectionTestResult.Success()
+        }
+    }
+
+    private class TestConnectionOrchestrator : ConnectionOrchestrator {
+        private val mutableSnapshot = MutableStateFlow(ConnectionSnapshot(state = ConnectionState.IDLE))
+        val intents = mutableListOf<ConnectionIntent>()
+
+        override val snapshot: StateFlow<ConnectionSnapshot> = mutableSnapshot
+
+        override fun onIntent(intent: ConnectionIntent) {
+            intents += intent
         }
     }
 
@@ -491,7 +523,7 @@ class NodeStatusViewModelTest {
                 hostHash = null,
                 port = null,
                 usedTor = event.usedTor,
-                torBootstrapPercent = event.torStatus?.progress,
+                torBootstrapPercent = (event.torStatus as? TorStatus.Connecting)?.progress,
                 errorKind = event.error::class.simpleName,
                 errorMessage = event.error.message ?: "",
                 durationMs = event.durationMs,

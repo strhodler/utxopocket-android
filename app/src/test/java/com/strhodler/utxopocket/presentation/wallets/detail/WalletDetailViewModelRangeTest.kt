@@ -2,6 +2,9 @@ package com.strhodler.utxopocket.presentation.wallets.detail
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.paging.PagingData
+import com.strhodler.utxopocket.domain.connection.ConnectionIntent
+import com.strhodler.utxopocket.domain.connection.ConnectionSnapshot
+import com.strhodler.utxopocket.domain.connection.ConnectionState
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
@@ -46,9 +49,9 @@ import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepositor
 import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
+import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.domain.service.DuressManager
-import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.service.UtxoTreemapCalculator
 import com.strhodler.utxopocket.domain.service.UtxoVisualizationCalculator
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
@@ -111,7 +114,7 @@ class WalletDetailViewModelRangeTest {
     private class TestHarness {
         val preferences = RecordingAppPreferencesRepository()
         private val walletRepository = StaticWalletRepository()
-        private val torManager = StaticTorManager()
+        private val connectionOrchestrator = StaticConnectionOrchestrator()
         private val duressManager = DuressManager()
         private val canvasRepository = InMemoryUtxoCanvasRepository()
         private val incomingPlaceholders = InMemoryIncomingTxPlaceholderRepository()
@@ -130,7 +133,7 @@ class WalletDetailViewModelRangeTest {
             return WalletDetailViewModel(
                 savedStateHandle = savedStateHandle,
                 walletRepository = walletRepository,
-                torManager = torManager,
+                connectionOrchestrator = connectionOrchestrator,
                 appPreferencesRepository = preferences,
                 duressManager = duressManager,
                 canvasRepository = canvasRepository,
@@ -345,25 +348,21 @@ class WalletDetailViewModelRangeTest {
         }
     }
 
-    private class StaticTorManager : TorManager {
-        private val statusFlow = MutableStateFlow<TorStatus>(TorStatus.Stopped)
-        private val logFlow = MutableStateFlow("")
+    private class StaticConnectionOrchestrator : ConnectionOrchestrator {
+        private val snapshotFlow = MutableStateFlow(
+            ConnectionSnapshot(
+                state = ConnectionState.IDLE,
+                nodeStatus = NodeStatusSnapshot(
+                    status = NodeStatus.Idle,
+                    network = BitcoinNetwork.TESTNET
+                ),
+                torStatus = TorStatus.Stopped
+            )
+        )
 
-        override val status: StateFlow<TorStatus> = statusFlow
-        override val latestLog: StateFlow<String> = logFlow
+        override val snapshot: StateFlow<ConnectionSnapshot> = snapshotFlow
 
-        override suspend fun start(config: TorConfig): Result<SocksProxyConfig> =
-            Result.success(currentProxy())
-        override suspend fun <T> withTorProxy(
-            config: TorConfig,
-            block: suspend (SocksProxyConfig) -> T
-        ): T = block(currentProxy())
-        override suspend fun stop() = Unit
-        override suspend fun renewIdentity(): Boolean = true
-        override fun currentProxy(): SocksProxyConfig = TorConfig.DEFAULT.socksProxy
-
-        override suspend fun awaitProxy(): SocksProxyConfig = currentProxy()
-        override suspend fun clearPersistentState() = Unit
+        override fun onIntent(intent: ConnectionIntent) = Unit
     }
 
     private class RecordingAppPreferencesRepository : AppPreferencesRepository {
