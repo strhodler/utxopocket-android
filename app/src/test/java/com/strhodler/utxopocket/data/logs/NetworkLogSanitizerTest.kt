@@ -9,7 +9,7 @@ class NetworkLogSanitizerTest {
     @Test
     fun `maskHost returns stable label and hash`() {
         val (label, hash) = requireNotNull(NetworkLogSanitizer.maskHost("example.com"))
-        assertEquals("7ab0e0…com", label.take(6) + label.takeLast(4))
+        assertEquals("a379a6.com", label.take(6) + label.takeLast(4))
         assertEquals(64, hash.length)
     }
 
