@@ -15,6 +15,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
@@ -222,6 +223,121 @@ class WalletDaoTest {
         ) as PagingSource.LoadResult.Page
 
         assertEquals(listOf("pending", "confirmed"), result.data.map { it.transaction.txid })
+    }
+
+    @Test
+    fun applyChainMetadataUpdates_updatesOnlyChainFields() = runTest {
+        val walletId = 5L
+        insertWallet(walletId)
+        walletDao.upsertTransactions(
+            listOf(
+                WalletTransactionEntity(
+                    walletId = walletId,
+                    txid = "tx-confirmed",
+                    amountSats = 42_000,
+                    timestamp = null,
+                    type = TransactionType.RECEIVED.name,
+                    confirmations = 0,
+                    label = "keep-me"
+                )
+            )
+        )
+        walletDao.upsertUtxos(
+            listOf(
+                WalletUtxoEntity(
+                    walletId = walletId,
+                    txid = "tx-confirmed",
+                    vout = 1,
+                    valueSats = 42_000,
+                    confirmations = 0,
+                    status = UtxoStatus.PENDING.name,
+                    label = "utxo-label",
+                    spendable = false,
+                    address = "bc1qpartial",
+                    keychain = WalletAddressType.EXTERNAL.name,
+                    derivationIndex = 7
+                )
+            )
+        )
+
+        val result = walletDao.applyChainMetadataUpdates(
+            walletId = walletId,
+            transactionUpdates = listOf(
+                TransactionChainMetadataUpdate(
+                    txid = "tx-confirmed",
+                    confirmations = 6,
+                    timestamp = 123_000L,
+                    blockHeight = 1_000,
+                    blockHash = "abc"
+                )
+            ),
+            utxoUpdates = listOf(
+                UtxoChainMetadataUpdate(
+                    txid = "tx-confirmed",
+                    vout = 1,
+                    confirmations = 6,
+                    status = UtxoStatus.CONFIRMED.name
+                )
+            )
+        )
+
+        assertEquals(1, result.updatedTransactions)
+        assertEquals(1, result.updatedUtxos)
+
+        val transaction = walletDao.getTransactionsSnapshot(walletId).single()
+        assertEquals(6, transaction.confirmations)
+        assertEquals(123_000L, transaction.timestamp)
+        assertEquals(1_000, transaction.blockHeight)
+        assertEquals("abc", transaction.blockHash)
+        assertEquals("keep-me", transaction.label)
+        assertEquals(42_000, transaction.amountSats)
+
+        val utxo = walletDao.getUtxosSnapshot(walletId).single()
+        assertEquals(6, utxo.confirmations)
+        assertEquals(UtxoStatus.CONFIRMED.name, utxo.status)
+        assertEquals("utxo-label", utxo.label)
+        assertEquals(false, utxo.spendable)
+        assertEquals(42_000, utxo.valueSats)
+    }
+
+    @Test
+    fun applyChainMetadataUpdates_clearsBlockInfoForPendingTx() = runTest {
+        val walletId = 6L
+        insertWallet(walletId)
+        walletDao.upsertTransactions(
+            listOf(
+                WalletTransactionEntity(
+                    walletId = walletId,
+                    txid = "tx-pending-again",
+                    amountSats = 10_000,
+                    timestamp = 222_000L,
+                    type = TransactionType.SENT.name,
+                    confirmations = 2,
+                    blockHeight = 500,
+                    blockHash = "deadbeef"
+                )
+            )
+        )
+
+        walletDao.applyChainMetadataUpdates(
+            walletId = walletId,
+            transactionUpdates = listOf(
+                TransactionChainMetadataUpdate(
+                    txid = "tx-pending-again",
+                    confirmations = 0,
+                    timestamp = null,
+                    blockHeight = null,
+                    blockHash = null
+                )
+            ),
+            utxoUpdates = emptyList()
+        )
+
+        val transaction = walletDao.getTransactionsSnapshot(walletId).single()
+        assertEquals(0, transaction.confirmations)
+        assertNull(transaction.timestamp)
+        assertNull(transaction.blockHeight)
+        assertNull(transaction.blockHash)
     }
 
     private suspend fun insertWallet(walletId: Long) {

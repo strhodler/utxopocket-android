@@ -16,6 +16,8 @@ import com.strhodler.utxopocket.data.db.WalletTransactionEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionInputEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionOutputEntity
 import com.strhodler.utxopocket.data.db.WalletUtxoEntity
+import com.strhodler.utxopocket.data.db.TransactionChainMetadataUpdate
+import com.strhodler.utxopocket.data.db.UtxoChainMetadataUpdate
 import com.strhodler.utxopocket.data.db.markFullScanCompleted
 import com.strhodler.utxopocket.data.db.withSyncFailure
 import com.strhodler.utxopocket.data.db.withSyncResult
@@ -521,18 +523,47 @@ internal class NodeSyncRunner(
                                 }
                                 val delta = wallet.inspectSyncDelta()
                                 val didPersist = wallet.persist(persister)
+                                val persistenceMode = resolvePersistenceMode(
+                                    delta = delta.toFlags(),
+                                    shouldRunFullScan = shouldRunFullScan,
+                                    didPersist = didPersist
+                                )
                                 val balanceSats = wallet.balance().use { balance ->
                                     balance.total.toSat().toLong()
                                 }
-                                val needsDataRefresh = shouldRunFullScan || delta.requiresDataRefresh || didPersist
                                 val syncTimestamp = System.currentTimeMillis()
                                 SecureLog.d(logTag) {
                                     "Wallet ${entity.id} delta graph=${delta.hasGraphChanges} " +
                                         "chain=${delta.hasChainChanges} indexer=${delta.hasIndexerChanges} " +
-                                        "persisted=$didPersist fullScan=$shouldRunFullScan needsDataRefresh=$needsDataRefresh"
+                                        "persisted=$didPersist fullScan=$shouldRunFullScan mode=$persistenceMode"
                                 }
 
-                                if (needsDataRefresh) {
+                                suspend fun persistSyncResult(txCount: Int) {
+                                    val syncedEntity = entity.withSyncResult(
+                                        balanceSats = balanceSats,
+                                        txCount = txCount,
+                                        status = NodeStatus.Synced,
+                                        timestamp = syncTimestamp
+                                    )
+                                    val finalEntity = if (shouldRunFullScan) {
+                                        syncedEntity.markFullScanCompleted(syncTimestamp)
+                                    } else {
+                                        syncedEntity
+                                    }
+                                    walletDao.updateSyncResult(
+                                        id = entity.id,
+                                        balanceSats = finalEntity.balanceSats,
+                                        txCount = finalEntity.transactionCount,
+                                        lastSyncStatus = finalEntity.lastSyncStatus,
+                                        lastSyncError = finalEntity.lastSyncError,
+                                        lastSyncTime = finalEntity.lastSyncTime,
+                                        requiresFullScan = finalEntity.requiresFullScan,
+                                        fullScanStopGap = finalEntity.fullScanStopGap,
+                                        lastFullScanTime = finalEntity.lastFullScanTime
+                                    )
+                                }
+
+                                suspend fun persistFullRefreshSnapshot() {
                                     val transactionLabels = walletDao.getTransactionLabels(entity.id)
                                         .associate { projection ->
                                             projection.txid to sanitizeLabel(projection.label)
@@ -637,56 +668,60 @@ internal class NodeSyncRunner(
                                         )
                                         walletDao.replaceUtxos(entity.id, utxoEntities)
                                         applyPendingLabels(entity.id)
-                                        val syncedEntity = entity.withSyncResult(
-                                            balanceSats = balanceSats,
-                                            txCount = capturedTransactions.transactions.size,
-                                            status = NodeStatus.Synced,
-                                            timestamp = syncTimestamp
+                                        persistSyncResult(capturedTransactions.transactions.size)
+                                    }
+                                }
+
+                                when (persistenceMode) {
+                                    SyncPersistenceMode.FULL_REFRESH -> {
+                                        persistFullRefreshSnapshot()
+                                    }
+
+                                    SyncPersistenceMode.PARTIAL_CHAIN_UPDATE -> {
+                                        val transactionUpdates =
+                                            captureTransactionChainMetadataUpdates(
+                                                wallet = wallet,
+                                                currentHeight = blockHeight
+                                            )
+                                        val utxoUpdates = captureUtxoChainMetadataUpdates(
+                                            wallet = wallet,
+                                            currentHeight = blockHeight
                                         )
-                                        val finalEntity = if (shouldRunFullScan) {
-                                            syncedEntity.markFullScanCompleted(syncTimestamp)
+                                        txAfterForMetrics = transactionUpdates.size
+                                        utxoAfterForMetrics = utxoUpdates.size
+                                        val updateResult = walletDao.applyChainMetadataUpdates(
+                                            walletId = entity.id,
+                                            transactionUpdates = transactionUpdates,
+                                            utxoUpdates = utxoUpdates
+                                        )
+                                        val txMismatch =
+                                            updateResult.updatedTransactions != transactionUpdates.size
+                                        val utxoMismatch =
+                                            updateResult.updatedUtxos != utxoUpdates.size
+                                        if (txMismatch || utxoMismatch) {
+                                            SecureLog.w(logTag) {
+                                                "Wallet $walletAlias chain-only update mismatch " +
+                                                    "tx=${updateResult.updatedTransactions}/${transactionUpdates.size} " +
+                                                    "utxo=${updateResult.updatedUtxos}/${utxoUpdates.size}; " +
+                                                    "falling back to full refresh"
+                                            }
+                                            persistFullRefreshSnapshot()
                                         } else {
-                                            syncedEntity
+                                            SecureLog.d(logTag) {
+                                                "Applied chain-only metadata updates for $walletAlias " +
+                                                    "tx=${updateResult.updatedTransactions} utxo=${updateResult.updatedUtxos}"
+                                            }
+                                            persistSyncResult(entity.transactionCount)
                                         }
-                                        walletDao.updateSyncResult(
-                                            id = entity.id,
-                                            balanceSats = finalEntity.balanceSats,
-                                            txCount = finalEntity.transactionCount,
-                                            lastSyncStatus = finalEntity.lastSyncStatus,
-                                            lastSyncError = finalEntity.lastSyncError,
-                                            lastSyncTime = finalEntity.lastSyncTime,
-                                            requiresFullScan = finalEntity.requiresFullScan,
-                                            fullScanStopGap = finalEntity.fullScanStopGap,
-                                            lastFullScanTime = finalEntity.lastFullScanTime
-                                        )
                                     }
-                                } else {
-                                    SecureLog.d(logTag) {
-                                        "No data changes detected for $walletAlias, skipping DB refresh."
+
+                                    SyncPersistenceMode.NO_DATA_REFRESH -> {
+                                        SecureLog.d(logTag) {
+                                            "No data changes detected for $walletAlias, skipping DB refresh."
+                                        }
+                                        txAfterForMetrics = entity.transactionCount
+                                        persistSyncResult(entity.transactionCount)
                                     }
-                                    txAfterForMetrics = entity.transactionCount
-                                    val syncedEntity = entity.withSyncResult(
-                                        balanceSats = balanceSats,
-                                        txCount = entity.transactionCount,
-                                        status = NodeStatus.Synced,
-                                        timestamp = syncTimestamp
-                                    )
-                                    val finalEntity = if (shouldRunFullScan) {
-                                        syncedEntity.markFullScanCompleted(syncTimestamp)
-                                    } else {
-                                        syncedEntity
-                                    }
-                                    walletDao.updateSyncResult(
-                                        id = entity.id,
-                                        balanceSats = finalEntity.balanceSats,
-                                        txCount = finalEntity.transactionCount,
-                                        lastSyncStatus = finalEntity.lastSyncStatus,
-                                        lastSyncError = finalEntity.lastSyncError,
-                                        lastSyncTime = finalEntity.lastSyncTime,
-                                        requiresFullScan = finalEntity.requiresFullScan,
-                                        fullScanStopGap = finalEntity.fullScanStopGap,
-                                        lastFullScanTime = finalEntity.lastFullScanTime
-                                    )
                                 }
                                 runCatching {
                                     walletDao.markSyncSessionApplied(
@@ -1134,6 +1169,61 @@ internal class NodeSyncRunner(
         )
     }
 
+    private fun captureTransactionChainMetadataUpdates(
+        wallet: Wallet,
+        currentHeight: Long?
+    ): List<TransactionChainMetadataUpdate> {
+        val canonicalTransactions = wallet.transactions()
+        val mapped = mutableListOf<TransactionChainMetadataUpdate>()
+        canonicalTransactions.forEach { canonicalTx ->
+            val transaction = canonicalTx.transaction
+            try {
+                val txid = transaction.computeTxid().use { it.toString() }
+                val chainPosition = canonicalTx.chainPosition
+                val blockInfo = chainPositionBlockInfo(chainPosition)
+                mapped += TransactionChainMetadataUpdate(
+                    txid = txid,
+                    confirmations = chainPositionConfirmations(chainPosition, currentHeight),
+                    timestamp = chainPositionTimestamp(chainPosition),
+                    blockHeight = blockInfo?.height,
+                    blockHash = blockInfo?.hash
+                )
+            } finally {
+                transaction.destroy()
+                canonicalTx.destroy()
+            }
+        }
+        return mapped
+    }
+
+    private fun captureUtxoChainMetadataUpdates(
+        wallet: Wallet,
+        currentHeight: Long?
+    ): List<UtxoChainMetadataUpdate> {
+        val outputs = wallet.listUnspent()
+        val mapped = mutableListOf<UtxoChainMetadataUpdate>()
+        outputs.forEach { output ->
+            try {
+                val outPoint = output.outpoint
+                val chainPosition = output.chainPosition
+                val status = if (chainPosition is ChainPosition.Confirmed) {
+                    UtxoStatus.CONFIRMED
+                } else {
+                    UtxoStatus.PENDING
+                }
+                mapped += UtxoChainMetadataUpdate(
+                    txid = outPoint.txid.toString(),
+                    vout = outPoint.vout.toInt(),
+                    confirmations = chainPositionConfirmations(chainPosition, currentHeight),
+                    status = status.name
+                )
+            } finally {
+                output.destroy()
+            }
+        }
+        return mapped
+    }
+
     private data class CapturedTransactions(
         val transactions: List<WalletTransactionEntity>,
         val inputs: List<WalletTransactionInputEntity>,
@@ -1150,8 +1240,11 @@ internal class NodeSyncRunner(
         val hasChainChanges: Boolean,
         val hasIndexerChanges: Boolean
     ) {
-        val requiresDataRefresh: Boolean
-            get() = hasGraphChanges || hasChainChanges || hasIndexerChanges
+        fun toFlags(): SyncDeltaFlags = SyncDeltaFlags(
+            hasGraphChanges = hasGraphChanges,
+            hasChainChanges = hasChainChanges,
+            hasIndexerChanges = hasIndexerChanges
+        )
 
         companion object {
             val NONE = WalletSyncDelta(
@@ -1442,6 +1535,38 @@ internal class NodeSyncRunner(
             append((value.toInt() and 0xFF).toString(16).padStart(2, '0'))
         }
     }
+}
+
+internal enum class SyncPersistenceMode {
+    FULL_REFRESH,
+    PARTIAL_CHAIN_UPDATE,
+    NO_DATA_REFRESH
+}
+
+internal data class SyncDeltaFlags(
+    val hasGraphChanges: Boolean,
+    val hasChainChanges: Boolean,
+    val hasIndexerChanges: Boolean
+)
+
+internal fun resolvePersistenceMode(
+    delta: SyncDeltaFlags,
+    shouldRunFullScan: Boolean,
+    didPersist: Boolean
+): SyncPersistenceMode {
+    if (shouldRunFullScan) {
+        return SyncPersistenceMode.FULL_REFRESH
+    }
+    if (delta.hasGraphChanges || delta.hasIndexerChanges) {
+        return SyncPersistenceMode.FULL_REFRESH
+    }
+    if (delta.hasChainChanges) {
+        return SyncPersistenceMode.PARTIAL_CHAIN_UPDATE
+    }
+    if (didPersist) {
+        return SyncPersistenceMode.FULL_REFRESH
+    }
+    return SyncPersistenceMode.NO_DATA_REFRESH
 }
 
 internal fun shouldRetryAttempt(attempt: Int, maxAttempts: Int): Boolean {

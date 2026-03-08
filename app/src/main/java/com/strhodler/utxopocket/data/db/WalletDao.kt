@@ -411,6 +411,46 @@ suspend fun findUtxosByAddress(walletId: Long, address: String): List<UtxoRefPro
     @Query("UPDATE wallet_utxos SET spendable = :spendable WHERE wallet_id = :walletId AND txid = :txid AND vout = :vout")
     suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?)
 
+    @Query(
+        """
+        UPDATE wallet_transactions
+        SET
+            confirmations = :confirmations,
+            timestamp = :timestamp,
+            block_height = :blockHeight,
+            block_hash = :blockHash
+        WHERE wallet_id = :walletId
+          AND txid = :txid
+        """
+    )
+    suspend fun updateTransactionChainMetadata(
+        walletId: Long,
+        txid: String,
+        confirmations: Int,
+        timestamp: Long?,
+        blockHeight: Int?,
+        blockHash: String?
+    ): Int
+
+    @Query(
+        """
+        UPDATE wallet_utxos
+        SET
+            confirmations = :confirmations,
+            status = :status
+        WHERE wallet_id = :walletId
+          AND txid = :txid
+          AND vout = :vout
+        """
+    )
+    suspend fun updateUtxoChainMetadata(
+        walletId: Long,
+        txid: String,
+        vout: Int,
+        confirmations: Int,
+        status: String
+    ): Int
+
     @Query("UPDATE wallets SET name = :name WHERE id = :id")
     suspend fun updateWalletName(id: Long, name: String)
 
@@ -423,6 +463,42 @@ suspend fun findUtxosByAddress(walletId: Long, address: String): List<UtxoRefPro
         """
     )
     suspend fun countByNameExcluding(network: String, name: String, excludeId: Long): Int
+
+    @Transaction
+    suspend fun applyChainMetadataUpdates(
+        walletId: Long,
+        transactionUpdates: List<TransactionChainMetadataUpdate>,
+        utxoUpdates: List<UtxoChainMetadataUpdate>
+    ): ChainMetadataUpdateResult {
+        var updatedTransactions = 0
+        var updatedUtxos = 0
+
+        transactionUpdates.forEach { update ->
+            updatedTransactions += updateTransactionChainMetadata(
+                walletId = walletId,
+                txid = update.txid,
+                confirmations = update.confirmations,
+                timestamp = update.timestamp,
+                blockHeight = update.blockHeight,
+                blockHash = update.blockHash
+            )
+        }
+
+        utxoUpdates.forEach { update ->
+            updatedUtxos += updateUtxoChainMetadata(
+                walletId = walletId,
+                txid = update.txid,
+                vout = update.vout,
+                confirmations = update.confirmations,
+                status = update.status
+            )
+        }
+
+        return ChainMetadataUpdateResult(
+            updatedTransactions = updatedTransactions,
+            updatedUtxos = updatedUtxos
+        )
+    }
 
     @Transaction
     suspend fun replaceTransactions(
@@ -504,6 +580,26 @@ data class WalletWithUtxoCount(
 data class UtxoRefProjection(
     val txid: String,
     val vout: Int
+)
+
+data class TransactionChainMetadataUpdate(
+    val txid: String,
+    val confirmations: Int,
+    val timestamp: Long?,
+    val blockHeight: Int?,
+    val blockHash: String?
+)
+
+data class UtxoChainMetadataUpdate(
+    val txid: String,
+    val vout: Int,
+    val confirmations: Int,
+    val status: String
+)
+
+data class ChainMetadataUpdateResult(
+    val updatedTransactions: Int,
+    val updatedUtxos: Int
 )
 
 data class TransactionLabelProjection(
