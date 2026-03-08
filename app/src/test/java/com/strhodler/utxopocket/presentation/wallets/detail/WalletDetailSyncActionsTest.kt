@@ -283,6 +283,8 @@ class WalletDetailSyncActionsTest {
         )
         private val utxoVisualizationCalculator = UtxoVisualizationCalculator()
         private val utxoTreemapCalculator = UtxoTreemapCalculator()
+        private val walletDetailPreferencesRepository =
+            WalletDetailViewModelRangeTest.InMemoryWalletDetailPreferencesRepository()
         private val walletSyncPreferencesRepository = WalletDetailViewModelRangeTest.InMemoryWalletSyncPreferencesRepository()
 
         fun createViewModel(): WalletDetailViewModel {
@@ -302,6 +304,7 @@ class WalletDetailSyncActionsTest {
                 incomingTxCoordinator = incomingTxCoordinator,
                 utxoVisualizationCalculator = utxoVisualizationCalculator,
                 utxoTreemapCalculator = utxoTreemapCalculator,
+                walletDetailPreferencesRepository = walletDetailPreferencesRepository,
                 walletSyncPreferencesRepository = walletSyncPreferencesRepository
             )
         }

@@ -33,6 +33,9 @@ import com.strhodler.utxopocket.domain.model.WalletCreationRequest
 import com.strhodler.utxopocket.domain.model.WalletCreationResult
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import com.strhodler.utxopocket.domain.model.WalletDetail
+import com.strhodler.utxopocket.domain.model.WalletDetailPreferences
+import com.strhodler.utxopocket.domain.model.WalletDetailTransactionFilter
+import com.strhodler.utxopocket.domain.model.WalletDetailUtxoFilter
 import com.strhodler.utxopocket.domain.model.WalletLabelExport
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
@@ -51,6 +54,7 @@ import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
 import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
 import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
+import com.strhodler.utxopocket.domain.repository.WalletDetailPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
@@ -101,7 +105,7 @@ class WalletDetailViewModelRangeTest {
     }
 
     @Test
-    fun selectingRangeUpdatesPreferencesAndState() = runTest(dispatcher) {
+    fun selectingRangeUpdatesState() = runTest(dispatcher) {
         val harness = TestHarness()
         val viewModel = harness.createViewModel()
 
@@ -110,7 +114,6 @@ class WalletDetailViewModelRangeTest {
         viewModel.onBalanceRangeSelected(BalanceRange.LastWeek)
         advanceUntilIdle()
 
-        assertEquals(BalanceRange.LastWeek, harness.preferences.lastSetBalanceRange)
         assertEquals(BalanceRange.LastWeek, viewModel.uiState.value.selectedRange)
     }
 
@@ -127,6 +130,92 @@ class WalletDetailViewModelRangeTest {
         assertEquals(1, harness.coordinatorPlaceholderCount())
     }
 
+    @Test
+    fun detailFiltersAndSortsPersistPerWalletAcrossRecreation() = runTest(dispatcher) {
+        val harness = TestHarness()
+        val viewModel = harness.createViewModel(walletId = 100L)
+
+        advanceUntilIdle()
+
+        viewModel.updateTransactionSort(WalletTransactionSort.HIGHEST_AMOUNT)
+        viewModel.setShowPending(true)
+        viewModel.updateUtxoSort(WalletUtxoSort.SMALLEST_AMOUNT)
+        viewModel.setTransactionLabelFilter(
+            TransactionLabelFilter(
+                showLabeled = false,
+                showUnlabeled = true,
+                showReceived = false,
+                showSent = true
+            )
+        )
+        viewModel.setUtxoLabelFilter(
+            UtxoLabelFilter(
+                showLabeled = false,
+                showUnlabeled = true,
+                showSpendable = true,
+                showNotSpendable = false
+            )
+        )
+        viewModel.onBalanceRangeSelected(BalanceRange.LastMonth)
+        viewModel.setShowBalanceChart(true)
+        advanceUntilIdle()
+
+        val recreated = harness.createViewModel(walletId = 100L)
+        advanceUntilIdle()
+
+        val restoredState = recreated.uiState.value
+        assertEquals(WalletTransactionSort.HIGHEST_AMOUNT, restoredState.transactionSort)
+        assertEquals(true, restoredState.showPending)
+        assertEquals(WalletUtxoSort.SMALLEST_AMOUNT, restoredState.utxoSort)
+        assertEquals(
+            TransactionLabelFilter(
+                showLabeled = false,
+                showUnlabeled = true,
+                showReceived = false,
+                showSent = true
+            ),
+            restoredState.transactionLabelFilter
+        )
+        assertEquals(
+            UtxoLabelFilter(
+                showLabeled = false,
+                showUnlabeled = true,
+                showSpendable = true,
+                showNotSpendable = false
+            ),
+            restoredState.utxoLabelFilter
+        )
+        assertEquals(BalanceRange.LastMonth, restoredState.selectedRange)
+        assertEquals(true, restoredState.showBalanceChart)
+    }
+
+    @Test
+    fun detailPreferencesAreScopedPerWallet() = runTest(dispatcher) {
+        val harness = TestHarness()
+        val walletA = harness.createViewModel(walletId = 201L)
+        val walletB = harness.createViewModel(walletId = 202L)
+
+        advanceUntilIdle()
+
+        walletA.updateTransactionSort(WalletTransactionSort.OLDEST_FIRST)
+        walletA.setShowPending(true)
+        walletA.onBalanceRangeSelected(BalanceRange.LastYear)
+        walletA.setShowBalanceChart(true)
+        advanceUntilIdle()
+
+        val stateA = walletA.uiState.value
+        val stateB = walletB.uiState.value
+        assertEquals(WalletTransactionSort.OLDEST_FIRST, stateA.transactionSort)
+        assertEquals(true, stateA.showPending)
+        assertEquals(BalanceRange.LastYear, stateA.selectedRange)
+        assertEquals(true, stateA.showBalanceChart)
+
+        assertEquals(WalletTransactionSort.NEWEST_FIRST, stateB.transactionSort)
+        assertEquals(false, stateB.showPending)
+        assertEquals(BalanceRange.All, stateB.selectedRange)
+        assertEquals(false, stateB.showBalanceChart)
+    }
+
     private class TestHarness {
         val preferences = RecordingAppPreferencesRepository()
         private val walletRepository = StaticWalletRepository()
@@ -140,11 +229,12 @@ class WalletDetailViewModelRangeTest {
         )
         private val utxoVisualizationCalculator = UtxoVisualizationCalculator()
         private val utxoTreemapCalculator = UtxoTreemapCalculator()
+        private val walletDetailPreferencesRepository = InMemoryWalletDetailPreferencesRepository()
         private val walletSyncPreferencesRepository = InMemoryWalletSyncPreferencesRepository()
 
-        fun createViewModel(): WalletDetailViewModel {
+        fun createViewModel(walletId: Long = StaticWalletRepository.WALLET_ID): WalletDetailViewModel {
             val savedStateHandle = SavedStateHandle(
-                mapOf(WalletsNavigation.WalletIdArg to StaticWalletRepository.WALLET_ID)
+                mapOf(WalletsNavigation.WalletIdArg to walletId)
             )
             return WalletDetailViewModel(
                 savedStateHandle = savedStateHandle,
@@ -159,6 +249,7 @@ class WalletDetailViewModelRangeTest {
                 incomingTxCoordinator = incomingTxCoordinator,
                 utxoVisualizationCalculator = utxoVisualizationCalculator,
                 utxoTreemapCalculator = utxoTreemapCalculator,
+                walletDetailPreferencesRepository = walletDetailPreferencesRepository,
                 walletSyncPreferencesRepository = walletSyncPreferencesRepository
             )
         }
@@ -623,5 +714,50 @@ class WalletDetailViewModelRangeTest {
         override suspend fun getGap(walletId: Long): Int? = state.value[walletId]
 
         override fun observeGap(walletId: Long): Flow<Int?> = state.map { it[walletId] }
+    }
+
+    internal class InMemoryWalletDetailPreferencesRepository : WalletDetailPreferencesRepository {
+        private val state = MutableStateFlow<Map<Long, WalletDetailPreferences>>(emptyMap())
+
+        override fun observe(walletId: Long): Flow<WalletDetailPreferences> =
+            state.map { prefs -> prefs[walletId] ?: WalletDetailPreferences() }
+
+        override suspend fun setTransactionSort(walletId: Long, sort: WalletTransactionSort) {
+            update(walletId) { it.copy(transactionSort = sort) }
+        }
+
+        override suspend fun setShowPending(walletId: Long, enabled: Boolean) {
+            update(walletId) { it.copy(showPending = enabled) }
+        }
+
+        override suspend fun setUtxoSort(walletId: Long, sort: WalletUtxoSort) {
+            update(walletId) { it.copy(utxoSort = sort) }
+        }
+
+        override suspend fun setTransactionFilter(walletId: Long, filter: WalletDetailTransactionFilter) {
+            update(walletId) { it.copy(transactionFilter = filter) }
+        }
+
+        override suspend fun setUtxoFilter(walletId: Long, filter: WalletDetailUtxoFilter) {
+            update(walletId) { it.copy(utxoFilter = filter) }
+        }
+
+        override suspend fun setBalanceRange(walletId: Long, range: BalanceRange) {
+            update(walletId) { it.copy(balanceRange = range) }
+        }
+
+        override suspend fun setShowBalanceChart(walletId: Long, show: Boolean) {
+            update(walletId) { it.copy(showBalanceChart = show) }
+        }
+
+        private fun update(
+            walletId: Long,
+            transform: (WalletDetailPreferences) -> WalletDetailPreferences
+        ) {
+            val current = state.value[walletId] ?: WalletDetailPreferences()
+            state.value = state.value.toMutableMap().apply {
+                put(walletId, transform(current))
+            }
+        }
     }
 }
