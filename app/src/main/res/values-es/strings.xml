@@ -175,7 +175,7 @@
     <string name="wallet_detail_collections_tab_count">Colecciones (%1$d)</string>
     <string name="wallet_detail_empty_transactions">Aún no hay transacciones.</string>
     <string name="wallet_detail_incoming_empty">Sin transacciones entrantes detectadas.</string>
-    <string name="wallet_detail_incoming_sync_hint">Sincroniza para agregarla a tu billetera y marcarla como pendiente.</string>
+    <string name="wallet_detail_incoming_sync_hint">Sincroniza para consolidar los placeholders en transacciones canónicas de la wallet.</string>
     <string name="wallet_detail_transactions_sort_label">Ordenar por</string>
     <string name="wallet_detail_transactions_sort_expand_content_description">Mostrar opciones de orden</string>
     <string name="wallet_detail_transactions_sort_newest_first">Más recientes primero</string>
@@ -333,13 +333,15 @@
     <string name="wallet_detail_transaction_id_label">Txid</string>
     <string name="incoming_tx_placeholder_title">Transacción entrante detectada</string>
     <string name="incoming_tx_placeholder_detected_at">Detectada a las</string>
-    <string name="incoming_tx_placeholder_subtitle">Actualiza la wallet para reemplazar este placeholder con los detalles completos.</string>
+    <string name="incoming_tx_placeholder_subtitle">Los estados placeholder se mantienen hasta que una sincronización exitosa reconcilia este txid.</string>
+    <string name="incoming_tx_placeholder_status_unconfirmed">Sin confirmar (ligero)</string>
+    <string name="incoming_tx_placeholder_status_confirmed_light">Visto confirmado (ligero)</string>
     <string name="incoming_tx_placeholder_amount_pending">Importe pendiente</string>
     <plurals name="incoming_tx_sheet_count">
         <item quantity="one">%1$d transacción entrante</item>
         <item quantity="other">%1$d transacciones entrantes</item>
     </plurals>
-    <string name="incoming_tx_sheet_subtitle">Detectadas mientras estabas fuera. Sincroniza para cargar los detalles completos.</string>
+    <string name="incoming_tx_sheet_subtitle">Detectadas mientras estabas fuera. Sincroniza para reconciliar placeholders con transacciones canónicas.</string>
     <string name="incoming_tx_sheet_sync">Sincronizar ahora</string>
     <string name="incoming_tx_sheet_no_refresh">No actualizar</string>
     <string name="incoming_tx_sheet_close">Cerrar transacciones entrantes</string>

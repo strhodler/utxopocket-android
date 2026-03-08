@@ -108,6 +108,7 @@ import com.strhodler.utxopocket.presentation.components.TopBarNodeStatusIcon
 import com.strhodler.utxopocket.presentation.components.TopBarStatusActionIcon
 import com.strhodler.utxopocket.presentation.format.formatBlockHeight
 import com.strhodler.utxopocket.presentation.format.formatFeeRateSatPerVb
+import com.strhodler.utxopocket.presentation.format.incomingPlaceholderStatusLabelRes
 import com.strhodler.utxopocket.presentation.format.sanitizeFeeRateSatPerVb
 import com.strhodler.utxopocket.presentation.navigation.MainBottomBar
 import com.strhodler.utxopocket.presentation.navigation.LocalMainBottomBarVisibility
@@ -814,7 +815,9 @@ private fun StatusBar(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = stringResource(id = R.string.wallet_detail_pending_confirmation),
+                            text = stringResource(
+                                id = incomingPlaceholderStatusLabelRes(placeholder.lightStatus)
+                            ),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

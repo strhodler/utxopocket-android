@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.domain.model.IncomingTxLightStatus
 import com.strhodler.utxopocket.domain.model.NodeStatus
 
 @Composable
@@ -33,4 +34,10 @@ fun confirmationLabel(
     confirmations <= 0 -> stringResource(id = pendingResId)
     confirmations == 1 -> stringResource(id = singleResId)
     else -> stringResource(id = pluralResId, confirmations)
+}
+
+@StringRes
+fun incomingPlaceholderStatusLabelRes(lightStatus: IncomingTxLightStatus): Int = when (lightStatus) {
+    IncomingTxLightStatus.UNCONFIRMED -> R.string.incoming_tx_placeholder_status_unconfirmed
+    IncomingTxLightStatus.CONFIRMED_LIGHT -> R.string.incoming_tx_placeholder_status_confirmed_light
 }

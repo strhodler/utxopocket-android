@@ -182,6 +182,42 @@ class ReceiveViewModelTest {
         observer.cancel()
     }
 
+    @Test
+    fun detectionMarksCurrentAddressUsedAndDoesNotReuseItOnRefresh() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        repository.unusedAddresses = listOf(primaryAddress, secondaryAddress, tertiaryAddress)
+        repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
+        repository.addressDetails[secondaryAddress.derivationIndex] = secondaryDetail
+        repository.addressDetails[tertiaryAddress.derivationIndex] = tertiaryDetail
+        val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
+        advanceUntilIdle()
+
+        repository.nextAddress = secondaryAddress
+
+        incomingCoordinator.onDetection(
+            IncomingTxDetection(
+                walletId = 1L,
+                address = primaryAddress.value,
+                derivationIndex = primaryAddress.derivationIndex,
+                txid = "txid-mark-used",
+                amountSats = 1000L
+            )
+        )
+        advanceUntilIdle()
+
+        assertEquals(listOf(primaryAddress.derivationIndex), repository.markedAsUsed)
+        assertEquals(secondaryDetail, viewModel.uiState.value.address)
+
+        repository.unusedAddresses = listOf(primaryAddress, secondaryAddress, tertiaryAddress)
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals(secondaryDetail, viewModel.uiState.value.address)
+        observer.cancel()
+    }
+
     private fun TestScope.observeUiState(viewModel: ReceiveViewModel): Job =
         backgroundScope.launch {
             viewModel.uiState.collect {}
@@ -205,6 +241,12 @@ class ReceiveViewModelTest {
             derivationPath = "m/84h/0h/0h/0/1",
             derivationIndex = 1
         )
+        private val tertiaryAddress = WalletAddress(
+            value = "bc1qtertiary",
+            type = WalletAddressType.EXTERNAL,
+            derivationPath = "m/84h/0h/0h/0/2",
+            derivationIndex = 2
+        )
         private val primaryDetail = WalletAddressDetail(
             value = primaryAddress.value,
             type = WalletAddressType.EXTERNAL,
@@ -221,6 +263,16 @@ class ReceiveViewModelTest {
             derivationPath = secondaryAddress.derivationPath,
             derivationIndex = secondaryAddress.derivationIndex,
             scriptPubKey = "334455",
+            descriptor = "wpkh(...)",
+            usage = AddressUsage.NEVER,
+            usageCount = 0
+        )
+        private val tertiaryDetail = WalletAddressDetail(
+            value = tertiaryAddress.value,
+            type = WalletAddressType.EXTERNAL,
+            derivationPath = tertiaryAddress.derivationPath,
+            derivationIndex = tertiaryAddress.derivationIndex,
+            scriptPubKey = "667788",
             descriptor = "wpkh(...)",
             usage = AddressUsage.NEVER,
             usageCount = 0

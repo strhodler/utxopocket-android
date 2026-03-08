@@ -89,6 +89,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 @Composable
 fun ReceiveRoute(
@@ -220,6 +221,7 @@ class ReceiveViewModel @Inject constructor(
         )
 
     private val internalState = MutableStateFlow(ReceiveInternalState())
+    private val reservedAddresses = MutableStateFlow<Set<String>>(emptySet())
 
     val uiState: StateFlow<ReceiveUiState> = combine(
         internalState,
@@ -245,6 +247,9 @@ class ReceiveViewModel @Inject constructor(
             incomingTxCoordinator.sheetTriggers.collect { detection ->
                 val current = internalState.value.address ?: return@collect
                 if (detection.walletId == walletId && detection.address == current.value) {
+                    reserveAddress(current.value)
+                    val derivationIndex = detection.derivationIndex ?: current.derivationIndex
+                    markAddressAsUsed(derivationIndex)
                     nextAddress()
                 }
             }
@@ -303,14 +308,9 @@ class ReceiveViewModel @Inject constructor(
     }
 
     fun onAddressShared(address: WalletAddressDetail) {
+        reserveAddress(address.value)
         viewModelScope.launch {
-            runCatching {
-                walletRepository.markAddressAsUsed(
-                    walletId = walletId,
-                    type = WalletAddressType.EXTERNAL,
-                    derivationIndex = address.derivationIndex
-                )
-            }
+            markAddressAsUsed(address.derivationIndex)
         }
     }
 
@@ -345,24 +345,24 @@ class ReceiveViewModel @Inject constructor(
 
     private suspend fun fetchUnusedAddress(): WalletAddress? =
         runCatching {
-            val placeholders = placeholderAddresses()
-            val dynamicLimit = (placeholders.size + 2).coerceAtLeast(1)
+            val excludedAddresses = excludedReceiveAddresses()
+            val dynamicLimit = (excludedAddresses.size + 2).coerceAtLeast(1)
             val unused = walletRepository.listUnusedAddresses(
                 walletId = walletId,
                 type = WalletAddressType.EXTERNAL,
                 limit = dynamicLimit
             )
-            unused.firstOrNull { address -> address.value !in placeholders } ?: revealPastPlaceholders(placeholders)
+            unused.firstOrNull { address -> address.value !in excludedAddresses } ?: revealPastExcludedAddresses(excludedAddresses)
         }.getOrNull()
 
-    private suspend fun revealPastPlaceholders(placeholders: Set<String>): WalletAddress? {
-        val maxAttempts = (placeholders.size + 3).coerceAtLeast(3)
+    private suspend fun revealPastExcludedAddresses(excludedAddresses: Set<String>): WalletAddress? {
+        val maxAttempts = (excludedAddresses.size + 3).coerceAtLeast(3)
         repeat(maxAttempts) {
             val next = walletRepository.revealNextAddress(
                 walletId = walletId,
                 type = WalletAddressType.EXTERNAL
             ) ?: return null
-            if (next.value !in placeholders) {
+            if (next.value !in excludedAddresses) {
                 return next
             }
         }
@@ -385,6 +385,28 @@ class ReceiveViewModel @Inject constructor(
             ?.map { it.address }
             ?.toSet()
             .orEmpty()
+
+    private fun reserveAddress(address: String) {
+        if (address.isBlank()) return
+        reservedAddresses.update { existing -> existing + address }
+    }
+
+    private fun excludedReceiveAddresses(): Set<String> =
+        placeholderAddresses() + reservedAddresses.value
+
+    private suspend fun markAddressAsUsed(derivationIndex: Int) {
+        try {
+            walletRepository.markAddressAsUsed(
+                walletId = walletId,
+                type = WalletAddressType.EXTERNAL,
+                derivationIndex = derivationIndex
+            )
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Throwable) {
+            Unit
+        }
+    }
 }
 
 data class ReceiveUiState(

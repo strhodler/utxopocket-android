@@ -98,7 +98,7 @@
     <string name="wallet_detail_collections_tab_count">Collections (%1$d)</string>
     <string name="wallet_detail_empty_transactions">No transactions yet.</string>
     <string name="wallet_detail_incoming_empty">No detected incoming transactions.</string>
-    <string name="wallet_detail_incoming_sync_hint">Sync to bring it into your wallet and mark it pending.</string>
+    <string name="wallet_detail_incoming_sync_hint">Sync to consolidate placeholders into canonical wallet transactions.</string>
     <string name="wallet_detail_transactions_sort_label">Sort by</string>
     <string name="wallet_detail_transactions_sort_expand_content_description">Show sort options</string>
     <string name="wallet_detail_transactions_sort_newest_first">Newest first</string>
@@ -262,13 +262,15 @@
     <string name="wallet_detail_transaction_id_label">Txid</string>
     <string name="incoming_tx_placeholder_title">Incoming transaction detected</string>
     <string name="incoming_tx_placeholder_detected_at">Detected at</string>
-    <string name="incoming_tx_placeholder_subtitle">Refresh the wallet to replace this placeholder with full details.</string>
+    <string name="incoming_tx_placeholder_subtitle">Placeholder states remain until a successful wallet sync reconciles this txid.</string>
+    <string name="incoming_tx_placeholder_status_unconfirmed">Unconfirmed (light)</string>
+    <string name="incoming_tx_placeholder_status_confirmed_light">Seen confirmed (light)</string>
     <string name="incoming_tx_placeholder_amount_pending">Amount pending</string>
     <plurals name="incoming_tx_sheet_count">
         <item quantity="one">%1$d incoming transaction</item>
         <item quantity="other">%1$d incoming transactions</item>
     </plurals>
-    <string name="incoming_tx_sheet_subtitle">Detected while you were away. Sync to load full details.</string>
+    <string name="incoming_tx_sheet_subtitle">Detected while you were away. Sync to reconcile placeholders with canonical transactions.</string>
     <string name="incoming_tx_sheet_sync">Sync now</string>
     <string name="incoming_tx_sheet_no_refresh">No refresh</string>
     <string name="incoming_tx_sheet_close">Close incoming transactions</string>

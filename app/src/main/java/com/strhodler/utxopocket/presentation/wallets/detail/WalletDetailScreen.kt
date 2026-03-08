@@ -119,6 +119,7 @@ import com.strhodler.utxopocket.presentation.components.RefreshableContent
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.components.StepLineChart
 import com.strhodler.utxopocket.presentation.format.confirmationLabel
+import com.strhodler.utxopocket.presentation.format.incomingPlaceholderStatusLabelRes
 import com.strhodler.utxopocket.presentation.format.nodeStatusLabel
 import com.strhodler.utxopocket.presentation.common.QrCodeDisplayDialog
 import com.strhodler.utxopocket.presentation.common.balanceText
@@ -1394,7 +1395,9 @@ private fun IncomingPlaceholderRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = stringResource(id = R.string.wallet_detail_pending_confirmation),
+                        text = stringResource(
+                            id = incomingPlaceholderStatusLabelRes(placeholder.lightStatus)
+                        ),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

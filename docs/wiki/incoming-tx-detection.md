@@ -17,13 +17,13 @@ Watch-only users still need timely alerts for incoming funds without running a h
 - Use your own Electrum server over Tor when possible; public servers can observe lookup timing and patterns. UtxoPocket keeps hostnames unresolved and requires a Tor SOCKS proxy for all polling—if Tor isn’t ready, polling is skipped rather than falling back to clearnet.
 - Enable “Incoming transaction detection” in Wallet Settings and pick a polling interval that matches your tolerance for delays vs. battery usage; the slider controls seconds between checks while the app is in foreground.
 - The watcher probes the current external address plus the next five gap-limit slots to catch activity on recently shared addresses; keep descriptors and gap settings aligned with your restore expectations.
-- When a new txid appears, the app shows a global dialog with a refresh CTA and adds a pending-style placeholder row in the wallet timeline with a clock icon and amount (if known). It does **not** auto-refresh the wallet to avoid heavy downloads on large histories; use the refresh action when convenient.
+- When a new txid appears, the app shows a global dialog with a refresh CTA and adds a placeholder row in the wallet timeline with amount (if known). Placeholder status is light-only (`Unconfirmed (light)` or `Seen confirmed (light)`) and stays visible until a **successful wallet sync** reconciles that txid in canonical BDK data.
 - On the Receive screen, the “Check address” button queries the active address via the same Tor-only client; if activity is detected the app advances to the next address to avoid reuse.
 - Foreground resumes re-arm polling with the chosen interval; background stops polling to respect device limits.
 
 ## Action checklist
 - [ ] Run your own Electrum server or pick a trusted Tor-only endpoint; avoid clearnet.
 - [ ] Toggle “Incoming transaction detection” on and set a sane interval for your device/network.
-- [ ] After a dialog/placeholder appears, refresh the wallet when you have bandwidth to record the real transaction.
+- [ ] After a dialog/placeholder appears, refresh the wallet when you have bandwidth so the placeholder is reconciled into canonical transaction history.
 - [ ] Rotate receiving addresses promptly—use the Receive screen check to confirm usage and advance.
 - [ ] Keep your descriptor exports and gap-limit documentation up to date so restores match what the watcher monitors.
