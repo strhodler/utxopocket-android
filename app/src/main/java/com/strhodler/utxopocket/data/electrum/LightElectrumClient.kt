@@ -13,10 +13,16 @@ import java.io.OutputStreamWriter
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.Socket
-import java.net.SocketTimeoutException
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.TrustManager
@@ -51,8 +57,17 @@ class LightElectrumClient(
     private val socket: Socket
     private val reader: BufferedReader
     private val writer: BufferedWriter
+    private val requestTimeoutMs = endpoint.timeoutSeconds * 1_000L
+    private val pendingRequests = ConcurrentHashMap<Int, PendingRequest>()
+    private val notifications = LinkedBlockingQueue<ScriptHashNotification>()
+    private val writeLock = Any()
+    private val readerThread: Thread
     @Volatile
     private var sessionOpened: Boolean = false
+    @Volatile
+    private var closed: Boolean = false
+    @Volatile
+    private var readerFailure: IOException? = null
 
     init {
         val proxyConfig = proxy?.let {
@@ -60,7 +75,6 @@ class LightElectrumClient(
         } ?: Proxy.NO_PROXY
         val baseSocket = Socket(proxyConfig)
         val port = normalized.port ?: defaultPort()
-        baseSocket.soTimeout = endpoint.timeoutSeconds * 1_000
         val targetAddress = if (proxy != null) {
             InetSocketAddress.createUnresolved(normalized.host, port)
         } else {
@@ -80,8 +94,10 @@ class LightElectrumClient(
         } else {
             baseSocket
         }
+        socket.soTimeout = 0
         reader = BufferedReader(InputStreamReader(socket.getInputStream(), Charsets.UTF_8))
         writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), Charsets.UTF_8))
+        readerThread = startReaderLoop()
     }
 
     fun ping(): Boolean = runCatching {
@@ -149,25 +165,33 @@ class LightElectrumClient(
 
     private fun call(method: String, params: List<Any?> = emptyList()): Any? {
         val id = requestCounter.incrementAndGet()
+        val pending = PendingRequest(method = method)
+        pendingRequests[id] = pending
         val payload = JSONObject().apply {
             put("jsonrpc", "2.0")
             put("id", id)
             put("method", method)
             put("params", JSONArray(params))
         }
-        val message = payload.toString()
-        writer.write(message)
-        writer.write("\n")
-        writer.flush()
-        val line = reader.readLine() ?: throw IOException("Electrum connection closed")
-        val response = JSONObject(line)
-        if (response.has("error") && !response.isNull("error")) {
-            val error = response.getJSONObject("error")
-            val code = error.optInt("code", -1)
-            val messageText = error.optString("message", "Electrum error")
-            throw IOException("Electrum error $code: $messageText")
+        try {
+            sendMessage(payload.toString())
+            val response = awaitResponse(pending = pending, id = id)
+            if (response.has("error") && !response.isNull("error")) {
+                val errorValue = response.opt("error")
+                val messageText = when (errorValue) {
+                    is JSONObject -> {
+                        val code = errorValue.optInt("code", -1)
+                        val detail = errorValue.optString("message", "Electrum error")
+                        "Electrum error $code for $method (id=$id): $detail"
+                    }
+                    else -> "Electrum error for $method (id=$id): ${errorValue ?: "unknown"}"
+                }
+                throw IOException(messageText)
+            }
+            return response.opt("result")
+        } finally {
+            pendingRequests.remove(id, pending)
         }
-        return response.opt("result")
     }
 
     fun subscribeBatch(scripthashes: List<String>): Boolean {
@@ -193,37 +217,19 @@ class LightElectrumClient(
     }
 
     fun readNotifications(timeoutMs: Int): List<ScriptHashNotification> {
-        val originalTimeout = socket.soTimeout
-        socket.soTimeout = timeoutMs
-        val notifications = mutableListOf<ScriptHashNotification>()
-        while (true) {
-            val line = try {
-                reader.readLine()
-            } catch (timeout: SocketTimeoutException) {
-                break
-            }
-            if (line == null) {
-                break
-            }
-            val json = runCatching { JSONObject(line) }.getOrNull() ?: continue
-            val method = json.optString("method")
-            if (method.isNullOrBlank()) continue
-            val params = json.optJSONArray("params") ?: continue
-            if (params.length() < 2) continue
-            val scripthash = params.optString(0).orEmpty()
-            if (scripthash.isBlank()) continue
-            val status = params.optString(1, null)
-            if (method == "blockchain.scripthash.subscribe" ||
-                method == "blockchain.scripthashes.subscribe"
-            ) {
-                notifications += ScriptHashNotification(
-                    scripthash = scripthash,
-                    status = status
-                )
-            }
+        if (timeoutMs <= 0) return emptyList()
+        val collected = mutableListOf<ScriptHashNotification>()
+        val first = try {
+            notifications.poll(timeoutMs.toLong(), TimeUnit.MILLISECONDS)
+        } catch (interrupted: InterruptedException) {
+            Thread.currentThread().interrupt()
+            null
         }
-        socket.soTimeout = originalTimeout
-        return notifications
+        if (first != null) {
+            collected += first
+            notifications.drainTo(collected)
+        }
+        return collected
     }
 
     private fun ensureSession() {
@@ -238,10 +244,147 @@ class LightElectrumClient(
     }
 
     override fun close() {
+        if (closed) return
+        closed = true
+        val closeError = IOException("Electrum connection closed")
+        if (readerFailure == null) {
+            readerFailure = closeError
+        }
+        failPendingRequests(closeError)
+        runCatching { socket.close() }
         runCatching { reader.close() }
         runCatching { writer.close() }
-        runCatching { socket.close() }
+        runCatching { readerThread.join(100) }
     }
+
+    private fun startReaderLoop(): Thread = thread(name = "light-electrum-reader", isDaemon = true) {
+        try {
+            while (!closed) {
+                val line = reader.readLine() ?: break
+                val message = runCatching { JSONObject(line) }.getOrNull() ?: continue
+                routeIncomingMessage(message)
+            }
+            if (!closed) {
+                val closedError = IOException("Electrum connection closed")
+                if (readerFailure == null) {
+                    readerFailure = closedError
+                }
+                failPendingRequests(closedError)
+            }
+        } catch (io: IOException) {
+            if (!closed) {
+                val reason = IOException(
+                    "Electrum reader loop failed: ${io.message ?: "unknown I/O error"}",
+                    io
+                )
+                if (readerFailure == null) {
+                    readerFailure = reason
+                }
+                failPendingRequests(reason)
+            }
+        }
+    }
+
+    private fun routeIncomingMessage(message: JSONObject) {
+        val id = parseId(message)
+        if (id != null) {
+            val pending = pendingRequests.remove(id) ?: return
+            pending.response.complete(message)
+            return
+        }
+
+        parseNotification(message)?.let { notification ->
+            notifications.offer(notification)
+        }
+    }
+
+    private fun parseId(message: JSONObject): Int? {
+        if (!message.has("id") || message.isNull("id")) return null
+        val rawId = message.opt("id")
+        return when (rawId) {
+            is Number -> rawId.toInt()
+            is String -> rawId.toIntOrNull()
+            else -> null
+        }
+    }
+
+    private fun parseNotification(message: JSONObject): ScriptHashNotification? {
+        val method = message.optString("method").orEmpty()
+        if (method != "blockchain.scripthash.subscribe" &&
+            method != "blockchain.scripthashes.subscribe"
+        ) {
+            return null
+        }
+        val params = message.optJSONArray("params") ?: return null
+        if (params.length() < 2) return null
+        val scripthash = params.optString(0).orEmpty()
+        if (scripthash.isBlank()) return null
+        return ScriptHashNotification(
+            scripthash = scripthash,
+            status = params.optString(1, null)
+        )
+    }
+
+    private fun awaitResponse(pending: PendingRequest, id: Int): JSONObject {
+        return try {
+            pending.response.get(requestTimeoutMs, TimeUnit.MILLISECONDS)
+        } catch (timeout: TimeoutException) {
+            throw IOException(
+                "Electrum timeout waiting for ${pending.method} response (id=$id, timeoutMs=$requestTimeoutMs)",
+                timeout
+            )
+        } catch (interrupted: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IOException(
+                "Electrum request interrupted for ${pending.method} (id=$id)",
+                interrupted
+            )
+        } catch (execution: ExecutionException) {
+            val cause = execution.cause
+            when (cause) {
+                is IOException -> throw cause
+                else -> throw IOException(
+                    "Electrum request failed for ${pending.method} (id=$id): ${cause?.message ?: "unknown"}",
+                    cause
+                )
+            }
+        }
+    }
+
+    private fun sendMessage(message: String) {
+        ensureOpen()
+        synchronized(writeLock) {
+            ensureOpen()
+            writer.write(message)
+            writer.write("\n")
+            writer.flush()
+        }
+    }
+
+    private fun ensureOpen() {
+        if (closed) {
+            throw IOException("Electrum connection closed")
+        }
+        readerFailure?.let { failure ->
+            throw IOException(
+                "Electrum connection unavailable: ${failure.message ?: "closed"}",
+                failure
+            )
+        }
+    }
+
+    private fun failPendingRequests(cause: IOException) {
+        pendingRequests.entries.forEach { entry ->
+            if (pendingRequests.remove(entry.key, entry.value)) {
+                entry.value.response.completeExceptionally(cause)
+            }
+        }
+    }
+
+    private data class PendingRequest(
+        val method: String,
+        val response: CompletableFuture<JSONObject> = CompletableFuture()
+    )
 
     companion object {
         fun computeScriptHash(scriptHex: String): String {
