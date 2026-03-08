@@ -40,6 +40,8 @@ Change:  wpkh([abcd1234/84h/1h/0h]tpub.../1/*)
 ## 6. Tips & Troubleshooting
 - If Tor is slow to start, leave the app in the foreground until the progress reaches 100%; renewing the identity (Settings → Tor → Renew) can help.
 - Descriptor validation errors usually mean a missing wildcard (`*`) or a private key snippet—double-check the source wallet export.
+- Incoming detections can appear before a full wallet refresh as light placeholder states (`Unconfirmed (light)` / `Seen confirmed (light)`). The canonical transaction state is still finalized by successful BDK sync.
+- Placeholder rows do not expire by time; they clear only after a successful BDK sync includes the same txid.
 - To test panic wipe safely, use only testnet wallets; the action deletes all local data and you will need to re-import descriptors afterward.
 
 You are now ready to monitor real watch-only wallets on mainnet. Keep descriptors safe and rotate Tor identities as needed to maintain privacy.

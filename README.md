@@ -54,6 +54,8 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 - Private-by-default networking over Tor with curated nodes and custom onion endpoints. Tor remains mandatory; direct LAN/IP hosts and SSL toggles have been removed to keep behavior consistent.
 - Connection retries do not auto-rotate bundled presets; switching presets remains an explicit user action.
 - Multi-network support (Mainnet, Testnet3/4, Signet) with per-network presets.
+- Incoming detection uses a lightweight Electrum watcher over Tor for early `unconfirmed`/`confirmed-light` signals, while BDK sync remains the canonical source for wallet state.
+- Incoming placeholders have no time expiration; they are removed only after a successful BDK sync reconciles the txid.
 - Per-wallet Analysis section with age distribution and hold-wave views to assess how long coins have been sitting and where value concentrates.
 - Fast onboarding and descriptor import (paste or QR), plus a searchable offline wiki.
 - Safety controls: PIN lock with backoff, panic wipe with atomic DB wipe + storage removal, and encrypted local storage.

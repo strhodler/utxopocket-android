@@ -1,7 +1,7 @@
 ---
 id: incoming-tx-detection
 title: Incoming transaction detection
-summary: Lightweight Electrum polling over Tor with placeholders and user-controlled refresh.
+summary: Lightweight Electrum watcher over Tor for early incoming signals, reconciled by canonical BDK sync.
 category_id: privacy-toolkit
 category_title: Privacy toolkit
 category_description: Practical guides to reduce on-chain exposure and keep compartments isolated.
@@ -11,19 +11,20 @@ keywords: [incoming, electrum, polling, tor, watch-only]
 ---
 
 ## Why it matters
-Watch-only users still need timely alerts for incoming funds without running a heavy sync. A lightweight Electrum client can poll scripthashes for unconfirmed arrivals, but it must stay Tor-only to avoid leaking address scans and respect gap limits so future addresses aren’t missed. The app now surfaces these signals with placeholders instead of forcing a full wallet refresh that could hurt UX on slow devices.
+Watch-only users still need timely alerts for incoming funds without waiting for a heavy wallet refresh. UtxoPocket runs a lightweight Electrum watcher over Tor to detect early incoming signals, then keeps BDK sync as the canonical source for final wallet transaction state.
 
 ## Core guidance
-- Use your own Electrum server over Tor when possible; public servers can observe lookup timing and patterns. UtxoPocket keeps hostnames unresolved and requires a Tor SOCKS proxy for all polling—if Tor isn’t ready, polling is skipped rather than falling back to clearnet.
-- Enable “Incoming transaction detection” in Wallet Settings and pick a polling interval that matches your tolerance for delays vs. battery usage; the slider controls seconds between checks while the app is in foreground.
-- The watcher probes the current external address plus the next five gap-limit slots to catch activity on recently shared addresses; keep descriptors and gap settings aligned with your restore expectations.
-- When a new txid appears, the app shows a global dialog with a refresh CTA and adds a placeholder row in the wallet timeline with amount (if known). Placeholder status is light-only (`Unconfirmed (light)` or `Seen confirmed (light)`) and stays visible until a **successful wallet sync** reconciles that txid in canonical BDK data.
+- Use your own Electrum server over Tor when possible; public servers can observe lookup timing and patterns. UtxoPocket keeps hostnames unresolved and requires a Tor SOCKS proxy for watcher checks—if Tor is not ready, checks are skipped rather than falling back to clearnet.
+- The watcher sends an Electrum `server.version` handshake before subscribe/history calls and uses both `listunspent` + `get_history` to detect early tx states.
+- Detection states are light-only: `UNCONFIRMED` (mempool seen) and `CONFIRMED_LIGHT` (confirmed height observed by watcher). These states are UX hints, not canonical wallet truth.
+- BDK sync remains canonical. Placeholders persist with no time-based expiration and are removed only after a successful BDK sync includes the same txid.
+- Watch coverage follows the wallet receive window (current unused addresses constrained by gap/stop-gap policy), not a fixed "current + 5" rule.
 - On the Receive screen, the “Check address” button queries the active address via the same Tor-only client; if activity is detected the app advances to the next address to avoid reuse.
-- Foreground resumes re-arm polling with the chosen interval; background stops polling to respect device limits.
+- Foreground resumes watcher checks on its configured cadence; background stops watcher checks to respect device limits.
 
 ## Action checklist
 - [ ] Run your own Electrum server or pick a trusted Tor-only endpoint; avoid clearnet.
-- [ ] Toggle “Incoming transaction detection” on and set a sane interval for your device/network.
-- [ ] After a dialog/placeholder appears, refresh the wallet when you have bandwidth so the placeholder is reconciled into canonical transaction history.
+- [ ] Toggle “Incoming transaction detection” in Wallet Settings.
+- [ ] After a dialog/placeholder appears, run a wallet sync so canonical BDK history can reconcile and remove matched placeholders.
 - [ ] Rotate receiving addresses promptly—use the Receive screen check to confirm usage and advance.
 - [ ] Keep your descriptor exports and gap-limit documentation up to date so restores match what the watcher monitors.
