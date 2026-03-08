@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.strhodler.utxopocket.data.security
 
 import android.content.Context

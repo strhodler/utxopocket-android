@@ -45,7 +45,7 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -172,6 +172,7 @@ class MainActivity : AppCompatActivity() {
                 val navigationBarColor = MaterialTheme.colorScheme.surfaceContainer
                 val useDarkStatusIcons = statusBarColor.luminance() > 0.5f
                 val useDarkNavigationIcons = navigationBarColor.luminance() > 0.5f
+                @Suppress("DEPRECATION")
                 SideEffect {
                     window.statusBarColor = statusBarColor.toArgb()
                     window.navigationBarColor = navigationBarColor.toArgb()
@@ -574,7 +575,7 @@ private fun StatusBar(
             blockHeightLabel != null -> blockHeightLabel
             else -> fallbackSubtitle
         }
-        val topBarColors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+        val topBarColors = TopAppBarDefaults.topAppBarColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
             navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
@@ -732,7 +733,7 @@ private fun StatusBar(
                     }
                 }
 
-                Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
                 Row(
                     modifier = Modifier
@@ -824,7 +825,7 @@ private fun StatusBar(
                     }
                 }
 
-                Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -913,7 +914,7 @@ private fun StatusBar(
         } else {
             tonalElevation
         }
-        val topBarColors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+        val topBarColors = TopAppBarDefaults.topAppBarColors(
             containerColor = resolvedContainer,
             scrolledContainerColor = resolvedContainer,
             navigationIconContentColor = resolvedContent,

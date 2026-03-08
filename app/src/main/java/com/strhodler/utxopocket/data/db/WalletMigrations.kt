@@ -5,17 +5,17 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 object WalletMigrations {
     val MIGRATION_16_17 = object : Migration(16, 17) {
-        override fun migrate(database: SupportSQLiteDatabase) {
-            database.execSQL("ALTER TABLE wallets ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE wallets ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
             val nextOrderByNetwork = mutableMapOf<String, Int>()
-            database.query("SELECT id, network FROM wallets ORDER BY network, name, id").use { cursor ->
+            db.query("SELECT id, network FROM wallets ORDER BY network, name, id").use { cursor ->
                 val idIndex = cursor.getColumnIndexOrThrow("id")
                 val networkIndex = cursor.getColumnIndexOrThrow("network")
                 while (cursor.moveToNext()) {
                     val walletId = cursor.getLong(idIndex)
                     val network = cursor.getString(networkIndex)
                     val nextOrder = nextOrderByNetwork.getOrDefault(network, 0)
-                    database.execSQL(
+                    db.execSQL(
                         "UPDATE wallets SET sort_order = ? WHERE id = ?",
                         arrayOf<Any?>(nextOrder.toLong(), walletId)
                     )
@@ -26,35 +26,35 @@ object WalletMigrations {
     }
 
     val MIGRATION_17_18 = object : Migration(17, 18) {
-        override fun migrate(database: SupportSQLiteDatabase) {
-            database.execSQL("ALTER TABLE wallets ADD COLUMN sync_session_id TEXT")
-            database.execSQL("ALTER TABLE wallets ADD COLUMN sync_tip_height INTEGER")
-            database.execSQL("ALTER TABLE wallets ADD COLUMN sync_tip_hash TEXT")
-            database.execSQL("ALTER TABLE wallets ADD COLUMN sync_applied INTEGER NOT NULL DEFAULT 1")
-            database.execSQL("ALTER TABLE wallets ADD COLUMN sync_started_at INTEGER")
-            database.execSQL("ALTER TABLE wallets ADD COLUMN sync_completed_at INTEGER")
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE wallets ADD COLUMN sync_session_id TEXT")
+            db.execSQL("ALTER TABLE wallets ADD COLUMN sync_tip_height INTEGER")
+            db.execSQL("ALTER TABLE wallets ADD COLUMN sync_tip_hash TEXT")
+            db.execSQL("ALTER TABLE wallets ADD COLUMN sync_applied INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("ALTER TABLE wallets ADD COLUMN sync_started_at INTEGER")
+            db.execSQL("ALTER TABLE wallets ADD COLUMN sync_completed_at INTEGER")
         }
     }
 
     val MIGRATION_18_19 = object : Migration(18, 19) {
-        override fun migrate(database: SupportSQLiteDatabase) {
-            database.execSQL("ALTER TABLE wallets ADD COLUMN last_active_external_index INTEGER")
-            database.execSQL("ALTER TABLE wallets ADD COLUMN last_active_change_index INTEGER")
-            database.execSQL("ALTER TABLE wallet_transaction_outputs ADD COLUMN derivation_index INTEGER")
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE wallets ADD COLUMN last_active_external_index INTEGER")
+            db.execSQL("ALTER TABLE wallets ADD COLUMN last_active_change_index INTEGER")
+            db.execSQL("ALTER TABLE wallet_transaction_outputs ADD COLUMN derivation_index INTEGER")
         }
     }
 
     val MIGRATION_19_20 = object : Migration(19, 20) {
-        override fun migrate(database: SupportSQLiteDatabase) {
-            database.execSQL("DROP TABLE IF EXISTS transaction_health")
-            database.execSQL("DROP TABLE IF EXISTS utxo_health")
-            database.execSQL("DROP TABLE IF EXISTS wallet_health")
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("DROP TABLE IF EXISTS transaction_health")
+            db.execSQL("DROP TABLE IF EXISTS utxo_health")
+            db.execSQL("DROP TABLE IF EXISTS wallet_health")
         }
     }
 
     val MIGRATION_20_21 = object : Migration(20, 21) {
-        override fun migrate(database: SupportSQLiteDatabase) {
-            database.execSQL(
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
                 """
                 CREATE TABLE IF NOT EXISTS wallet_label_pending (
                     wallet_id INTEGER NOT NULL,
@@ -69,7 +69,7 @@ object WalletMigrations {
                 )
                 """.trimIndent()
             )
-            database.execSQL(
+            db.execSQL(
                 """
                 CREATE INDEX IF NOT EXISTS index_wallet_label_pending_wallet_id
                 ON wallet_label_pending(wallet_id)
@@ -79,16 +79,16 @@ object WalletMigrations {
     }
 
     val MIGRATION_21_22 = object : Migration(21, 22) {
-        override fun migrate(database: SupportSQLiteDatabase) {
-            if (!database.hasTable("wallet_label_pending")) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            if (!db.hasTable("wallet_label_pending")) {
                 // Table missing (fresh install or previous version); create it with the final schema.
-                MIGRATION_20_21.migrate(database)
+                MIGRATION_20_21.migrate(db)
                 return
             }
 
-            val hasOverwriteColumn = database.hasColumn("wallet_label_pending", "overwrite_existing")
-            database.execSQL("DROP TABLE IF EXISTS wallet_label_pending_new")
-            database.execSQL(
+            val hasOverwriteColumn = db.hasColumn("wallet_label_pending", "overwrite_existing")
+            db.execSQL("DROP TABLE IF EXISTS wallet_label_pending_new")
+            db.execSQL(
                 """
                 CREATE TABLE IF NOT EXISTS wallet_label_pending_new (
                     wallet_id INTEGER NOT NULL,
@@ -121,10 +121,10 @@ object WalletMigrations {
                 FROM wallet_label_pending
                 """.trimIndent()
             }
-            database.execSQL(insertSql)
-            database.execSQL("DROP TABLE wallet_label_pending")
-            database.execSQL("ALTER TABLE wallet_label_pending_new RENAME TO wallet_label_pending")
-            database.execSQL(
+            db.execSQL(insertSql)
+            db.execSQL("DROP TABLE wallet_label_pending")
+            db.execSQL("ALTER TABLE wallet_label_pending_new RENAME TO wallet_label_pending")
+            db.execSQL(
                 """
                 CREATE INDEX IF NOT EXISTS index_wallet_label_pending_wallet_id
                 ON wallet_label_pending(wallet_id)
@@ -134,8 +134,8 @@ object WalletMigrations {
     }
 
     val MIGRATION_22_23 = object : Migration(22, 23) {
-        override fun migrate(database: SupportSQLiteDatabase) {
-            database.execSQL(
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
                 """
                 CREATE TABLE IF NOT EXISTS utxo_collections (
                     id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -147,19 +147,19 @@ object WalletMigrations {
                 )
                 """.trimIndent()
             )
-            database.execSQL(
+            db.execSQL(
                 """
                 CREATE UNIQUE INDEX IF NOT EXISTS index_utxo_collections_wallet_id_name
                 ON utxo_collections(wallet_id, name)
                 """.trimIndent()
             )
-            database.execSQL(
+            db.execSQL(
                 """
                 CREATE INDEX IF NOT EXISTS index_utxo_collections_wallet_id
                 ON utxo_collections(wallet_id)
                 """.trimIndent()
             )
-            database.execSQL(
+            db.execSQL(
                 """
                 CREATE TABLE IF NOT EXISTS utxo_collection_memberships (
                     wallet_id INTEGER NOT NULL,
@@ -172,19 +172,19 @@ object WalletMigrations {
                 )
                 """.trimIndent()
             )
-            database.execSQL(
+            db.execSQL(
                 """
                 CREATE INDEX IF NOT EXISTS index_utxo_collection_memberships_wallet_id
                 ON utxo_collection_memberships(wallet_id)
                 """.trimIndent()
             )
-            database.execSQL(
+            db.execSQL(
                 """
                 CREATE INDEX IF NOT EXISTS index_utxo_collection_memberships_collection_id
                 ON utxo_collection_memberships(collection_id)
                 """.trimIndent()
             )
-            database.execSQL(
+            db.execSQL(
                 """
                 CREATE TABLE IF NOT EXISTS utxo_canvas_items (
                     wallet_id INTEGER NOT NULL,
@@ -195,7 +195,7 @@ object WalletMigrations {
                 )
                 """.trimIndent()
             )
-            database.execSQL(
+            db.execSQL(
                 """
                 CREATE INDEX IF NOT EXISTS index_utxo_canvas_items_wallet_id
                 ON utxo_canvas_items(wallet_id)

@@ -43,7 +43,7 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.UnfoldMore
-import androidx.compose.material.icons.outlined.Sort
+import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.HourglassEmpty
@@ -61,12 +61,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Divider
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -874,17 +872,11 @@ private fun WalletTabs(
     val selectedTextColor = MaterialTheme.colorScheme.onSurface
     val unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     val selectedIndex = tabs.indexOf(selected).coerceAtLeast(0)
-    ScrollableTabRow(
+    PrimaryScrollableTabRow(
         modifier = modifier.fillMaxWidth(),
         selectedTabIndex = selectedIndex,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        edgePadding = 16.dp,
-        indicator = { tabPositions ->
-            TabRowDefaults.SecondaryIndicator(
-                modifier = Modifier.tabIndicatorOffset(tabPositions[selectedIndex]),
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
+        edgePadding = 16.dp
     ) {
         tabs.forEach { tab ->
             Tab(
@@ -1256,7 +1248,7 @@ private fun <T> SortRow(
         label = { Text(text = summaryText) },
         leadingIcon = {
             Icon(
-                imageVector = Icons.Outlined.Sort,
+                imageVector = Icons.AutoMirrored.Outlined.Sort,
                 contentDescription = stringResource(
                     id = R.string.wallet_detail_transactions_sort_expand_content_description
                 )
@@ -1404,7 +1396,7 @@ private fun IncomingPlaceholderRow(
                 }
             }
 
-            Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1774,7 +1766,7 @@ private fun TransactionDetailedCard(
                 }
             }
 
-            Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1928,7 +1920,7 @@ internal fun UtxoDetailedCard(
                 }
             }
 
-            Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

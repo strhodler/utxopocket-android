@@ -26,7 +26,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -160,7 +160,7 @@ fun NetworkLogViewerRoute(
                                 color = Color.White,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)
                             )
-                            Divider(color = Color.White.copy(alpha = 0.2f))
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
                         }
                         if (state.filteredLogs.isEmpty()) {
                             Box(

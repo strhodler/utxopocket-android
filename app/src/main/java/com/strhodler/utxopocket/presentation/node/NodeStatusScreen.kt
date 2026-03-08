@@ -32,7 +32,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -265,7 +265,7 @@ private fun NodeStatusTabs(
     onTabSelected: (NodeStatusTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    TabRow(
+    PrimaryTabRow(
         selectedTabIndex = pagerState.currentPage,
         modifier = modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,

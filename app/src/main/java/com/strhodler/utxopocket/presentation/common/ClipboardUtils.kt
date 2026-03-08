@@ -14,6 +14,7 @@ fun rememberCopyToClipboard(
     onShowMessage: ((String) -> Unit)? = null,
     clearDelayMs: Long = 0L
 ): (String) -> Unit {
+    @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     return remember(clipboardManager, successMessage, onShowMessage, clearDelayMs) {

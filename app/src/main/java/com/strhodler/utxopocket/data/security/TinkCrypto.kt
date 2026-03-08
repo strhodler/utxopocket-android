@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.data.security
 
 import android.content.Context
 import com.google.crypto.tink.Aead
+import com.google.crypto.tink.RegistryConfiguration
 import com.google.crypto.tink.StreamingAead
 import com.google.crypto.tink.aead.AesGcmKeyManager
 import com.google.crypto.tink.config.TinkConfig
@@ -51,7 +52,7 @@ class TinkCrypto @Inject constructor(
                 .withMasterKeyUri(MASTER_KEY_URI)
                 .build()
                 .keysetHandle
-                .getPrimitive(primitiveClass)
+                .getPrimitive(RegistryConfiguration.get(), primitiveClass)
         }.getOrNull()
     }
 

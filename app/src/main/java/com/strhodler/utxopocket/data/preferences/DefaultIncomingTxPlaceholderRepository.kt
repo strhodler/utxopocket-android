@@ -16,8 +16,8 @@ import kotlinx.coroutines.withContext
 
 @Singleton
 class DefaultIncomingTxPlaceholderRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:ApplicationContext private val context: Context,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : IncomingTxPlaceholderRepository {
 
     private val dataStore = context.userPreferencesDataStore

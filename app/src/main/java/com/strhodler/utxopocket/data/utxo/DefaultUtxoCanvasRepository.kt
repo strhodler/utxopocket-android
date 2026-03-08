@@ -28,7 +28,7 @@ import kotlinx.coroutines.flow.flowOn
 class DefaultUtxoCanvasRepository @Inject constructor(
     private val dao: UtxoCanvasDao,
     private val database: UtxoPocketDatabase,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : UtxoCanvasRepository {
 
     override fun observeCanvasSnapshot(walletId: Long): Flow<UtxoCanvasSnapshot> =

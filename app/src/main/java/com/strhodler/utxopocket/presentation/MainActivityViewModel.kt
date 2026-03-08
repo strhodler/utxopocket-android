@@ -399,7 +399,9 @@ class MainActivityViewModel @Inject constructor(
         val balanceUnit = values[13] as BalanceUnit
         val balancesHidden = values[14] as Boolean
         val incomingTxCount = values[15] as Int
-        val incomingGroups = values[16] as List<IncomingPlaceholderGroup>
+        val incomingGroups = (values[16] as? List<*>)
+            ?.mapNotNull { it as? IncomingPlaceholderGroup }
+            .orEmpty()
         val duress = values[17] as DuressSessionState
         val duressUnlockInProgress = values[18] as Boolean
         val duressActive = duress is DuressSessionState.FakeActive

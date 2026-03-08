@@ -31,7 +31,7 @@ object DatabaseModule {
         )
             .openHelperFactory(encryptedSupportFactoryProvider.create())
             .addMigrations(*WalletMigrations.ALL)
-            .fallbackToDestructiveMigration()
+            .fallbackToDestructiveMigration(false)
             .build()
 
     @Provides

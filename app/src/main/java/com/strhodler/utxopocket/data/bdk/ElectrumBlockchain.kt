@@ -121,7 +121,7 @@ class ElectrumBlockchain(
             @Suppress("UNUSED_PARAMETER")
             override fun inspect(
                 keychain: KeychainKind,
-                derivationIndex: UInt,
+                index: UInt,
                 script: Script
             ) {
                 ensureActive(signal)
@@ -131,7 +131,7 @@ class ElectrumBlockchain(
     private fun createSyncInspector(signal: SyncCancellationSignal): SyncScriptInspector =
         object : SyncScriptInspector {
             @Suppress("UNUSED_PARAMETER")
-            override fun inspect(script: Script, derivationIndex: ULong) {
+            override fun inspect(script: Script, total: ULong) {
                 ensureActive(signal)
             }
         }

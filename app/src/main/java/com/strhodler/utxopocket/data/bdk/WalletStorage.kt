@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.strhodler.utxopocket.data.bdk
 
 import android.content.Context

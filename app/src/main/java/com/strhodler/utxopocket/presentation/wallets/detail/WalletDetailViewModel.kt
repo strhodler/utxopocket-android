@@ -874,7 +874,7 @@ sealed interface WalletDetailEvent {
     data object RefreshQueued : WalletDetailEvent
     data object FullRescanQueued : WalletDetailEvent
     data class SyncCompleted(val walletName: String, val newTransactions: Int) : WalletDetailEvent
-    data class SyncBlocked(@StringRes val messageRes: Int) : WalletDetailEvent
+    data class SyncBlocked(@param:StringRes val messageRes: Int) : WalletDetailEvent
 }
 
 data class WalletDetailUiState(

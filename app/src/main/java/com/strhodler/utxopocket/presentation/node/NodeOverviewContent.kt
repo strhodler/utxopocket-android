@@ -22,7 +22,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -249,12 +249,12 @@ fun NodeTorStatusSection(
                     ) {
                         when (val torStatus = displayTorStatus) {
                             is TorStatus.Connecting -> LinearProgressIndicator(
-                                progress = (torStatus.progress.coerceIn(0, 100) / 100f),
+                                progress = { torStatus.progress.coerceIn(0, 100) / 100f },
                                 modifier = Modifier.fillMaxWidth(),
                                 trackColor = MaterialTheme.colorScheme.surfaceVariant
                             )
                             is TorStatus.Running -> LinearProgressIndicator(
-                                progress = 1f,
+                                progress = { 1f },
                                 modifier = Modifier.fillMaxWidth(),
                                 trackColor = MaterialTheme.colorScheme.surfaceVariant
                             )
@@ -427,7 +427,7 @@ private fun NodeDetailsList(
                 value = value
             )
             if (index < details.lastIndex) {
-                Divider(
+                HorizontalDivider(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                 )

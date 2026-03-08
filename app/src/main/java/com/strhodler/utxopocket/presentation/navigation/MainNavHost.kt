@@ -14,7 +14,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.strhodler.utxopocket.presentation.motion.fadeThroughIn
 import com.strhodler.utxopocket.presentation.motion.fadeThroughOut
 import com.strhodler.utxopocket.presentation.motion.rememberReducedMotionEnabled

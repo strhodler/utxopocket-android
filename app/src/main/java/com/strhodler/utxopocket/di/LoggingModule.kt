@@ -28,7 +28,7 @@ object LoggingModule {
             NetworkErrorLogDatabase.NAME
         )
             .openHelperFactory(encryptedSupportFactoryProvider.create())
-            .fallbackToDestructiveMigration()
+            .fallbackToDestructiveMigration(false)
             .build()
 
     @Provides

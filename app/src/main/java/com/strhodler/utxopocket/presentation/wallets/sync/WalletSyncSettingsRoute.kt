@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Help
+import androidx.compose.material.icons.automirrored.outlined.Help
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -77,7 +77,7 @@ fun WalletSyncSettingsRoute(
         actions = {
             IconButton(onClick = { showHelpSheet = true }) {
                 Icon(
-                    imageVector = Icons.Outlined.Help,
+                    imageVector = Icons.AutoMirrored.Outlined.Help,
                     contentDescription = stringResource(id = R.string.wallet_sync_help_action_description)
                 )
             }

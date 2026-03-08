@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 @Singleton
 class IncomingTxCoordinator @Inject constructor(
     private val placeholderRepository: IncomingTxPlaceholderRepository,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)

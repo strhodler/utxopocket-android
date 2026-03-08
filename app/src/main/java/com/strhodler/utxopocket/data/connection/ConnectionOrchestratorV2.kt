@@ -40,8 +40,8 @@ class ConnectionOrchestratorV2 internal constructor(
     preferredNetworkFlow: Flow<BitcoinNetwork>,
     networkOnlineFlow: Flow<Boolean>,
     private val connectionStateMapper: ConnectionStateMapper,
-    @ApplicationScope private val applicationScope: CoroutineScope,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    @param:ApplicationScope private val applicationScope: CoroutineScope,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val heartbeatIntervalMs: Long = DEFAULT_HEARTBEAT_INTERVAL_MS,
     private val retryDelayMs: Long = DEFAULT_RETRY_DELAY_MS
 ) : ConnectionOrchestrator {

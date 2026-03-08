@@ -30,8 +30,8 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AutoGraph
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.OpenInNew
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -78,7 +78,7 @@ import androidx.compose.material3.TextField
 import com.strhodler.utxopocket.presentation.common.ContentSection
 import com.strhodler.utxopocket.presentation.common.ListSection
 import com.strhodler.utxopocket.presentation.common.SectionCard
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
@@ -622,8 +622,8 @@ class UtxoDetailViewModel @Inject constructor(
     ) { detail, canvasSnapshot, preferences ->
         val utxo = detail?.utxos?.firstOrNull { it.txid == txId && it.vout == vout }
         val depositTimestamp = utxo?.let { candidate ->
-            detail?.transactions
-                ?.firstOrNull { transaction -> transaction.id == candidate.txid }
+            detail.transactions
+                .firstOrNull { transaction -> transaction.id == candidate.txid }
                 ?.timestamp
         }
         val collections = canvasSnapshot.collections.sortedBy { it.name }
@@ -1510,7 +1510,7 @@ private fun TransactionDetailContent(
                     ActionableStatusBanner(
                         title = stringResource(id = R.string.settings_block_explorer_privacy_warning),
                         supporting = stringResource(id = R.string.settings_block_explorer_privacy_action),
-                        icon = Icons.Outlined.OpenInNew,
+                        icon = Icons.AutoMirrored.Outlined.OpenInNew,
                         iconTint = Color.Transparent,
                         onClick = {
                             explorerScope.launch { explorerSheetState.hide() }
@@ -1559,7 +1559,7 @@ private fun TransactionDetailContent(
                                 },
                                 trailingContent = {
                                     Icon(
-                                        imageVector = Icons.Outlined.OpenInNew,
+                                        imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
                                         contentDescription = null
                                     )
                                 },
@@ -1691,7 +1691,7 @@ private fun TransactionDetailHeader(
                     enabled = explorerEnabled,
                     contentPadding = ButtonDefaults.TextButtonWithIconContentPadding
                 ) {
-                    Icon(imageVector = Icons.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(imageVector = Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
                     Text(
                         text = stringResource(id = R.string.transaction_detail_open_in_explorer),
@@ -2314,7 +2314,7 @@ private fun TransactionIoListItem(
                     }
                     if (trailingChevron) {
                         Icon(
-                            imageVector = Icons.Outlined.KeyboardArrowRight,
+                            imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
