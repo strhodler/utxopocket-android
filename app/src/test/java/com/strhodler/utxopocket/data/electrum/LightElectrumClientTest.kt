@@ -199,6 +199,261 @@ class LightElectrumClientTest {
     }
 
     @Test
+    fun concurrentRequestsRouteByIdWhenResponsesAreOutOfOrder() {
+        val notificationScripthash = "notif-sh"
+        val listScripthash = "list-sh"
+        val historyScripthash = "history-sh"
+        val server = ProgrammableElectrumServer { reader, writer ->
+            val versionRequest = readRequest(reader, expectedMethod = "server.version")
+            sendResult(
+                writer = writer,
+                id = versionRequest.getInt("id"),
+                result = JSONArray().put("test").put("1.4")
+            )
+
+            val first = readRequest(reader)
+            val second = readRequest(reader)
+            val requestsByMethod = listOf(first, second).associateBy { it.optString("method") }
+            val listRequest = requestsByMethod["blockchain.scripthash.listunspent"]
+                ?: throw AssertionError("Missing listunspent request")
+            val historyRequest = requestsByMethod["blockchain.scripthash.get_history"]
+                ?: throw AssertionError("Missing get_history request")
+
+            sendNotification(
+                writer = writer,
+                method = "blockchain.scripthash.subscribe",
+                params = JSONArray().put(notificationScripthash).put("notif-status")
+            )
+            sendResult(
+                writer = writer,
+                id = historyRequest.getInt("id"),
+                result = JSONArray().put(
+                    JSONObject()
+                        .put("tx_hash", "hist-tx")
+                        .put("height", 777L)
+                )
+            )
+            sendResult(
+                writer = writer,
+                id = listRequest.getInt("id"),
+                result = JSONArray().put(
+                    JSONObject()
+                        .put("tx_hash", "list-tx")
+                        .put("value", 111L)
+                        .put("height", 888L)
+                )
+            )
+        }
+
+        server.start()
+        val endpoint = ElectrumEndpoint(
+            url = "tcp://127.0.0.1:${server.port}",
+            validateDomain = false,
+            timeoutSeconds = 1
+        )
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val (unspent, history, notifications) = LightElectrumClient(
+                endpoint = endpoint,
+                proxy = null,
+                validateDomain = false
+            ).use { client ->
+                client.openSession()
+                val unspentFuture = executor.submit<List<ElectrumUnspent>> {
+                    client.listUnspent(listScripthash)
+                }
+                val historyFuture = executor.submit<List<ElectrumHistoryEntry>> {
+                    client.getHistory(historyScripthash)
+                }
+                val unspent = unspentFuture.get(3, TimeUnit.SECONDS)
+                val history = historyFuture.get(3, TimeUnit.SECONDS)
+                val notifications = client.readNotifications(timeoutMs = 200)
+                Triple(unspent, history, notifications)
+            }
+
+            server.awaitCompleted()
+            assertEquals(1, unspent.size)
+            assertEquals("list-tx", unspent.single().txid)
+            assertEquals(111L, unspent.single().valueSats)
+            assertEquals(1, history.size)
+            assertEquals("hist-tx", history.single().txid)
+            assertEquals(777L, history.single().height)
+            assertEquals(1, notifications.size)
+            assertEquals(notificationScripthash, notifications.single().scripthash)
+            assertEquals("notif-status", notifications.single().status)
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun subscribeBatchSmokeHandlesInterleavedNotification() {
+        val scripthash = "batch-sh"
+        val server = ProgrammableElectrumServer { reader, writer ->
+            val versionRequest = readRequest(reader, expectedMethod = "server.version")
+            sendResult(
+                writer = writer,
+                id = versionRequest.getInt("id"),
+                result = JSONArray().put("test").put("1.4")
+            )
+
+            val subscribeRequest = readRequest(
+                reader,
+                expectedMethod = "blockchain.scripthashes.subscribe"
+            )
+            sendNotification(
+                writer = writer,
+                method = "blockchain.scripthashes.subscribe",
+                params = JSONArray().put(scripthash).put("batch-status")
+            )
+            sendResult(
+                writer = writer,
+                id = subscribeRequest.getInt("id"),
+                result = JSONArray().put("ok")
+            )
+        }
+
+        server.start()
+        val endpoint = ElectrumEndpoint(
+            url = "tcp://127.0.0.1:${server.port}",
+            validateDomain = false,
+            timeoutSeconds = 1
+        )
+
+        val (subscribed, notifications) = LightElectrumClient(
+            endpoint = endpoint,
+            proxy = null,
+            validateDomain = false
+        ).use { client ->
+            client.openSession()
+            val subscribed = client.subscribeBatch(listOf(scripthash))
+            val notifications = client.readNotifications(timeoutMs = 200)
+            subscribed to notifications
+        }
+
+        server.awaitCompleted()
+        assertTrue(subscribed)
+        assertEquals(1, notifications.size)
+        assertEquals(scripthash, notifications.single().scripthash)
+        assertEquals("batch-status", notifications.single().status)
+    }
+
+    @Test
+    fun subscribeIndividualSmokeHandlesInterleavedNotifications() {
+        val firstScripthash = "ind-a"
+        val secondScripthash = "ind-b"
+        val server = ProgrammableElectrumServer { reader, writer ->
+            val versionRequest = readRequest(reader, expectedMethod = "server.version")
+            sendResult(
+                writer = writer,
+                id = versionRequest.getInt("id"),
+                result = JSONArray().put("test").put("1.4")
+            )
+
+            val firstSubscribe = readRequest(
+                reader,
+                expectedMethod = "blockchain.scripthash.subscribe"
+            )
+            sendNotification(
+                writer = writer,
+                method = "blockchain.scripthash.subscribe",
+                params = JSONArray().put(firstScripthash).put("status-a")
+            )
+            sendResult(
+                writer = writer,
+                id = firstSubscribe.getInt("id"),
+                result = "status-a"
+            )
+
+            val secondSubscribe = readRequest(
+                reader,
+                expectedMethod = "blockchain.scripthash.subscribe"
+            )
+            sendNotification(
+                writer = writer,
+                method = "blockchain.scripthash.subscribe",
+                params = JSONArray().put(secondScripthash).put("status-b")
+            )
+            sendResult(
+                writer = writer,
+                id = secondSubscribe.getInt("id"),
+                result = "status-b"
+            )
+        }
+
+        server.start()
+        val endpoint = ElectrumEndpoint(
+            url = "tcp://127.0.0.1:${server.port}",
+            validateDomain = false,
+            timeoutSeconds = 1
+        )
+
+        val (subscribed, notifications) = LightElectrumClient(
+            endpoint = endpoint,
+            proxy = null,
+            validateDomain = false
+        ).use { client ->
+            client.openSession()
+            val subscribed = client.subscribeIndividual(listOf(firstScripthash, secondScripthash))
+            val notifications = client.readNotifications(timeoutMs = 200)
+            subscribed to notifications
+        }
+
+        server.awaitCompleted()
+        assertTrue(subscribed)
+        assertEquals(2, notifications.size)
+        assertEquals(firstScripthash, notifications[0].scripthash)
+        assertEquals("status-a", notifications[0].status)
+        assertEquals(secondScripthash, notifications[1].scripthash)
+        assertEquals("status-b", notifications[1].status)
+    }
+
+    @Test
+    fun invalidIncomingLineDoesNotBreakFollowingResponse() {
+        val server = ProgrammableElectrumServer { reader, writer ->
+            val versionRequest = readRequest(reader, expectedMethod = "server.version")
+            sendResult(
+                writer = writer,
+                id = versionRequest.getInt("id"),
+                result = JSONArray().put("test").put("1.4")
+            )
+
+            val request = readRequest(reader, expectedMethod = "blockchain.scripthash.listunspent")
+            sendRawLine(writer, "not-a-json-line")
+            sendResult(
+                writer = writer,
+                id = request.getInt("id"),
+                result = JSONArray().put(
+                    JSONObject()
+                        .put("tx_hash", "tx-after-invalid")
+                        .put("value", 1_000L)
+                        .put("height", 12L)
+                )
+            )
+        }
+
+        server.start()
+        val endpoint = ElectrumEndpoint(
+            url = "tcp://127.0.0.1:${server.port}",
+            validateDomain = false,
+            timeoutSeconds = 1
+        )
+
+        val unspent = LightElectrumClient(
+            endpoint = endpoint,
+            proxy = null,
+            validateDomain = false
+        ).use { client ->
+            client.openSession()
+            client.listUnspent("any")
+        }
+
+        server.awaitCompleted()
+        assertEquals(1, unspent.size)
+        assertEquals("tx-after-invalid", unspent.single().txid)
+    }
+
+    @Test
     fun socketCloseReleasesConcurrentPendingRequests() {
         val server = ProgrammableElectrumServer { reader, writer ->
             val versionRequest = readRequest(reader, expectedMethod = "server.version")
@@ -279,6 +534,12 @@ private fun sendNotification(writer: BufferedWriter, method: String, params: JSO
 
 private fun sendMessage(writer: BufferedWriter, payload: JSONObject) {
     writer.write(payload.toString())
+    writer.write("\n")
+    writer.flush()
+}
+
+private fun sendRawLine(writer: BufferedWriter, line: String) {
+    writer.write(line)
     writer.write("\n")
     writer.flush()
 }

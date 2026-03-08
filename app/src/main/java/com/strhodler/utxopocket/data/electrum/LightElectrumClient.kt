@@ -1,5 +1,6 @@
 package com.strhodler.utxopocket.data.electrum
 
+import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.data.bdk.ElectrumEndpoint
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.node.EndpointScheme
@@ -261,7 +262,11 @@ class LightElectrumClient(
         try {
             while (!closed) {
                 val line = reader.readLine() ?: break
-                val message = runCatching { JSONObject(line) }.getOrNull() ?: continue
+                val message = runCatching { JSONObject(line) }
+                    .onFailure { error ->
+                        SecureLog.w(TAG, error) { "Ignoring malformed Electrum stream message" }
+                    }
+                    .getOrNull() ?: continue
                 routeIncomingMessage(message)
             }
             if (!closed) {
@@ -288,13 +293,26 @@ class LightElectrumClient(
     private fun routeIncomingMessage(message: JSONObject) {
         val id = parseId(message)
         if (id != null) {
-            val pending = pendingRequests.remove(id) ?: return
+            val pending = pendingRequests.remove(id)
+            if (pending == null) {
+                SecureLog.w(TAG) { "Dropping Electrum response for unknown id=$id" }
+                return
+            }
             pending.response.complete(message)
             return
         }
 
-        parseNotification(message)?.let { notification ->
+        val notification = parseNotification(message)
+        if (notification != null) {
             notifications.offer(notification)
+            return
+        }
+
+        val method = message.optString("method").orEmpty()
+        if (method.isNotBlank()) {
+            SecureLog.w(TAG) { "Ignoring unsupported Electrum notification method=$method" }
+        } else {
+            SecureLog.w(TAG) { "Ignoring Electrum message without id/method" }
         }
     }
 
@@ -387,6 +405,8 @@ class LightElectrumClient(
     )
 
     companion object {
+        private const val TAG = "LightElectrumClient"
+
         fun computeScriptHash(scriptHex: String): String {
             val sanitized = scriptHex.trim().lowercase()
             val bytes = sanitized.chunked(2)
