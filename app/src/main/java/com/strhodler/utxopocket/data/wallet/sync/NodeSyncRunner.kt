@@ -29,7 +29,6 @@ import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
-import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.TransactionStructure
 import com.strhodler.utxopocket.domain.model.TransactionType
@@ -49,7 +48,6 @@ import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.tor.TorProxyProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -70,7 +68,6 @@ internal class NodeSyncRunner(
     private val nodeConfigurationRepository: NodeConfigurationRepository,
     private val networkStatusMonitor: NetworkStatusMonitor,
     private val walletSyncPreferencesRepository: WalletSyncPreferencesRepository,
-    private val walletSyncOrchestrator: WalletSyncOrchestrator,
     private val walletDao: WalletDao,
     private val networkErrorLogRepository: NetworkErrorLogRepository,
     private val nodeStatus: MutableStateFlow<NodeStatusSnapshot>,
@@ -97,18 +94,14 @@ internal class NodeSyncRunner(
     suspend fun refresh(
         network: BitcoinNetwork,
         targetWalletIds: Set<Long>?,
-        manageSyncStatus: Boolean = true,
         syncWallets: Boolean = true
-    ): Boolean = withContext(ioDispatcher) {
+    ): NodeRefreshResult = withContext(ioDispatcher) {
         val targetLabel = targetWalletIds?.joinToString(prefix = "[", postfix = "]") ?: "all"
         SecureLog.d(logTag) { "Refresh requested for $network target=$targetLabel" }
         val config = nodeConfigurationRepository.nodeConfig.first()
         val previousSnapshot = nodeStatus.value
         if (!config.hasActiveSelection(network)) {
             SecureLog.i(logTag) { "Skipping wallet refresh for $network: no active node selection" }
-            if (manageSyncStatus) {
-                walletSyncOrchestrator.clearSyncStatus(network)
-            }
             val snapshotMatchesNetwork = previousSnapshot.network == network
             nodeStatus.value = NodeStatusSnapshot(
                 status = NodeStatus.Idle,
@@ -119,87 +112,54 @@ internal class NodeSyncRunner(
                 network = network,
                 feeRateSatPerVb = previousSnapshot.feeRateSatPerVb.takeIf { snapshotMatchesNetwork }
             )
-            return@withContext true
+            return@withContext NodeRefreshResult(NodeRefreshOutcome.SkippedNoActiveNodeSelection)
         }
-        if (manageSyncStatus) {
-            walletSyncOrchestrator.clearSyncStatus(network)
+        if (!networkStatusMonitor.isOnline.value) {
+            SecureLog.i(logTag) { "Skipping wallet refresh for $network because network is offline" }
+            return@withContext NodeRefreshResult(NodeRefreshOutcome.Incomplete)
         }
-        var refreshSucceeded = false
-        var attemptCompleted = false
-        var shouldStop = false
+        if (!isSyncAllowed(network)) {
+            SecureLog.i(logTag) { "Skipping wallet refresh for $network because background grace expired" }
+            return@withContext NodeRefreshResult(NodeRefreshOutcome.Incomplete)
+        }
+        val attemptStarted = SystemClock.elapsedRealtime()
         try {
-            val policy = retryPolicyFor(network)
-            var attempt = 0
-            while (attempt < policy.maxAttempts && !shouldStop) {
-                if (!networkStatusMonitor.isOnline.value) {
-                    SecureLog.i(logTag) { "Skipping wallet refresh for $network because network is offline" }
-                    shouldStop = true
-                    break
-                }
-                if (!isSyncAllowed(network)) {
-                    SecureLog.i(logTag) { "Skipping wallet refresh for $network because background grace expired" }
-                    shouldStop = true
-                    break
-                }
-                val attemptStarted = SystemClock.elapsedRealtime()
-                try {
-                    performRefreshAttempt(
-                        network = network,
-                        targetWalletIds = targetWalletIds,
-                        manageSyncStatus = manageSyncStatus,
-                        syncWallets = syncWallets
-                    )
-                    if (attempt > 0) {
-                        SecureLog.i(logTag) { "Node refresh succeeded after ${attempt + 1} attempts on $network" }
-                    }
-                    attemptCompleted = true
-                    refreshSucceeded = nodeStatus.value.network == network &&
-                        nodeStatus.value.status is NodeStatus.Synced
-                    shouldStop = true
-                } catch (error: CancellationException) {
-                    SecureLog.i(logTag) { "Wallet refresh cancelled for $network" }
-                    shouldStop = true
-                } catch (error: Exception) {
-                    if (!networkStatusMonitor.isOnline.value) {
-                        SecureLog.i(logTag) { "Wallet refresh cancelled for $network because network is offline" }
-                        shouldStop = true
-                        break
-                    }
-                    val attemptIndex = attempt + 1
-                    SecureLog.w(logTag, error) { "Node refresh attempt $attemptIndex failed for $network" }
-                    runCatching {
-                        recordNetworkFailure(
-                            error = error,
-                            durationMs = SystemClock.elapsedRealtime() - attemptStarted,
-                            attemptIndex = attemptIndex
-                        )
-                    }
-                    val shouldRetry = shouldRetryAttempt(attempt, policy.maxAttempts)
-                    if (!shouldRetry) {
-                        SecureLog.w(logTag, error) {
-                            "Node refresh giving up after ${policy.maxAttempts} attempts for $network"
-                        }
-                        shouldStop = true
-                    } else {
-                        delay(policy.backoffDelayMillis(attempt))
-                    }
-                }
-                attempt++
+            performRefreshAttempt(
+                network = network,
+                targetWalletIds = targetWalletIds,
+                syncWallets = syncWallets
+            )
+        } catch (error: CancellationException) {
+            SecureLog.i(logTag) { "Wallet refresh cancelled for $network" }
+            return@withContext NodeRefreshResult(NodeRefreshOutcome.Incomplete)
+        } catch (error: Exception) {
+            if (!networkStatusMonitor.isOnline.value) {
+                SecureLog.i(logTag) { "Wallet refresh cancelled for $network because network is offline" }
+                return@withContext NodeRefreshResult(NodeRefreshOutcome.Incomplete)
             }
-            refreshSucceeded = refreshSucceeded && nodeStatus.value.network == network &&
-                nodeStatus.value.status is NodeStatus.Synced
-        } finally {
-            if (manageSyncStatus) {
-                walletSyncOrchestrator.onManagedRefreshCompleted(network, refreshSucceeded)
+            SecureLog.w(logTag, error) { "Node refresh attempt failed for $network" }
+            runCatching {
+                recordNetworkFailure(
+                    error = error,
+                    durationMs = SystemClock.elapsedRealtime() - attemptStarted,
+                    attemptIndex = 1
+                )
             }
+            return@withContext NodeRefreshResult(NodeRefreshOutcome.Incomplete)
         }
-        refreshSucceeded
+        val refreshSucceeded = nodeStatus.value.network == network &&
+            nodeStatus.value.status is NodeStatus.Synced
+        val outcome = if (refreshSucceeded) {
+            NodeRefreshOutcome.Synced
+        } else {
+            NodeRefreshOutcome.Incomplete
+        }
+        NodeRefreshResult(outcome)
     }
 
     private suspend fun performRefreshAttempt(
         network: BitcoinNetwork,
         targetWalletIds: Set<Long>?,
-        manageSyncStatus: Boolean,
         syncWallets: Boolean
     ) {
         val previousSnapshot = nodeStatus.value
@@ -395,39 +355,12 @@ internal class NodeSyncRunner(
                         "Wallet snapshot for $network ids=$snapshotIds; target filter=$targetLabelForLog -> $filteredIds"
                     }
                     SecureLog.d(logTag) { "Syncing ${filteredWallets.size} wallet(s) on $network target=$targetLabelForLog" }
-                    var remainingQueue = filteredWallets.map { it.id }
-                    walletSyncOrchestrator.ensurePendingOperations(remainingQueue, SyncOperation.Refresh)
-                    filteredWallets.forEach { wallet ->
-                        val expectsFullRescan = wallet.requiresFullScan || wallet.lastFullScanTime == null
-                        if (expectsFullRescan) {
-                            walletSyncOrchestrator.ensurePendingOperation(wallet.id, SyncOperation.FullRescan)
-                        }
-                    }
-                    if (manageSyncStatus && remainingQueue.isNotEmpty()) {
-                        walletSyncOrchestrator.updateSyncStatus(
-                            network = network,
-                            activeWalletId = remainingQueue.firstOrNull(),
-                            queue = remainingQueue.drop(1),
-                            isRunning = true
-                        )
-                    } else if (manageSyncStatus) {
-                        walletSyncOrchestrator.clearSyncStatus(network)
-                    }
                     var hadWalletErrors = false
                     for (entity in filteredWallets) {
                         val walletAlias = WalletLogAliasProvider.alias(entity.id)
                         ensureForeground()
                         if (isWalletDeletionPending(entity.id)) {
                             SecureLog.d(logTag) { "Skipping sync for $walletAlias because it is being deleted." }
-                            remainingQueue = remainingQueue.drop(1)
-                            if (manageSyncStatus) {
-                                walletSyncOrchestrator.updateSyncStatus(
-                                    network = network,
-                                    activeWalletId = remainingQueue.firstOrNull(),
-                                    queue = remainingQueue.drop(1),
-                                    isRunning = remainingQueue.isNotEmpty()
-                                )
-                            }
                             continue
                         }
                         val metricsEnabled = BuildConfig.DEBUG
@@ -815,15 +748,6 @@ internal class NodeSyncRunner(
                                 result = metricsError?.let { "failure:${it.javaClass.simpleName}" } ?: "failure"
                             )
                             logSyncMetrics(metric)
-                        }
-                        remainingQueue = remainingQueue.drop(1)
-                        if (manageSyncStatus) {
-                            walletSyncOrchestrator.updateSyncStatus(
-                                network = network,
-                                activeWalletId = remainingQueue.firstOrNull(),
-                                queue = remainingQueue.drop(1),
-                                isRunning = remainingQueue.isNotEmpty()
-                            )
                         }
                     }
                     ensureForeground()
@@ -1500,21 +1424,6 @@ internal class NodeSyncRunner(
                     throwable.message?.contains("ECONNREFUSED", ignoreCase = true) == true)
         }
 
-    private data class RetryPolicy(
-        val maxAttempts: Int,
-        val baseDelayMs: Long
-    )
-
-    private fun retryPolicyFor(network: BitcoinNetwork): RetryPolicy = when (network) {
-        BitcoinNetwork.MAINNET -> RetryPolicy(maxAttempts = 3, baseDelayMs = 3_000L)
-        BitcoinNetwork.TESTNET -> RetryPolicy(maxAttempts = 2, baseDelayMs = 2_000L)
-        BitcoinNetwork.TESTNET4,
-        BitcoinNetwork.SIGNET -> RetryPolicy(maxAttempts = 2, baseDelayMs = 2_500L)
-    }
-
-    private fun RetryPolicy.backoffDelayMillis(attemptIndex: Int): Long =
-        baseDelayMs * (attemptIndex + 1)
-
     private fun ElectrumEndpointSource.toNodeSource(): NetworkNodeSource =
         when (this) {
             ElectrumEndpointSource.PUBLIC -> NetworkNodeSource.Public
@@ -1535,6 +1444,24 @@ internal class NodeSyncRunner(
             append((value.toInt() and 0xFF).toString(16).padStart(2, '0'))
         }
     }
+}
+
+internal enum class NodeRefreshOutcome {
+    Synced,
+    SkippedNoActiveNodeSelection,
+    Incomplete
+}
+
+internal data class NodeRefreshResult(
+    val outcome: NodeRefreshOutcome
+) {
+    val completed: Boolean
+        get() = when (outcome) {
+            NodeRefreshOutcome.Synced,
+            NodeRefreshOutcome.SkippedNoActiveNodeSelection -> true
+
+            NodeRefreshOutcome.Incomplete -> false
+        }
 }
 
 internal enum class SyncPersistenceMode {

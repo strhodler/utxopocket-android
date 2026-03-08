@@ -44,6 +44,16 @@ class WalletSyncOrchestratorQueueTest {
     }
 
     @Test
+    fun sanitizeQueuedWalletIdsRemovesActiveAndDuplicates() {
+        val sanitized = WalletSyncOrchestrator.sanitizeQueuedWalletIds(
+            activeWalletIds = setOf(7L),
+            queue = listOf(7L, 9L, 9L, 10L, 7L, 11L)
+        )
+
+        assertEquals(listOf(9L, 10L, 11L), sanitized)
+    }
+
+    @Test
     fun reduceSyncStatusBuildsActiveAndQueuedOperationsFromReducerState() {
         val snapshot = WalletSyncOrchestrator.reduceSyncStatus(
             network = BitcoinNetwork.TESTNET,

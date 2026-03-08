@@ -3,6 +3,7 @@ package com.strhodler.utxopocket.data.wallet.sync
 import androidx.annotation.VisibleForTesting
 import com.strhodler.utxopocket.BuildConfig
 import com.strhodler.utxopocket.common.logging.SecureLog
+import com.strhodler.utxopocket.common.logging.WalletLogAliasProvider
 import com.strhodler.utxopocket.data.db.WalletDao
 import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
@@ -14,6 +15,7 @@ import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -28,13 +30,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.ArrayDeque
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.random.Random
 
 internal class WalletSyncOrchestrator(
     private val walletDao: WalletDao,
@@ -44,14 +46,13 @@ internal class WalletSyncOrchestrator(
     private val nodeStatus: MutableStateFlow<NodeStatusSnapshot>,
     private val scope: CoroutineScope,
     private val ioDispatcher: CoroutineDispatcher,
-    private val refreshAction: suspend (BitcoinNetwork, Set<Long>?, Boolean, Boolean) -> Boolean,
+    private val refreshAction: suspend (BitcoinNetwork, Set<Long>?, Boolean) -> NodeRefreshResult,
     private val recordNetworkFailure: suspend (Throwable, Long?, Int, String?) -> Unit,
     private val logTag: String = "WalletSyncOrchestrator"
 ) {
     private sealed interface NetworkIntent {
         data class RefreshNetwork(val network: BitcoinNetwork) : NetworkIntent
         data class SyncWallet(val walletId: Long, val operation: SyncOperation = SyncOperation.Refresh) : NetworkIntent
-        data class SyncAll(val network: BitcoinNetwork) : NetworkIntent
         data class Disconnect(val network: BitcoinNetwork) : NetworkIntent
         data object RehydrateQueues : NetworkIntent
         data class UpdateOnline(val isOnline: Boolean) : NetworkIntent
@@ -70,6 +71,7 @@ internal class WalletSyncOrchestrator(
     )
     private val pendingWalletQueues = mutableMapOf<BitcoinNetwork, ArrayDeque<Long>>()
     private val pendingWalletOperations = mutableMapOf<Long, SyncOperation>()
+    private val retryAttemptsByWallet = mutableMapOf<RetryKey, Int>()
     private val activeWalletByNetwork = mutableMapOf<BitcoinNetwork, Long?>()
     private val runningSyncJobs = mutableMapOf<BitcoinNetwork, Job>()
     private val orchestratorIntents = MutableSharedFlow<NetworkIntent>(
@@ -79,6 +81,19 @@ internal class WalletSyncOrchestrator(
     private val disconnectRequests = ConcurrentHashMap.newKeySet<BitcoinNetwork>()
     @Volatile
     private var lastObservedNetworkOnline: Boolean = true
+    private var syncPipelineState: SyncPipelineState = SyncPipelineState.Idle
+
+    private data class RetryKey(
+        val network: BitcoinNetwork,
+        val walletId: Long
+    )
+
+    private data class RetryPolicy(
+        val maxAttempts: Int,
+        val baseDelayMs: Long,
+        val jitterRatio: Double = 0.25
+    )
+
     private inline fun debugLog(message: () -> String) {
         if (BuildConfig.DEBUG) {
             SecureLog.d(logTag) { message() }
@@ -126,6 +141,7 @@ internal class WalletSyncOrchestrator(
     }
 
     internal fun clearSyncStatus(network: BitcoinNetwork) {
+        syncPipelineState = SyncPipelineState.Idle
         syncStatus.value = SyncStatusSnapshot(
             isRefreshing = false,
             network = network,
@@ -140,14 +156,16 @@ internal class WalletSyncOrchestrator(
         network: BitcoinNetwork,
         activeWalletId: Long?,
         queue: List<Long>,
-        isRunning: Boolean
+        isRunning: Boolean,
+        event: SyncStateEvent? = null
     ) {
         syncQueueMutex.withLock {
             updateSyncStatusLocked(
                 network = network,
                 activeWalletId = activeWalletId,
                 queue = queue,
-                isRunning = isRunning
+                isRunning = isRunning,
+                event = event
             )
         }
     }
@@ -192,7 +210,8 @@ internal class WalletSyncOrchestrator(
                         network = network,
                         activeWalletId = activeWalletByNetwork[network],
                         queue = queue.toList(),
-                        isRunning = runningSyncJobs[network]?.isActive == true
+                        isRunning = runningSyncJobs[network]?.isActive == true,
+                        event = SyncStateEvent.RunnerSuccess
                     )
                 }
             }
@@ -210,27 +229,33 @@ internal class WalletSyncOrchestrator(
                     network = network,
                     activeWalletId = null,
                     queue = queueWithActive,
-                    isRunning = false
+                    isRunning = false,
+                    event = SyncStateEvent.RunnerFailureRetriable
                 )
             }
         }
     }
 
     suspend fun removeFromSyncQueue(walletId: Long, network: BitcoinNetwork) {
+        var jobToCancel: Job? = null
         syncQueueMutex.withLock {
             val queue = queueFor(network)
             queue.remove(walletId)
             val active = activeWalletByNetwork[network]
             if (active == walletId) {
+                jobToCancel = runningSyncJobs.remove(network)
+                jobToCancel?.cancel()
                 activeWalletByNetwork[network] = null
             }
             updateSyncStatusLocked(
                 network = network,
                 activeWalletId = activeWalletByNetwork[network],
                 queue = queue.toList(),
-                isRunning = runningSyncJobs[network]?.isActive == true
+                isRunning = runningSyncJobs[network]?.isActive == true,
+                event = SyncStateEvent.WalletDeleted
             )
         }
+        jobToCancel?.join()
         removeOperationIfIdle(walletId)
     }
 
@@ -247,7 +272,8 @@ internal class WalletSyncOrchestrator(
                     network = network,
                     activeWalletId = null,
                     queue = queueFor(network).toList(),
-                    isRunning = false
+                    isRunning = false,
+                    event = SyncStateEvent.Cancel
                 )
             }
         }
@@ -256,28 +282,33 @@ internal class WalletSyncOrchestrator(
 
     suspend fun drainNetworkQueue(network: BitcoinNetwork): List<SyncQueueEntry> {
         val drainedEntries = mutableListOf<SyncQueueEntry>()
+        var jobToCancel: Job? = null
         syncQueueMutex.withLock {
             val queue = pendingWalletQueues.remove(network)
             val activeId = activeWalletByNetwork.remove(network)
-            runningSyncJobs[network]?.cancel()
-            runningSyncJobs.remove(network)
+            jobToCancel = runningSyncJobs.remove(network)
             if (activeId != null) {
                 val operation = pendingOperationForLocked(activeId)
                 drainedEntries.add(SyncQueueEntry(activeId, operation))
                 pendingWalletOperations.remove(activeId)
+                retryAttemptsByWallet.remove(RetryKey(network = network, walletId = activeId))
             }
             queue?.forEach { walletId ->
                 val operation = pendingOperationForLocked(walletId)
                 drainedEntries.add(SyncQueueEntry(walletId, operation))
                 pendingWalletOperations.remove(walletId)
+                retryAttemptsByWallet.remove(RetryKey(network = network, walletId = walletId))
             }
             updateSyncStatusLocked(
                 network = network,
                 activeWalletId = null,
                 queue = emptyList(),
-                isRunning = false
+                isRunning = false,
+                event = SyncStateEvent.WalletDeleted
             )
         }
+        jobToCancel?.cancel()
+        jobToCancel?.join()
         return drainedEntries
     }
 
@@ -297,6 +328,25 @@ internal class WalletSyncOrchestrator(
     private fun queueFor(network: BitcoinNetwork): ArrayDeque<Long> =
         pendingWalletQueues.getOrPut(network) { ArrayDeque() }
 
+    private fun retryPolicyFor(network: BitcoinNetwork): RetryPolicy = when (network) {
+        BitcoinNetwork.MAINNET -> RetryPolicy(maxAttempts = 3, baseDelayMs = 3_000L)
+        BitcoinNetwork.TESTNET -> RetryPolicy(maxAttempts = 2, baseDelayMs = 2_000L)
+        BitcoinNetwork.TESTNET4,
+        BitcoinNetwork.SIGNET -> RetryPolicy(maxAttempts = 2, baseDelayMs = 2_500L)
+    }
+
+    private fun computeRetryDelayMillis(policy: RetryPolicy, failureCount: Int): Long =
+        computeExponentialBackoffWithJitter(
+            baseDelayMs = policy.baseDelayMs,
+            failureCount = failureCount,
+            jitterRatio = policy.jitterRatio,
+            jitterUnit = Random.nextDouble()
+        )
+
+    private fun clearRetryAttemptsFor(walletId: Long) {
+        retryAttemptsByWallet.keys.removeAll { key -> key.walletId == walletId }
+    }
+
     private suspend fun removeOperationIfIdle(walletId: Long) {
         syncQueueMutex.withLock {
             removeOperationIfIdleLocked(walletId)
@@ -308,6 +358,7 @@ internal class WalletSyncOrchestrator(
         val stillActive = activeWalletByNetwork.values.any { it == walletId }
         if (!stillQueued && !stillActive) {
             pendingWalletOperations.remove(walletId)
+            clearRetryAttemptsFor(walletId)
         }
     }
 
@@ -334,7 +385,8 @@ internal class WalletSyncOrchestrator(
                 network = network,
                 activeWalletId = active,
                 queue = queueList,
-                isRunning = running
+                isRunning = running,
+                event = SyncStateEvent.Enqueue
             )
             debugLog {
                 "enqueueWalletsForSync op=$operation network=$network active=$active running=$running " +
@@ -370,11 +422,13 @@ internal class WalletSyncOrchestrator(
                             queue = queue
                         )
                         activeWalletByNetwork[network] = null
+                        retryAttemptsByWallet.keys.removeAll { key -> key.network == network }
                         updateSyncStatusLocked(
                             network = network,
                             activeWalletId = null,
                             queue = queueWithActive,
-                            isRunning = false
+                            isRunning = false,
+                            event = SyncStateEvent.Offline
                         )
                     }
                     debugLog { "launchSyncJob waiting for connectivity network=$network" }
@@ -396,7 +450,8 @@ internal class WalletSyncOrchestrator(
                             network = network,
                             activeWalletId = null,
                             queue = queueWithActive,
-                            isRunning = false
+                            isRunning = false,
+                            event = SyncStateEvent.Disconnect
                         )
                         runningSyncJobs.remove(network)
                     }
@@ -407,7 +462,13 @@ internal class WalletSyncOrchestrator(
                     val queue = queueFor(network)
                     if (queue.isEmpty()) {
                         activeWalletByNetwork[network] = null
-                        updateSyncStatusLocked(network, null, emptyList(), isRunning = false)
+                        updateSyncStatusLocked(
+                            network = network,
+                            activeWalletId = null,
+                            queue = emptyList(),
+                            isRunning = false,
+                            event = SyncStateEvent.Cancel
+                        )
                         return@launch
                     }
                     queue.firstOrNull()
@@ -424,7 +485,13 @@ internal class WalletSyncOrchestrator(
                     val queue = queueFor(network)
                     if (queue.isEmpty()) {
                         activeWalletByNetwork[network] = null
-                        updateSyncStatusLocked(network, null, emptyList(), isRunning = false)
+                        updateSyncStatusLocked(
+                            network = network,
+                            activeWalletId = null,
+                            queue = emptyList(),
+                            isRunning = false,
+                            event = SyncStateEvent.Cancel
+                        )
                         return@withLock null
                     }
                     val active = queue.removeFirst()
@@ -433,7 +500,8 @@ internal class WalletSyncOrchestrator(
                         network = network,
                         activeWalletId = active,
                         queue = queue.toList(),
-                        isRunning = true
+                        isRunning = true,
+                        event = SyncStateEvent.Start
                     )
                     active
                 }
@@ -441,10 +509,12 @@ internal class WalletSyncOrchestrator(
                     return@launch
                 }
                 val syncResult = runCatching {
-                    refreshAction(network, setOf(activeId), false, true)
+                    refreshAction(network, setOf(activeId), true)
                 }
 
-                val completed = syncResult.getOrDefault(false)
+                val completed = syncResult.getOrNull()?.completed == true
+                val syncError = syncResult.exceptionOrNull()
+                val cancelled = syncError is CancellationException
                 if (completed) {
                     _walletSyncSuccesses.tryEmit(
                         WalletSyncSuccessEvent(
@@ -455,10 +525,59 @@ internal class WalletSyncOrchestrator(
                 }
                 var hasPending = false
                 var activeStillPending = false
+                var retryDelayMs: Long? = null
+                var shouldDelayBeforeNextAttempt = false
                 syncQueueMutex.withLock {
                     val queue = queueFor(network)
-                    if (!completed && !queue.contains(activeId)) {
-                        queue.addFirst(activeId)
+                    val retryKey = RetryKey(network = network, walletId = activeId)
+                    val walletStillManaged =
+                        pendingWalletOperations.containsKey(activeId) || queue.contains(activeId)
+                    val failureEvent = if (!completed) {
+                        if (cancelled) {
+                            retryAttemptsByWallet.remove(retryKey)
+                            if (walletStillManaged && !queue.contains(activeId)) {
+                                queue.addFirst(activeId)
+                            }
+                            eventForCancellationContext(
+                                disconnectRequested = disconnectRequests.contains(network),
+                                isOnline = lastObservedNetworkOnline
+                            )
+                        } else {
+                            val policy = retryPolicyFor(network)
+                            val failureCount = (retryAttemptsByWallet[retryKey] ?: 0) + 1
+                            val shouldRetry = shouldRetryAttempt(
+                                attempt = failureCount - 1,
+                                maxAttempts = policy.maxAttempts
+                            )
+                            if (shouldRetry) {
+                                retryAttemptsByWallet[retryKey] = failureCount
+                                val reorderedQueue = queueAfterRetriableFailure(
+                                    queue = queue.toList(),
+                                    failedWalletId = activeId
+                                )
+                                if (reorderedQueue != queue.toList()) {
+                                    queue.clear()
+                                    reorderedQueue.forEach { walletId -> queue.addLast(walletId) }
+                                }
+                                retryDelayMs = computeRetryDelayMillis(policy, failureCount)
+                                shouldDelayBeforeNextAttempt = queue.firstOrNull() == activeId
+                                debugLog {
+                                    "retry scheduled network=$network wallet=$activeId " +
+                                        "attempt=$failureCount/${policy.maxAttempts} delayMs=$retryDelayMs"
+                                }
+                                SyncStateEvent.RunnerFailureRetriable
+                            } else {
+                                retryAttemptsByWallet.remove(retryKey)
+                                SecureLog.w(logTag) {
+                                    "Wallet sync giving up after ${policy.maxAttempts} attempts for " +
+                                        "${WalletLogAliasProvider.alias(activeId)} on $network"
+                                }
+                                SyncStateEvent.RunnerFailureFinal
+                            }
+                        }
+                    } else {
+                        retryAttemptsByWallet.remove(retryKey)
+                        SyncStateEvent.RunnerSuccess
                     }
                     activeStillPending = queue.contains(activeId)
                     activeWalletByNetwork[network] = null
@@ -466,13 +585,14 @@ internal class WalletSyncOrchestrator(
                         network = network,
                         activeWalletId = null,
                         queue = queue.toList(),
-                        isRunning = false
+                        isRunning = false,
+                        event = failureEvent
                     )
                     if (queue.isEmpty()) {
                         pendingWalletQueues.remove(network)
                         runningSyncJobs.remove(network)
-                        if (syncResult.isFailure) {
-                            SecureLog.w(logTag, syncResult.exceptionOrNull()) {
+                        if (syncResult.isFailure && !cancelled) {
+                            SecureLog.w(logTag, syncError) {
                                 "Wallet sync completed with errors for $network"
                             }
                         }
@@ -483,8 +603,8 @@ internal class WalletSyncOrchestrator(
                 if (!activeStillPending) {
                     removeOperationIfIdle(activeId)
                 }
-                if (!completed && hasPending) {
-                    delay(1_000)
+                if (!completed && hasPending && shouldDelayBeforeNextAttempt) {
+                    delay(retryDelayMs ?: 0L)
                 }
             }
         }
@@ -498,7 +618,6 @@ internal class WalletSyncOrchestrator(
             when (intent) {
                 is NetworkIntent.RefreshNetwork -> handleRefreshIntent(intent.network)
                 is NetworkIntent.SyncWallet -> handleSyncWalletIntent(intent.walletId, intent.operation)
-                is NetworkIntent.SyncAll -> handleSyncAllIntent(intent.network)
                 is NetworkIntent.Disconnect -> handleDisconnectIntent(intent.network)
                 NetworkIntent.RehydrateQueues -> rehydratePendingSyncs()
                 is NetworkIntent.UpdateOnline -> handleOnlineUpdate(intent.isOnline)
@@ -527,6 +646,20 @@ internal class WalletSyncOrchestrator(
             return
         }
         debugLog { "handleOnlineUpdate: connectivity restored" }
+        syncQueueMutex.withLock {
+            val current = syncStatus.value
+            val network = selectStatusNetworkLocked(current.network)
+            val active = activeWalletByNetwork[network]
+            val queue = pendingWalletQueues[network]?.toList().orEmpty()
+            val running = runningSyncJobs[network]?.isActive == true
+            updateSyncStatusLocked(
+                network = network,
+                activeWalletId = active,
+                queue = queue,
+                isRunning = running,
+                event = SyncStateEvent.Online
+            )
+        }
         val preferredNetwork = appPreferencesRepository.preferredNetwork.first()
         val config = nodeConfigurationRepository.nodeConfig.first()
         if (config.hasActiveSelection(preferredNetwork) && !disconnectRequests.contains(preferredNetwork)) {
@@ -549,7 +682,7 @@ internal class WalletSyncOrchestrator(
             return@withContext
         }
         runCatching {
-            refreshAction(network, emptySet(), false, false)
+            refreshAction(network, emptySet(), false)
         }
     }
 
@@ -587,24 +720,6 @@ internal class WalletSyncOrchestrator(
         enqueueWalletsForSync(network = walletNetwork, walletIds = setOf(walletId), operation = operation)
     }
 
-    private suspend fun handleSyncAllIntent(network: BitcoinNetwork) = withContext(ioDispatcher) {
-        val config = nodeConfigurationRepository.nodeConfig.first()
-        if (!config.hasActiveSelection(network)) {
-            SecureLog.i(logTag) { "Skipping sync-all for $network: no active node selection" }
-            return@withContext
-        }
-        if (disconnectRequests.contains(network)) {
-            SecureLog.i(logTag) { "Skipping sync-all for $network because disconnect was requested" }
-            return@withContext
-        }
-        disconnectRequests.remove(network)
-        val walletIds = walletDao.getWalletsSnapshot(network.name).map { it.id }
-        if (walletIds.isEmpty()) {
-            return@withContext
-        }
-        enqueueWalletsForSync(network = network, walletIds = walletIds)
-    }
-
     private suspend fun handleDisconnectIntent(network: BitcoinNetwork) = withContext(ioDispatcher) {
         disconnectRequests.add(network)
         var queuedSize = 0
@@ -616,16 +731,19 @@ internal class WalletSyncOrchestrator(
                 queue = queue
             )
             activeWalletByNetwork[network] = null
+            retryAttemptsByWallet.keys.removeAll { key -> key.network == network }
             queuedSize = queueWithActive.size
             updateSyncStatusLocked(
                 network = network,
                 activeWalletId = null,
                 queue = queueWithActive,
-                isRunning = false
+                isRunning = false,
+                event = SyncStateEvent.Disconnect
             )
             job
         }
         jobToCancel?.cancel()
+        jobToCancel?.join()
         debugLog { "handleDisconnectIntent($network) queued=$queuedSize" }
         val snapshot = nodeStatus.value
         val matchesNetwork = snapshot.network == network
@@ -666,6 +784,7 @@ internal class WalletSyncOrchestrator(
 
     private suspend fun applyOfflineNodeStatus() {
         syncQueueMutex.withLock {
+            retryAttemptsByWallet.clear()
             val currentSync = syncStatus.value
             val network = selectStatusNetworkLocked(currentSync.network)
             val queueSnapshot = pendingWalletQueues[network]?.toList().orEmpty()
@@ -676,7 +795,8 @@ internal class WalletSyncOrchestrator(
                     network = network,
                     activeWalletId = null,
                     queue = queueForStatus,
-                    isRunning = false
+                    isRunning = false,
+                    event = SyncStateEvent.Offline
                 )
             } else {
                 val queueFromCurrentStatus = queueWithRequeuedActive(
@@ -687,7 +807,8 @@ internal class WalletSyncOrchestrator(
                     network = currentSync.network,
                     activeWalletId = null,
                     queue = queueFromCurrentStatus,
-                    isRunning = false
+                    isRunning = false,
+                    event = SyncStateEvent.Offline
                 )
             }
         }
@@ -695,12 +816,68 @@ internal class WalletSyncOrchestrator(
         nodeStatus.value = snapshot.copy(status = NodeStatus.Offline)
     }
 
+    private fun sanitizeSyncStateLocked(
+        statusNetwork: BitcoinNetwork,
+        statusActiveWalletId: Long?,
+        statusQueue: List<Long>
+    ) {
+        val activeWalletIds = activeWalletByNetwork.values.filterNotNull().toSet()
+        pendingWalletQueues.forEach { (_, queue) ->
+            if (queue.isEmpty()) return@forEach
+            val sanitized = sanitizeQueuedWalletIds(
+                activeWalletIds = activeWalletIds,
+                queue = queue.toList()
+            )
+            if (sanitized != queue.toList()) {
+                queue.clear()
+                sanitized.forEach { queue.addLast(it) }
+            }
+        }
+        val trackedWalletIds = mutableSetOf<Long>()
+        trackedWalletIds.addAll(activeWalletByNetwork.values.filterNotNull())
+        pendingWalletQueues.values.forEach { queue ->
+            trackedWalletIds.addAll(queue)
+        }
+        statusActiveWalletId?.let(trackedWalletIds::add)
+        trackedWalletIds.addAll(statusQueue)
+        val orphanWalletIds = pendingWalletOperations.keys
+            .filter { walletId -> walletId !in trackedWalletIds }
+        orphanWalletIds.forEach { walletId ->
+            pendingWalletOperations.remove(walletId)
+            clearRetryAttemptsFor(walletId)
+        }
+        val validRetryKeys = mutableSetOf<RetryKey>()
+        activeWalletByNetwork.forEach { (network, activeWalletId) ->
+            if (activeWalletId != null) {
+                validRetryKeys.add(RetryKey(network = network, walletId = activeWalletId))
+            }
+        }
+        pendingWalletQueues.forEach { (network, queue) ->
+            queue.forEach { walletId ->
+                validRetryKeys.add(RetryKey(network = network, walletId = walletId))
+            }
+        }
+        statusActiveWalletId?.let { walletId ->
+            validRetryKeys.add(RetryKey(network = statusNetwork, walletId = walletId))
+        }
+        statusQueue.forEach { walletId ->
+            validRetryKeys.add(RetryKey(network = statusNetwork, walletId = walletId))
+        }
+        retryAttemptsByWallet.keys.retainAll(validRetryKeys)
+    }
+
     private fun updateSyncStatusLocked(
         network: BitcoinNetwork,
         activeWalletId: Long?,
         queue: List<Long>,
-        isRunning: Boolean
+        isRunning: Boolean,
+        event: SyncStateEvent? = null
     ) {
+        sanitizeSyncStateLocked(
+            statusNetwork = network,
+            statusActiveWalletId = activeWalletId,
+            statusQueue = queue
+        )
         val operationByWallet = buildMap<Long, SyncOperation> {
             pendingWalletOperations.forEach { (walletId, operation) ->
                 put(walletId, operation)
@@ -714,13 +891,37 @@ internal class WalletSyncOrchestrator(
                 }
             }
         }
-        syncStatus.value = reduceSyncStatus(
+        val resolvedEvent = event ?: inferSteadyStateEvent(
+            activeWalletId = activeWalletId,
+            queue = queue,
+            isRunning = isRunning
+        )
+        val transition = SyncStateMachine.reduce(
+            previousState = syncPipelineState,
+            event = resolvedEvent,
             network = network,
             activeWalletId = activeWalletId,
             queue = queue,
             isRunning = isRunning,
             operationByWallet = operationByWallet
         )
+        syncPipelineState = transition.state
+        syncStatus.value = transition.snapshot
+        debugLog {
+            "state transition event=$resolvedEvent state=$syncPipelineState " +
+                "network=$network active=$activeWalletId queue=${transition.snapshot.queuedWalletIds} " +
+                "refreshing=${transition.snapshot.isRefreshing}"
+        }
+    }
+
+    private fun inferSteadyStateEvent(
+        activeWalletId: Long?,
+        queue: List<Long>,
+        isRunning: Boolean
+    ): SyncStateEvent = when {
+        isRunning && activeWalletId != null -> SyncStateEvent.Start
+        queue.isNotEmpty() -> SyncStateEvent.Enqueue
+        else -> SyncStateEvent.Cancel
     }
 
     companion object {
@@ -744,6 +945,43 @@ internal class WalletSyncOrchestrator(
         }
 
         @VisibleForTesting
+        internal fun sanitizeQueuedWalletIds(
+            activeWalletIds: Set<Long>,
+            queue: List<Long>
+        ): List<Long> {
+            if (queue.isEmpty()) return emptyList()
+            val sanitized = mutableListOf<Long>()
+            val seen = mutableSetOf<Long>()
+            queue.forEach { walletId ->
+                if (walletId in activeWalletIds) return@forEach
+                if (seen.add(walletId)) {
+                    sanitized.add(walletId)
+                }
+            }
+            return sanitized
+        }
+
+        @VisibleForTesting
+        internal fun queueAfterRetriableFailure(
+            queue: List<Long>,
+            failedWalletId: Long
+        ): List<Long> = if (queue.contains(failedWalletId)) {
+            queue
+        } else {
+            queue + failedWalletId
+        }
+
+        @VisibleForTesting
+        internal fun eventForCancellationContext(
+            disconnectRequested: Boolean,
+            isOnline: Boolean
+        ): SyncStateEvent = when {
+            disconnectRequested -> SyncStateEvent.Disconnect
+            !isOnline -> SyncStateEvent.Offline
+            else -> SyncStateEvent.Cancel
+        }
+
+        @VisibleForTesting
         internal fun reduceSyncStatus(
             network: BitcoinNetwork,
             activeWalletId: Long?,
@@ -751,19 +989,20 @@ internal class WalletSyncOrchestrator(
             isRunning: Boolean,
             operationByWallet: Map<Long, SyncOperation>
         ): SyncStatusSnapshot {
-            val syncing = isRunning && activeWalletId != null
-            val activeOperation = activeWalletId?.let { operationByWallet[it] ?: SyncOperation.Refresh }
-            val queuedEntries = queue.map { id ->
-                SyncQueueEntry(id, operationByWallet[id] ?: SyncOperation.Refresh)
+            val event = when {
+                isRunning && activeWalletId != null -> SyncStateEvent.Start
+                queue.isNotEmpty() -> SyncStateEvent.Enqueue
+                else -> SyncStateEvent.Cancel
             }
-            return SyncStatusSnapshot(
-                isRefreshing = syncing,
+            return SyncStateMachine.reduce(
+                previousState = SyncPipelineState.Idle,
+                event = event,
                 network = network,
-                refreshingWalletIds = activeWalletId?.let { setOf(it) } ?: emptySet(),
                 activeWalletId = activeWalletId,
-                activeOperation = activeOperation,
-                queued = queuedEntries
-            )
+                queue = queue,
+                isRunning = isRunning,
+                operationByWallet = operationByWallet
+            ).snapshot
         }
 
         @VisibleForTesting
@@ -808,4 +1047,22 @@ internal class WalletSyncOrchestrator(
         val walletId: Long,
         val network: BitcoinNetwork
     )
+}
+
+internal fun computeExponentialBackoffWithJitter(
+    baseDelayMs: Long,
+    failureCount: Int,
+    jitterRatio: Double,
+    jitterUnit: Double
+): Long {
+    require(baseDelayMs > 0L) { "baseDelayMs must be positive" }
+    require(failureCount > 0) { "failureCount must be positive" }
+    require(jitterRatio >= 0.0) { "jitterRatio must be >= 0" }
+    val cappedExponent = (failureCount - 1).coerceAtMost(10)
+    val multiplier = 1L shl cappedExponent
+    val exponential = baseDelayMs * multiplier
+    val jitterRange = (exponential * jitterRatio).toLong().coerceAtLeast(0L)
+    val centeredUnit = (jitterUnit.coerceIn(0.0, 1.0) - 0.5) * 2.0
+    val jitterOffset = (jitterRange.toDouble() * centeredUnit).toLong()
+    return (exponential + jitterOffset).coerceAtLeast(0L)
 }

@@ -248,8 +248,8 @@ class DefaultWalletRepository @Inject constructor(
         nodeStatus = nodeStatus,
         scope = repositoryScope,
         ioDispatcher = ioDispatcher,
-        refreshAction = { network, targetWalletIds, manageSyncStatus, syncWallets ->
-            nodeSyncRunner.refresh(network, targetWalletIds, manageSyncStatus, syncWallets)
+        refreshAction = { network, targetWalletIds, syncWallets ->
+            nodeSyncRunner.refresh(network, targetWalletIds, syncWallets)
         },
         recordNetworkFailure = { error, durationMs, attemptIndex, networkType ->
             nodeSyncRunner.recordNetworkFailure(error, durationMs, attemptIndex, networkType)
@@ -322,7 +322,6 @@ class DefaultWalletRepository @Inject constructor(
             nodeConfigurationRepository = nodeConfigurationRepository,
             networkStatusMonitor = networkStatusMonitor,
             walletSyncPreferencesRepository = walletSyncPreferencesRepository,
-            walletSyncOrchestrator = walletSyncOrchestrator,
             walletDao = walletDao,
             networkErrorLogRepository = networkErrorLogRepository,
             nodeStatus = nodeStatus,
