@@ -704,20 +704,21 @@ class WalletDetailViewModel @Inject constructor(
     private fun requestManualSync(
         operation: SyncOperation,
         beforeEnqueue: (suspend (WalletSummary) -> Unit)? = null,
-        onBeforeEnqueueResult: ((Result<Unit>) -> Unit)? = null
+        onSyncRequestResult: ((Result<Boolean>) -> Unit)? = null,
+        enqueueRequestedOperation: Boolean = true
     ) {
         val snapshot = uiState.value
         val summary = snapshot.summary
         if (summary == null) {
-            onBeforeEnqueueResult?.invoke(Result.failure(IllegalStateException("Wallet not loaded")))
+            onSyncRequestResult?.invoke(Result.failure(IllegalStateException("Wallet not loaded")))
             return
         }
         viewModelScope.launch {
             val beforeResult = runCatching {
                 beforeEnqueue?.invoke(summary)
             }
-            onBeforeEnqueueResult?.invoke(beforeResult.map { Unit })
             if (beforeResult.isFailure) {
+                onSyncRequestResult?.invoke(beforeResult.map { false })
                 return@launch
             }
 
@@ -726,6 +727,7 @@ class WalletDetailViewModel @Inject constructor(
                     "Sync blocked for wallet=${summary.id} nodeStatus=${snapshot.nodeStatus} operation=$operation"
                 }
                 _events.emit(WalletDetailEvent.SyncBlocked(blockedMessage))
+                onSyncRequestResult?.invoke(Result.success(true))
                 return@launch
             }
             val hasNode = walletRepository.hasActiveNodeSelection(summary.network)
@@ -733,19 +735,24 @@ class WalletDetailViewModel @Inject constructor(
                 SecureLog.d(TAG) {
                     "Sync request ignored: no active node selection for network=${summary.network} wallet=${summary.id}"
                 }
+                onSyncRequestResult?.invoke(Result.success(true))
                 return@launch
             }
             val syncStatus = walletRepository.observeSyncStatus().first()
             val matchesNetwork = syncStatus.network == summary.network
-            val existingOperation = existingSyncOperation(
-                walletId = summary.id,
-                syncStatus = syncStatus,
-                matchesNetwork = matchesNetwork
-            )
-            val shouldEnqueue = shouldEnqueueOperation(
-                requestedOperation = operation,
-                existingOperation = existingOperation
-            )
+            val shouldEnqueue = if (enqueueRequestedOperation) {
+                val existingOperation = existingSyncOperation(
+                    walletId = summary.id,
+                    syncStatus = syncStatus,
+                    matchesNetwork = matchesNetwork
+                )
+                shouldEnqueueOperation(
+                    requestedOperation = operation,
+                    existingOperation = existingOperation
+                )
+            } else {
+                false
+            }
             val queuedOrRunning = matchesNetwork && (
                 syncStatus.isRefreshing ||
                     syncStatus.activeWalletId != null ||
@@ -756,14 +763,20 @@ class WalletDetailViewModel @Inject constructor(
                 "Manual sync requested wallet=${summary.id} operation=$operation nodeStatus=${snapshot.nodeStatus} " +
                     "syncNetwork=${syncStatus.network} active=${syncStatus.activeWalletId} " +
                     "refreshing=${syncStatus.refreshingWalletIds} queued=${syncStatus.queuedWalletIds} " +
-                    "matchesNetwork=$matchesNetwork queuedOrRunning=$queuedOrRunning existingOperation=$existingOperation shouldEnqueue=$shouldEnqueue"
+                    "matchesNetwork=$matchesNetwork queuedOrRunning=$queuedOrRunning shouldEnqueue=$shouldEnqueue"
             }
             if (shouldEnqueue) {
                 walletRepository.refreshWallet(summary.id, operation)
             }
-            if (queuedOrRunning || !shouldEnqueue) {
+            val shouldEmitQueuedEvent = if (enqueueRequestedOperation) {
+                queuedOrRunning || !shouldEnqueue
+            } else {
+                queuedOrRunning
+            }
+            if (shouldEmitQueuedEvent) {
                 _events.emit(queuedEventFor(operation))
             }
+            onSyncRequestResult?.invoke(Result.success(shouldEmitQueuedEvent))
         }
     }
 
@@ -830,13 +843,14 @@ class WalletDetailViewModel @Inject constructor(
         }
     }
 
-    fun forceFullRescan(stopGap: Int, onResult: (Result<Unit>) -> Unit) {
+    fun forceFullRescan(stopGap: Int, onResult: (Result<Boolean>) -> Unit) {
         requestManualSync(
             operation = SyncOperation.FullRescan,
             beforeEnqueue = { summary ->
                 walletRepository.forceFullRescan(summary.id, stopGap)
             },
-            onBeforeEnqueueResult = onResult
+            onSyncRequestResult = onResult,
+            enqueueRequestedOperation = false
         )
     }
 

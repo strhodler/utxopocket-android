@@ -471,12 +471,15 @@ fun WalletDetailRoute(
                             viewModel.forceFullRescan(gapForRescan) { result ->
                                 forceRescanInProgress = false
                                 result.onSuccess {
-                                    coroutineScope.launch {
-                                        val successMessage = context.getString(
-                                            R.string.wallet_detail_force_rescan_started,
-                                            gapForRescan
-                                        )
-                                        snackbarHostState.showSnackbar(successMessage)
+                                    queued ->
+                                    if (!queued) {
+                                        coroutineScope.launch {
+                                            val successMessage = context.getString(
+                                                R.string.wallet_detail_force_rescan_started,
+                                                gapForRescan
+                                            )
+                                            snackbarHostState.showSnackbar(successMessage)
+                                        }
                                     }
                                 }.onFailure {
                                     coroutineScope.launch {

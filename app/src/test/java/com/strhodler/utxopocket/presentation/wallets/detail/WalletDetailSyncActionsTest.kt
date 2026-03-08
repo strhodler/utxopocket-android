@@ -122,7 +122,7 @@ class WalletDetailSyncActionsTest {
         val harness = TestHarness()
         val viewModel = harness.createViewModel()
         val (events, job) = collectEvents(viewModel)
-        var forceResult: Result<Unit>? = null
+        var forceResult: Result<Boolean>? = null
 
         harness.connectionOrchestrator.setNodeStatus(NodeStatus.Synced)
         harness.walletRepository.syncStatus.value = SyncStatusSnapshot(
@@ -140,14 +140,12 @@ class WalletDetailSyncActionsTest {
         advanceUntilIdle()
 
         assertTrue(forceResult?.isSuccess == true)
+        assertEquals(true, forceResult?.getOrNull())
         assertEquals(
             listOf(ForceFullRescanCall(walletId = TEST_WALLET_ID, stopGap = 40)),
             harness.walletRepository.forceFullRescanCalls
         )
-        assertEquals(
-            listOf(RefreshWalletCall(walletId = TEST_WALLET_ID, operation = SyncOperation.FullRescan)),
-            harness.walletRepository.refreshWalletCalls
-        )
+        assertEquals(emptyList(), harness.walletRepository.refreshWalletCalls)
         assertEquals(listOf<WalletDetailEvent>(WalletDetailEvent.FullRescanQueued), events)
         job.cancel()
     }

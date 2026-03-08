@@ -48,7 +48,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.R
-import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import com.strhodler.utxopocket.presentation.common.ContentSection
@@ -316,7 +315,6 @@ class WalletSyncSettingsViewModel @Inject constructor(
             val saveResult = runCatching { walletSyncPreferencesRepository.setGap(walletId, gap) }
             val rescanResult = saveResult.mapCatching {
                 walletRepository.forceFullRescan(walletId, gap)
-                walletRepository.refreshWallet(walletId, SyncOperation.FullRescan)
             }
             _uiState.value = _uiState.value.copy(
                 isRescanning = false,

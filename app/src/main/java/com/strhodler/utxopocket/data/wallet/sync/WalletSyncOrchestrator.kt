@@ -151,9 +151,8 @@ internal class WalletSyncOrchestrator(
         if (walletIds.isEmpty()) return
         syncQueueMutex.withLock {
             walletIds.forEach { id ->
-                if (!pendingWalletOperations.containsKey(id)) {
-                    pendingWalletOperations[id] = operation
-                }
+                val existing = pendingWalletOperations[id]
+                pendingWalletOperations[id] = mergeOperation(existing = existing, incoming = operation)
             }
         }
     }
@@ -161,30 +160,50 @@ internal class WalletSyncOrchestrator(
     private fun pendingOperationForLocked(walletId: Long): SyncOperation =
         pendingWalletOperations[walletId] ?: SyncOperation.Refresh
 
+    private fun selectStatusNetworkLocked(fallback: BitcoinNetwork): BitcoinNetwork {
+        val activeNetwork = activeWalletByNetwork.entries
+            .firstOrNull { it.value != null }
+            ?.key
+        if (activeNetwork != null) return activeNetwork
+        val queuedNetwork = pendingWalletQueues.entries
+            .firstOrNull { it.value.isNotEmpty() }
+            ?.key
+        return queuedNetwork ?: fallback
+    }
+
+    private fun queueWithRequeuedActive(activeWalletId: Long?, queue: ArrayDeque<Long>): List<Long> =
+        queueWithRequeuedActive(activeWalletId = activeWalletId, queue = queue.toList())
+
     internal fun onManagedRefreshCompleted(network: BitcoinNetwork, refreshSucceeded: Boolean) {
         if (refreshSucceeded) {
-            clearSyncStatus(network)
-            return
-        }
-        syncStatus.update { current ->
-            val activeId = current.activeWalletId
-            val pendingEntries = buildList {
-                if (activeId != null) {
-                    add(SyncQueueEntry(activeId, current.activeOperation ?: SyncOperation.Refresh))
-                }
-                current.queued.forEach { entry ->
-                    if (entry.walletId != activeId) {
-                        add(entry)
-                    }
+            scope.launch {
+                syncQueueMutex.withLock {
+                    val queue = queueFor(network)
+                    updateSyncStatusLocked(
+                        network = network,
+                        activeWalletId = activeWalletByNetwork[network],
+                        queue = queue.toList(),
+                        isRunning = runningSyncJobs[network]?.isActive == true
+                    )
                 }
             }
-            current.copy(
-                isRefreshing = false,
-                refreshingWalletIds = emptySet(),
-                activeWalletId = null,
-                activeOperation = null,
-                queued = pendingEntries
-            )
+            return
+        }
+        scope.launch {
+            syncQueueMutex.withLock {
+                val queue = queueFor(network)
+                val queueWithActive = queueWithRequeuedActive(
+                    activeWalletId = activeWalletByNetwork[network],
+                    queue = queue
+                )
+                activeWalletByNetwork[network] = null
+                updateSyncStatusLocked(
+                    network = network,
+                    activeWalletId = null,
+                    queue = queueWithActive,
+                    isRunning = false
+                )
+            }
         }
     }
 
@@ -294,11 +313,7 @@ internal class WalletSyncOrchestrator(
             val active = activeWalletByNetwork[network]
             walletIds.forEach { id ->
                 val existingOp = pendingWalletOperations[id]
-                val resolvedOp = when {
-                    operation == SyncOperation.FullRescan -> SyncOperation.FullRescan
-                    existingOp == SyncOperation.FullRescan -> SyncOperation.FullRescan
-                    else -> SyncOperation.Refresh
-                }
+                val resolvedOp = mergeOperation(existing = existingOp, incoming = operation)
                 pendingWalletOperations[id] = resolvedOp
                 if (active != id && !queue.contains(id)) {
                     queue.addLast(id)
@@ -341,16 +356,15 @@ internal class WalletSyncOrchestrator(
                 if (!lastObservedNetworkOnline) {
                     syncQueueMutex.withLock {
                         val queue = queueFor(network)
-                        activeWalletByNetwork[network]?.let { active ->
-                            if (!queue.contains(active)) {
-                                queue.addFirst(active)
-                            }
-                        }
+                        val queueWithActive = queueWithRequeuedActive(
+                            activeWalletId = activeWalletByNetwork[network],
+                            queue = queue
+                        )
                         activeWalletByNetwork[network] = null
                         updateSyncStatusLocked(
                             network = network,
                             activeWalletId = null,
-                            queue = queue.toList(),
+                            queue = queueWithActive,
                             isRunning = false
                         )
                     }
@@ -364,16 +378,15 @@ internal class WalletSyncOrchestrator(
                 if (disconnectRequests.contains(network)) {
                     syncQueueMutex.withLock {
                         val queue = queueFor(network)
-                        activeWalletByNetwork[network]?.let { active ->
-                            if (!queue.contains(active)) {
-                                queue.addFirst(active)
-                            }
-                        }
+                        val queueWithActive = queueWithRequeuedActive(
+                            activeWalletId = activeWalletByNetwork[network],
+                            queue = queue
+                        )
                         activeWalletByNetwork[network] = null
                         updateSyncStatusLocked(
                             network = network,
                             activeWalletId = null,
-                            queue = queue.toList(),
+                            queue = queueWithActive,
                             isRunning = false
                         )
                         runningSyncJobs.remove(network)
@@ -581,17 +594,16 @@ internal class WalletSyncOrchestrator(
         val jobToCancel = syncQueueMutex.withLock {
             val job = runningSyncJobs.remove(network)
             val queue = queueFor(network)
-            activeWalletByNetwork[network]?.let { active ->
-                if (!queue.contains(active)) {
-                    queue.addFirst(active)
-                }
-            }
+            val queueWithActive = queueWithRequeuedActive(
+                activeWalletId = activeWalletByNetwork[network],
+                queue = queue
+            )
             activeWalletByNetwork[network] = null
-            queuedSize = queue.size
+            queuedSize = queueWithActive.size
             updateSyncStatusLocked(
                 network = network,
                 activeWalletId = null,
-                queue = queue.toList(),
+                queue = queueWithActive,
                 isRunning = false
             )
             job
@@ -638,15 +650,11 @@ internal class WalletSyncOrchestrator(
     private suspend fun applyOfflineNodeStatus() {
         syncQueueMutex.withLock {
             val currentSync = syncStatus.value
-            val network = currentSync.network
+            val network = selectStatusNetworkLocked(currentSync.network)
             val queueSnapshot = pendingWalletQueues[network]?.toList().orEmpty()
             val activeId = activeWalletByNetwork[network]
             if (queueSnapshot.isNotEmpty() || activeId != null) {
-                val queueForStatus = if (activeId != null && !queueSnapshot.contains(activeId)) {
-                    listOf(activeId) + queueSnapshot
-                } else {
-                    queueSnapshot
-                }
+                val queueForStatus = queueWithRequeuedActive(activeWalletId = activeId, queue = queueSnapshot)
                 updateSyncStatusLocked(
                     network = network,
                     activeWalletId = null,
@@ -654,30 +662,16 @@ internal class WalletSyncOrchestrator(
                     isRunning = false
                 )
             } else {
-                val pendingEntries = buildList {
-                    if (currentSync.activeWalletId != null) {
-                        add(
-                            SyncQueueEntry(
-                                currentSync.activeWalletId,
-                                currentSync.activeOperation ?: SyncOperation.Refresh
-                            )
-                        )
-                    }
-                    currentSync.queued.forEach { entry ->
-                        if (entry.walletId != currentSync.activeWalletId) {
-                            add(entry)
-                        }
-                    }
-                }
-                syncStatus.update {
-                    it.copy(
-                        isRefreshing = false,
-                        refreshingWalletIds = emptySet(),
-                        activeWalletId = null,
-                        activeOperation = null,
-                        queued = pendingEntries
-                    )
-                }
+                val queueFromCurrentStatus = queueWithRequeuedActive(
+                    activeWalletId = currentSync.activeWalletId,
+                    queue = currentSync.queuedWalletIds
+                )
+                updateSyncStatusLocked(
+                    network = currentSync.network,
+                    activeWalletId = null,
+                    queue = queueFromCurrentStatus,
+                    isRunning = false
+                )
             }
         }
         val snapshot = nodeStatus.value
@@ -690,22 +684,71 @@ internal class WalletSyncOrchestrator(
         queue: List<Long>,
         isRunning: Boolean
     ) {
-        val syncing = isRunning && activeWalletId != null
-        val activeOperation = activeWalletId?.let { pendingOperationForLocked(it) }
-        val queuedEntries = queue.map { id ->
-            SyncQueueEntry(id, pendingOperationForLocked(id))
+        val operationByWallet = buildMap<Long, SyncOperation> {
+            pendingWalletOperations.forEach { (walletId, operation) ->
+                put(walletId, operation)
+            }
+            syncStatus.value.activeWalletId?.let { currentActiveId ->
+                put(currentActiveId, syncStatus.value.activeOperation ?: SyncOperation.Refresh)
+            }
+            syncStatus.value.queued.forEach { queuedEntry ->
+                if (!containsKey(queuedEntry.walletId)) {
+                    put(queuedEntry.walletId, queuedEntry.operation)
+                }
+            }
         }
-        syncStatus.value = SyncStatusSnapshot(
-            isRefreshing = syncing,
+        syncStatus.value = reduceSyncStatus(
             network = network,
-            refreshingWalletIds = activeWalletId?.let { setOf(it) } ?: emptySet(),
             activeWalletId = activeWalletId,
-            activeOperation = activeOperation,
-            queued = queuedEntries
+            queue = queue,
+            isRunning = isRunning,
+            operationByWallet = operationByWallet
         )
     }
 
     companion object {
+        @VisibleForTesting
+        internal fun mergeOperation(existing: SyncOperation?, incoming: SyncOperation): SyncOperation {
+            return when {
+                incoming == SyncOperation.FullRescan -> SyncOperation.FullRescan
+                existing == SyncOperation.FullRescan -> SyncOperation.FullRescan
+                else -> SyncOperation.Refresh
+            }
+        }
+
+        @VisibleForTesting
+        internal fun queueWithRequeuedActive(activeWalletId: Long?, queue: List<Long>): List<Long> {
+            if (activeWalletId == null) return queue
+            return if (queue.contains(activeWalletId)) {
+                queue
+            } else {
+                listOf(activeWalletId) + queue
+            }
+        }
+
+        @VisibleForTesting
+        internal fun reduceSyncStatus(
+            network: BitcoinNetwork,
+            activeWalletId: Long?,
+            queue: List<Long>,
+            isRunning: Boolean,
+            operationByWallet: Map<Long, SyncOperation>
+        ): SyncStatusSnapshot {
+            val syncing = isRunning && activeWalletId != null
+            val activeOperation = activeWalletId?.let { operationByWallet[it] ?: SyncOperation.Refresh }
+            val queuedEntries = queue.map { id ->
+                SyncQueueEntry(id, operationByWallet[id] ?: SyncOperation.Refresh)
+            }
+            return SyncStatusSnapshot(
+                isRefreshing = syncing,
+                network = network,
+                refreshingWalletIds = activeWalletId?.let { setOf(it) } ?: emptySet(),
+                activeWalletId = activeWalletId,
+                activeOperation = activeOperation,
+                queued = queuedEntries
+            )
+        }
+
         @VisibleForTesting
         internal fun prepareReenqueueChunks(
             drainedEntries: List<SyncQueueEntry>,

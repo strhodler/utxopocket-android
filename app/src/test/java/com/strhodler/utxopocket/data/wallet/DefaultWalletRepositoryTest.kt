@@ -83,6 +83,24 @@ class DefaultWalletRepositoryTest {
     }
 
     @Test
+    fun mergeOperationKeepsFullRescanPriority() {
+        assertEquals(
+            SyncOperation.FullRescan,
+            WalletSyncOrchestrator.mergeOperation(
+                existing = SyncOperation.FullRescan,
+                incoming = SyncOperation.Refresh
+            )
+        )
+        assertEquals(
+            SyncOperation.FullRescan,
+            WalletSyncOrchestrator.mergeOperation(
+                existing = SyncOperation.Refresh,
+                incoming = SyncOperation.FullRescan
+            )
+        )
+    }
+
+    @Test
     fun originsWithDifferentFingerprintsAreNotCompatible() {
         val labelOrigin = "wpkh([deadbeef/84h/1h/0h])"
         val walletOrigin = "wpkh([8e8074b3/84'/1'/0'])"

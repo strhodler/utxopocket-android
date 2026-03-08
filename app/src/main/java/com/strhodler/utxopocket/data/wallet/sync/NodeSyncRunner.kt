@@ -395,6 +395,12 @@ internal class NodeSyncRunner(
                     SecureLog.d(logTag) { "Syncing ${filteredWallets.size} wallet(s) on $network target=$targetLabelForLog" }
                     var remainingQueue = filteredWallets.map { it.id }
                     walletSyncOrchestrator.ensurePendingOperations(remainingQueue, SyncOperation.Refresh)
+                    filteredWallets.forEach { wallet ->
+                        val expectsFullRescan = wallet.requiresFullScan || wallet.lastFullScanTime == null
+                        if (expectsFullRescan) {
+                            walletSyncOrchestrator.ensurePendingOperation(wallet.id, SyncOperation.FullRescan)
+                        }
+                    }
                     if (manageSyncStatus && remainingQueue.isNotEmpty()) {
                         walletSyncOrchestrator.updateSyncStatus(
                             network = network,

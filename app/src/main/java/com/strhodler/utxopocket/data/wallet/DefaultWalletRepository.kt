@@ -1090,6 +1090,7 @@ class DefaultWalletRepository @Inject constructor(
         val entity = walletDao.findById(walletId) ?: return@withContext
         val normalizedStopGap = stopGap.coerceIn(1, MAX_FULL_SCAN_STOP_GAP)
         walletDao.upsert(entity.scheduleFullScan(normalizedStopGap))
+        walletSyncOrchestrator.refreshWallet(walletId, SyncOperation.FullRescan)
     }
 
     override suspend fun listUnusedAddresses(
