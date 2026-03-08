@@ -124,66 +124,28 @@ internal class WalletDetailUiReducer(
         val activeSyncOperation = (walletSyncState as? WalletSyncState.Running)?.operation
         val queuedOperation = (walletSyncState as? WalletSyncState.Queued)?.operation
         val isQueued = walletSyncState is WalletSyncState.Queued
-        val reusedUtxos = detail.utxos.filter { it.addressReuseCount > 1 }
-        val reusedAddressCount = reusedUtxos
-            .mapNotNull { it.address }
-            .toSet()
-            .size
-            .takeIf { it > 0 }
-            ?: reusedUtxos.size
-        val reusedBalanceSats = reusedUtxos.sumOf { it.valueSats }
-        val changeUtxos = detail.utxos.filter { it.addressType == WalletAddressType.CHANGE }
-        val changeBalanceSats = changeUtxos.sumOf { it.valueSats }
-        val dustUtxos = if (input.dustThresholdSats > 0) {
-            detail.utxos.filter { it.valueSats <= input.dustThresholdSats }
-        } else {
-            emptyList()
-        }
-        val dustBalanceSats = dustUtxos.sumOf { it.valueSats }
-        val utxoFilterCounts = computeUtxoFilterCounts(detail.utxos)
+        val utxoSummary = summarizeUtxos(
+            utxos = detail.utxos,
+            dustThresholdSats = input.dustThresholdSats
+        )
         val transactionFilterCounts = computeTransactionFilterCounts(detail.transactions)
-        val filteredTransactions = if (input.showPending) {
+        val transactionsForVisibility = if (input.showPending) {
             detail.transactions.filter { it.confirmations == 0 }
         } else {
             detail.transactions
         }
-        val sortedTransactions = when (input.transactionSort) {
-            WalletTransactionSort.NEWEST_FIRST -> filteredTransactions.sortedWith(
-                compareByDescending<WalletTransaction> { it.confirmations == 0 }
-                    .thenByDescending { it.timestamp ?: Long.MIN_VALUE }
-                    .thenByDescending { it.id }
-            )
-
-            WalletTransactionSort.OLDEST_FIRST -> filteredTransactions.sortedWith(
-                compareBy<WalletTransaction> { it.confirmations == 0 }
-                    .thenBy { it.timestamp ?: Long.MAX_VALUE }
-                    .thenBy { it.id }
-            )
-
-            WalletTransactionSort.HIGHEST_AMOUNT -> filteredTransactions.sortedWith(
-                compareByDescending<WalletTransaction> { it.amountSats.absoluteValue }
-                    .thenByDescending { it.timestamp ?: Long.MIN_VALUE }
-                    .thenByDescending { it.id }
-            )
-
-            WalletTransactionSort.LOWEST_AMOUNT -> filteredTransactions.sortedWith(
-                compareBy<WalletTransaction> { it.amountSats.absoluteValue }
-                    .thenByDescending { it.timestamp ?: Long.MIN_VALUE }
-                    .thenByDescending { it.id }
-            )
-        }
-        val visibleTransactionsCount = sortedTransactions.count { input.transactionLabelFilter.matches(it) }
+        val visibleTransactionsCount = transactionsForVisibility.count { input.transactionLabelFilter.matches(it) }
         val filteredUtxos = detail.utxos.filter { input.utxoLabelFilter.matches(it) }
         val visibleUtxosCount = filteredUtxos.size
+        val filteredUtxoTotalValue = filteredUtxos.sumOf { it.valueSats }
         val histogram = utxoVisualizationCalculator.buildSnapshot(
             utxos = filteredUtxos,
-            transactions = sortedTransactions,
+            transactions = detail.transactions,
             currentBlockHeight = input.nodeSnapshot.blockHeight
         )
         val holdWaves = utxoVisualizationCalculator.buildHoldWaves(histogram)
         val spendabilityDistribution = buildSpendabilityDistribution(filteredUtxos)
         val sizeDistribution = buildSizeDistribution(filteredUtxos)
-        val totalUtxoValueSats = detail.utxos.sumOf { it.valueSats }
         val treemapRangeBounds = resolveTreemapRangeBounds(filteredUtxos)
         val resolvedTreemapRange = resolveTreemapRange(
             bounds = treemapRangeBounds,
@@ -192,8 +154,8 @@ internal class WalletDetailUiReducer(
         val treemapData = if (input.utxoTreemapRequested) {
             utxoTreemapCalculator.calculate(
                 utxos = filteredUtxos,
-                transactions = sortedTransactions,
-                colorMode = UtxoTreemapColorMode.Age,
+                transactions = detail.transactions,
+                colorMode = input.utxoTreemapColorMode,
                 availableRange = treemapRangeBounds,
                 selectedRange = resolvedTreemapRange,
                 dustThresholdSats = input.dustThresholdSats,
@@ -204,7 +166,7 @@ internal class WalletDetailUiReducer(
                 availableRange = treemapRangeBounds,
                 selectedRange = resolvedTreemapRange,
                 utxoCount = filteredUtxos.size,
-                totalValue = filteredUtxos.sumOf { it.valueSats }
+                totalValue = filteredUtxoTotalValue
             )
         }
         val collectionItems = buildCollectionItems(
@@ -237,12 +199,12 @@ internal class WalletDetailUiReducer(
             displayBalancePoints = input.displayBalancePoints,
             showBalanceChart = input.showBalanceChart,
             selectedRange = input.selectedRange,
-            reusedAddressCount = reusedAddressCount,
-            reusedBalanceSats = reusedBalanceSats,
-            changeUtxoCount = changeUtxos.size,
-            changeBalanceSats = changeBalanceSats,
-            dustUtxoCount = dustUtxos.size,
-            dustBalanceSats = dustBalanceSats,
+            reusedAddressCount = utxoSummary.reusedAddressCount,
+            reusedBalanceSats = utxoSummary.reusedBalanceSats,
+            changeUtxoCount = utxoSummary.changeUtxoCount,
+            changeBalanceSats = utxoSummary.changeBalanceSats,
+            dustUtxoCount = utxoSummary.dustUtxoCount,
+            dustBalanceSats = utxoSummary.dustBalanceSats,
             transactionsCount = detail.transactions.size,
             visibleTransactionsCount = visibleTransactionsCount,
             utxosCount = detail.utxos.size,
@@ -254,7 +216,7 @@ internal class WalletDetailUiReducer(
             availableUtxoSorts = availableUtxoSorts,
             availableBalanceRanges = BALANCE_RANGE_OPTIONS,
             utxoLabelFilter = input.utxoLabelFilter,
-            utxoFilterCounts = utxoFilterCounts,
+            utxoFilterCounts = utxoSummary.filterCounts,
             transactionLabelFilter = input.transactionLabelFilter,
             transactionFilterCounts = transactionFilterCounts,
             incomingPlaceholders = input.incomingPlaceholders,
@@ -262,12 +224,67 @@ internal class WalletDetailUiReducer(
             utxoAgeHistogram = histogram,
             utxoHistogramMode = input.utxoHistogramMode,
             utxoHoldWaves = holdWaves,
-            utxoTotalValueSats = totalUtxoValueSats,
+            utxoTotalValueSats = utxoSummary.totalValueSats,
             utxoSpendabilityDistribution = spendabilityDistribution,
             utxoSizeDistribution = sizeDistribution,
             utxoTreemap = treemapData,
             utxoTreemapColorMode = input.utxoTreemapColorMode,
             collections = collectionItems
+        )
+    }
+
+    private fun summarizeUtxos(
+        utxos: List<WalletUtxo>,
+        dustThresholdSats: Long
+    ): UtxoSummary {
+        var reusedUtxoCount = 0
+        var reusedBalanceSats = 0L
+        var changeUtxoCount = 0
+        var changeBalanceSats = 0L
+        var dustUtxoCount = 0
+        var dustBalanceSats = 0L
+        var totalValueSats = 0L
+        var labeledCount = 0
+        var spendableCount = 0
+        val reusedAddresses = mutableSetOf<String>()
+
+        utxos.forEach { utxo ->
+            totalValueSats += utxo.valueSats
+            if (!utxo.displayLabel.isNullOrBlank()) {
+                labeledCount++
+            }
+            if (utxo.spendable) {
+                spendableCount++
+            }
+            if (utxo.addressReuseCount > 1) {
+                reusedUtxoCount++
+                reusedBalanceSats += utxo.valueSats
+                utxo.address?.let(reusedAddresses::add)
+            }
+            if (utxo.addressType == WalletAddressType.CHANGE) {
+                changeUtxoCount++
+                changeBalanceSats += utxo.valueSats
+            }
+            if (dustThresholdSats > 0 && utxo.valueSats <= dustThresholdSats) {
+                dustUtxoCount++
+                dustBalanceSats += utxo.valueSats
+            }
+        }
+
+        return UtxoSummary(
+            reusedAddressCount = reusedAddresses.size.takeIf { it > 0 } ?: reusedUtxoCount,
+            reusedBalanceSats = reusedBalanceSats,
+            changeUtxoCount = changeUtxoCount,
+            changeBalanceSats = changeBalanceSats,
+            dustUtxoCount = dustUtxoCount,
+            dustBalanceSats = dustBalanceSats,
+            totalValueSats = totalValueSats,
+            filterCounts = UtxoFilterCounts(
+                labeled = labeledCount,
+                unlabeled = utxos.size - labeledCount,
+                spendable = spendableCount,
+                notSpendable = utxos.size - spendableCount
+            )
         )
     }
 
@@ -292,17 +309,6 @@ internal class WalletDetailUiReducer(
                 memberCount = memberKeys.size
             )
         }
-    }
-
-    private fun computeUtxoFilterCounts(utxos: List<WalletUtxo>): UtxoFilterCounts {
-        val labeled = utxos.count { !it.displayLabel.isNullOrBlank() }
-        val spendable = utxos.count { it.spendable }
-        return UtxoFilterCounts(
-            labeled = labeled,
-            unlabeled = utxos.size - labeled,
-            spendable = spendable,
-            notSpendable = utxos.size - spendable
-        )
     }
 
     private fun computeTransactionFilterCounts(transactions: List<WalletTransaction>): TransactionFilterCounts {
@@ -349,26 +355,50 @@ internal class WalletDetailUiReducer(
         if (utxos.isEmpty()) {
             return EMPTY_UTXO_SPENDABILITY_DISTRIBUTION
         }
-        val spendableUtxos = utxos.filter { it.spendable }
-        val notSpendableUtxos = utxos.filterNot { it.spendable }
+        var spendableCount = 0
+        var spendableValue = 0L
+        var notSpendableCount = 0
+        var notSpendableValue = 0L
+        var totalValue = 0L
+        utxos.forEach { utxo ->
+            totalValue += utxo.valueSats
+            if (utxo.spendable) {
+                spendableCount++
+                spendableValue += utxo.valueSats
+            } else {
+                notSpendableCount++
+                notSpendableValue += utxo.valueSats
+            }
+        }
         val slices = listOf(
             UtxoBucketSlice(
                 bucket = UtxoSpendabilityBucket.Spendable,
-                count = spendableUtxos.size,
-                valueSats = spendableUtxos.sumOf { it.valueSats }
+                count = spendableCount,
+                valueSats = spendableValue
             ),
             UtxoBucketSlice(
                 bucket = UtxoSpendabilityBucket.NotSpendable,
-                count = notSpendableUtxos.size,
-                valueSats = notSpendableUtxos.sumOf { it.valueSats }
+                count = notSpendableCount,
+                valueSats = notSpendableValue
             )
         ).filter { it.count > 0 }
         return UtxoBucketDistribution(
             slices = slices,
             totalCount = utxos.size,
-            totalValueSats = utxos.sumOf { it.valueSats }
+            totalValueSats = totalValue
         )
     }
+
+    private data class UtxoSummary(
+        val reusedAddressCount: Int,
+        val reusedBalanceSats: Long,
+        val changeUtxoCount: Int,
+        val changeBalanceSats: Long,
+        val dustUtxoCount: Int,
+        val dustBalanceSats: Long,
+        val totalValueSats: Long,
+        val filterCounts: UtxoFilterCounts
+    )
 
     private fun buildSizeDistribution(
         utxos: List<WalletUtxo>

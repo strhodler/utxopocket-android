@@ -241,14 +241,26 @@ class WalletDetailViewModel @Inject constructor(
             initialValue = null
         )
 
-    private val uiInputsPrimary = combine(
+    private val lightProjection = combine(
+        showBalanceChartState,
+        incomingPlaceholders,
+        syncGap
+    ) { showBalanceChart, placeholders, syncGapValue ->
+        LightProjection(
+            showBalanceChart = showBalanceChart,
+            incomingPlaceholders = placeholders,
+            syncGap = syncGapValue
+        )
+    }
+
+    private val expensiveProjectionPrimary = combine(
         baseState,
         transactionSortState,
         showPendingState,
         utxoSortState,
         selectedBalanceRangeState
     ) { baseSnapshot, transactionSort, showPending, utxoSort, selectedRange ->
-        UiInputsPrimary(
+        ExpensiveProjectionPrimary(
             baseSnapshot = baseSnapshot,
             transactionSort = transactionSort,
             showPending = showPending,
@@ -257,68 +269,51 @@ class WalletDetailViewModel @Inject constructor(
         )
     }
 
-    private val uiInputsSecondary = combine(
-        showBalanceChartState,
-        incomingPlaceholders,
-        syncGap
-    ) { showBalanceChart, placeholders, syncGapValue ->
-        UiInputsSecondary(
-            showBalanceChart = showBalanceChart,
-            incomingPlaceholders = placeholders,
-            syncGap = syncGapValue
+    private val expensiveProjectionSecondary = combine(
+        utxoLabelFilterState,
+        transactionLabelFilterState,
+        utxoHistogramModeState,
+        utxoTreemapColorModeState,
+        utxoTreemapRangeState
+    ) { utxoLabelFilter,
+        transactionLabelFilter,
+        utxoHistogramMode,
+        utxoTreemapColorMode,
+        utxoTreemapRange ->
+        ExpensiveProjectionSecondary(
+            utxoLabelFilter = utxoLabelFilter,
+            transactionLabelFilter = transactionLabelFilter,
+            utxoHistogramMode = utxoHistogramMode,
+            utxoTreemapColorMode = utxoTreemapColorMode,
+            utxoTreemapRange = utxoTreemapRange
         )
     }
 
-    private val uiInputs = combine(
-        uiInputsPrimary,
-        uiInputsSecondary
-    ) { primary, secondary ->
-        UiInputs(
+    private val expensiveProjectionInputs = combine(
+        expensiveProjectionPrimary,
+        expensiveProjectionSecondary,
+        utxoTreemapRequestedState
+    ) { primary, secondary, utxoTreemapRequested ->
+        ExpensiveProjectionInput(
             baseSnapshot = primary.baseSnapshot,
             transactionSort = primary.transactionSort,
             showPending = primary.showPending,
             utxoSort = primary.utxoSort,
             selectedRange = primary.selectedRange,
-            showBalanceChart = secondary.showBalanceChart,
-            incomingPlaceholders = secondary.incomingPlaceholders,
-            syncGap = secondary.syncGap
-        )
-    }
-
-    private val uiStatePrimaryInputs = combine(
-        uiInputs,
-        utxoLabelFilterState,
-        transactionLabelFilterState,
-        utxoHistogramModeState,
-        utxoTreemapColorModeState
-    ) { inputs, utxoLabelFilter, transactionLabelFilter, utxoHistogramMode, utxoTreemapColorMode ->
-        UiStatePrimaryInputs(
-            inputs = inputs,
-            utxoLabelFilter = utxoLabelFilter,
-            transactionLabelFilter = transactionLabelFilter,
-            utxoHistogramMode = utxoHistogramMode,
-            utxoTreemapColorMode = utxoTreemapColorMode
-        )
-    }
-
-    private val uiStateSecondaryInputs = combine(
-        utxoTreemapRangeState,
-        utxoTreemapRequestedState
-    ) { utxoTreemapRange, utxoTreemapRequested ->
-        UiStateSecondaryInputs(
-            utxoTreemapRange = utxoTreemapRange,
+            utxoLabelFilter = secondary.utxoLabelFilter,
+            transactionLabelFilter = secondary.transactionLabelFilter,
+            utxoHistogramMode = secondary.utxoHistogramMode,
+            utxoTreemapColorMode = secondary.utxoTreemapColorMode,
+            utxoTreemapRange = secondary.utxoTreemapRange,
             utxoTreemapRequested = utxoTreemapRequested
         )
     }
 
-    val uiState: StateFlow<WalletDetailUiState> = combine(
-        uiStatePrimaryInputs,
-        uiStateSecondaryInputs
-    ) { primary, secondary ->
-        val selectedRange = sanitizeBalanceRange(primary.inputs.selectedRange)
-        val transactionSort = sanitizeTransactionSort(primary.inputs.transactionSort)
-        val utxoSort = sanitizeUtxoSort(primary.inputs.utxoSort)
-        val baseSnapshot = primary.inputs.baseSnapshot
+    private val expensiveProjection = expensiveProjectionInputs.map { input ->
+        val selectedRange = sanitizeBalanceRange(input.selectedRange)
+        val transactionSort = sanitizeTransactionSort(input.transactionSort)
+        val utxoSort = sanitizeUtxoSort(input.utxoSort)
+        val baseSnapshot = input.baseSnapshot
         val displayBalancePoints = balanceHistoryReducer.pointsForRange(
             points = baseSnapshot.balanceHistory,
             range = selectedRange
@@ -340,19 +335,30 @@ class WalletDetailViewModel @Inject constructor(
                 pinLockEnabled = baseSnapshot.pinLockEnabled,
                 pinShuffleEnabled = baseSnapshot.pinShuffleEnabled,
                 transactionSort = transactionSort,
-                showPending = primary.inputs.showPending,
+                showPending = input.showPending,
                 utxoSort = utxoSort,
                 selectedRange = selectedRange,
-                utxoLabelFilter = primary.utxoLabelFilter,
-                transactionLabelFilter = primary.transactionLabelFilter,
-                showBalanceChart = primary.inputs.showBalanceChart,
-                incomingPlaceholders = primary.inputs.incomingPlaceholders,
-                syncGap = primary.inputs.syncGap,
-                utxoHistogramMode = primary.utxoHistogramMode,
-                utxoTreemapColorMode = primary.utxoTreemapColorMode,
-                utxoTreemapRange = secondary.utxoTreemapRange,
-                utxoTreemapRequested = secondary.utxoTreemapRequested
+                utxoLabelFilter = input.utxoLabelFilter,
+                transactionLabelFilter = input.transactionLabelFilter,
+                showBalanceChart = false,
+                incomingPlaceholders = emptyList(),
+                syncGap = null,
+                utxoHistogramMode = input.utxoHistogramMode,
+                utxoTreemapColorMode = input.utxoTreemapColorMode,
+                utxoTreemapRange = input.utxoTreemapRange,
+                utxoTreemapRequested = input.utxoTreemapRequested
             )
+        )
+    }
+
+    val uiState: StateFlow<WalletDetailUiState> = combine(
+        expensiveProjection,
+        lightProjection
+    ) { expensive, light ->
+        expensive.copy(
+            showBalanceChart = light.showBalanceChart,
+            incomingPlaceholders = light.incomingPlaceholders,
+            syncGap = light.syncGap ?: expensive.summary?.fullScanStopGap
         )
     }.stateIn(
         scope = viewModelScope,
@@ -807,7 +813,7 @@ class WalletDetailViewModel @Inject constructor(
         val hapticsEnabled: Boolean
     )
 
-    private data class UiInputsPrimary(
+    private data class ExpensiveProjectionPrimary(
         val baseSnapshot: BaseSnapshot,
         val transactionSort: WalletTransactionSort,
         val showPending: Boolean,
@@ -815,31 +821,29 @@ class WalletDetailViewModel @Inject constructor(
         val selectedRange: BalanceRange
     )
 
-    private data class UiInputsSecondary(
-        val showBalanceChart: Boolean,
-        val incomingPlaceholders: List<IncomingTxPlaceholder>,
-        val syncGap: Int?
-    )
-
-    private data class UiStatePrimaryInputs(
-        val inputs: UiInputs,
+    private data class ExpensiveProjectionSecondary(
         val utxoLabelFilter: UtxoLabelFilter,
         val transactionLabelFilter: TransactionLabelFilter,
         val utxoHistogramMode: UtxoHistogramMode,
-        val utxoTreemapColorMode: UtxoTreemapColorMode
+        val utxoTreemapColorMode: UtxoTreemapColorMode,
+        val utxoTreemapRange: LongRange?
     )
 
-    private data class UiStateSecondaryInputs(
-        val utxoTreemapRange: LongRange?,
-        val utxoTreemapRequested: Boolean
-    )
-
-    private data class UiInputs(
+    private data class ExpensiveProjectionInput(
         val baseSnapshot: BaseSnapshot,
         val transactionSort: WalletTransactionSort,
         val showPending: Boolean,
         val utxoSort: WalletUtxoSort,
         val selectedRange: BalanceRange,
+        val utxoLabelFilter: UtxoLabelFilter,
+        val transactionLabelFilter: TransactionLabelFilter,
+        val utxoHistogramMode: UtxoHistogramMode,
+        val utxoTreemapColorMode: UtxoTreemapColorMode,
+        val utxoTreemapRange: LongRange?,
+        val utxoTreemapRequested: Boolean
+    )
+
+    private data class LightProjection(
         val showBalanceChart: Boolean,
         val incomingPlaceholders: List<IncomingTxPlaceholder>,
         val syncGap: Int?
