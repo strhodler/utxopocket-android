@@ -19,7 +19,8 @@ import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletAddressRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.domain.service.IncomingTxChecker
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.domain.model.IncomingTxDetection
@@ -280,7 +281,7 @@ class ReceiveViewModelTest {
     }
 }
 
-private class FakeWalletRepository : WalletRepository {
+private class FakeWalletRepository : WalletReadRepository, WalletAddressRepository {
     var unusedAddresses: List<WalletAddress> = emptyList()
     var nextAddress: WalletAddress? = null
     val addressDetails = mutableMapOf<Int, WalletAddressDetail>()
@@ -306,12 +307,6 @@ private class FakeWalletRepository : WalletRepository {
 
     override fun observeWalletDetail(id: Long): Flow<WalletDetail?> = walletDetail
 
-    override fun observeNodeStatus(): Flow<NodeStatusSnapshot> =
-        flowOf(NodeStatusSnapshot(status = NodeStatus.Idle, network = BitcoinNetwork.TESTNET))
-
-    override fun observeSyncStatus(): Flow<SyncStatusSnapshot> =
-        flowOf(SyncStatusSnapshot(isRefreshing = false, network = BitcoinNetwork.TESTNET))
-
     override fun pageWalletTransactions(
         id: Long,
         sort: WalletTransactionSort,
@@ -336,31 +331,6 @@ private class FakeWalletRepository : WalletRepository {
 
     override fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>> = flowOf(emptyMap())
 
-    override suspend fun refresh(network: BitcoinNetwork) = Unit
-
-    override suspend fun refreshWallet(walletId: Long, operation: SyncOperation) = Unit
-
-    override suspend fun disconnect(network: BitcoinNetwork) = Unit
-
-    override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
-
-    override suspend fun validateDescriptor(
-        descriptor: String,
-        changeDescriptor: String?,
-        network: BitcoinNetwork
-    ) = throw UnsupportedOperationException()
-
-    override suspend fun addWallet(request: com.strhodler.utxopocket.domain.model.WalletCreationRequest) =
-        throw UnsupportedOperationException()
-
-    override suspend fun deleteWallet(id: Long) = Unit
-
-    override suspend fun wipeAllWalletData() = Unit
-
-    override suspend fun updateWalletColor(id: Long, color: WalletColor) = Unit
-
-    override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
-
     override suspend fun listUnusedAddresses(
         walletId: Long,
         type: WalletAddressType,
@@ -378,22 +348,6 @@ private class FakeWalletRepository : WalletRepository {
     override suspend fun markAddressAsUsed(walletId: Long, type: WalletAddressType, derivationIndex: Int) {
         markedAsUsed += derivationIndex
     }
-
-    override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
-
-    override suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?) = Unit
-
-    override suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?) = Unit
-
-    override suspend fun renameWallet(id: Long, name: String) = Unit
-
-    override suspend fun exportWalletLabels(walletId: Long) =
-        throw UnsupportedOperationException()
-
-    override suspend fun importWalletLabels(walletId: Long, payload: ByteArray, overwriteExisting: Boolean) =
-        throw UnsupportedOperationException()
-
-    override fun setSyncForegroundState(isForeground: Boolean) = Unit
 
     override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> = null to null
 }

@@ -68,9 +68,14 @@ import com.strhodler.utxopocket.domain.model.toBdkNetwork
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
+import com.strhodler.utxopocket.domain.repository.WalletAddressRepository
+import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
+import com.strhodler.utxopocket.domain.repository.WalletMaintenanceRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.data.wallet.SyncGapInitializer.seedSyncGapIfMissing
@@ -137,7 +142,13 @@ class DefaultWalletRepository @Inject constructor(
     private val incomingTxCoordinator: IncomingTxCoordinator,
     @param:ApplicationContext private val applicationContext: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
-) : WalletRepository {
+) :
+    WalletReadRepository,
+    WalletSyncRepository,
+    WalletProvisioningRepository,
+    WalletAddressRepository,
+    WalletLabelRepository,
+    WalletMaintenanceRepository {
 
     companion object {
         private const val TAG = "DefaultWalletRepository"

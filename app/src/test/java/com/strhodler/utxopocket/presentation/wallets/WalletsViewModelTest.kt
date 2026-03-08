@@ -39,7 +39,8 @@ import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.DuressManager
 import kotlin.test.AfterTest
@@ -198,7 +199,7 @@ class WalletsViewModelTest {
     }
 }
 
-private class TestWalletRepository : WalletRepository {
+private class TestWalletRepository : WalletReadRepository, WalletSyncRepository {
     val summaries = MutableStateFlow<List<WalletSummary>>(emptyList())
     val nodeStatus = MutableStateFlow(
         NodeStatusSnapshot(
@@ -250,63 +251,7 @@ private class TestWalletRepository : WalletRepository {
     override suspend fun disconnect(network: BitcoinNetwork) = Unit
     override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
 
-    override suspend fun validateDescriptor(
-        descriptor: String,
-        changeDescriptor: String?,
-        network: BitcoinNetwork
-    ) = throw UnsupportedOperationException()
-
-    override suspend fun addWallet(request: WalletCreationRequest): WalletCreationResult =
-        throw UnsupportedOperationException()
-
-    override suspend fun deleteWallet(id: Long) = Unit
-
-    override suspend fun wipeAllWalletData() = Unit
-
-    override suspend fun updateWalletColor(id: Long, color: WalletColor) = Unit
-
-    override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
-
-    override suspend fun listUnusedAddresses(
-        walletId: Long,
-        type: WalletAddressType,
-        limit: Int
-    ): List<WalletAddress> = emptyList()
-
-    override suspend fun revealNextAddress(
-        walletId: Long,
-        type: WalletAddressType
-    ): WalletAddress? = null
-
-    override suspend fun getAddressDetail(
-        walletId: Long,
-        type: WalletAddressType,
-        derivationIndex: Int
-    ): WalletAddressDetail? = null
-
-    override suspend fun markAddressAsUsed(walletId: Long, type: WalletAddressType, derivationIndex: Int) = Unit
-
-    override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
-
-    override suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?) = Unit
-
-    override suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?) = Unit
-
-    override suspend fun renameWallet(id: Long, name: String) = Unit
-
-    override suspend fun exportWalletLabels(walletId: Long): WalletLabelExport =
-        WalletLabelExport(fileName = "labels.jsonl", entries = emptyList())
-
-    override suspend fun importWalletLabels(
-        walletId: Long,
-        payload: ByteArray,
-        overwriteExisting: Boolean
-    ): Bip329ImportResult =
-        Bip329ImportResult(0, 0, 0, 0, 0, 0)
-
     override fun setSyncForegroundState(isForeground: Boolean) = Unit
-
-    override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> = null to null
 }
 
 private class TestConnectionOrchestrator : ConnectionOrchestrator {

@@ -34,7 +34,8 @@ import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -346,39 +347,10 @@ class AddWalletViewModelTest {
     }
 }
 
-private class FakeWalletRepository : WalletRepository {
+private class FakeWalletRepository : WalletProvisioningRepository, WalletSyncRepository {
     var validationResult: DescriptorValidationResult = DescriptorValidationResult.Empty
     var creationResult: WalletCreationResult = WalletCreationResult.Failure("not set")
     var lastAddWalletRequest: WalletCreationRequest? = null
-
-    override fun observeWalletSummaries(network: BitcoinNetwork): Flow<List<WalletSummary>> =
-        flowOf(emptyList())
-
-    override fun observeWalletDetail(id: Long): Flow<WalletDetail?> = flowOf(null)
-
-    override fun pageWalletTransactions(
-        id: Long,
-        sort: WalletTransactionSort,
-        showLabeled: Boolean,
-        showUnlabeled: Boolean,
-        showReceived: Boolean,
-        showSent: Boolean
-    ): Flow<PagingData<WalletTransaction>> = flowOf(PagingData.empty())
-
-    override fun pageWalletUtxos(
-        id: Long,
-        sort: WalletUtxoSort,
-        showLabeled: Boolean,
-        showUnlabeled: Boolean,
-        showSpendable: Boolean,
-        showNotSpendable: Boolean
-    ): Flow<PagingData<WalletUtxo>> = flowOf(PagingData.empty())
-
-    override fun observeTransactionCount(id: Long): Flow<Int> = flowOf(0)
-
-    override fun observeUtxoCount(id: Long): Flow<Int> = flowOf(0)
-
-    override fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>> = flowOf(emptyMap())
 
     override fun observeNodeStatus(): Flow<NodeStatusSnapshot> =
         flowOf(
@@ -414,52 +386,13 @@ private class FakeWalletRepository : WalletRepository {
 
     override suspend fun deleteWallet(id: Long) = Unit
 
-    override suspend fun wipeAllWalletData() = Unit
-
     override suspend fun updateWalletColor(id: Long, color: WalletColor) = Unit
 
     override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
 
-    override suspend fun listUnusedAddresses(
-        walletId: Long,
-        type: WalletAddressType,
-        limit: Int
-    ): List<WalletAddress> = emptyList()
-
-    override suspend fun revealNextAddress(
-        walletId: Long,
-        type: WalletAddressType
-    ): WalletAddress? = null
-
-    override suspend fun markAddressAsUsed(walletId: Long, type: WalletAddressType, derivationIndex: Int) = Unit
-
-    override suspend fun getAddressDetail(
-        walletId: Long,
-        type: WalletAddressType,
-        derivationIndex: Int
-    ): WalletAddressDetail? = null
-
-    override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
-
-    override suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?) = Unit
-
-    override suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?) = Unit
-
     override suspend fun renameWallet(id: Long, name: String) = Unit
 
-    override suspend fun exportWalletLabels(walletId: Long): WalletLabelExport =
-        WalletLabelExport(fileName = "labels.jsonl", entries = emptyList())
-
-    override suspend fun importWalletLabels(
-        walletId: Long,
-        payload: ByteArray,
-        overwriteExisting: Boolean
-    ): Bip329ImportResult =
-        Bip329ImportResult(0, 0, 0, 0, 0, 0)
-
     override fun setSyncForegroundState(isForeground: Boolean) = Unit
-
-    override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> = null to null
 }
 
 private class FakeAppPreferencesRepository : AppPreferencesRepository {

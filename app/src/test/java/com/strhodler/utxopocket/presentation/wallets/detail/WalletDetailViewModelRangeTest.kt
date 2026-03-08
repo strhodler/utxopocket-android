@@ -47,7 +47,10 @@ import com.strhodler.utxopocket.domain.model.UtxoRef
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
 import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
+import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
@@ -226,7 +229,11 @@ class WalletDetailViewModelRangeTest {
         ): Boolean = false
     }
 
-    private class StaticWalletRepository : WalletRepository {
+    private class StaticWalletRepository :
+        WalletReadRepository,
+        WalletSyncRepository,
+        WalletProvisioningRepository,
+        WalletLabelRepository {
 
         private val detail = WalletDetail(
             summary = WalletSummary(
@@ -320,37 +327,12 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun deleteWallet(id: Long) = Unit
 
-        override suspend fun wipeAllWalletData() = Unit
-
         override suspend fun updateWalletColor(
             id: Long,
             color: WalletColor
         ) = Unit
 
         override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
-
-        override suspend fun listUnusedAddresses(
-            walletId: Long,
-            type: WalletAddressType,
-            limit: Int
-        ): List<WalletAddress> = emptyList()
-
-        override suspend fun revealNextAddress(
-            walletId: Long,
-            type: WalletAddressType
-        ): WalletAddress? = null
-
-        override suspend fun getAddressDetail(
-            walletId: Long,
-            type: WalletAddressType,
-            derivationIndex: Int
-        ): WalletAddressDetail? = null
-
-        override suspend fun markAddressAsUsed(
-            walletId: Long,
-            type: WalletAddressType,
-            derivationIndex: Int
-        ) = Unit
 
         override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
 
@@ -371,8 +353,6 @@ class WalletDetailViewModelRangeTest {
             Bip329ImportResult(0, 0, 0, 0, 0, 0)
 
         override fun setSyncForegroundState(isForeground: Boolean) = Unit
-
-        override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> = null to null
 
         companion object {
             const val WALLET_ID = 42L

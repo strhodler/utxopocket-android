@@ -38,7 +38,9 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletAddressRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -260,7 +262,10 @@ class IncomingTxWatcherTest {
     }
 }
 
-private class RecordingWalletRepository : WalletRepository {
+private class RecordingWalletRepository :
+    WalletReadRepository,
+    WalletSyncRepository,
+    WalletAddressRepository {
     val markedIndices = mutableListOf<Int>()
     override fun observeWalletSummaries(network: BitcoinNetwork): Flow<List<WalletSummary>> = flowOf(emptyList())
     override fun observeWalletDetail(id: Long): Flow<WalletDetail?> = flowOf(
@@ -292,28 +297,12 @@ private class RecordingWalletRepository : WalletRepository {
     override suspend fun refreshWallet(walletId: Long, operation: SyncOperation) = Unit
     override suspend fun disconnect(network: BitcoinNetwork) = Unit
     override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
-    override suspend fun validateDescriptor(descriptor: String, changeDescriptor: String?, network: BitcoinNetwork) =
-        throw UnsupportedOperationException()
-    override suspend fun addWallet(request: com.strhodler.utxopocket.domain.model.WalletCreationRequest) =
-        throw UnsupportedOperationException()
-    override suspend fun deleteWallet(id: Long) = Unit
-    override suspend fun wipeAllWalletData() = Unit
-    override suspend fun updateWalletColor(id: Long, color: com.strhodler.utxopocket.domain.model.WalletColor) = Unit
-    override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
     override suspend fun listUnusedAddresses(walletId: Long, type: WalletAddressType, limit: Int): List<WalletAddress> = emptyList()
     override suspend fun revealNextAddress(walletId: Long, type: WalletAddressType): WalletAddress? = null
     override suspend fun getAddressDetail(walletId: Long, type: WalletAddressType, derivationIndex: Int): WalletAddressDetail? = null
     override suspend fun markAddressAsUsed(walletId: Long, type: WalletAddressType, derivationIndex: Int) {
         markedIndices += derivationIndex
     }
-    override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
-    override suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?) = Unit
-    override suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?) = Unit
-    override suspend fun renameWallet(id: Long, name: String) = Unit
-    override suspend fun exportWalletLabels(walletId: Long) =
-        throw UnsupportedOperationException()
-    override suspend fun importWalletLabels(walletId: Long, payload: ByteArray, overwriteExisting: Boolean) =
-        throw UnsupportedOperationException()
     override fun setSyncForegroundState(isForeground: Boolean) = Unit
     override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> = null to null
 }

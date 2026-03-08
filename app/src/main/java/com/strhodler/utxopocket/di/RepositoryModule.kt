@@ -21,7 +21,6 @@ import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
 import com.strhodler.utxopocket.domain.repository.WalletMaintenanceRepository
 import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
 import com.strhodler.utxopocket.domain.repository.WalletReadRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepository
@@ -44,12 +43,6 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
-
-    @Binds
-    @Singleton
-    abstract fun bindWalletRepository(
-        impl: DefaultWalletRepository
-    ): WalletRepository
 
     @Binds
     @Singleton

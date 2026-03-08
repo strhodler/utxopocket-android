@@ -48,7 +48,7 @@ import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import kotlin.test.AfterTest
@@ -442,12 +442,7 @@ class NodeStatusViewModelTest {
         }
     }
 
-    private class TestWalletRepository : WalletRepository {
-        override fun observeWalletSummaries(network: BitcoinNetwork): Flow<List<WalletSummary>> =
-            flowOf(emptyList())
-
-        override fun observeWalletDetail(id: Long): Flow<WalletDetail?> = flowOf(null)
-
+    private class TestWalletRepository : WalletSyncRepository {
         override fun observeNodeStatus(): Flow<NodeStatusSnapshot> =
             MutableStateFlow(
                 NodeStatusSnapshot(
@@ -464,101 +459,13 @@ class NodeStatusViewModelTest {
                 )
             )
 
-        override fun pageWalletTransactions(
-            id: Long,
-            sort: WalletTransactionSort,
-            showLabeled: Boolean,
-            showUnlabeled: Boolean,
-            showReceived: Boolean,
-            showSent: Boolean
-        ): Flow<androidx.paging.PagingData<WalletTransaction>> =
-            throw UnsupportedOperationException()
-
-        override fun pageWalletUtxos(
-            id: Long,
-            sort: WalletUtxoSort,
-            showLabeled: Boolean,
-            showUnlabeled: Boolean,
-            showSpendable: Boolean,
-            showNotSpendable: Boolean
-        ): Flow<androidx.paging.PagingData<WalletUtxo>> =
-            throw UnsupportedOperationException()
-
-        override fun observeTransactionCount(id: Long): Flow<Int> = flowOf(0)
-
-        override fun observeUtxoCount(id: Long): Flow<Int> = flowOf(0)
-
-        override fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>> = flowOf(emptyMap())
-
         override suspend fun refresh(network: BitcoinNetwork) = Unit
 
         override suspend fun refreshWallet(walletId: Long, operation: SyncOperation) = Unit
         override suspend fun disconnect(network: BitcoinNetwork) = Unit
         override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
 
-        override suspend fun validateDescriptor(
-            descriptor: String,
-            changeDescriptor: String?,
-            network: BitcoinNetwork
-        ): DescriptorValidationResult =
-            DescriptorValidationResult.Valid(
-                descriptor = descriptor,
-                changeDescriptor = changeDescriptor,
-                type = DescriptorType.OTHER,
-                hasWildcard = descriptor.contains("*")
-            )
-
-        override suspend fun addWallet(request: WalletCreationRequest): WalletCreationResult =
-            WalletCreationResult.Failure("not implemented")
-
-        override suspend fun deleteWallet(id: Long) = Unit
-
-        override suspend fun wipeAllWalletData() = Unit
-
-        override suspend fun updateWalletColor(id: Long, color: WalletColor) = Unit
-
-        override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
-
-        override suspend fun listUnusedAddresses(
-            walletId: Long,
-            type: WalletAddressType,
-            limit: Int
-        ): List<WalletAddress> = emptyList()
-
-        override suspend fun revealNextAddress(
-            walletId: Long,
-            type: WalletAddressType
-        ): WalletAddress? = null
-
-        override suspend fun getAddressDetail(
-            walletId: Long,
-            type: WalletAddressType,
-            derivationIndex: Int
-        ): WalletAddressDetail? = null
-
-        override suspend fun markAddressAsUsed(walletId: Long, type: WalletAddressType, derivationIndex: Int) = Unit
-
-        override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
-
-        override suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?) = Unit
-
-        override suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?) = Unit
-
-        override suspend fun renameWallet(id: Long, name: String) = Unit
-
-        override suspend fun exportWalletLabels(walletId: Long): WalletLabelExport =
-            WalletLabelExport(fileName = "labels.jsonl", entries = emptyList())
-
-        override suspend fun importWalletLabels(
-            walletId: Long,
-            payload: ByteArray,
-            overwriteExisting: Boolean
-        ): Bip329ImportResult =
-            Bip329ImportResult(0, 0, 0, 0, 0, 0)
-
         override fun setSyncForegroundState(isForeground: Boolean) = Unit
-
-        override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> = null to null
     }
 
     private class RecordingNodeConnectionTester : NodeConnectionTester {

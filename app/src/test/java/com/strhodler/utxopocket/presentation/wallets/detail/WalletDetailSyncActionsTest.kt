@@ -28,7 +28,10 @@ import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
+import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.DuressManager
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
@@ -332,7 +335,11 @@ class WalletDetailSyncActionsTest {
         }
     }
 
-    private class RecordingWalletRepository : WalletRepository {
+    private class RecordingWalletRepository :
+        WalletReadRepository,
+        WalletSyncRepository,
+        WalletProvisioningRepository,
+        WalletLabelRepository {
         private val detailFlow = MutableStateFlow<WalletDetail?>(
             WalletDetail(
                 summary = WalletSummary(
@@ -430,36 +437,11 @@ class WalletDetailSyncActionsTest {
 
         override suspend fun deleteWallet(id: Long) = Unit
 
-        override suspend fun wipeAllWalletData() = Unit
-
         override suspend fun updateWalletColor(id: Long, color: WalletColor) = Unit
 
         override suspend fun forceFullRescan(walletId: Long, stopGap: Int) {
             forceFullRescanCalls += ForceFullRescanCall(walletId = walletId, stopGap = stopGap)
         }
-
-        override suspend fun listUnusedAddresses(
-            walletId: Long,
-            type: WalletAddressType,
-            limit: Int
-        ): List<WalletAddress> = emptyList()
-
-        override suspend fun revealNextAddress(
-            walletId: Long,
-            type: WalletAddressType
-        ): WalletAddress? = null
-
-        override suspend fun getAddressDetail(
-            walletId: Long,
-            type: WalletAddressType,
-            derivationIndex: Int
-        ): WalletAddressDetail? = null
-
-        override suspend fun markAddressAsUsed(
-            walletId: Long,
-            type: WalletAddressType,
-            derivationIndex: Int
-        ) = Unit
 
         override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
 
@@ -479,8 +461,6 @@ class WalletDetailSyncActionsTest {
         ): Bip329ImportResult = Bip329ImportResult(0, 0, 0, 0, 0, 0)
 
         override fun setSyncForegroundState(isForeground: Boolean) = Unit
-
-        override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> = null to null
     }
 }
 
