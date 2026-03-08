@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.common.logging
 
 import android.util.Log
 import com.strhodler.utxopocket.BuildConfig
+import java.security.MessageDigest
 
 /**
  * Security-focused wrapper around [Log] that short-circuits when `BuildConfig.DEBUG` is false,
@@ -101,6 +102,20 @@ object SecureLog {
         }
     }
 
+    @JvmStatic
+    fun fingerprint(value: String?, length: Int = 12): String {
+        if (value.isNullOrBlank()) return "na"
+        val normalized = value.trim()
+        val digest = runCatching {
+            MessageDigest.getInstance("SHA-256")
+                .digest(normalized.toByteArray(Charsets.UTF_8))
+                .toHexString()
+        }.getOrElse {
+            normalized.hashCode().toUInt().toString(16)
+        }
+        return digest.take(length.coerceAtLeast(4))
+    }
+
     @PublishedApi
     internal inline fun emit(block: () -> Unit) {
         try {
@@ -116,5 +131,13 @@ object SecureLog {
     internal fun isAndroidStubFailure(error: RuntimeException): Boolean {
         val message = error.message ?: return false
         return message.contains("Method") && message.contains("not mocked")
+    }
+
+    @PublishedApi
+    internal fun ByteArray.toHexString(): String = buildString(size * 2) {
+        for (byte in this@toHexString) {
+            append(((byte.toInt() ushr 4) and 0x0F).toString(16))
+            append((byte.toInt() and 0x0F).toString(16))
+        }
     }
 }

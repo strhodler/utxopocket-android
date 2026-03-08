@@ -219,6 +219,33 @@ class IncomingTxWatcherTest {
         assertEquals(null, states["tx-mempool"]?.lastSeenHeight)
         assertEquals(321L, states["tx-mempool"]?.amountSats)
     }
+
+    @Test
+    fun resolveLightStatesUsesHistoryWhenUnspentIsEmpty() = runTest {
+        val watcher = IncomingTxWatcher(
+            walletRepository = walletRepository,
+            endpointProvider = endpointProvider,
+            torManager = torManager,
+            preferencesRepository = incomingPrefs,
+            appPreferencesRepository = appPrefs,
+            coordinator = coordinator,
+            walletSyncPreferencesRepository = walletSyncPrefs,
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+            watcherPolicy = IncomingWatcherPolicy()
+        )
+
+        val states = watcher.resolveLightStatesForTest(
+            unspent = emptyList(),
+            history = listOf(
+                ElectrumHistoryEntry(txid = "tx-unconfirmed", height = 0),
+                ElectrumHistoryEntry(txid = "tx-confirmed", height = 22)
+            )
+        )
+
+        assertEquals(IncomingTxLightStatus.UNCONFIRMED, states["tx-unconfirmed"]?.status)
+        assertEquals(IncomingTxLightStatus.CONFIRMED_LIGHT, states["tx-confirmed"]?.status)
+        assertEquals(22L, states["tx-confirmed"]?.lastSeenHeight)
+    }
 }
 
 private class RecordingWalletRepository : WalletRepository {

@@ -14,6 +14,7 @@ import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.TransactionType
+import com.strhodler.utxopocket.domain.model.IncomingTxDetection
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
@@ -51,6 +52,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -181,6 +183,80 @@ class WalletDetailSyncActionsTest {
         job.cancel()
     }
 
+    @Test
+    fun incomingPlaceholderDoesNotExpireByTimeWithoutSyncSuccess() = runTest(dispatcher) {
+        val harness = TestHarness()
+        val viewModel = harness.createViewModel()
+        val stateObserver = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect {}
+        }
+
+        harness.incomingTxCoordinator.onDetection(
+            IncomingTxDetection(
+                walletId = TEST_WALLET_ID,
+                address = "tb1q-incoming",
+                derivationIndex = 0,
+                txid = "tx-no-ttl",
+                amountSats = 1200L,
+                detectedAt = 1L
+            )
+        )
+        advanceUntilIdle()
+        assertEquals(1, viewModel.uiState.value.incomingPlaceholders.size)
+
+        advanceTimeBy(14L * 24L * 60L * 60L * 1000L)
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.incomingPlaceholders.size)
+        stateObserver.cancel()
+    }
+
+    @Test
+    fun incomingPlaceholderRemainsUntilExplicitReconciliationAfterSync() = runTest(dispatcher) {
+        val harness = TestHarness()
+        val viewModel = harness.createViewModel()
+        val stateObserver = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect {}
+        }
+
+        harness.incomingTxCoordinator.onDetection(
+            IncomingTxDetection(
+                walletId = TEST_WALLET_ID,
+                address = "tb1q-incoming",
+                derivationIndex = 0,
+                txid = "tx-reconcile",
+                amountSats = 2400L
+            )
+        )
+        advanceUntilIdle()
+        assertEquals(1, viewModel.uiState.value.incomingPlaceholders.size)
+
+        harness.walletRepository.syncStatus.value = SyncStatusSnapshot(
+            isRefreshing = true,
+            network = TEST_NETWORK,
+            activeWalletId = TEST_WALLET_ID,
+            activeOperation = SyncOperation.Refresh,
+            refreshingWalletIds = setOf(TEST_WALLET_ID)
+        )
+        advanceUntilIdle()
+        harness.walletRepository.syncStatus.value = SyncStatusSnapshot(
+            isRefreshing = false,
+            network = TEST_NETWORK
+        )
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.incomingPlaceholders.size)
+
+        harness.incomingTxCoordinator.reconcileWithCanonicalTxids(
+            walletId = TEST_WALLET_ID,
+            canonicalTxids = setOf("tx-reconcile")
+        )
+        advanceUntilIdle()
+
+        assertEquals(0, viewModel.uiState.value.incomingPlaceholders.size)
+        stateObserver.cancel()
+    }
+
     private fun TestScope.collectEvents(viewModel: WalletDetailViewModel): Pair<MutableList<WalletDetailEvent>, Job> {
         val events = mutableListOf<WalletDetailEvent>()
         val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -198,7 +274,7 @@ class WalletDetailSyncActionsTest {
         private val duressManager = DuressManager()
         private val canvasRepository = WalletDetailViewModelRangeTest.InMemoryUtxoCanvasRepository()
         private val incomingPlaceholders = WalletDetailViewModelRangeTest.InMemoryIncomingTxPlaceholderRepository()
-        private val incomingTxCoordinator = IncomingTxCoordinator(
+        val incomingTxCoordinator = IncomingTxCoordinator(
             incomingPlaceholders,
             UnconfinedTestDispatcher()
         )

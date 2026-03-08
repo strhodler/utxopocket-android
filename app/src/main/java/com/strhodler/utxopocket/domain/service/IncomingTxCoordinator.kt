@@ -1,5 +1,7 @@
 package com.strhodler.utxopocket.domain.service
 
+import com.strhodler.utxopocket.common.logging.SecureLog
+import com.strhodler.utxopocket.common.logging.WalletLogAliasProvider
 import com.strhodler.utxopocket.di.IoDispatcher
 import com.strhodler.utxopocket.domain.model.IncomingTxDetection
 import com.strhodler.utxopocket.domain.model.IncomingTxLightStatus
@@ -63,10 +65,19 @@ class IncomingTxCoordinator @Inject constructor(
     fun reconcileWithCanonicalTxids(walletId: Long, canonicalTxids: Set<String>) {
         if (canonicalTxids.isEmpty()) return
         _placeholders.value[walletId]?.let { existing ->
+            val removed = existing.filter { placeholder ->
+                canonicalTxids.contains(placeholder.txid)
+            }
+            if (removed.isEmpty()) return
+            val walletAlias = WalletLogAliasProvider.alias(walletId)
+            removed.forEach { placeholder ->
+                SecureLog.d(TAG) {
+                    "IncomingTx placeholder reconciled-removed wallet=$walletAlias tx=${SecureLog.fingerprint(placeholder.txid)}"
+                }
+            }
             val filtered = existing.filterNot { placeholder ->
                 canonicalTxids.contains(placeholder.txid)
             }
-            if (filtered.size == existing.size) return
             updatePlaceholders(walletId, filtered)
         }
     }
@@ -76,6 +87,7 @@ class IncomingTxCoordinator @Inject constructor(
     }
 
     private fun addPlaceholder(event: IncomingTxDetection) {
+        val walletAlias = WalletLogAliasProvider.alias(event.walletId)
         val currentState = _placeholders.value
         val current = currentState[event.walletId].orEmpty()
         val existingIndex = current.indexOfFirst { it.txid == event.txid }
@@ -83,10 +95,20 @@ class IncomingTxCoordinator @Inject constructor(
             val existing = current[existingIndex]
             val merged = existing.mergeWith(event)
             if (merged == existing) return
+            if (existing.lightStatus != IncomingTxLightStatus.CONFIRMED_LIGHT &&
+                merged.lightStatus == IncomingTxLightStatus.CONFIRMED_LIGHT
+            ) {
+                SecureLog.d(TAG) {
+                    "IncomingTx placeholder updated-confirmed-light wallet=$walletAlias tx=${SecureLog.fingerprint(event.txid)} height=${merged.lastSeenHeight ?: "-"}"
+                }
+            }
             val updated = current.toMutableList().apply { set(existingIndex, merged) }
                 .sortedByDescending { it.detectedAt }
             updatePlaceholders(event.walletId, updated)
             return
+        }
+        SecureLog.d(TAG) {
+            "IncomingTx placeholder created wallet=$walletAlias tx=${SecureLog.fingerprint(event.txid)} status=${event.lightStatus}"
         }
         val updated = (listOf(
             IncomingTxPlaceholder(
@@ -136,6 +158,7 @@ class IncomingTxCoordinator @Inject constructor(
     }
 
     companion object {
+        private const val TAG = "IncomingTxCoordinator"
         private const val SHEET_TRIGGER_THROTTLE_MS = 10_000L
     }
 }

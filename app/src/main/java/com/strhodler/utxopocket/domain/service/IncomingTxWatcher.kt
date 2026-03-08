@@ -206,12 +206,13 @@ class IncomingTxWatcher @Inject constructor(
             var reconnect = false
             try {
                 LightElectrumClient(endpoint, proxy, endpoint.validateDomain).use { client ->
-                    client.openSession()
+                    openSessionWithLogging(client, walletAlias)
                     val capability = subscribeWithFallback(
                         client = client,
                         capabilityKey = capabilityKey,
                         initialCapability = cachedCapability,
-                        scripthashes = scripthashes
+                        scripthashes = scripthashes,
+                        walletAlias = walletAlias
                     )
                     if (capability == SubscriptionCapability.UNSUPPORTED) {
                         capabilityCache[capabilityKey] = SubscriptionCapability.UNSUPPORTED
@@ -239,7 +240,11 @@ class IncomingTxWatcher @Inject constructor(
                         notifications.forEach { notification ->
                             val detail = addressByScripthash[notification.scripthash] ?: return@forEach
                             val statesByTxid = runCatching {
-                                loadCurrentLightStates(client, notification.scripthash)
+                                loadCurrentLightStates(
+                                    client = client,
+                                    scripthash = notification.scripthash,
+                                    walletAlias = walletAlias
+                                )
                             }.getOrDefault(emptyMap())
                             val previous = lastSeen[detail.value].orEmpty()
                             val updates = diffLightState(previous, statesByTxid)
@@ -296,11 +301,15 @@ class IncomingTxWatcher @Inject constructor(
             .getOrNull() ?: return
 
         LightElectrumClient(endpoint, proxy, endpoint.validateDomain).use { client ->
-            client.openSession()
+            openSessionWithLogging(client, walletAlias)
             val seenTxids = mutableSetOf<String>()
             addresses.forEach { detail ->
                 val scripthash = LightElectrumClient.computeScriptHash(detail.scriptPubKey)
-                val statesByTxid = loadCurrentLightStates(client, scripthash)
+                val statesByTxid = loadCurrentLightStates(
+                    client = client,
+                    scripthash = scripthash,
+                    walletAlias = walletAlias
+                )
                 val previous = lastSeen[detail.value].orEmpty()
                 val updates = diffLightState(previous, statesByTxid)
                 lastSeen[detail.value] = statesByTxid
@@ -335,12 +344,16 @@ class IncomingTxWatcher @Inject constructor(
             .getOrNull() ?: return emptyList()
 
         return LightElectrumClient(endpoint, proxy, endpoint.validateDomain).use { client ->
-            client.openSession()
+            openSessionWithLogging(client, walletAlias)
             val seenTxids = mutableSetOf<String>()
             val detections = mutableListOf<IncomingTxDetection>()
             addresses.forEach { detail ->
                 val scripthash = LightElectrumClient.computeScriptHash(detail.scriptPubKey)
-                val statesByTxid = loadCurrentLightStates(client, scripthash)
+                val statesByTxid = loadCurrentLightStates(
+                    client = client,
+                    scripthash = scripthash,
+                    walletAlias = walletAlias
+                )
                 val previous = lastSeen[detail.value].orEmpty()
                 val updates = diffLightState(previous, statesByTxid)
                 updates.forEach { (txid, snapshot) ->
@@ -396,10 +409,24 @@ class IncomingTxWatcher @Inject constructor(
 
     private fun loadCurrentLightStates(
         client: LightElectrumClient,
-        scripthash: String
+        scripthash: String,
+        walletAlias: String
     ): Map<String, IncomingTxLightSnapshot> {
-        val unspent = client.listUnspent(scripthash)
-        val history = client.getHistory(scripthash)
+        val scripthashAlias = SecureLog.fingerprint(scripthash)
+        val unspent = runCatching { client.listUnspent(scripthash) }
+            .onFailure { error ->
+                SecureLog.w(TAG, error) {
+                    "IncomingTx listunspent failed for $walletAlias scriptHash=$scripthashAlias"
+                }
+            }
+            .getOrThrow()
+        val history = runCatching { client.getHistory(scripthash) }
+            .onFailure { error ->
+                SecureLog.w(TAG, error) {
+                    "IncomingTx get_history failed for $walletAlias scriptHash=$scripthashAlias"
+                }
+            }
+            .getOrThrow()
         return resolveLightStates(unspent, history)
     }
 
@@ -480,7 +507,8 @@ class IncomingTxWatcher @Inject constructor(
         client: LightElectrumClient,
         capabilityKey: String,
         initialCapability: SubscriptionCapability,
-        scripthashes: List<String>
+        scripthashes: List<String>,
+        walletAlias: String
     ): SubscriptionCapability {
         val preferenceOrder = when (initialCapability) {
             SubscriptionCapability.BATCH -> listOf(SubscriptionCapability.BATCH, SubscriptionCapability.INDIVIDUAL)
@@ -490,8 +518,22 @@ class IncomingTxWatcher @Inject constructor(
         }
         for (candidate in preferenceOrder) {
             val success = when (candidate) {
-                SubscriptionCapability.BATCH -> runCatching { client.subscribeBatch(scripthashes) }.getOrDefault(false)
-                SubscriptionCapability.INDIVIDUAL -> runCatching { client.subscribeIndividual(scripthashes) }.getOrDefault(false)
+                SubscriptionCapability.BATCH -> runCatching { client.subscribeBatch(scripthashes) }
+                    .onFailure { error ->
+                        SecureLog.w(TAG, error) {
+                            "IncomingTx subscribe-batch failed for $walletAlias"
+                        }
+                    }
+                    .getOrDefault(false)
+
+                SubscriptionCapability.INDIVIDUAL -> runCatching { client.subscribeIndividual(scripthashes) }
+                    .onFailure { error ->
+                        SecureLog.w(TAG, error) {
+                            "IncomingTx subscribe-individual failed for $walletAlias"
+                        }
+                    }
+                    .getOrDefault(false)
+
                 SubscriptionCapability.UNSUPPORTED,
                 SubscriptionCapability.UNKNOWN -> false
             }
@@ -508,6 +550,16 @@ class IncomingTxWatcher @Inject constructor(
         jobs.values.forEach { it.cancel() }
         jobs.clear()
         jobNetworks.clear()
+    }
+
+    private fun openSessionWithLogging(client: LightElectrumClient, walletAlias: String) {
+        runCatching { client.openSession() }
+            .onFailure { error ->
+                SecureLog.w(TAG, error) {
+                    "IncomingTx handshake server.version failed for $walletAlias"
+                }
+            }
+            .getOrThrow()
     }
 
     internal data class IncomingTxLightSnapshot(

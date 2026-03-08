@@ -456,13 +456,27 @@ class DefaultWalletRepository @Inject constructor(
     private suspend fun reconcileIncomingPlaceholders(walletId: Long) = withContext(ioDispatcher) {
         val placeholders = incomingTxCoordinator.placeholders.value[walletId].orEmpty()
         if (placeholders.isEmpty()) return@withContext
+        val walletAlias = WalletLogAliasProvider.alias(walletId)
+        SecureLog.d(TAG) {
+            "IncomingTx reconcile post-sync start wallet=$walletAlias placeholders=${placeholders.size}"
+        }
         val canonicalTxids = walletDao.getTransactionsSnapshot(walletId)
             .map { it.txid }
             .toSet()
+        val removedTxids = placeholders.map { it.txid }.toSet().intersect(canonicalTxids)
+        if (removedTxids.isEmpty()) {
+            SecureLog.d(TAG) {
+                "IncomingTx reconcile post-sync no-match wallet=$walletAlias canonicalCount=${canonicalTxids.size}"
+            }
+            return@withContext
+        }
         incomingTxCoordinator.reconcileWithCanonicalTxids(
             walletId = walletId,
             canonicalTxids = canonicalTxids
         )
+        SecureLog.d(TAG) {
+            "IncomingTx reconcile post-sync removed wallet=$walletAlias count=${removedTxids.size}"
+        }
     }
 
     private suspend fun cachedWalletFor(entity: WalletEntity): CachedWallet =
