@@ -69,7 +69,8 @@ import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.AddressUsage
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletSummary
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletAddressRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.domain.service.IncomingTxChecker
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
@@ -201,7 +202,8 @@ fun ReceiveRoute(
 @HiltViewModel
 class ReceiveViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val walletRepository: WalletRepository,
+    private val walletReadRepository: WalletReadRepository,
+    private val walletAddressRepository: WalletAddressRepository,
     private val incomingTxChecker: IncomingTxChecker,
     private val incomingTxCoordinator: IncomingTxCoordinator
 ) : ViewModel() {
@@ -211,7 +213,7 @@ class ReceiveViewModel @Inject constructor(
             ?: savedStateHandle.get<String>(WalletsNavigation.WalletIdArg)?.toLongOrNull()
             ?: error("Wallet id is required")
 
-    private val walletSummary: StateFlow<WalletSummary?> = walletRepository
+    private val walletSummary: StateFlow<WalletSummary?> = walletReadRepository
         .observeWalletDetail(walletId)
         .map { detail -> detail?.summary }
         .stateIn(
@@ -268,7 +270,7 @@ class ReceiveViewModel @Inject constructor(
         viewModelScope.launch {
             internalState.update { it.copy(isAdvancing = true, error = null) }
             loadAddress {
-                walletRepository.revealNextAddress(
+                walletAddressRepository.revealNextAddress(
                     walletId = walletId,
                     type = WalletAddressType.EXTERNAL
                 )
@@ -280,14 +282,14 @@ class ReceiveViewModel @Inject constructor(
         val detail = internalState.value.address ?: return ReceiveCheckResult.NoAddress
         internalState.update { it.copy(isChecking = true) }
         return try {
-            val additional = walletRepository.listUnusedAddresses(
+            val additional = walletAddressRepository.listUnusedAddresses(
                 walletId = walletId,
                 type = WalletAddressType.EXTERNAL,
                 limit = 5
             )
                 .filter { it.derivationIndex != detail.derivationIndex }
                 .mapNotNull { address ->
-                    walletRepository.getAddressDetail(
+                    walletAddressRepository.getAddressDetail(
                         walletId = walletId,
                         type = WalletAddressType.EXTERNAL,
                         derivationIndex = address.derivationIndex
@@ -322,7 +324,7 @@ class ReceiveViewModel @Inject constructor(
             return
         }
         val detailResult = runCatching {
-            walletRepository.getAddressDetail(
+            walletAddressRepository.getAddressDetail(
                 walletId = walletId,
                 type = WalletAddressType.EXTERNAL,
                 derivationIndex = address.derivationIndex
@@ -347,7 +349,7 @@ class ReceiveViewModel @Inject constructor(
         runCatching {
             val excludedAddresses = excludedReceiveAddresses()
             val dynamicLimit = (excludedAddresses.size + 2).coerceAtLeast(1)
-            val unused = walletRepository.listUnusedAddresses(
+            val unused = walletAddressRepository.listUnusedAddresses(
                 walletId = walletId,
                 type = WalletAddressType.EXTERNAL,
                 limit = dynamicLimit
@@ -358,7 +360,7 @@ class ReceiveViewModel @Inject constructor(
     private suspend fun revealPastExcludedAddresses(excludedAddresses: Set<String>): WalletAddress? {
         val maxAttempts = (excludedAddresses.size + 3).coerceAtLeast(3)
         repeat(maxAttempts) {
-            val next = walletRepository.revealNextAddress(
+            val next = walletAddressRepository.revealNextAddress(
                 walletId = walletId,
                 type = WalletAddressType.EXTERNAL
             ) ?: return null
@@ -396,7 +398,7 @@ class ReceiveViewModel @Inject constructor(
 
     private suspend fun markAddressAsUsed(derivationIndex: Int) {
         try {
-            walletRepository.markAddressAsUsed(
+            walletAddressRepository.markAddressAsUsed(
                 walletId = walletId,
                 type = WalletAddressType.EXTERNAL,
                 derivationIndex = derivationIndex

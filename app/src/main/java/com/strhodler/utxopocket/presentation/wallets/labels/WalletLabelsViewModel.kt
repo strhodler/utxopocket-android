@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.WalletLabelExport
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -29,7 +29,7 @@ data class LabelImportState(
 @HiltViewModel
 class WalletLabelsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val walletRepository: WalletRepository
+    private val walletLabelRepository: WalletLabelRepository
 ) : ViewModel() {
 
     val walletId: Long = checkNotNull(savedStateHandle.get<Long>(WalletsNavigation.WalletIdArg))
@@ -45,7 +45,7 @@ class WalletLabelsViewModel @Inject constructor(
         if (_exportState.value is LabelExportState.Loading) return
         viewModelScope.launch {
             _exportState.value = LabelExportState.Loading
-            val result = runCatching { walletRepository.exportWalletLabels(walletId) }
+            val result = runCatching { walletLabelRepository.exportWalletLabels(walletId) }
             _exportState.value = result.fold(
                 onSuccess = { export ->
                     if (export.entries.isEmpty()) LabelExportState.Empty else LabelExportState.Ready(export)
@@ -63,7 +63,7 @@ class WalletLabelsViewModel @Inject constructor(
         viewModelScope.launch {
             _importState.value = LabelImportState(inProgress = true)
             val result = runCatching {
-                walletRepository.importWalletLabels(
+                walletLabelRepository.importWalletLabels(
                     walletId = walletId,
                     payload = payload,
                     overwriteExisting = overwriteExisting

@@ -148,7 +148,7 @@ class ConnectionOrchestratorV2Test {
         val preferredNetwork = MutableStateFlow(BitcoinNetwork.TESTNET)
         val networkOnline = MutableStateFlow(true)
         val orchestrator = ConnectionOrchestratorV2(
-            walletRepository = walletRepository,
+            walletSyncRepository = walletRepository,
             torManager = torManager,
             preferredNetworkFlow = preferredNetwork,
             networkOnlineFlow = networkOnline,

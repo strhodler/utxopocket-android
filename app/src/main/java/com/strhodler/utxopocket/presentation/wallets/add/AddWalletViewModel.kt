@@ -10,7 +10,8 @@ import com.strhodler.utxopocket.di.ApplicationScope
 import com.strhodler.utxopocket.domain.model.WalletCreationRequest
 import com.strhodler.utxopocket.domain.model.WalletCreationResult
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.ur.UniformResourceImportParser
 import com.strhodler.utxopocket.domain.ur.UniformResourceResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -41,7 +42,8 @@ private const val EXTENDED_KEY_SCRIPT_TYPE_REQUIRED_ERROR =
 
 @HiltViewModel
 class AddWalletViewModel @Inject constructor(
-    private val walletRepository: WalletRepository,
+    private val walletProvisioningRepository: WalletProvisioningRepository,
+    private val walletSyncRepository: WalletSyncRepository,
     private val appPreferencesRepository: AppPreferencesRepository,
     @param:ApplicationScope private val applicationScope: CoroutineScope
 ) : ViewModel() {
@@ -271,7 +273,7 @@ class AddWalletViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, formError = null) }
             val validation = currentState.validation as DescriptorValidationResult.Valid
-            val result = walletRepository.addWallet(
+            val result = walletProvisioningRepository.addWallet(
                 WalletCreationRequest(
                     name = currentState.walletName.trim(),
                     descriptor = validation.descriptor.trim(),
@@ -285,7 +287,7 @@ class AddWalletViewModel @Inject constructor(
                 is WalletCreationResult.Success -> {
                     _uiState.update { it.copy(isSaving = false) }
                     applicationScope.launch {
-                        runCatching { walletRepository.refreshWallet(result.wallet.id) }
+                        runCatching { walletSyncRepository.refreshWallet(result.wallet.id) }
                     }
                     _events.emit(AddWalletEvent.WalletCreated(result.wallet))
                 }
@@ -362,7 +364,7 @@ class AddWalletViewModel @Inject constructor(
         validationJob = viewModelScope.launch {
             _uiState.update { it.copy(isValidating = true) }
             delay(350)
-            val result = walletRepository.validateDescriptor(
+            val result = walletProvisioningRepository.validateDescriptor(
                 descriptor = current.descriptor,
                 changeDescriptor = current.changeDescriptor.ifBlankAsNull(),
                 network = current.network

@@ -44,7 +44,10 @@ import com.strhodler.utxopocket.domain.model.UtxoTreemapData
 import com.strhodler.utxopocket.domain.model.DuressSessionState
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
+import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
@@ -81,7 +84,10 @@ import kotlin.math.min
 @HiltViewModel
 class WalletDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val walletRepository: WalletRepository,
+    private val walletReadRepository: WalletReadRepository,
+    private val walletSyncRepository: WalletSyncRepository,
+    private val walletProvisioningRepository: WalletProvisioningRepository,
+    private val walletLabelRepository: WalletLabelRepository,
     private val connectionOrchestrator: ConnectionOrchestrator,
     private val appPreferencesRepository: AppPreferencesRepository,
     private val duressManager: DuressManager,
@@ -121,7 +127,7 @@ class WalletDetailViewModel @Inject constructor(
         transactionLabelFilterState
     ) { sort, filter -> sort to filter }
         .flatMapLatest { (sort, filter) ->
-            walletRepository.pageWalletTransactions(
+            walletReadRepository.pageWalletTransactions(
                 id = walletId,
                 sort = sort,
                 showLabeled = filter.showLabeled,
@@ -137,7 +143,7 @@ class WalletDetailViewModel @Inject constructor(
         utxoLabelFilterState
     ) { sort, filter -> sort to filter }
         .flatMapLatest { (sort, filter) ->
-            walletRepository.pageWalletUtxos(
+            walletReadRepository.pageWalletUtxos(
                 id = walletId,
                 sort = sort,
                 showLabeled = filter.showLabeled,
@@ -149,9 +155,9 @@ class WalletDetailViewModel @Inject constructor(
         .cachedIn(viewModelScope)
 
     private val baseStateCoreInputs = combine(
-        walletRepository.observeWalletDetail(walletId),
+        walletReadRepository.observeWalletDetail(walletId),
         canvasRepository.observeCanvasSnapshot(walletId),
-        walletRepository.observeSyncStatus(),
+        walletSyncRepository.observeSyncStatus(),
         connectionOrchestrator.snapshot
     ) { detail, canvasSnapshot, syncStatus, connectionSnapshot ->
         BaseStateCoreInputs(
@@ -720,7 +726,7 @@ class WalletDetailViewModel @Inject constructor(
                 onSyncRequestResult?.invoke(Result.success(true))
                 return@launch
             }
-            val hasNode = walletRepository.hasActiveNodeSelection(summary.network)
+            val hasNode = walletSyncRepository.hasActiveNodeSelection(summary.network)
             if (!hasNode) {
                 SecureLog.d(TAG) {
                     "Sync request ignored: no active node selection for network=${summary.network} wallet=${summary.id}"
@@ -728,7 +734,7 @@ class WalletDetailViewModel @Inject constructor(
                 onSyncRequestResult?.invoke(Result.success(true))
                 return@launch
             }
-            val syncStatus = walletRepository.observeSyncStatus().first()
+            val syncStatus = walletSyncRepository.observeSyncStatus().first()
             val matchesNetwork = syncStatus.network == summary.network
             val shouldEnqueue = if (enqueueRequestedOperation) {
                 val existingOperation = existingSyncOperation(
@@ -756,7 +762,7 @@ class WalletDetailViewModel @Inject constructor(
                     "matchesNetwork=$matchesNetwork queuedOrRunning=$queuedOrRunning shouldEnqueue=$shouldEnqueue"
             }
             if (shouldEnqueue) {
-                walletRepository.refreshWallet(summary.id, operation)
+                walletSyncRepository.refreshWallet(summary.id, operation)
             }
             val shouldEmitQueuedEvent = if (enqueueRequestedOperation) {
                 queuedOrRunning || !shouldEnqueue
@@ -821,7 +827,7 @@ class WalletDetailViewModel @Inject constructor(
 
     fun deleteWallet(onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
-            runCatching { walletRepository.deleteWallet(walletId) }
+            runCatching { walletProvisioningRepository.deleteWallet(walletId) }
                 .onSuccess { onResult(true) }
                 .onFailure { onResult(false) }
         }
@@ -829,7 +835,7 @@ class WalletDetailViewModel @Inject constructor(
 
     fun updateWalletColor(color: WalletColor) {
         viewModelScope.launch {
-            walletRepository.updateWalletColor(walletId, color)
+            walletProvisioningRepository.updateWalletColor(walletId, color)
         }
     }
 
@@ -837,7 +843,7 @@ class WalletDetailViewModel @Inject constructor(
         requestManualSync(
             operation = SyncOperation.FullRescan,
             beforeEnqueue = { summary ->
-                walletRepository.forceFullRescan(summary.id, stopGap)
+                walletProvisioningRepository.forceFullRescan(summary.id, stopGap)
             },
             onSyncRequestResult = onResult,
             enqueueRequestedOperation = false
@@ -846,14 +852,14 @@ class WalletDetailViewModel @Inject constructor(
 
     fun renameWallet(name: String, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
-            val result = runCatching { walletRepository.renameWallet(walletId, name) }
+            val result = runCatching { walletProvisioningRepository.renameWallet(walletId, name) }
             onResult(result)
         }
     }
 
     fun exportLabels(onResult: (Result<WalletLabelExport>) -> Unit) {
         viewModelScope.launch {
-            val result = runCatching { walletRepository.exportWalletLabels(walletId) }
+            val result = runCatching { walletLabelRepository.exportWalletLabels(walletId) }
             onResult(result)
         }
     }
@@ -865,7 +871,7 @@ class WalletDetailViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             val result = runCatching {
-                walletRepository.importWalletLabels(
+                walletLabelRepository.importWalletLabels(
                     walletId = walletId,
                     payload = payload,
                     overwriteExisting = overwriteExisting

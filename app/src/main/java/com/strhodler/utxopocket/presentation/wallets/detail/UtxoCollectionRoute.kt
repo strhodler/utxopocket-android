@@ -56,7 +56,7 @@ import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.RollingBalanceText
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
@@ -388,7 +388,7 @@ data class UtxoCollectionDetailUiState(
 @HiltViewModel
 class UtxoCollectionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val walletRepository: WalletRepository,
+    private val walletReadRepository: WalletReadRepository,
     private val appPreferencesRepository: AppPreferencesRepository,
     private val canvasRepository: UtxoCanvasRepository
 ) : ViewModel() {
@@ -400,7 +400,7 @@ class UtxoCollectionViewModel @Inject constructor(
         ?: savedStateHandle.get<String>(WalletsNavigation.UtxoCollectionIdArg)?.toLongOrNull()
         ?: error("Collection id is required")
 
-    private val walletDetailFlow = walletRepository.observeWalletDetail(walletId)
+    private val walletDetailFlow = walletReadRepository.observeWalletDetail(walletId)
 
     val uiState: StateFlow<UtxoCollectionDetailUiState> = combine(
         walletDetailFlow,

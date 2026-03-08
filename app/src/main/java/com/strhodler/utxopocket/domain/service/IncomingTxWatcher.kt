@@ -22,7 +22,9 @@ import com.strhodler.utxopocket.domain.model.IncomingWatcherPolicy
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletAddressRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -43,7 +45,9 @@ import kotlinx.coroutines.withContext
 
 @Singleton
 class IncomingTxWatcher @Inject constructor(
-    private val walletRepository: WalletRepository,
+    private val walletReadRepository: WalletReadRepository,
+    private val walletSyncRepository: WalletSyncRepository,
+    private val walletAddressRepository: WalletAddressRepository,
     private val endpointProvider: ElectrumEndpointProvider,
     private val torManager: TorManager,
     private val preferencesRepository: IncomingTxPreferencesRepository,
@@ -67,10 +71,10 @@ class IncomingTxWatcher @Inject constructor(
         .stateIn(scope, SharingStarted.Eagerly, BitcoinNetwork.DEFAULT)
 
     private val walletFlow = networkFlow.flatMapLatest { network ->
-        walletRepository.observeWalletSummaries(network)
+        walletReadRepository.observeWalletSummaries(network)
     }
 
-    private val syncStateFlow = walletRepository.observeSyncStatus()
+    private val syncStateFlow = walletSyncRepository.observeSyncStatus()
 
     init {
         scope.launch {
@@ -396,7 +400,7 @@ class IncomingTxWatcher @Inject constructor(
         )
         coordinator.onDetection(detection)
         runCatching {
-            walletRepository.markAddressAsUsed(
+            walletAddressRepository.markAddressAsUsed(
                 walletId = walletId,
                 type = WalletAddressType.EXTERNAL,
                 derivationIndex = detail.derivationIndex
@@ -489,13 +493,13 @@ class IncomingTxWatcher @Inject constructor(
 
     private suspend fun loadWatchedAddresses(walletId: Long, limit: Int): List<WalletAddressDetail> =
         withContext(ioDispatcher) {
-            val unused: List<WalletAddress> = walletRepository.listUnusedAddresses(
+            val unused: List<WalletAddress> = walletAddressRepository.listUnusedAddresses(
                 walletId = walletId,
                 type = WalletAddressType.EXTERNAL,
                 limit = limit
             )
             unused.mapNotNull { address ->
-                walletRepository.getAddressDetail(
+                walletAddressRepository.getAddressDetail(
                     walletId = walletId,
                     type = WalletAddressType.EXTERNAL,
                     derivationIndex = address.derivationIndex
@@ -609,7 +613,7 @@ class IncomingTxWatcher @Inject constructor(
             ?: wallet.fullScanStopGap
             ?: WalletSyncPreferencesRepository.baseline(network)
         val stopGap = baseline.coerceAtLeast(1)
-        val highestExternal = runCatching { walletRepository.highestUsedIndices(wallet.id).first }.getOrNull()
+        val highestExternal = runCatching { walletAddressRepository.highestUsedIndices(wallet.id).first }.getOrNull()
         val dynamicGap = highestExternal?.let { (it + DYNAMIC_BUFFER).coerceAtLeast(stopGap) } ?: stopGap
         return dynamicGap.coerceAtMost(WATCHED_UNUSED_LIMIT_MAX)
     }

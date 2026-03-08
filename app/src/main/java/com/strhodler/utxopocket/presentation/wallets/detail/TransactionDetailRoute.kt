@@ -132,7 +132,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import android.view.HapticFeedbackConstants
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalContext
@@ -362,7 +363,8 @@ fun UtxoDetailRoute(
 @HiltViewModel
 class TransactionDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val walletRepository: WalletRepository,
+    private val walletReadRepository: WalletReadRepository,
+    private val walletLabelRepository: WalletLabelRepository,
     private val appPreferencesRepository: AppPreferencesRepository
 ) : ViewModel() {
 
@@ -391,7 +393,7 @@ class TransactionDetailViewModel @Inject constructor(
     }
 
     val uiState: StateFlow<TransactionDetailUiState> = combine(
-        walletRepository.observeWalletDetail(walletId),
+        walletReadRepository.observeWalletDetail(walletId),
         preferenceInputs
     ) { detail, preferences ->
         val transaction = detail?.transactions?.firstOrNull { it.id == transactionId }
@@ -457,7 +459,7 @@ class TransactionDetailViewModel @Inject constructor(
     fun updateLabel(label: String?, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             val result =
-                runCatching { walletRepository.updateTransactionLabel(walletId, transactionId, label) }
+                runCatching { walletLabelRepository.updateTransactionLabel(walletId, transactionId, label) }
             onResult(result)
         }
     }
@@ -580,7 +582,8 @@ private fun openExplorerUri(context: Context, option: BlockExplorerOption) {
 @HiltViewModel
 class UtxoDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val walletRepository: WalletRepository,
+    private val walletReadRepository: WalletReadRepository,
+    private val walletLabelRepository: WalletLabelRepository,
     private val appPreferencesRepository: AppPreferencesRepository,
     private val canvasRepository: UtxoCanvasRepository
 ) : ViewModel() {
@@ -613,7 +616,7 @@ class UtxoDetailViewModel @Inject constructor(
     }
 
     val uiState: StateFlow<UtxoDetailUiState> = combine(
-        walletRepository.observeWalletDetail(walletId),
+        walletReadRepository.observeWalletDetail(walletId),
         canvasRepository.observeCanvasSnapshot(walletId),
         preferenceInputs
     ) { detail, canvasSnapshot, preferences ->
@@ -690,7 +693,7 @@ class UtxoDetailViewModel @Inject constructor(
     fun updateLabel(label: String?, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             val result =
-                runCatching { walletRepository.updateUtxoLabel(walletId, txId, vout, label) }
+                runCatching { walletLabelRepository.updateUtxoLabel(walletId, txId, vout, label) }
             onResult(result)
         }
     }
@@ -698,7 +701,7 @@ class UtxoDetailViewModel @Inject constructor(
     fun updateSpendable(spendable: Boolean, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             val result =
-                runCatching { walletRepository.updateUtxoSpendable(walletId, txId, vout, spendable) }
+                runCatching { walletLabelRepository.updateUtxoSpendable(walletId, txId, vout, spendable) }
             onResult(result)
         }
     }

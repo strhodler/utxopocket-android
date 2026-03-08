@@ -82,7 +82,8 @@ class WalletsViewModelTest {
         nodeConfigurationRepository = TestNodeConfigurationRepository()
         duressManager = DuressManager()
         viewModel = WalletsViewModel(
-            walletRepository = walletRepository,
+            walletReadRepository = walletRepository,
+            walletSyncRepository = walletRepository,
             connectionOrchestrator = connectionOrchestrator,
             appPreferencesRepository = preferencesRepository,
             nodeConfigurationRepository = nodeConfigurationRepository,

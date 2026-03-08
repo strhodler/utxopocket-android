@@ -69,7 +69,7 @@ import com.strhodler.utxopocket.domain.model.WalletDetail
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.common.abbreviatedBalanceText
@@ -867,7 +867,7 @@ data class UtxoCollectionUi(
 @HiltViewModel
 class UtxoCanvasViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val walletRepository: WalletRepository,
+    private val walletReadRepository: WalletReadRepository,
     private val appPreferencesRepository: AppPreferencesRepository,
     private val canvasRepository: UtxoCanvasRepository
 ) : ViewModel() {
@@ -876,7 +876,7 @@ class UtxoCanvasViewModel @Inject constructor(
         ?: savedStateHandle.get<String>(WalletsNavigation.WalletIdArg)?.toLongOrNull()
         ?: error("Wallet id is required")
 
-    private val walletDetailFlow = walletRepository.observeWalletDetail(walletId)
+    private val walletDetailFlow = walletReadRepository.observeWalletDetail(walletId)
 
     val uiState: StateFlow<UtxoCanvasUiState> = combine(
         walletDetailFlow,

@@ -20,7 +20,7 @@ import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.presentation.connection.canRetryConnection
@@ -47,7 +47,7 @@ class NodeStatusViewModel @Inject constructor(
     private val appPreferencesRepository: AppPreferencesRepository,
     private val nodeConfigurationRepository: NodeConfigurationRepository,
     private val nodeConnectionTester: NodeConnectionTester,
-    private val walletRepository: WalletRepository,
+    private val walletSyncRepository: WalletSyncRepository,
     private val networkErrorLogRepository: NetworkErrorLogRepository,
     private val connectionOrchestrator: ConnectionOrchestrator
 ) : ViewModel() {
@@ -71,7 +71,7 @@ class NodeStatusViewModel @Inject constructor(
                 appPreferencesRepository.preferredNetwork,
                 nodeConfigurationRepository.nodeConfig,
                 connectionOrchestrator.snapshot,
-                walletRepository.observeSyncStatus(),
+                walletSyncRepository.observeSyncStatus(),
                 networkErrorLogRepository.loggingEnabled
             ) { network, config, connectionSnapshot, syncStatus, loggingEnabled ->
                 val removedPublic = config.removedPublicNodesFor(network)
@@ -661,7 +661,7 @@ class NodeStatusViewModel @Inject constructor(
     )
 
     private suspend fun isSyncActive(network: BitcoinNetwork): Boolean {
-        val syncStatus = walletRepository.observeSyncStatus().first()
+        val syncStatus = walletSyncRepository.observeSyncStatus().first()
         return isSyncBusyForNetwork(syncStatus, network)
     }
 

@@ -91,7 +91,7 @@ import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.presentation.format.formatBtc
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
@@ -128,7 +128,7 @@ fun TransactionVisualizerRoute(
 @HiltViewModel
 class TransactionVisualizerViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    walletRepository: WalletRepository,
+    walletReadRepository: WalletReadRepository,
     appPreferencesRepository: AppPreferencesRepository
 ) : ViewModel() {
 
@@ -141,7 +141,7 @@ class TransactionVisualizerViewModel @Inject constructor(
             ?: error("Transaction id is required")
 
     val uiState: StateFlow<TransactionVisualizerUiState> = combine(
-        walletRepository.observeWalletDetail(walletId),
+        walletReadRepository.observeWalletDetail(walletId),
         appPreferencesRepository.balanceUnit,
         appPreferencesRepository.balancesHidden
     ) { detail, balanceUnit, balancesHidden ->

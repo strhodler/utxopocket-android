@@ -22,7 +22,8 @@ import com.strhodler.utxopocket.domain.model.activeCustomNode
 import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.DuressManager
 import com.strhodler.utxopocket.presentation.connection.projectConnectionUi
@@ -45,7 +46,8 @@ private const val DURESS_FAKE_LAST_SYNC_OFFSET_MS = (2 * 60 * 60 * 1000L) + (37 
 
 @HiltViewModel
 class WalletsViewModel @Inject constructor(
-    private val walletRepository: WalletRepository,
+    private val walletReadRepository: WalletReadRepository,
+    private val walletSyncRepository: WalletSyncRepository,
     private val connectionOrchestrator: ConnectionOrchestrator,
     private val appPreferencesRepository: AppPreferencesRepository,
     private val nodeConfigurationRepository: NodeConfigurationRepository,
@@ -57,7 +59,7 @@ class WalletsViewModel @Inject constructor(
     private val fakeLastSyncTime = MutableStateFlow<Long?>(null)
 
     private val walletData = selectedNetwork.flatMapLatest { network ->
-        walletRepository.observeWalletSummaries(network)
+        walletReadRepository.observeWalletSummaries(network)
             .map { wallets ->
                 WalletData(
                     network = network,
@@ -107,7 +109,7 @@ class WalletsViewModel @Inject constructor(
     private val walletSnapshot = combine(
         combine(
             walletData,
-            walletRepository.observeSyncStatus(),
+            walletSyncRepository.observeSyncStatus(),
             connectionOrchestrator.snapshot,
             appPreferencesRepository.balanceUnit
         ) { data, syncStatus, connectionSnapshot, balanceUnit ->
@@ -283,7 +285,7 @@ class WalletsViewModel @Inject constructor(
             val hasNode = nodeConfigurationRepository.nodeConfig.first()
                 .hasActiveSelection(selectedNetwork.value)
             if (hasNode) {
-                walletRepository.refresh(selectedNetwork.value)
+                walletSyncRepository.refresh(selectedNetwork.value)
             }
         }
     }

@@ -95,7 +95,7 @@ class NodeStatusViewModelTest {
             appPreferencesRepository = preferencesRepository,
             nodeConfigurationRepository = nodeConfigurationRepository,
             nodeConnectionTester = nodeConnectionTester,
-            walletRepository = walletRepository,
+            walletSyncRepository = walletRepository,
             networkErrorLogRepository = networkErrorLogRepository,
             connectionOrchestrator = connectionOrchestrator
         )

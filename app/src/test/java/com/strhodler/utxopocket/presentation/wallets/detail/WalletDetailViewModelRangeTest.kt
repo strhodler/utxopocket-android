@@ -145,7 +145,10 @@ class WalletDetailViewModelRangeTest {
             )
             return WalletDetailViewModel(
                 savedStateHandle = savedStateHandle,
-                walletRepository = walletRepository,
+                walletReadRepository = walletRepository,
+                walletSyncRepository = walletRepository,
+                walletProvisioningRepository = walletRepository,
+                walletLabelRepository = walletRepository,
                 connectionOrchestrator = connectionOrchestrator,
                 appPreferencesRepository = preferences,
                 duressManager = duressManager,

@@ -225,7 +225,7 @@ class ReceiveViewModelTest {
 
     private fun createViewModel(): ReceiveViewModel {
         val handle = SavedStateHandle(mapOf(WalletsNavigation.WalletIdArg to 1L))
-        return ReceiveViewModel(handle, repository, incomingChecker, incomingCoordinator)
+        return ReceiveViewModel(handle, repository, repository, incomingChecker, incomingCoordinator)
     }
 
     private companion object {

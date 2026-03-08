@@ -19,7 +19,7 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Compa
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_PIN_AUTO_LOCK_MINUTES
 import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletMaintenanceRepository
 import com.strhodler.utxopocket.domain.model.DuressSessionState
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -36,7 +36,7 @@ import kotlinx.coroutines.launch
 class SettingsViewModel @Inject constructor(
     private val appPreferencesRepository: AppPreferencesRepository,
     private val incomingTxPreferencesRepository: IncomingTxPreferencesRepository,
-    private val walletRepository: WalletRepository,
+    private val walletMaintenanceRepository: WalletMaintenanceRepository,
     private val networkErrorLogRepository: NetworkErrorLogRepository,
     private val duressManager: DuressManager
 ) : ViewModel() {
@@ -469,7 +469,7 @@ class SettingsViewModel @Inject constructor(
 
     fun wipeAllWalletData(onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
-            runCatching { walletRepository.wipeAllWalletData() }
+            runCatching { walletMaintenanceRepository.wipeAllWalletData() }
                 .onSuccess { onResult(true) }
                 .onFailure { onResult(false) }
         }

@@ -11,7 +11,7 @@ import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.TorManager
 import javax.inject.Inject
@@ -35,7 +35,7 @@ import kotlinx.coroutines.withContext
 
 @Singleton
 class ConnectionOrchestratorV2 internal constructor(
-    private val walletRepository: WalletRepository,
+    private val walletSyncRepository: WalletSyncRepository,
     private val torManager: TorManager,
     preferredNetworkFlow: Flow<BitcoinNetwork>,
     networkOnlineFlow: Flow<Boolean>,
@@ -48,7 +48,7 @@ class ConnectionOrchestratorV2 internal constructor(
 
     @Inject
     constructor(
-        walletRepository: WalletRepository,
+        walletSyncRepository: WalletSyncRepository,
         torManager: TorManager,
         appPreferencesRepository: AppPreferencesRepository,
         networkStatusMonitor: NetworkStatusMonitor,
@@ -56,7 +56,7 @@ class ConnectionOrchestratorV2 internal constructor(
         @ApplicationScope applicationScope: CoroutineScope,
         @IoDispatcher ioDispatcher: CoroutineDispatcher
     ) : this(
-        walletRepository = walletRepository,
+        walletSyncRepository = walletSyncRepository,
         torManager = torManager,
         preferredNetworkFlow = appPreferencesRepository.preferredNetwork,
         networkOnlineFlow = networkStatusMonitor.isOnline,
@@ -91,7 +91,7 @@ class ConnectionOrchestratorV2 internal constructor(
     init {
         lifecycleJobs += applicationScope.launch {
             combine(
-                walletRepository.observeNodeStatus(),
+                walletSyncRepository.observeNodeStatus(),
                 torManager.status,
                 preferredNetwork,
                 effectiveNetworkOnline
@@ -146,7 +146,7 @@ class ConnectionOrchestratorV2 internal constructor(
             ConnectionIntent.Disconnect -> {
                 stopHeartbeat()
                 withContext(ioDispatcher) {
-                    walletRepository.disconnect(preferredNetwork.value)
+                    walletSyncRepository.disconnect(preferredNetwork.value)
                 }
             }
         }
@@ -186,11 +186,11 @@ class ConnectionOrchestratorV2 internal constructor(
         if (!assumeOnline && !effectiveNetworkOnline.value) {
             return
         }
-        if (!walletRepository.hasActiveNodeSelection(network)) {
+        if (!walletSyncRepository.hasActiveNodeSelection(network)) {
             return
         }
         runActionWithSingleRetry {
-            walletRepository.refresh(network)
+            walletSyncRepository.refresh(network)
         }
     }
 

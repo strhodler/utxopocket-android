@@ -42,7 +42,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.R
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.presentation.common.QrCodeDisplayDialog
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
@@ -349,7 +349,7 @@ data class WalletDescriptorsUiState(
 @HiltViewModel
 class WalletDescriptorsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    walletRepository: WalletRepository
+    walletReadRepository: WalletReadRepository
 ) : ViewModel() {
 
     private val walletId: Long = savedStateHandle.get<Long>(WalletsNavigation.WalletIdArg)
@@ -358,7 +358,7 @@ class WalletDescriptorsViewModel @Inject constructor(
     private val initialWalletName: String =
         savedStateHandle.get<String>(WalletsNavigation.WalletNameArg).orEmpty()
 
-    val uiState: StateFlow<WalletDescriptorsUiState> = walletRepository.observeWalletDetail(walletId)
+    val uiState: StateFlow<WalletDescriptorsUiState> = walletReadRepository.observeWalletDetail(walletId)
         .map { detail ->
             if (detail == null) {
                 WalletDescriptorsUiState(

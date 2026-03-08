@@ -78,7 +78,12 @@ class AddWalletViewModelTest {
         walletRepository = FakeWalletRepository()
         preferencesRepository = FakeAppPreferencesRepository()
         applicationScope = TestScope(dispatcher)
-        viewModel = AddWalletViewModel(walletRepository, preferencesRepository, applicationScope)
+        viewModel = AddWalletViewModel(
+            walletProvisioningRepository = walletRepository,
+            walletSyncRepository = walletRepository,
+            appPreferencesRepository = preferencesRepository,
+            applicationScope = applicationScope
+        )
     }
 
     @AfterTest

@@ -32,7 +32,8 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Compa
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository.Companion.MIN_PIN_AUTO_LOCK_MINUTES
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.presentation.connection.canRetryConnection
@@ -187,7 +188,8 @@ internal suspend fun executePinUnlockFlow(
 class MainActivityViewModel @Inject constructor(
     private val appPreferencesRepository: AppPreferencesRepository,
     private val torManager: TorManager,
-    private val walletRepository: WalletRepository,
+    private val walletReadRepository: WalletReadRepository,
+    private val walletSyncRepository: WalletSyncRepository,
     private val nodeConfigurationRepository: NodeConfigurationRepository,
     private val networkStatusMonitor: NetworkStatusMonitor,
     private val incomingTxWatcher: IncomingTxWatcher,
@@ -245,7 +247,7 @@ class MainActivityViewModel @Inject constructor(
     private val pendingIncomingSheet = MutableStateFlow(false)
     private val walletSummariesByNetwork = appPreferencesRepository.preferredNetwork
         .flatMapLatest { network ->
-            walletRepository.observeWalletSummaries(network)
+            walletReadRepository.observeWalletSummaries(network)
         }
         .stateIn(
             scope = viewModelScope,
@@ -277,7 +279,7 @@ class MainActivityViewModel @Inject constructor(
             initialValue = 0
         )
     private val walletNames = appPreferencesRepository.preferredNetwork
-        .flatMapLatest { network -> walletRepository.observeWalletSummaries(network) }
+        .flatMapLatest { network -> walletReadRepository.observeWalletSummaries(network) }
         .map { summaries -> summaries.associate { it.id to it.name } }
         .stateIn(
             scope = viewModelScope,
@@ -363,7 +365,7 @@ class MainActivityViewModel @Inject constructor(
     val uiState: StateFlow<AppEntryUiState> = combine(
         onboardingCompletedState,
         connectionOrchestrator.snapshot,
-        walletRepository.observeSyncStatus(),
+        walletSyncRepository.observeSyncStatus(),
         appPreferencesRepository.preferredNetwork,
         torManager.latestLog,
         appPreferencesRepository.themePreference,
@@ -475,13 +477,13 @@ class MainActivityViewModel @Inject constructor(
             refreshLockState()
         }
         if (isDuressActive()) {
-            walletRepository.setSyncForegroundState(false)
+            walletSyncRepository.setSyncForegroundState(false)
             incomingTxWatcher.setForeground(false)
             return
         }
         skipNextLockRefresh = false
         wasBackgrounded = false
-        walletRepository.setSyncForegroundState(true)
+        walletSyncRepository.setSyncForegroundState(true)
         incomingTxWatcher.setForeground(true)
         connectionOrchestrator.onIntent(ConnectionIntent.OnAppForeground)
         viewModelScope.launch {
@@ -492,7 +494,7 @@ class MainActivityViewModel @Inject constructor(
     fun onAppBackgrounded(fromConfigurationChange: Boolean = false) {
         skipNextLockRefresh = fromConfigurationChange
         ignoreNextBackgroundEvent = fromConfigurationChange
-        walletRepository.setSyncForegroundState(false)
+        walletSyncRepository.setSyncForegroundState(false)
         incomingTxWatcher.setForeground(false)
     }
 
@@ -510,7 +512,7 @@ class MainActivityViewModel @Inject constructor(
         if (isDuressActive()) return
         viewModelScope.launch {
             distinctIds.forEach { walletId ->
-                walletRepository.refreshWallet(walletId)
+                walletSyncRepository.refreshWallet(walletId)
             }
         }
     }
@@ -607,8 +609,8 @@ class MainActivityViewModel @Inject constructor(
         pendingIncomingSheet.value = false
         viewModelScope.launch {
             val network = appPreferencesRepository.preferredNetwork.first()
-            walletRepository.setSyncForegroundState(false)
-            walletRepository.disconnect(network)
+            walletSyncRepository.setSyncForegroundState(false)
+            walletSyncRepository.disconnect(network)
             incomingTxWatcher.setForeground(false)
             torManager.stop()
         }
@@ -619,7 +621,7 @@ class MainActivityViewModel @Inject constructor(
     private fun handleDuressRestore() {
         viewModelScope.launch {
             duressManager.restore()
-            walletRepository.setSyncForegroundState(true)
+            walletSyncRepository.setSyncForegroundState(true)
             incomingTxWatcher.setForeground(true)
             resumeNodeIfNeeded()
             connectionOrchestrator.onIntent(ConnectionIntent.Start)

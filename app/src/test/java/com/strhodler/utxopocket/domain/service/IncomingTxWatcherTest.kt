@@ -64,7 +64,9 @@ class IncomingTxWatcherTest {
     @Test
     fun handleDetectionMarksAddressUsedAndAddsPlaceholder() = runTest {
         val watcher = IncomingTxWatcher(
-            walletRepository = walletRepository,
+            walletReadRepository = walletRepository,
+            walletSyncRepository = walletRepository,
+            walletAddressRepository = walletRepository,
             endpointProvider = endpointProvider,
             torManager = torManager,
             preferencesRepository = incomingPrefs,
@@ -101,7 +103,9 @@ class IncomingTxWatcherTest {
     @Test
     fun handleDetectionSameTxidUpgradesPlaceholderWithoutDuplicating() = runTest {
         val watcher = IncomingTxWatcher(
-            walletRepository = walletRepository,
+            walletReadRepository = walletRepository,
+            walletSyncRepository = walletRepository,
+            walletAddressRepository = walletRepository,
             endpointProvider = endpointProvider,
             torManager = torManager,
             preferencesRepository = incomingPrefs,
@@ -148,7 +152,9 @@ class IncomingTxWatcherTest {
     @Test
     fun resolveWatcherWindowUsesBaselineWhenNoPreference() = runTest {
         val watcher = IncomingTxWatcher(
-            walletRepository = walletRepository,
+            walletReadRepository = walletRepository,
+            walletSyncRepository = walletRepository,
+            walletAddressRepository = walletRepository,
             endpointProvider = endpointProvider,
             torManager = torManager,
             preferencesRepository = incomingPrefs,
@@ -175,7 +181,9 @@ class IncomingTxWatcherTest {
     @Test
     fun resolveLightStatesMarksConfirmedWhenHistoryHeightIsPositive() = runTest {
         val watcher = IncomingTxWatcher(
-            walletRepository = walletRepository,
+            walletReadRepository = walletRepository,
+            walletSyncRepository = walletRepository,
+            walletAddressRepository = walletRepository,
             endpointProvider = endpointProvider,
             torManager = torManager,
             preferencesRepository = incomingPrefs,
@@ -199,7 +207,9 @@ class IncomingTxWatcherTest {
     @Test
     fun resolveLightStatesKeepsUnconfirmedWhenNoPositiveHeight() = runTest {
         val watcher = IncomingTxWatcher(
-            walletRepository = walletRepository,
+            walletReadRepository = walletRepository,
+            walletSyncRepository = walletRepository,
+            walletAddressRepository = walletRepository,
             endpointProvider = endpointProvider,
             torManager = torManager,
             preferencesRepository = incomingPrefs,
@@ -223,7 +233,9 @@ class IncomingTxWatcherTest {
     @Test
     fun resolveLightStatesUsesHistoryWhenUnspentIsEmpty() = runTest {
         val watcher = IncomingTxWatcher(
-            walletRepository = walletRepository,
+            walletReadRepository = walletRepository,
+            walletSyncRepository = walletRepository,
+            walletAddressRepository = walletRepository,
             endpointProvider = endpointProvider,
             torManager = torManager,
             preferencesRepository = incomingPrefs,
