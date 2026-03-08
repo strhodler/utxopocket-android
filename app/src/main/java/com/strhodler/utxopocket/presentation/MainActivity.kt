@@ -191,6 +191,7 @@ class MainActivity : AppCompatActivity() {
                     else -> {
                         val navController = rememberNavController()
                         val duressActive = uiState.duressState is DuressSessionState.FakeActive
+                        val pinOverlayVisible = uiState.appLocked || uiState.duressUnlockInProgress
                         var pinErrorMessage by remember { mutableStateOf<String?>(null) }
                         var pinLockoutExpiry by remember { mutableStateOf<Long?>(null) }
                         var pinLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
@@ -239,8 +240,8 @@ class MainActivity : AppCompatActivity() {
                                 showIncomingSheet = true
                             }
                         }
-                        LaunchedEffect(uiState.appLocked) {
-                            if (uiState.appLocked) {
+                        LaunchedEffect(pinOverlayVisible) {
+                            if (pinOverlayVisible) {
                                 showIncomingSheet = false
                             }
                         }
@@ -277,7 +278,7 @@ class MainActivity : AppCompatActivity() {
                             }
                         }
 
-                        if (!uiState.appLocked && (pinErrorMessage != null || pinLockoutExpiry != null)) {
+                        if (!pinOverlayVisible && (pinErrorMessage != null || pinLockoutExpiry != null)) {
                             pinErrorMessage = null
                             pinLockoutExpiry = null
                             pinLockoutType = null
@@ -436,7 +437,7 @@ class MainActivity : AppCompatActivity() {
                                     }
 
                                     AnimatedContent(
-                                        targetState = uiState.appLocked,
+                                        targetState = pinOverlayVisible,
                                         transitionSpec = {
                                             sharedAxisXEnter(
                                                 reducedMotion = reducedMotion,
@@ -447,8 +448,8 @@ class MainActivity : AppCompatActivity() {
                                             )
                                         },
                                         label = "pinOverlay"
-                                    ) { locked ->
-                                        if (locked) {
+                                    ) { overlayVisible ->
+                                        if (overlayVisible) {
                                             PinVerificationScreen(
                                                 title = stringResource(id = R.string.pin_unlock_title),
                                                 description = stringResource(id = R.string.pin_unlock_description),

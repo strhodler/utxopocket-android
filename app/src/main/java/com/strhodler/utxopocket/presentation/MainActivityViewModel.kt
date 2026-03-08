@@ -92,7 +92,8 @@ data class AppEntryUiState(
     val hapticsEnabled: Boolean = true,
     val pinShuffleEnabled: Boolean = false,
     val appLocked: Boolean = false,
-    val duressState: DuressSessionState = DuressSessionState.Inactive
+    val duressState: DuressSessionState = DuressSessionState.Inactive,
+    val duressUnlockInProgress: Boolean = false
 )
 
 data class IncomingPlaceholderGroup(
@@ -112,6 +113,56 @@ internal fun projectStatusBarConnection(
     selectedNetwork = selectedNetwork,
     duressActive = duressActive
 )
+
+internal suspend fun executePinUnlockFlow(
+    pinEnabled: Boolean,
+    duressAlreadyActive: Boolean,
+    verifyPin: suspend () -> PinVerificationResult,
+    verifyPinIgnoringDuress: suspend () -> PinVerificationResult,
+    markPinUnlocked: suspend () -> Unit,
+    setAppLocked: (Boolean) -> Unit,
+    setDuressUnlockInProgress: (Boolean) -> Unit,
+    activateFake: (Long) -> Unit,
+    awaitFakeActivation: suspend () -> Unit
+): PinVerificationResult {
+    if (!pinEnabled) {
+        setAppLocked(false)
+        return PinVerificationResult.Success
+    }
+
+    val result = if (duressAlreadyActive) {
+        verifyPinIgnoringDuress()
+    } else {
+        verifyPin()
+    }
+
+    return when (result) {
+        is PinVerificationResult.Success -> {
+            markPinUnlocked()
+            setAppLocked(false)
+            result
+        }
+
+        is PinVerificationResult.DuressTriggered -> {
+            if (!duressAlreadyActive) {
+                setDuressUnlockInProgress(true)
+                try {
+                    markPinUnlocked()
+                    activateFake(result.decoyBalanceSats)
+                    awaitFakeActivation()
+                    setAppLocked(false)
+                    PinVerificationResult.Success
+                } finally {
+                    setDuressUnlockInProgress(false)
+                }
+            } else {
+                result
+            }
+        }
+
+        else -> result
+    }
+}
 
 @HiltViewModel
 class MainActivityViewModel @Inject constructor(
@@ -159,6 +210,7 @@ class MainActivityViewModel @Inject constructor(
             initialValue = false
         )
     private val duressState = duressManager.state
+    private val duressUnlockInProgressState = MutableStateFlow(false)
     private val incomingSheetAutoOpenEnabled = incomingTxPreferencesRepository.globalPreferences()
         .map { prefs -> prefs.showDialog }
         .stateIn(
@@ -307,7 +359,8 @@ class MainActivityViewModel @Inject constructor(
         appPreferencesRepository.balancesHidden,
         incomingPlaceholderCount,
         incomingPlaceholderGroups,
-        duressState
+        duressState,
+        duressUnlockInProgressState
     ) { values ->
         val onboarding = values[0] as Boolean
         val connectionSnapshot = values[1] as ConnectionSnapshot
@@ -327,6 +380,7 @@ class MainActivityViewModel @Inject constructor(
         val incomingTxCount = values[15] as Int
         val incomingGroups = values[16] as List<IncomingPlaceholderGroup>
         val duress = values[17] as DuressSessionState
+        val duressUnlockInProgress = values[18] as Boolean
         val duressActive = duress is DuressSessionState.FakeActive
 
         val statusProjection = projectStatusBarConnection(
@@ -383,7 +437,8 @@ class MainActivityViewModel @Inject constructor(
             hapticsEnabled = hapticsEnabled,
             pinShuffleEnabled = pinShuffleEnabled,
             appLocked = pinEnabled && locked && onboarding,
-            duressState = duress
+            duressState = duress,
+            duressUnlockInProgress = duressUnlockInProgress
         )
     }.stateIn(
         scope = viewModelScope,
@@ -439,40 +494,21 @@ class MainActivityViewModel @Inject constructor(
 
     fun unlockWithPin(pin: String, onResult: (PinVerificationResult) -> Unit) {
         viewModelScope.launch {
-            if (!pinEnabledState.value) {
-                lockState.value = false
-                onResult(PinVerificationResult.Success)
-                return@launch
-            }
-            val duressActive = isDuressActive()
-            val result = if (duressActive) {
-                appPreferencesRepository.verifyPinIgnoringDuress(pin)
-            } else {
-                appPreferencesRepository.verifyPin(pin)
-            }
-            when (result) {
-                is PinVerificationResult.Success -> {
-                    appPreferencesRepository.markPinUnlocked()
-                    lockState.value = false
-                    onResult(result)
-                    return@launch
+            val result = executePinUnlockFlow(
+                pinEnabled = pinEnabledState.value,
+                duressAlreadyActive = isDuressActive(),
+                verifyPin = { appPreferencesRepository.verifyPin(pin) },
+                verifyPinIgnoringDuress = { appPreferencesRepository.verifyPinIgnoringDuress(pin) },
+                markPinUnlocked = { appPreferencesRepository.markPinUnlocked() },
+                setAppLocked = { locked -> lockState.value = locked },
+                setDuressUnlockInProgress = { inProgress ->
+                    duressUnlockInProgressState.value = inProgress
+                },
+                activateFake = { decoyBalanceSats -> duressManager.activateFake(decoyBalanceSats) },
+                awaitFakeActivation = {
+                    duressState.first { state -> state is DuressSessionState.FakeActive }
                 }
-
-                is PinVerificationResult.DuressTriggered -> {
-                    if (!duressActive) {
-                        appPreferencesRepository.markPinUnlocked()
-                        lockState.value = false
-                        duressManager.activateFake(result.decoyBalanceSats)
-                        onResult(PinVerificationResult.Success)
-                        return@launch
-                    }
-                }
-
-                else -> {
-                    onResult(result)
-                    return@launch
-                }
-            }
+            )
             onResult(result)
         }
     }

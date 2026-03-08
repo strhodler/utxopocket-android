@@ -94,6 +94,33 @@ import java.util.Date
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
+internal fun projectWalletsForDuressTransition(
+    state: WalletsUiState,
+    duressState: DuressSessionState
+): WalletsUiState {
+    val transitionToDuress = !state.duressActive && duressState is DuressSessionState.FakeActive
+    if (!transitionToDuress) {
+        return state
+    }
+    return state.copy(
+        wallets = emptyList(),
+        totalBalanceSats = 0L,
+        blockHeight = null,
+        feeRateSatPerVb = null,
+        errorMessage = null,
+        refreshingWalletIds = emptySet(),
+        activeWalletId = null,
+        queuedWalletIds = emptyList(),
+        activeOperation = null,
+        queuedOperations = emptyMap(),
+        connectedNodeLabel = null,
+        connectionBannerModel = null,
+        walletSyncStates = emptyMap(),
+        duressActive = true,
+        decoyBalanceSats = duressState.decoyBalanceSats
+    )
+}
+
 @Composable
 fun WalletsRoute(
     onAddWallet: () -> Unit,
@@ -109,10 +136,11 @@ fun WalletsRoute(
     viewModel: WalletsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val view = LocalView.current
-    val duressActive = remember(state.duressActive, duressState) {
-        state.duressActive || duressState is DuressSessionState.FakeActive
+    val effectiveState = remember(state, duressState) {
+        projectWalletsForDuressTransition(state, duressState)
     }
+    val view = LocalView.current
+    val duressActive = effectiveState.duressActive || duressState is DuressSessionState.FakeActive
     val guardedOnWalletSelected = remember(onWalletSelected, duressActive) {
         walletTap@{ walletId: Long, walletName: String ->
             if (duressActive) return@walletTap
@@ -137,9 +165,9 @@ fun WalletsRoute(
             onAddWallet()
         }
     }
-    val onCycleBalanceDisplay = remember(state.hapticsEnabled, view) {
+    val onCycleBalanceDisplay = remember(effectiveState.hapticsEnabled, view) {
         {
-            if (state.hapticsEnabled) {
+            if (effectiveState.hapticsEnabled) {
                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
             }
             viewModel.cycleBalanceDisplayMode()
@@ -147,7 +175,7 @@ fun WalletsRoute(
     }
     SetPrimaryTopBar()
     WalletsScreen(
-        state = state,
+        state = effectiveState,
         onAddWallet = guardedOnAddWallet,
         onOpenWiki = onOpenWiki,
         onOpenWikiTopic = onOpenWikiTopic,

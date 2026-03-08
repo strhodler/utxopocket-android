@@ -209,6 +209,7 @@ fun WalletDetailRoute(
     var descriptorPinError by remember { mutableStateOf<String?>(null) }
     var descriptorPinLockoutExpiry by remember { mutableStateOf<Long?>(null) }
     var descriptorPinLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
+    var descriptorPinDuressTransitionInProgress by remember { mutableStateOf(false) }
     LaunchedEffect(resolvedName) {
         resolvedName?.let { topBarTitle = it }
     }
@@ -251,6 +252,7 @@ fun WalletDetailRoute(
             descriptorPinError = null
             descriptorPinLockoutExpiry = null
             descriptorPinLockoutType = null
+            descriptorPinDuressTransitionInProgress = false
         }
     }
 
@@ -381,6 +383,7 @@ fun WalletDetailRoute(
                                 descriptorPinError = null
                                 descriptorPinLockoutExpiry = null
                                 descriptorPinLockoutType = null
+                                descriptorPinDuressTransitionInProgress = false
                                 showDescriptorPinPrompt = true
                             } else {
                                 onOpenDescriptors(walletId, displayTitle)
@@ -606,17 +609,21 @@ fun WalletDetailRoute(
             title = stringResource(id = R.string.wallet_detail_descriptor_pin_title),
             description = stringResource(id = R.string.wallet_detail_descriptor_pin_description),
             errorMessage = descriptorPinError,
+            allowDismiss = !descriptorPinDuressTransitionInProgress,
             onDismiss = {
                 showDescriptorPinPrompt = false
                 descriptorPinError = null
                 descriptorPinLockoutExpiry = null
                 descriptorPinLockoutType = null
+                descriptorPinDuressTransitionInProgress = false
             },
             onPinVerified = { pin ->
+                if (descriptorPinDuressTransitionInProgress) return@PinVerificationScreen
                 val resources = resourcesState.value
                 viewModel.verifyPin(pin) { result ->
                     when (result) {
                         PinVerificationResult.Success -> {
+                            descriptorPinDuressTransitionInProgress = false
                             descriptorPinError = null
                             descriptorPinLockoutExpiry = null
                             descriptorPinLockoutType = null
@@ -625,20 +632,22 @@ fun WalletDetailRoute(
                         }
 
                         is PinVerificationResult.DuressTriggered -> {
+                            descriptorPinDuressTransitionInProgress = true
                             descriptorPinLockoutExpiry = null
                             descriptorPinLockoutType = null
                             descriptorPinError = null
-                            showDescriptorPinPrompt = false
                         }
 
                         PinVerificationResult.InvalidFormat,
                         PinVerificationResult.NotConfigured -> {
+                            descriptorPinDuressTransitionInProgress = false
                             descriptorPinLockoutExpiry = null
                             descriptorPinLockoutType = null
                             descriptorPinError = formatPinStaticError(resources, result)
                         }
 
                         is PinVerificationResult.Incorrect -> {
+                            descriptorPinDuressTransitionInProgress = false
                             val expiresAt = System.currentTimeMillis() + result.lockDurationMillis
                             descriptorPinLockoutType = PinLockoutMessageType.Incorrect
                             descriptorPinLockoutExpiry = expiresAt
@@ -650,6 +659,7 @@ fun WalletDetailRoute(
                         }
 
                         is PinVerificationResult.Locked -> {
+                            descriptorPinDuressTransitionInProgress = false
                             val expiresAt = System.currentTimeMillis() + result.remainingMillis
                             descriptorPinLockoutType = PinLockoutMessageType.Locked
                             descriptorPinLockoutExpiry = expiresAt
