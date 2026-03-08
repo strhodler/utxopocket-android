@@ -2,6 +2,8 @@ package com.strhodler.utxopocket.domain.service
 
 import com.strhodler.utxopocket.data.bdk.ElectrumEndpoint
 import com.strhodler.utxopocket.data.bdk.ElectrumEndpointProvider
+import com.strhodler.utxopocket.data.electrum.ElectrumHistoryEntry
+import com.strhodler.utxopocket.data.electrum.ElectrumUnspent
 import com.strhodler.utxopocket.domain.model.AddressUsage
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
@@ -11,6 +13,7 @@ import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
 import com.strhodler.utxopocket.domain.model.IncomingTxPreferences
+import com.strhodler.utxopocket.domain.model.IncomingTxLightStatus
 import com.strhodler.utxopocket.domain.model.IncomingWatcherPolicy
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
@@ -96,6 +99,53 @@ class IncomingTxWatcherTest {
     }
 
     @Test
+    fun handleDetectionSameTxidUpgradesPlaceholderWithoutDuplicating() = runTest {
+        val watcher = IncomingTxWatcher(
+            walletRepository = walletRepository,
+            endpointProvider = endpointProvider,
+            torManager = torManager,
+            preferencesRepository = incomingPrefs,
+            appPreferencesRepository = appPrefs,
+            coordinator = coordinator,
+            walletSyncPreferencesRepository = walletSyncPrefs,
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+            watcherPolicy = IncomingWatcherPolicy(baseIntervalSeconds = 30, maxIntervalSeconds = 60)
+        )
+        val detail = WalletAddressDetail(
+            value = "bc1qtest",
+            type = WalletAddressType.EXTERNAL,
+            derivationPath = "m/84h/0h/0h/0/5",
+            derivationIndex = 5,
+            scriptPubKey = "0011",
+            descriptor = "wpkh(..5..)",
+            usage = AddressUsage.NEVER,
+            usageCount = 0
+        )
+
+        watcher.handleDetection(
+            walletId = 1L,
+            detail = detail,
+            txid = "tx123",
+            amount = 42,
+            lightStatus = IncomingTxLightStatus.UNCONFIRMED,
+            lastSeenHeight = null
+        )
+        watcher.handleDetection(
+            walletId = 1L,
+            detail = detail,
+            txid = "tx123",
+            amount = 42,
+            lightStatus = IncomingTxLightStatus.CONFIRMED_LIGHT,
+            lastSeenHeight = 1234
+        )
+
+        val placeholders = coordinator.placeholders.value[1L].orEmpty()
+        assertEquals(1, placeholders.size)
+        assertEquals(IncomingTxLightStatus.CONFIRMED_LIGHT, placeholders.first().lightStatus)
+        assertEquals(1234L, placeholders.first().lastSeenHeight)
+    }
+
+    @Test
     fun resolveWatcherWindowUsesBaselineWhenNoPreference() = runTest {
         val watcher = IncomingTxWatcher(
             walletRepository = walletRepository,
@@ -120,6 +170,54 @@ class IncomingTxWatcherTest {
 
         val window = watcher.resolveWatcherWindowForTest(summary, BitcoinNetwork.MAINNET)
         assertEquals(WalletSyncPreferencesRepository.baseline(BitcoinNetwork.MAINNET), window)
+    }
+
+    @Test
+    fun resolveLightStatesMarksConfirmedWhenHistoryHeightIsPositive() = runTest {
+        val watcher = IncomingTxWatcher(
+            walletRepository = walletRepository,
+            endpointProvider = endpointProvider,
+            torManager = torManager,
+            preferencesRepository = incomingPrefs,
+            appPreferencesRepository = appPrefs,
+            coordinator = coordinator,
+            walletSyncPreferencesRepository = walletSyncPrefs,
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+            watcherPolicy = IncomingWatcherPolicy()
+        )
+
+        val states = watcher.resolveLightStatesForTest(
+            unspent = listOf(ElectrumUnspent(txid = "tx-confirmed", valueSats = 123, height = null)),
+            history = listOf(ElectrumHistoryEntry(txid = "tx-confirmed", height = 15))
+        )
+
+        assertEquals(IncomingTxLightStatus.CONFIRMED_LIGHT, states["tx-confirmed"]?.status)
+        assertEquals(15L, states["tx-confirmed"]?.lastSeenHeight)
+        assertEquals(123L, states["tx-confirmed"]?.amountSats)
+    }
+
+    @Test
+    fun resolveLightStatesKeepsUnconfirmedWhenNoPositiveHeight() = runTest {
+        val watcher = IncomingTxWatcher(
+            walletRepository = walletRepository,
+            endpointProvider = endpointProvider,
+            torManager = torManager,
+            preferencesRepository = incomingPrefs,
+            appPreferencesRepository = appPrefs,
+            coordinator = coordinator,
+            walletSyncPreferencesRepository = walletSyncPrefs,
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+            watcherPolicy = IncomingWatcherPolicy()
+        )
+
+        val states = watcher.resolveLightStatesForTest(
+            unspent = listOf(ElectrumUnspent(txid = "tx-mempool", valueSats = 321, height = 0)),
+            history = listOf(ElectrumHistoryEntry(txid = "tx-mempool", height = 0))
+        )
+
+        assertEquals(IncomingTxLightStatus.UNCONFIRMED, states["tx-mempool"]?.status)
+        assertEquals(null, states["tx-mempool"]?.lastSeenHeight)
+        assertEquals(321L, states["tx-mempool"]?.amountSats)
     }
 }
 

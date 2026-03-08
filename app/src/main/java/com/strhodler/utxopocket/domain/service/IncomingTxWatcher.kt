@@ -5,12 +5,14 @@ package com.strhodler.utxopocket.domain.service
 import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.common.logging.WalletLogAliasProvider
 import androidx.annotation.VisibleForTesting
-import com.strhodler.utxopocket.data.bdk.ElectrumEndpoint
 import com.strhodler.utxopocket.data.bdk.ElectrumEndpointProvider
+import com.strhodler.utxopocket.data.electrum.ElectrumHistoryEntry
 import com.strhodler.utxopocket.data.electrum.LightElectrumClient
+import com.strhodler.utxopocket.data.electrum.ElectrumUnspent
 import com.strhodler.utxopocket.di.IoDispatcher
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.IncomingTxDetection
+import com.strhodler.utxopocket.domain.model.IncomingTxLightStatus
 import com.strhodler.utxopocket.domain.model.IncomingTxPreferences
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.WalletAddress
@@ -165,7 +167,7 @@ class IncomingTxWatcher @Inject constructor(
         network: BitcoinNetwork,
         preferences: IncomingTxPreferences
     ): Job = scope.launch {
-        val lastSeen = mutableMapOf<String, Set<String>>()
+        val lastSeen = mutableMapOf<String, Map<String, IncomingTxLightSnapshot>>()
         var firstRun = true
         val walletAlias = WalletLogAliasProvider.alias(wallet.id)
         var currentIntervalSeconds = watcherPolicy.baseIntervalSeconds
@@ -204,6 +206,7 @@ class IncomingTxWatcher @Inject constructor(
             var reconnect = false
             try {
                 LightElectrumClient(endpoint, proxy, endpoint.validateDomain).use { client ->
+                    client.openSession()
                     val capability = subscribeWithFallback(
                         client = client,
                         capabilityKey = capabilityKey,
@@ -235,18 +238,23 @@ class IncomingTxWatcher @Inject constructor(
                         val seenTxids = mutableSetOf<String>()
                         notifications.forEach { notification ->
                             val detail = addressByScripthash[notification.scripthash] ?: return@forEach
-                            val unspent = runCatching {
-                                client.listUnspent(notification.scripthash)
-                            }.getOrDefault(emptyList())
-                            val txids = unspent.map { it.txid }.toSet()
+                            val statesByTxid = runCatching {
+                                loadCurrentLightStates(client, notification.scripthash)
+                            }.getOrDefault(emptyMap())
                             val previous = lastSeen[detail.value].orEmpty()
-                            val newTxids = txids - previous
-                            lastSeen[detail.value] = txids
-                            newTxids.forEach { txid ->
+                            val updates = diffLightState(previous, statesByTxid)
+                            lastSeen[detail.value] = statesByTxid
+                            updates.forEach { (txid, snapshot) ->
                                 if (!seenTxids.add(txid)) return@forEach
-                                val amount = unspent.filter { it.txid == txid }.sumOf { it.valueSats }
                                 runCatching {
-                                    handleDetection(wallet.id, detail, txid, amount)
+                                    handleDetection(
+                                        walletId = wallet.id,
+                                        detail = detail,
+                                        txid = txid,
+                                        amount = snapshot.amountSats,
+                                        lightStatus = snapshot.status,
+                                        lastSeenHeight = snapshot.lastSeenHeight
+                                    )
                                 }
                             }
                         }
@@ -271,7 +279,7 @@ class IncomingTxWatcher @Inject constructor(
     private suspend fun pollWalletOnce(
         wallet: WalletSummary,
         network: BitcoinNetwork,
-        lastSeen: MutableMap<String, Set<String>>
+        lastSeen: MutableMap<String, Map<String, IncomingTxLightSnapshot>>
     ) {
         val walletAlias = WalletLogAliasProvider.alias(wallet.id)
         val endpoint = endpointProvider.endpointFor(network)
@@ -288,18 +296,24 @@ class IncomingTxWatcher @Inject constructor(
             .getOrNull() ?: return
 
         LightElectrumClient(endpoint, proxy, endpoint.validateDomain).use { client ->
+            client.openSession()
             val seenTxids = mutableSetOf<String>()
             addresses.forEach { detail ->
                 val scripthash = LightElectrumClient.computeScriptHash(detail.scriptPubKey)
-                val unspent = client.listUnspent(scripthash)
-                val txids = unspent.map { it.txid }.toSet()
+                val statesByTxid = loadCurrentLightStates(client, scripthash)
                 val previous = lastSeen[detail.value].orEmpty()
-                val newTxids = txids - previous
-                lastSeen[detail.value] = txids
-                newTxids.forEach { txid ->
+                val updates = diffLightState(previous, statesByTxid)
+                lastSeen[detail.value] = statesByTxid
+                updates.forEach { (txid, snapshot) ->
                     if (!seenTxids.add(txid)) return@forEach
-                    val amount = unspent.filter { it.txid == txid }.sumOf { it.valueSats }
-                    handleDetection(wallet.id, detail, txid, amount)
+                    handleDetection(
+                        walletId = wallet.id,
+                        detail = detail,
+                        txid = txid,
+                        amount = snapshot.amountSats,
+                        lightStatus = snapshot.status,
+                        lastSeenHeight = snapshot.lastSeenHeight
+                    )
                 }
             }
         }
@@ -309,7 +323,7 @@ class IncomingTxWatcher @Inject constructor(
         walletId: Long,
         network: BitcoinNetwork,
         addresses: List<WalletAddressDetail>,
-        lastSeen: Map<String, Set<String>>
+        lastSeen: Map<String, Map<String, IncomingTxLightSnapshot>>
     ): List<IncomingTxDetection> {
         val walletAlias = WalletLogAliasProvider.alias(walletId)
         if (addresses.isEmpty()) return emptyList()
@@ -321,18 +335,24 @@ class IncomingTxWatcher @Inject constructor(
             .getOrNull() ?: return emptyList()
 
         return LightElectrumClient(endpoint, proxy, endpoint.validateDomain).use { client ->
+            client.openSession()
             val seenTxids = mutableSetOf<String>()
             val detections = mutableListOf<IncomingTxDetection>()
             addresses.forEach { detail ->
                 val scripthash = LightElectrumClient.computeScriptHash(detail.scriptPubKey)
-                val unspent = client.listUnspent(scripthash)
-                val txids = unspent.map { it.txid }.toSet()
+                val statesByTxid = loadCurrentLightStates(client, scripthash)
                 val previous = lastSeen[detail.value].orEmpty()
-                val newTxids = txids - previous
-                newTxids.forEach { txid ->
+                val updates = diffLightState(previous, statesByTxid)
+                updates.forEach { (txid, snapshot) ->
                     if (!seenTxids.add(txid)) return@forEach
-                    val amount = unspent.filter { it.txid == txid }.sumOf { it.valueSats }
-                    val detection = handleDetection(walletId, detail, txid, amount)
+                    val detection = handleDetection(
+                        walletId = walletId,
+                        detail = detail,
+                        txid = txid,
+                        amount = snapshot.amountSats,
+                        lightStatus = snapshot.status,
+                        lastSeenHeight = snapshot.lastSeenHeight
+                    )
                     if (detection != null) {
                         detections += detection
                     }
@@ -347,7 +367,9 @@ class IncomingTxWatcher @Inject constructor(
         walletId: Long,
         detail: WalletAddressDetail,
         txid: String,
-        amount: Long
+        amount: Long?,
+        lightStatus: IncomingTxLightStatus = IncomingTxLightStatus.UNCONFIRMED,
+        lastSeenHeight: Long? = null
     ): IncomingTxDetection? {
         val walletAlias = WalletLogAliasProvider.alias(walletId)
         val detection = IncomingTxDetection(
@@ -355,7 +377,9 @@ class IncomingTxWatcher @Inject constructor(
             address = detail.value,
             derivationIndex = detail.derivationIndex,
             txid = txid,
-            amountSats = amount.takeIf { it > 0 }
+            amountSats = amount?.takeIf { it > 0 },
+            lightStatus = lightStatus,
+            lastSeenHeight = lastSeenHeight
         )
         coordinator.onDetection(detection)
         runCatching {
@@ -369,6 +393,72 @@ class IncomingTxWatcher @Inject constructor(
         }
         return detection
     }
+
+    private fun loadCurrentLightStates(
+        client: LightElectrumClient,
+        scripthash: String
+    ): Map<String, IncomingTxLightSnapshot> {
+        val unspent = client.listUnspent(scripthash)
+        val history = client.getHistory(scripthash)
+        return resolveLightStates(unspent, history)
+    }
+
+    private fun diffLightState(
+        previous: Map<String, IncomingTxLightSnapshot>,
+        current: Map<String, IncomingTxLightSnapshot>
+    ): Map<String, IncomingTxLightSnapshot> = current.filter { (txid, snapshot) ->
+        val before = previous[txid]
+        before == null || before != snapshot
+    }
+
+    private fun resolveLightStates(
+        unspent: List<ElectrumUnspent>,
+        history: List<ElectrumHistoryEntry>
+    ): Map<String, IncomingTxLightSnapshot> {
+        val states = mutableMapOf<String, IncomingTxLightSnapshot>()
+        unspent.groupBy { it.txid }
+            .forEach { (txid, entries) ->
+                if (txid.isBlank()) return@forEach
+                val amount = entries.sumOf { it.valueSats }.takeIf { it > 0 }
+                val confirmedHeight = entries.mapNotNull { it.height?.takeIf { height -> height > 0L } }
+                    .maxOrNull()
+                states[txid] = IncomingTxLightSnapshot(
+                    status = if (confirmedHeight != null) {
+                        IncomingTxLightStatus.CONFIRMED_LIGHT
+                    } else {
+                        IncomingTxLightStatus.UNCONFIRMED
+                    },
+                    amountSats = amount,
+                    lastSeenHeight = confirmedHeight
+                )
+            }
+
+        history.forEach { entry ->
+            if (entry.txid.isBlank()) return@forEach
+            val existing = states[entry.txid]
+            val historyHeight = entry.height.takeIf { it > 0L }
+            val mergedStatus = if (
+                existing?.status == IncomingTxLightStatus.CONFIRMED_LIGHT ||
+                historyHeight != null
+            ) {
+                IncomingTxLightStatus.CONFIRMED_LIGHT
+            } else {
+                IncomingTxLightStatus.UNCONFIRMED
+            }
+            states[entry.txid] = IncomingTxLightSnapshot(
+                status = mergedStatus,
+                amountSats = existing?.amountSats,
+                lastSeenHeight = listOfNotNull(existing?.lastSeenHeight, historyHeight).maxOrNull()
+            )
+        }
+        return states
+    }
+
+    @VisibleForTesting
+    internal fun resolveLightStatesForTest(
+        unspent: List<ElectrumUnspent>,
+        history: List<ElectrumHistoryEntry>
+    ): Map<String, IncomingTxLightSnapshot> = resolveLightStates(unspent, history)
 
     private suspend fun loadWatchedAddresses(walletId: Long, limit: Int): List<WalletAddressDetail> =
         withContext(ioDispatcher) {
@@ -419,6 +509,12 @@ class IncomingTxWatcher @Inject constructor(
         jobs.clear()
         jobNetworks.clear()
     }
+
+    internal data class IncomingTxLightSnapshot(
+        val status: IncomingTxLightStatus,
+        val amountSats: Long?,
+        val lastSeenHeight: Long?
+    )
 
     private data class WatcherState(
         val isForeground: Boolean,

@@ -30,6 +30,11 @@ data class ElectrumUnspent(
     val height: Long?
 )
 
+data class ElectrumHistoryEntry(
+    val txid: String,
+    val height: Long
+)
+
 data class ScriptHashNotification(
     val scripthash: String,
     val status: String?
@@ -46,6 +51,8 @@ class LightElectrumClient(
     private val socket: Socket
     private val reader: BufferedReader
     private val writer: BufferedWriter
+    @Volatile
+    private var sessionOpened: Boolean = false
 
     init {
         val proxyConfig = proxy?.let {
@@ -78,11 +85,26 @@ class LightElectrumClient(
     }
 
     fun ping(): Boolean = runCatching {
+        ensureSession()
         call("server.ping")
         true
     }.getOrDefault(false)
 
+    fun openSession(
+        clientName: String = "utxopocket-android",
+        protocolVersion: String = "1.4"
+    ): Boolean {
+        if (sessionOpened) return true
+        call(
+            method = "server.version",
+            params = listOf(clientName, protocolVersion)
+        )
+        sessionOpened = true
+        return true
+    }
+
     fun listUnspent(scripthash: String): List<ElectrumUnspent> {
+        ensureSession()
         val result = call(
             method = "blockchain.scripthash.listunspent",
             params = listOf(scripthash)
@@ -103,6 +125,24 @@ class LightElectrumClient(
                         )
                     )
                 }
+            }
+        }
+    }
+
+    fun getHistory(scripthash: String): List<ElectrumHistoryEntry> {
+        ensureSession()
+        val result = call(
+            method = "blockchain.scripthash.get_history",
+            params = listOf(scripthash)
+        ) ?: return emptyList()
+        if (result !is JSONArray) return emptyList()
+        return buildList {
+            for (i in 0 until result.length()) {
+                val entry = result.optJSONObject(i) ?: continue
+                val txid = entry.optString("tx_hash").orEmpty()
+                if (txid.isBlank()) continue
+                val height = entry.optLong("height", 0L)
+                add(ElectrumHistoryEntry(txid = txid, height = height))
             }
         }
     }
@@ -131,6 +171,7 @@ class LightElectrumClient(
     }
 
     fun subscribeBatch(scripthashes: List<String>): Boolean {
+        ensureSession()
         if (scripthashes.isEmpty()) return true
         val result = call(
             method = "blockchain.scripthashes.subscribe",
@@ -140,6 +181,7 @@ class LightElectrumClient(
     }
 
     fun subscribeIndividual(scripthashes: List<String>): Boolean {
+        ensureSession()
         if (scripthashes.isEmpty()) return true
         scripthashes.forEach { sh ->
             call(
@@ -182,6 +224,12 @@ class LightElectrumClient(
         }
         socket.soTimeout = originalTimeout
         return notifications
+    }
+
+    private fun ensureSession() {
+        if (!sessionOpened) {
+            openSession()
+        }
     }
 
     private fun defaultPort(): Int = when (normalized.scheme) {

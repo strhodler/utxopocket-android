@@ -1,11 +1,18 @@
 package com.strhodler.utxopocket.domain.model
 
+enum class IncomingTxLightStatus {
+    UNCONFIRMED,
+    CONFIRMED_LIGHT
+}
+
 data class IncomingTxDetection(
     val walletId: Long,
     val address: String,
     val derivationIndex: Int?,
     val txid: String,
     val amountSats: Long?,
+    val lightStatus: IncomingTxLightStatus = IncomingTxLightStatus.UNCONFIRMED,
+    val lastSeenHeight: Long? = null,
     val detectedAt: Long = System.currentTimeMillis()
 )
 
@@ -13,6 +20,8 @@ data class IncomingTxPlaceholder(
     val txid: String,
     val address: String,
     val amountSats: Long?,
+    val lightStatus: IncomingTxLightStatus = IncomingTxLightStatus.UNCONFIRMED,
+    val lastSeenHeight: Long? = null,
     val detectedAt: Long = System.currentTimeMillis()
 )
 

@@ -71,6 +71,7 @@ import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.data.wallet.SyncGapInitializer.seedSyncGapIfMissing
 import com.strhodler.utxopocket.data.wallet.sync.NodeSyncRunner
@@ -133,6 +134,7 @@ class DefaultWalletRepository @Inject constructor(
     private val networkStatusMonitor: NetworkStatusMonitor,
     private val networkErrorLogRepository: NetworkErrorLogRepository,
     private val walletSyncPreferencesRepository: WalletSyncPreferencesRepository,
+    private val incomingTxCoordinator: IncomingTxCoordinator,
     @param:ApplicationContext private val applicationContext: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : WalletRepository {
@@ -276,6 +278,11 @@ class DefaultWalletRepository @Inject constructor(
         walletSyncOrchestrator.start()
         repositoryScope.launch {
             rehydratePendingSyncSessions()
+        }
+        repositoryScope.launch {
+            walletSyncOrchestrator.observeWalletSyncSuccesses().collect { event ->
+                reconcileIncomingPlaceholders(event.walletId)
+            }
         }
         repositoryScope.launch {
             appPreferencesRepository.connectionIdleTimeoutMinutes.collect { minutes ->
@@ -445,6 +452,18 @@ class DefaultWalletRepository @Inject constructor(
 
     override fun observeSyncStatus(): Flow<SyncStatusSnapshot> =
         walletSyncOrchestrator.observeSyncStatus()
+
+    private suspend fun reconcileIncomingPlaceholders(walletId: Long) = withContext(ioDispatcher) {
+        val placeholders = incomingTxCoordinator.placeholders.value[walletId].orEmpty()
+        if (placeholders.isEmpty()) return@withContext
+        val canonicalTxids = walletDao.getTransactionsSnapshot(walletId)
+            .map { it.txid }
+            .toSet()
+        incomingTxCoordinator.reconcileWithCanonicalTxids(
+            walletId = walletId,
+            canonicalTxids = canonicalTxids
+        )
+    }
 
     private suspend fun cachedWalletFor(entity: WalletEntity): CachedWallet =
         walletCacheMutex.withLock {

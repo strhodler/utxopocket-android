@@ -475,16 +475,6 @@ class WalletDetailViewModel @Inject constructor(
             val visibleTransactionsCount = sortedTransactions.count { transactionLabelFilter.matches(it) }
             val filteredUtxos = detail.utxos.filter { utxoLabelFilter.matches(it) }
             val visibleUtxosCount = filteredUtxos.size
-            val filteredPlaceholders = incomingPlaceholders.filterNot { placeholder ->
-                detail.transactions.any { it.id == placeholder.txid }
-            }
-            if (filteredPlaceholders.size != incomingPlaceholders.size) {
-                incomingPlaceholders
-                    .filter { placeholder -> detail.transactions.any { it.id == placeholder.txid } }
-                    .forEach { resolved ->
-                    incomingTxCoordinator.markResolved(walletId, resolved.txid)
-                }
-            }
             val histogram = utxoVisualizationCalculator.buildSnapshot(
                 utxos = filteredUtxos,
                 transactions = sortedTransactions,
@@ -564,7 +554,7 @@ class WalletDetailViewModel @Inject constructor(
                 utxoFilterCounts = utxoFilterCounts,
                 transactionLabelFilter = transactionLabelFilter,
                 transactionFilterCounts = transactionFilterCounts,
-                incomingPlaceholders = filteredPlaceholders,
+                incomingPlaceholders = incomingPlaceholders,
                 syncGap = syncGap ?: summary.fullScanStopGap,
                 utxoAgeHistogram = histogram,
                 utxoHistogramMode = utxoHistogramMode,

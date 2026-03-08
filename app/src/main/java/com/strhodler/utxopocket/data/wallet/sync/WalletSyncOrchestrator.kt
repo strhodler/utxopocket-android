@@ -21,7 +21,9 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
@@ -62,6 +64,10 @@ internal class WalletSyncOrchestrator(
         )
     )
     private val syncQueueMutex = Mutex()
+    private val _walletSyncSuccesses = MutableSharedFlow<WalletSyncSuccessEvent>(
+        extraBufferCapacity = 32,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
     private val pendingWalletQueues = mutableMapOf<BitcoinNetwork, ArrayDeque<Long>>()
     private val pendingWalletOperations = mutableMapOf<Long, SyncOperation>()
     private val activeWalletByNetwork = mutableMapOf<BitcoinNetwork, Long?>()
@@ -101,6 +107,9 @@ internal class WalletSyncOrchestrator(
     }
 
     fun observeSyncStatus(): Flow<SyncStatusSnapshot> = syncStatus.asStateFlow()
+
+    fun observeWalletSyncSuccesses(): SharedFlow<WalletSyncSuccessEvent> =
+        _walletSyncSuccesses.asSharedFlow()
 
     suspend fun refresh(network: BitcoinNetwork) {
         debugLog { "refresh(network=$network)" }
@@ -436,6 +445,14 @@ internal class WalletSyncOrchestrator(
                 }
 
                 val completed = syncResult.getOrDefault(false)
+                if (completed) {
+                    _walletSyncSuccesses.tryEmit(
+                        WalletSyncSuccessEvent(
+                            walletId = activeId,
+                            network = network
+                        )
+                    )
+                }
                 var hasPending = false
                 var activeStillPending = false
                 syncQueueMutex.withLock {
@@ -785,5 +802,10 @@ internal class WalletSyncOrchestrator(
     internal data class ReenqueueChunk(
         val operation: SyncOperation,
         val walletIds: List<Long>
+    )
+
+    internal data class WalletSyncSuccessEvent(
+        val walletId: Long,
+        val network: BitcoinNetwork
     )
 }

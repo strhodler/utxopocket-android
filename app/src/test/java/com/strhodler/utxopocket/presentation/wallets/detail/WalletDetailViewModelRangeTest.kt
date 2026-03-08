@@ -111,6 +111,19 @@ class WalletDetailViewModelRangeTest {
         assertEquals(BalanceRange.LastWeek, viewModel.uiState.value.selectedRange)
     }
 
+    @Test
+    fun incomingPlaceholdersAreNotResolvedInUiLayer() = runTest(dispatcher) {
+        val harness = TestHarness()
+        val viewModel = harness.createViewModel()
+
+        harness.seedIncomingPlaceholder(txid = "tx1")
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.incomingPlaceholders.size)
+        assertEquals("tx1", viewModel.uiState.value.incomingPlaceholders.first().txid)
+        assertEquals(1, harness.coordinatorPlaceholderCount())
+    }
+
     private class TestHarness {
         val preferences = RecordingAppPreferencesRepository()
         private val walletRepository = StaticWalletRepository()
@@ -143,6 +156,21 @@ class WalletDetailViewModelRangeTest {
                 walletSyncPreferencesRepository = walletSyncPreferencesRepository
             )
         }
+
+        suspend fun seedIncomingPlaceholder(txid: String) {
+            incomingTxCoordinator.onDetection(
+                com.strhodler.utxopocket.domain.model.IncomingTxDetection(
+                    walletId = StaticWalletRepository.WALLET_ID,
+                    address = "tb1qseeded",
+                    derivationIndex = 0,
+                    txid = txid,
+                    amountSats = 1_000
+                )
+            )
+        }
+
+        fun coordinatorPlaceholderCount(): Int =
+            incomingTxCoordinator.placeholders.value[StaticWalletRepository.WALLET_ID].orEmpty().size
     }
 
     internal class InMemoryIncomingTxPlaceholderRepository : IncomingTxPlaceholderRepository {
