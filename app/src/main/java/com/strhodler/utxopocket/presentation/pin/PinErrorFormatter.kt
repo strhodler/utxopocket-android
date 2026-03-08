@@ -30,6 +30,14 @@ fun formatPinCountdownMessage(
     remainingMillis: Long
 ): String = resources.getString(type.stringRes, formatDuration(remainingMillis))
 
+fun resourcesPinPromptFormatter(resources: Resources): PinPromptFormatter = PinPromptFormatter(
+    incorrectMessage = resources.getString(R.string.pin_error_incorrect),
+    staticErrorFor = { result -> formatPinStaticError(resources, result) },
+    countdownMessageFor = { type, remainingMillis ->
+        formatPinCountdownMessage(resources, type, remainingMillis)
+    }
+)
+
 private fun formatDuration(durationMillis: Long): String {
     val roundedSeconds = max(1L, (durationMillis + 999) / 1000)
     return DateUtils.formatElapsedTime(roundedSeconds)

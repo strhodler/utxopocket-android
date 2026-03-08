@@ -93,4 +93,40 @@ class MainActivityStatusProjectionTest {
         assertEquals(TopBarConnectionIcon.NetworkCheck, indicator.icon)
         assertEquals(TopBarConnectionBadge.Disconnected, indicator.badge)
     }
+
+    @Test
+    fun metadataProjectionHidesNodeDetailsWhenSnapshotDoesNotMatchNetwork() {
+        val projection = projectStatusBarConnection(
+            connectionSnapshot = ConnectionSnapshot(
+                state = ConnectionState.CONNECTED,
+                nodeStatus = NodeStatusSnapshot(
+                    status = NodeStatus.Synced,
+                    network = BitcoinNetwork.TESTNET,
+                    endpoint = "ssl://real.node:50002",
+                    blockHeight = 123L,
+                    feeRateSatPerVb = 1.5,
+                    lastSyncCompletedAt = 10L
+                )
+            ),
+            selectedNetwork = BitcoinNetwork.TESTNET,
+            duressActive = true
+        )
+
+        val metadata = projectNodeSnapshotMetadata(
+            nodeSnapshot = NodeStatusSnapshot(
+                status = NodeStatus.Synced,
+                network = BitcoinNetwork.TESTNET,
+                endpoint = "ssl://real.node:50002",
+                blockHeight = 123L,
+                feeRateSatPerVb = 1.5,
+                lastSyncCompletedAt = 10L
+            ),
+            snapshotMatchesNetwork = projection.snapshotMatchesNetwork
+        )
+
+        assertEquals(null, metadata.endpoint)
+        assertEquals(null, metadata.blockHeight)
+        assertEquals(null, metadata.feeRateSatPerVb)
+        assertEquals(null, metadata.lastSync)
+    }
 }

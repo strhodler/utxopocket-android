@@ -90,10 +90,12 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.presentation.wallets.sync.resolveSyncGap
 import kotlin.math.roundToInt
-import com.strhodler.utxopocket.presentation.pin.PinLockoutMessageType
+import com.strhodler.utxopocket.presentation.pin.DuressPromptBehavior
 import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
-import com.strhodler.utxopocket.presentation.pin.formatPinCountdownMessage
-import com.strhodler.utxopocket.presentation.pin.formatPinStaticError
+import com.strhodler.utxopocket.presentation.pin.PinPromptState
+import com.strhodler.utxopocket.presentation.pin.advancePinPromptStateCountdown
+import com.strhodler.utxopocket.presentation.pin.mapPinVerificationResultToPromptState
+import com.strhodler.utxopocket.presentation.pin.resourcesPinPromptFormatter
 import kotlinx.coroutines.delay
 
 private const val WALLET_NAME_MAX_LENGTH = 64
@@ -206,9 +208,7 @@ fun WalletDetailRoute(
         allTabs.associateWith { LazyListState() }
     }
     var showDescriptorPinPrompt by remember { mutableStateOf(false) }
-    var descriptorPinError by remember { mutableStateOf<String?>(null) }
-    var descriptorPinLockoutExpiry by remember { mutableStateOf<Long?>(null) }
-    var descriptorPinLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
+    var descriptorPinPromptState by remember { mutableStateOf(PinPromptState.idle()) }
     var descriptorPinDuressTransitionInProgress by remember { mutableStateOf(false) }
     LaunchedEffect(resolvedName) {
         resolvedName?.let { topBarTitle = it }
@@ -225,23 +225,21 @@ fun WalletDetailRoute(
         }
     }
 
-    LaunchedEffect(descriptorPinLockoutExpiry, descriptorPinLockoutType) {
-        val expiry = descriptorPinLockoutExpiry
-        val type = descriptorPinLockoutType
-        if (expiry == null || type == null) return@LaunchedEffect
+    val pinPromptFormatter = remember(resourcesState.value) {
+        resourcesPinPromptFormatter(resourcesState.value)
+    }
+    LaunchedEffect(descriptorPinPromptState.lockout) {
+        descriptorPinPromptState.lockout ?: return@LaunchedEffect
         while (true) {
-            val remaining = expiry - System.currentTimeMillis()
-            if (remaining <= 0L) {
-                descriptorPinError = null
-                descriptorPinLockoutExpiry = null
-                descriptorPinLockoutType = null
+            val updated = advancePinPromptStateCountdown(
+                state = descriptorPinPromptState,
+                nowMillis = System.currentTimeMillis(),
+                countdownMessageFor = pinPromptFormatter.countdownMessageFor
+            )
+            descriptorPinPromptState = updated
+            if (updated.lockout == null) {
                 break
             }
-            descriptorPinError = formatPinCountdownMessage(
-                resourcesState.value,
-                type,
-                remaining
-            )
             delay(1_000)
         }
     }
@@ -249,9 +247,7 @@ fun WalletDetailRoute(
     LaunchedEffect(state.pinLockEnabled) {
         if (!state.pinLockEnabled) {
             showDescriptorPinPrompt = false
-            descriptorPinError = null
-            descriptorPinLockoutExpiry = null
-            descriptorPinLockoutType = null
+            descriptorPinPromptState = PinPromptState.idle()
             descriptorPinDuressTransitionInProgress = false
         }
     }
@@ -380,9 +376,7 @@ fun WalletDetailRoute(
                         onClick = {
                             menuExpanded = false
                             if (state.pinLockEnabled) {
-                                descriptorPinError = null
-                                descriptorPinLockoutExpiry = null
-                                descriptorPinLockoutType = null
+                                descriptorPinPromptState = PinPromptState.idle()
                                 descriptorPinDuressTransitionInProgress = false
                                 showDescriptorPinPrompt = true
                             } else {
@@ -608,65 +602,42 @@ fun WalletDetailRoute(
         PinVerificationScreen(
             title = stringResource(id = R.string.wallet_detail_descriptor_pin_title),
             description = stringResource(id = R.string.wallet_detail_descriptor_pin_description),
-            errorMessage = descriptorPinError,
+            errorMessage = descriptorPinPromptState.errorMessage,
             allowDismiss = !descriptorPinDuressTransitionInProgress,
             onDismiss = {
                 showDescriptorPinPrompt = false
-                descriptorPinError = null
-                descriptorPinLockoutExpiry = null
-                descriptorPinLockoutType = null
+                descriptorPinPromptState = PinPromptState.idle()
                 descriptorPinDuressTransitionInProgress = false
             },
             onPinVerified = { pin ->
-                if (descriptorPinDuressTransitionInProgress) return@PinVerificationScreen
-                val resources = resourcesState.value
+                if (descriptorPinDuressTransitionInProgress || descriptorPinPromptState.isVerifying) {
+                    return@PinVerificationScreen
+                }
+                descriptorPinPromptState = PinPromptState.verifying()
                 viewModel.verifyPin(pin) { result ->
                     when (result) {
                         PinVerificationResult.Success -> {
                             descriptorPinDuressTransitionInProgress = false
-                            descriptorPinError = null
-                            descriptorPinLockoutExpiry = null
-                            descriptorPinLockoutType = null
+                            descriptorPinPromptState = PinPromptState.idle()
                             showDescriptorPinPrompt = false
                             onOpenDescriptors(walletId, displayTitle)
                         }
 
                         is PinVerificationResult.DuressTriggered -> {
                             descriptorPinDuressTransitionInProgress = true
-                            descriptorPinLockoutExpiry = null
-                            descriptorPinLockoutType = null
-                            descriptorPinError = null
+                            descriptorPinPromptState = PinPromptState.idle()
                         }
 
                         PinVerificationResult.InvalidFormat,
-                        PinVerificationResult.NotConfigured -> {
-                            descriptorPinDuressTransitionInProgress = false
-                            descriptorPinLockoutExpiry = null
-                            descriptorPinLockoutType = null
-                            descriptorPinError = formatPinStaticError(resources, result)
-                        }
-
-                        is PinVerificationResult.Incorrect -> {
-                            descriptorPinDuressTransitionInProgress = false
-                            val expiresAt = System.currentTimeMillis() + result.lockDurationMillis
-                            descriptorPinLockoutType = PinLockoutMessageType.Incorrect
-                            descriptorPinLockoutExpiry = expiresAt
-                            descriptorPinError = formatPinCountdownMessage(
-                                resources,
-                                PinLockoutMessageType.Incorrect,
-                                result.lockDurationMillis
-                            )
-                        }
-
+                        PinVerificationResult.NotConfigured,
+                        is PinVerificationResult.Incorrect,
                         is PinVerificationResult.Locked -> {
                             descriptorPinDuressTransitionInProgress = false
-                            val expiresAt = System.currentTimeMillis() + result.remainingMillis
-                            descriptorPinLockoutType = PinLockoutMessageType.Locked
-                            descriptorPinLockoutExpiry = expiresAt
-                            descriptorPinError = formatPinCountdownMessage(
-                                resources,
-                                PinLockoutMessageType.Locked,
-                                result.remainingMillis
+                            descriptorPinPromptState = mapPinVerificationResultToPromptState(
+                                result = result,
+                                nowMillis = System.currentTimeMillis(),
+                                formatter = pinPromptFormatter,
+                                duressBehavior = DuressPromptBehavior.ClearError
                             )
                         }
                     }

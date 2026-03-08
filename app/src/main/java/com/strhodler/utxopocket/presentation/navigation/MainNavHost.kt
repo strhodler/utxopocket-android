@@ -1,6 +1,7 @@
 package com.strhodler.utxopocket.presentation.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -77,6 +78,22 @@ fun MainNavHost(
     duressState: DuressSessionState
 ) {
     val reducedMotion = rememberReducedMotionEnabled()
+    val globalDuressActive = duressState is DuressSessionState.FakeActive
+    @Composable
+    fun redirectSensitiveRouteIfDuress(): Boolean {
+        if (!globalDuressActive) return false
+        LaunchedEffect(globalDuressActive) {
+            navController.navigate(WalletsNavigation.ListRoute) {
+                popUpTo(WalletsNavigation.ListRoute) {
+                    inclusive = false
+                    saveState = false
+                }
+                launchSingleTop = true
+                restoreState = false
+            }
+        }
+        return true
+    }
     NavHost(
         navController = navController,
         startDestination = MainDestination.Wallets.route,
@@ -105,7 +122,6 @@ fun MainNavHost(
                         null as String?
                     )
                 }
-                val duressActive = duressState is DuressSessionState.FakeActive
                 val createdMessageFlow = remember(backStackEntry) {
                     backStackEntry.savedStateHandle.getStateFlow(
                         WalletsNavigation.WalletCreatedMessageKey,
@@ -118,7 +134,7 @@ fun MainNavHost(
                 WalletsRoute(
                     duressState = duressState,
                     onAddWallet = {
-                        if (!duressActive) {
+                        if (!globalDuressActive) {
                             navController.navigate(WalletsNavigation.AddRoute)
                         }
                     },
@@ -141,7 +157,7 @@ fun MainNavHost(
                         }
                     },
                     onSelectNode = {
-                        if (duressActive) return@WalletsRoute
+                        if (globalDuressActive) return@WalletsRoute
                         navController.navigate(
                             WalletsNavigation.nodeStatusRoute(
                                 WalletsNavigation.NodeStatusTabDestination.Management
@@ -151,7 +167,7 @@ fun MainNavHost(
                         }
                     },
                     onConnectTor = {
-                        if (duressActive) return@WalletsRoute
+                        if (globalDuressActive) return@WalletsRoute
                         navController.navigate(
                             WalletsNavigation.nodeStatusRoute(
                                 WalletsNavigation.NodeStatusTabDestination.Tor
@@ -161,7 +177,7 @@ fun MainNavHost(
                         }
                     },
                     onWalletSelected = { walletId, walletName ->
-                        if (duressActive) return@WalletsRoute
+                        if (globalDuressActive) return@WalletsRoute
                         navController.navigate(WalletsNavigation.detailRoute(walletId, walletName)) {
                             launchSingleTop = true
                         }
@@ -232,6 +248,7 @@ fun MainNavHost(
                     }
                 )
             ) { backStackEntry ->
+                if (redirectSensitiveRouteIfDuress()) return@composable
                 val walletIdArg = backStackEntry.arguments?.getLong(WalletsNavigation.WalletIdArg)
                     ?: backStackEntry.arguments?.getString(WalletsNavigation.WalletIdArg)?.toLongOrNull()
                     ?: error("Wallet id is required")
@@ -333,6 +350,7 @@ fun MainNavHost(
                     }
                 )
             ) {
+                if (redirectSensitiveRouteIfDuress()) return@composable
                 WalletDescriptorsRoute(
                     onBack = { navController.popBackStack() }
                 )
@@ -347,6 +365,7 @@ fun MainNavHost(
                     }
                 )
             ) {
+                if (redirectSensitiveRouteIfDuress()) return@composable
                 WalletLabelExportRoute(onBack = { navController.popBackStack() })
             }
             composable(
@@ -359,6 +378,7 @@ fun MainNavHost(
                     }
                 )
             ) {
+                if (redirectSensitiveRouteIfDuress()) return@composable
                 WalletLabelImportRoute(onBack = { navController.popBackStack() })
             }
             composable(
@@ -371,6 +391,7 @@ fun MainNavHost(
                     }
                 )
             ) {
+                if (redirectSensitiveRouteIfDuress()) return@composable
                 WalletSyncSettingsRoute(
                     viewModel = hiltViewModel(),
                     onBack = { navController.popBackStack() }
@@ -383,6 +404,7 @@ fun MainNavHost(
                     navArgument(WalletsNavigation.TransactionIdArg) { type = NavType.StringType }
                 )
             ) {
+                if (redirectSensitiveRouteIfDuress()) return@composable
                 TransactionDetailRoute(
                     onBack = { navController.popBackStack() },
                     onOpenWikiTopic = { topicId ->
@@ -422,6 +444,7 @@ fun MainNavHost(
                     navArgument(WalletsNavigation.TransactionIdArg) { type = NavType.StringType }
                 )
             ) {
+                if (redirectSensitiveRouteIfDuress()) return@composable
                 TransactionVisualizerRoute(
                     onBack = { navController.popBackStack() }
                 )
@@ -434,6 +457,7 @@ fun MainNavHost(
                     navArgument(WalletsNavigation.UtxoVoutArg) { type = NavType.IntType }
                 )
             ) {
+                if (redirectSensitiveRouteIfDuress()) return@composable
                 UtxoDetailRoute(
                     onBack = { navController.popBackStack() },
                     onOpenWikiTopic = { topicId ->
@@ -454,6 +478,7 @@ fun MainNavHost(
                     navArgument(WalletsNavigation.WalletNameArg) { type = NavType.StringType; defaultValue = "" }
                 )
             ) {
+                if (redirectSensitiveRouteIfDuress()) return@composable
                 val walletId = it.arguments?.getLong(WalletsNavigation.WalletIdArg)
                     ?: it.arguments?.getString(WalletsNavigation.WalletIdArg)?.toLongOrNull()
                     ?: return@composable
@@ -471,6 +496,7 @@ fun MainNavHost(
                     navArgument(WalletsNavigation.WalletNameArg) { type = NavType.StringType; defaultValue = "" }
                 )
             ) {
+                if (redirectSensitiveRouteIfDuress()) return@composable
                 val walletId = it.arguments?.getLong(WalletsNavigation.WalletIdArg)
                     ?: it.arguments?.getString(WalletsNavigation.WalletIdArg)?.toLongOrNull()
                     ?: return@composable
@@ -491,6 +517,7 @@ fun MainNavHost(
                     navArgument(WalletsNavigation.UtxoCollectionIdArg) { type = NavType.LongType }
                 )
             ) { backStackEntry ->
+                if (redirectSensitiveRouteIfDuress()) return@composable
                 val walletId = backStackEntry.arguments?.getLong(WalletsNavigation.WalletIdArg)
                     ?: backStackEntry.arguments?.getString(WalletsNavigation.WalletIdArg)?.toLongOrNull()
                     ?: return@composable
@@ -513,6 +540,7 @@ fun MainNavHost(
                     }
                 )
             ) {
+                if (redirectSensitiveRouteIfDuress()) return@composable
                 AddressDetailRoute(
                     onBack = { navController.popBackStack() }
                 )
@@ -523,6 +551,7 @@ fun MainNavHost(
                     navArgument(WalletsNavigation.WalletIdArg) { type = NavType.LongType }
                 )
             ) { backStackEntry ->
+                if (redirectSensitiveRouteIfDuress()) return@composable
                 val walletIdArg = backStackEntry.arguments?.getLong(WalletsNavigation.WalletIdArg)
                     ?: backStackEntry.arguments?.getString(WalletsNavigation.WalletIdArg)?.toLongOrNull()
                     ?: error("Wallet id is required")

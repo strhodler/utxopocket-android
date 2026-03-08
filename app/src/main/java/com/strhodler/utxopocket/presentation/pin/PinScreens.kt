@@ -33,6 +33,7 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.components.DigitKey
 import com.strhodler.utxopocket.presentation.components.VirtualDigitKeyboard
 import com.strhodler.utxopocket.presentation.components.defaultDigitKeyboardLayout
+import com.strhodler.utxopocket.presentation.components.keyboardLayoutForPromptSession
 import com.strhodler.utxopocket.presentation.components.shuffledDigitKeyboardLayout
 import com.strhodler.utxopocket.presentation.navigation.HideMainBottomBar
 import com.strhodler.utxopocket.presentation.navigation.SetHiddenTopBar
@@ -287,11 +288,10 @@ private fun PinScreenScaffold(
     ) {
         val screenHeight = LocalConfiguration.current.screenHeightDp.dp
         val keyboardLayout = remember(shuffleDigits) {
-            if (shuffleDigits) {
-                shuffledDigitKeyboardLayout()
-            } else {
-                defaultDigitKeyboardLayout()
-            }
+            keyboardLayoutForPromptSession(
+                existingLayout = null,
+                shuffleDigits = shuffleDigits
+            )
         }
 
         Column(

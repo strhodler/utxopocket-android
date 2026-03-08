@@ -97,10 +97,12 @@ import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
 import com.strhodler.utxopocket.presentation.IncomingPlaceholderGroup
-import com.strhodler.utxopocket.presentation.pin.PinLockoutMessageType
+import com.strhodler.utxopocket.presentation.pin.DuressPromptBehavior
 import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
-import com.strhodler.utxopocket.presentation.pin.formatPinCountdownMessage
-import com.strhodler.utxopocket.presentation.pin.formatPinStaticError
+import com.strhodler.utxopocket.presentation.pin.PinPromptState
+import com.strhodler.utxopocket.presentation.pin.advancePinPromptStateCountdown
+import com.strhodler.utxopocket.presentation.pin.mapPinVerificationResultToPromptState
+import com.strhodler.utxopocket.presentation.pin.resourcesPinPromptFormatter
 import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.components.TopBarNodeStatusIcon
 import com.strhodler.utxopocket.presentation.components.TopBarStatusActionIcon
@@ -192,9 +194,7 @@ class MainActivity : AppCompatActivity() {
                         val navController = rememberNavController()
                         val duressActive = uiState.duressState is DuressSessionState.FakeActive
                         val pinOverlayVisible = uiState.appLocked || uiState.duressUnlockInProgress
-                        var pinErrorMessage by remember { mutableStateOf<String?>(null) }
-                        var pinLockoutExpiry by remember { mutableStateOf<Long?>(null) }
-                        var pinLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
+                        var pinPromptState by remember { mutableStateOf(PinPromptState.idle()) }
                         val navBackStackEntry by navController.currentBackStackEntryAsState()
                         val bottomBarVisibleRoutes = remember {
                             setOf(
@@ -278,30 +278,26 @@ class MainActivity : AppCompatActivity() {
                             }
                         }
 
-                        if (!pinOverlayVisible && (pinErrorMessage != null || pinLockoutExpiry != null)) {
-                            pinErrorMessage = null
-                            pinLockoutExpiry = null
-                            pinLockoutType = null
+                        if (!pinOverlayVisible && pinPromptState != PinPromptState.idle()) {
+                            pinPromptState = pinPromptState.clear()
                         }
                         val resourcesState = rememberUpdatedState(LocalContext.current.resources)
+                        val pinPromptFormatter = remember(resourcesState.value) {
+                            resourcesPinPromptFormatter(resourcesState.value)
+                        }
 
-                        LaunchedEffect(pinLockoutExpiry, pinLockoutType) {
-                            val expiry = pinLockoutExpiry
-                            val type = pinLockoutType
-                            if (expiry == null || type == null) return@LaunchedEffect
+                        LaunchedEffect(pinPromptState.lockout) {
+                            pinPromptState.lockout ?: return@LaunchedEffect
                             while (true) {
-                                val remaining = expiry - System.currentTimeMillis()
-                                if (remaining <= 0L) {
-                                    pinErrorMessage = null
-                                    pinLockoutExpiry = null
-                                    pinLockoutType = null
+                                val updated = advancePinPromptStateCountdown(
+                                    state = pinPromptState,
+                                    nowMillis = System.currentTimeMillis(),
+                                    countdownMessageFor = pinPromptFormatter.countdownMessageFor
+                                )
+                                pinPromptState = updated
+                                if (updated.lockout == null) {
                                     break
                                 }
-                                pinErrorMessage = formatPinCountdownMessage(
-                                    resourcesState.value,
-                                    type,
-                                    remaining
-                                )
                                 delay(1_000)
                             }
                         }
@@ -453,58 +449,21 @@ class MainActivity : AppCompatActivity() {
                                             PinVerificationScreen(
                                                 title = stringResource(id = R.string.pin_unlock_title),
                                                 description = stringResource(id = R.string.pin_unlock_description),
-                                                errorMessage = pinErrorMessage,
+                                                errorMessage = pinPromptState.errorMessage,
                                                 allowDismiss = false,
                                                 onDismiss = {},
                                                 onPinVerified = { pin ->
-                                                    val resources = resourcesState.value
+                                                    if (pinPromptState.isVerifying) {
+                                                        return@PinVerificationScreen
+                                                    }
+                                                    pinPromptState = PinPromptState.verifying()
                                                     viewModel.unlockWithPin(pin) { result ->
-                                                        when (result) {
-                                                            PinVerificationResult.Success -> {
-                                                                pinErrorMessage = null
-                                                                pinLockoutExpiry = null
-                                                                pinLockoutType = null
-                                                            }
-
-                                                            is PinVerificationResult.DuressTriggered -> {
-                                                                pinLockoutExpiry = null
-                                                                pinLockoutType = null
-                                                                pinErrorMessage = resources.getString(
-                                                                    R.string.pin_error_incorrect
-                                                                )
-                                                            }
-
-                                                            PinVerificationResult.InvalidFormat,
-                                                            PinVerificationResult.NotConfigured -> {
-                                                                pinLockoutExpiry = null
-                                                                pinLockoutType = null
-                                                                pinErrorMessage = formatPinStaticError(resources, result)
-                                                            }
-
-                                                            is PinVerificationResult.Incorrect -> {
-                                                                val expiresAt =
-                                                                    System.currentTimeMillis() + result.lockDurationMillis
-                                                                pinLockoutType = PinLockoutMessageType.Incorrect
-                                                                pinLockoutExpiry = expiresAt
-                                                                pinErrorMessage = formatPinCountdownMessage(
-                                                                    resources,
-                                                                    PinLockoutMessageType.Incorrect,
-                                                                    result.lockDurationMillis
-                                                                )
-                                                            }
-
-                                                            is PinVerificationResult.Locked -> {
-                                                                val expiresAt =
-                                                                    System.currentTimeMillis() + result.remainingMillis
-                                                                pinLockoutType = PinLockoutMessageType.Locked
-                                                                pinLockoutExpiry = expiresAt
-                                                                pinErrorMessage = formatPinCountdownMessage(
-                                                                    resources,
-                                                                    PinLockoutMessageType.Locked,
-                                                                    result.remainingMillis
-                                                                )
-                                                            }
-                                                        }
+                                                        pinPromptState = mapPinVerificationResultToPromptState(
+                                                            result = result,
+                                                            nowMillis = System.currentTimeMillis(),
+                                                            formatter = pinPromptFormatter,
+                                                            duressBehavior = DuressPromptBehavior.ShowIncorrectMessage
+                                                        )
                                                     }
                                                 },
                                                 hapticsEnabled = uiState.hapticsEnabled,

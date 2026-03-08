@@ -114,6 +114,25 @@ internal fun projectStatusBarConnection(
     duressActive = duressActive
 )
 
+internal data class NodeSnapshotMetadata(
+    val blockHeight: Long?,
+    val feeRateSatPerVb: Double?,
+    val endpoint: String?,
+    val serverInfo: ElectrumServerInfo?,
+    val lastSync: Long?
+)
+
+internal fun projectNodeSnapshotMetadata(
+    nodeSnapshot: com.strhodler.utxopocket.domain.model.NodeStatusSnapshot,
+    snapshotMatchesNetwork: Boolean
+): NodeSnapshotMetadata = NodeSnapshotMetadata(
+    blockHeight = nodeSnapshot.blockHeight.takeIf { snapshotMatchesNetwork },
+    feeRateSatPerVb = nodeSnapshot.feeRateSatPerVb.takeIf { snapshotMatchesNetwork },
+    endpoint = nodeSnapshot.endpoint.takeIf { snapshotMatchesNetwork },
+    serverInfo = nodeSnapshot.serverInfo.takeIf { snapshotMatchesNetwork },
+    lastSync = nodeSnapshot.lastSyncCompletedAt.takeIf { snapshotMatchesNetwork }
+)
+
 internal suspend fun executePinUnlockFlow(
     pinEnabled: Boolean,
     duressAlreadyActive: Boolean,
@@ -390,6 +409,10 @@ class MainActivityViewModel @Inject constructor(
         )
         val nodeSnapshot = connectionSnapshot.nodeStatus
         val snapshotMatchesNetwork = statusProjection.snapshotMatchesNetwork
+        val nodeMetadata = projectNodeSnapshotMetadata(
+            nodeSnapshot = nodeSnapshot,
+            snapshotMatchesNetwork = snapshotMatchesNetwork
+        )
         val effectiveNodeStatus = statusProjection.nodeStatus
         val effectiveTorStatus = statusProjection.torStatus
         val isNetworkOnline = if (duressActive) false else connectionSnapshot.isOnline
@@ -416,11 +439,11 @@ class MainActivityViewModel @Inject constructor(
                 torLog = effectiveTorLog,
                 nodeStatus = effectiveNodeStatus,
                 isSyncing = isSyncing,
-                nodeBlockHeight = nodeSnapshot.blockHeight.takeIf { snapshotMatchesNetwork },
-                nodeFeeRateSatPerVb = nodeSnapshot.feeRateSatPerVb.takeIf { snapshotMatchesNetwork },
-                nodeEndpoint = nodeSnapshot.endpoint.takeIf { snapshotMatchesNetwork },
-                nodeServerInfo = nodeSnapshot.serverInfo.takeIf { snapshotMatchesNetwork },
-                nodeLastSync = nodeSnapshot.lastSyncCompletedAt.takeIf { snapshotMatchesNetwork },
+                nodeBlockHeight = nodeMetadata.blockHeight,
+                nodeFeeRateSatPerVb = nodeMetadata.feeRateSatPerVb,
+                nodeEndpoint = nodeMetadata.endpoint,
+                nodeServerInfo = nodeMetadata.serverInfo,
+                nodeLastSync = nodeMetadata.lastSync,
                 connectionIndicatorModel = connectionIndicatorModel,
                 network = network,
                 torRequired = torRequired,
