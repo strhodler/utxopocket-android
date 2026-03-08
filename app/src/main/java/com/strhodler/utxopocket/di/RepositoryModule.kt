@@ -16,7 +16,13 @@ import com.strhodler.utxopocket.data.connection.ConnectionOrchestratorV2
 import com.strhodler.utxopocket.data.utxo.DefaultUtxoCanvasRepository
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
+import com.strhodler.utxopocket.domain.repository.WalletAddressRepository
+import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
+import com.strhodler.utxopocket.domain.repository.WalletMaintenanceRepository
+import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.domain.repository.IncomingTxPreferencesRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
@@ -44,6 +50,42 @@ abstract class RepositoryModule {
     abstract fun bindWalletRepository(
         impl: DefaultWalletRepository
     ): WalletRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWalletReadRepository(
+        impl: DefaultWalletRepository
+    ): WalletReadRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWalletSyncRepository(
+        impl: DefaultWalletRepository
+    ): WalletSyncRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWalletProvisioningRepository(
+        impl: DefaultWalletRepository
+    ): WalletProvisioningRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWalletAddressRepository(
+        impl: DefaultWalletRepository
+    ): WalletAddressRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWalletLabelRepository(
+        impl: DefaultWalletRepository
+    ): WalletLabelRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWalletMaintenanceRepository(
+        impl: DefaultWalletRepository
+    ): WalletMaintenanceRepository
 
     @Binds
     @Singleton
