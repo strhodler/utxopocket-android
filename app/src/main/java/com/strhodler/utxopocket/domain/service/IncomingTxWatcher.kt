@@ -28,6 +28,7 @@ import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -179,6 +180,7 @@ class IncomingTxWatcher @Inject constructor(
             val endpoint = try {
                 endpointProvider.endpointFor(network)
             } catch (t: Throwable) {
+                if (t is CancellationException) throw t
                 SecureLog.w(TAG) { "IncomingTx endpoint resolve failed for $walletAlias: ${t.message}" }
                 delay(watcherPolicy.nextDelayMillis(currentIntervalSeconds, success = false))
                 continue
@@ -187,6 +189,7 @@ class IncomingTxWatcher @Inject constructor(
             val capabilityKey = endpoint.url
             val cachedCapability = capabilityCache[capabilityKey] ?: SubscriptionCapability.UNKNOWN
             val addresses = runCatching { loadWatchedAddresses(wallet.id, watcherWindow) }.getOrElse { error ->
+                if (error is CancellationException) throw error
                 SecureLog.w(TAG) { "IncomingTx address load failed for $walletAlias: ${error.message}" }
                 emptyList()
             }
@@ -200,6 +203,7 @@ class IncomingTxWatcher @Inject constructor(
             val scripthashes = addressByScripthash.keys.toList()
             val proxy = runCatching { torManager.awaitProxy() }
                 .onFailure { error ->
+                    if (error is CancellationException) throw error
                     SecureLog.w(TAG) { "IncomingTx skipped for $walletAlias: ${error.message}" }
                 }
                 .getOrNull()
@@ -223,6 +227,7 @@ class IncomingTxWatcher @Inject constructor(
                         runCatching {
                             pollWalletOnce(wallet, network, lastSeen)
                         }.onFailure { error ->
+                            if (error is CancellationException) throw error
                             SecureLog.w(TAG) { "IncomingTx poll fallback failed for $walletAlias: ${error.message}" }
                         }
                         currentIntervalSeconds = watcherPolicy.baseIntervalSeconds
@@ -232,6 +237,7 @@ class IncomingTxWatcher @Inject constructor(
                     runCatching {
                         pollWalletOnce(wallet, network, lastSeen)
                     }.onFailure { error ->
+                        if (error is CancellationException) throw error
                         SecureLog.w(TAG) { "IncomingTx initial poll failed for $walletAlias: ${error.message}" }
                     }
                     while (isActive) {
@@ -270,6 +276,8 @@ class IncomingTxWatcher @Inject constructor(
                         currentIntervalSeconds = watcherPolicy.baseIntervalSeconds
                     }
                 }
+            } catch (cancel: CancellationException) {
+                throw cancel
             } catch (t: Throwable) {
                 SecureLog.w(TAG) { "IncomingTx subscription loop error for $walletAlias: ${t.message}" }
                 reconnect = true
@@ -300,6 +308,7 @@ class IncomingTxWatcher @Inject constructor(
         }
         val proxy = runCatching { torManager.awaitProxy() }
             .onFailure { error ->
+                if (error is CancellationException) throw error
                 SecureLog.w(TAG) { "IncomingTx poll skipped for $walletAlias: ${error.message}" }
             }
             .getOrNull() ?: return
@@ -343,6 +352,7 @@ class IncomingTxWatcher @Inject constructor(
         val endpoint = endpointProvider.endpointFor(network)
         val proxy = runCatching { torManager.awaitProxy() }
             .onFailure { error ->
+                if (error is CancellationException) throw error
                 SecureLog.w(TAG) { "IncomingTx manual check skipped for $walletAlias: ${error.message}" }
             }
             .getOrNull() ?: return emptyList()
@@ -406,6 +416,7 @@ class IncomingTxWatcher @Inject constructor(
                 derivationIndex = detail.derivationIndex
             )
         }.onFailure { error ->
+            if (error is CancellationException) throw error
             SecureLog.w(TAG, error) { "IncomingTx markAddressAsUsed failed for $walletAlias at index ${detail.derivationIndex}" }
         }
         return detection

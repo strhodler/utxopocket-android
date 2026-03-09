@@ -302,6 +302,8 @@ class ReceiveViewModel @Inject constructor(
             } else {
                 ReceiveCheckResult.NoActivity
             }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             ReceiveCheckResult.Error
         } finally {

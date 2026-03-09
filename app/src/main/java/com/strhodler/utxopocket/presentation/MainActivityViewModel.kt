@@ -22,7 +22,6 @@ import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
 import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
-import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
 import com.strhodler.utxopocket.domain.service.DuressManager
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.domain.service.IncomingTxWatcher
@@ -176,7 +175,6 @@ class MainActivityViewModel @Inject constructor(
     private val walletReadRepository: WalletReadRepository,
     private val walletSyncRepository: WalletSyncRepository,
     private val nodeConfigurationRepository: NodeConfigurationRepository,
-    private val networkStatusMonitor: NetworkStatusMonitor,
     private val incomingTxWatcher: IncomingTxWatcher,
     private val incomingTxCoordinator: IncomingTxCoordinator,
     private val incomingTxPreferencesRepository: IncomingTxPreferencesRepository,

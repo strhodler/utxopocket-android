@@ -7,6 +7,7 @@ import com.strhodler.utxopocket.domain.model.AddressUsage
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import org.bitcoindevkit.KeychainKind
@@ -168,6 +169,8 @@ internal class WalletAddressManager(
                     )
                 }
             }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (error: Exception) {
             SecureLog.w(logTag, error) { "Failed to resolve address detail" }
             null

@@ -30,9 +30,11 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -219,6 +221,24 @@ class ReceiveViewModelTest {
         observer.cancel()
     }
 
+    @Test
+    fun checkAddressRethrowsCancellationException() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        repository.unusedAddresses = listOf(primaryAddress)
+        repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
+        incomingChecker.throwable = CancellationException("cancelled")
+
+        val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
+        advanceUntilIdle()
+
+        assertFailsWith<CancellationException> {
+            viewModel.checkAddress()
+        }
+        observer.cancel()
+    }
+
     private fun TestScope.observeUiState(viewModel: ReceiveViewModel): Job =
         backgroundScope.launch {
             viewModel.uiState.collect {}
@@ -354,10 +374,14 @@ private class FakeWalletRepository : WalletReadRepository, WalletAddressReposito
 
 private class FakeIncomingTxChecker : IncomingTxChecker {
     var detected = false
+    var throwable: Throwable? = null
     override suspend fun manualCheck(
         walletId: Long,
         addresses: List<WalletAddressDetail>
-    ): Boolean = detected
+    ): Boolean {
+        throwable?.let { throw it }
+        return detected
+    }
 }
 
 private class InMemoryIncomingTxPlaceholderRepository : IncomingTxPlaceholderRepository {

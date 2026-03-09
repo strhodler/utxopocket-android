@@ -7,6 +7,7 @@ import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.model.NetworkLogOperation
 import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
 import com.strhodler.utxopocket.domain.model.NetworkNodeSource
+import com.strhodler.utxopocket.di.IoDispatcher
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import com.strhodler.utxopocket.domain.service.TorManager
@@ -14,17 +15,18 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import android.os.SystemClock
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import org.bitcoindevkit.ElectrumClient
 
 @Singleton
 class DefaultNodeConnectionTester @Inject constructor(
     private val torManager: TorManager,
-    private val networkErrorLogRepository: NetworkErrorLogRepository
+    private val networkErrorLogRepository: NetworkErrorLogRepository,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : NodeConnectionTester {
 
-    override suspend fun test(node: CustomNode): NodeConnectionTestResult = withContext(Dispatchers.IO) {
+    override suspend fun test(node: CustomNode): NodeConnectionTestResult = withContext(ioDispatcher) {
         val normalized = node.normalizedCopy() ?: throw IllegalArgumentException("Invalid endpoint")
         val endpoint = normalized.endpoint
         val startedAt = SystemClock.elapsedRealtime()

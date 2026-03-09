@@ -55,10 +55,12 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -239,6 +241,11 @@ class NodeStatusViewModelTest {
         advanceUntilIdle()
 
         assertEquals("example123.onion:60001", nodeConnectionTester.lastNode?.name)
+    }
+
+    @Test
+    fun eventsAreExposedAsReadOnlyFlow() {
+        assertFalse(viewModel.events is MutableSharedFlow<*>)
     }
 
     private class TestAppPreferencesRepository : AppPreferencesRepository {

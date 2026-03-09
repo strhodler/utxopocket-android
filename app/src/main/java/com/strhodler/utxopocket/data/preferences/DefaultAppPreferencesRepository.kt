@@ -32,12 +32,13 @@ import com.strhodler.utxopocket.domain.model.DEFAULT_DURESS_DECOY_BALANCE_SATS
 import com.strhodler.utxopocket.domain.model.MAX_DURESS_DECOY_BALANCE_SATS
 import com.strhodler.utxopocket.domain.model.MIN_DURESS_DECOY_BALANCE_SATS
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.di.DefaultDispatcher
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -56,7 +57,8 @@ import kotlin.random.Random
 
 @Singleton
 class DefaultAppPreferencesRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
+    @param:DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher
 ) : AppPreferencesRepository, NodeConfigurationRepository {
 
     private val dataStore = context.userPreferencesDataStore
@@ -255,12 +257,12 @@ class DefaultAppPreferencesRepository @Inject constructor(
     }
 
     override suspend fun verifyPin(pin: String): PinVerificationResult =
-        withContext(Dispatchers.Default) {
+        withContext(defaultDispatcher) {
             verifyPinInternal(pin, allowDuress = true)
         }
 
     override suspend fun verifyPinIgnoringDuress(pin: String): PinVerificationResult =
-        withContext(Dispatchers.Default) {
+        withContext(defaultDispatcher) {
             verifyPinInternal(pin, allowDuress = false)
         }
 

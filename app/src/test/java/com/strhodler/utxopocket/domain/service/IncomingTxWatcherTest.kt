@@ -42,8 +42,10 @@ import com.strhodler.utxopocket.domain.repository.WalletAddressRepository
 import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
+import java.util.concurrent.CancellationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -260,6 +262,38 @@ class IncomingTxWatcherTest {
         assertEquals(IncomingTxLightStatus.CONFIRMED_LIGHT, states["tx-confirmed"]?.status)
         assertEquals(22L, states["tx-confirmed"]?.lastSeenHeight)
     }
+
+    @Test
+    fun manualCheckRethrowsCancellationFromTorAwaitProxy() = runTest {
+        val watcher = IncomingTxWatcher(
+            walletReadRepository = walletRepository,
+            walletSyncRepository = walletRepository,
+            walletAddressRepository = walletRepository,
+            endpointProvider = endpointProvider,
+            torManager = CancellingTorManager(),
+            preferencesRepository = incomingPrefs,
+            appPreferencesRepository = appPrefs,
+            coordinator = coordinator,
+            walletSyncPreferencesRepository = walletSyncPrefs,
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+            watcherPolicy = IncomingWatcherPolicy()
+        )
+
+        val detail = WalletAddressDetail(
+            value = "bc1qcancel",
+            type = WalletAddressType.EXTERNAL,
+            derivationPath = "m/84h/1h/0h/0/0",
+            derivationIndex = 0,
+            scriptPubKey = "0011",
+            descriptor = "wpkh(..0..)",
+            usage = AddressUsage.NEVER,
+            usageCount = 0
+        )
+
+        assertFailsWith<CancellationException> {
+            watcher.manualCheck(walletId = 1L, addresses = listOf(detail))
+        }
+    }
 }
 
 private class RecordingWalletRepository :
@@ -414,6 +448,23 @@ private class NoopTorManager : TorManager {
         com.strhodler.utxopocket.domain.model.SocksProxyConfig("localhost", 9050)
     override suspend fun awaitProxy(): com.strhodler.utxopocket.domain.model.SocksProxyConfig =
         com.strhodler.utxopocket.domain.model.SocksProxyConfig("localhost", 9050)
+    override suspend fun clearPersistentState() = Unit
+}
+
+private class CancellingTorManager : TorManager {
+    override val status: MutableStateFlow<com.strhodler.utxopocket.domain.model.TorStatus> =
+        MutableStateFlow(com.strhodler.utxopocket.domain.model.TorStatus.Stopped)
+    override val latestLog: MutableStateFlow<String> = MutableStateFlow("")
+    override suspend fun start(config: com.strhodler.utxopocket.domain.model.TorConfig): Result<com.strhodler.utxopocket.domain.model.SocksProxyConfig> =
+        Result.failure(CancellationException("cancelled"))
+    override suspend fun <T> withTorProxy(config: com.strhodler.utxopocket.domain.model.TorConfig, block: suspend (com.strhodler.utxopocket.domain.model.SocksProxyConfig) -> T): T =
+        throw CancellationException("cancelled")
+    override suspend fun stop() = Unit
+    override suspend fun renewIdentity(): Boolean = false
+    override fun currentProxy(): com.strhodler.utxopocket.domain.model.SocksProxyConfig =
+        com.strhodler.utxopocket.domain.model.SocksProxyConfig("localhost", 9050)
+    override suspend fun awaitProxy(): com.strhodler.utxopocket.domain.model.SocksProxyConfig =
+        throw CancellationException("cancelled")
     override suspend fun clearPersistentState() = Unit
 }
 
