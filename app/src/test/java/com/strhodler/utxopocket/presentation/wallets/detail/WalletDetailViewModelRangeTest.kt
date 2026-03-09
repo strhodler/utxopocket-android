@@ -71,6 +71,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -216,6 +217,69 @@ class WalletDetailViewModelRangeTest {
         assertEquals(false, stateB.showBalanceChart)
     }
 
+    @Test
+    fun transactionDetailViewModelResolvesTransactionById() = runTest(dispatcher) {
+        val harness = TestHarness()
+        val viewModel = harness.createTransactionDetailViewModel(txId = "tx1")
+
+        val state = viewModel.uiState.first { !it.isLoading }
+
+        assertEquals("tx1", state.transaction?.id)
+        assertEquals(null, state.error)
+    }
+
+    @Test
+    fun transactionDetailViewModelUpdateLabelDelegatesToRepository() = runTest(dispatcher) {
+        val harness = TestHarness()
+        val viewModel = harness.createTransactionDetailViewModel(txId = "tx1")
+        var callbackResult: Result<Unit>? = null
+
+        viewModel.updateLabel("coffee") { callbackResult = it }
+        advanceUntilIdle()
+
+        assertEquals(
+            Triple(StaticWalletRepository.WALLET_ID, "tx1", "coffee"),
+            harness.lastTransactionLabelUpdate()
+        )
+        assertEquals(true, callbackResult?.isSuccess)
+    }
+
+    @Test
+    fun utxoDetailViewModelUsesNotFoundStateWhenUtxoMissing() = runTest(dispatcher) {
+        val harness = TestHarness()
+        val viewModel = harness.createUtxoDetailViewModel(txId = "missing", vout = 9)
+
+        val state = viewModel.uiState.first { !it.isLoading }
+
+        assertEquals(UtxoDetailError.NotFound, state.error)
+        assertEquals(null, state.utxo)
+    }
+
+    @Test
+    fun utxoDetailViewModelUpdateCollectionDelegatesToCanvasRepository() = runTest(dispatcher) {
+        val harness = TestHarness()
+        val viewModel = harness.createUtxoDetailViewModel(txId = "missing", vout = 9)
+        var callbackResult: Result<Unit>? = null
+
+        viewModel.updateCollection(collectionId = 77L) { callbackResult = it }
+        advanceUntilIdle()
+
+        assertEquals(
+            Triple(StaticWalletRepository.WALLET_ID, UtxoRef("missing", 9), 77L),
+            harness.lastCollectionAdd()
+        )
+        assertEquals(true, callbackResult?.isSuccess)
+
+        viewModel.updateCollection(collectionId = null) { callbackResult = it }
+        advanceUntilIdle()
+
+        assertEquals(
+            Pair(StaticWalletRepository.WALLET_ID, UtxoRef("missing", 9)),
+            harness.lastCollectionRemove()
+        )
+        assertEquals(true, callbackResult?.isSuccess)
+    }
+
     private class TestHarness {
         val preferences = RecordingAppPreferencesRepository()
         private val walletRepository = StaticWalletRepository()
@@ -254,6 +318,45 @@ class WalletDetailViewModelRangeTest {
             )
         }
 
+        fun createTransactionDetailViewModel(
+            walletId: Long = StaticWalletRepository.WALLET_ID,
+            txId: String = "tx1"
+        ): TransactionDetailViewModel {
+            val savedStateHandle = SavedStateHandle(
+                mapOf(
+                    WalletsNavigation.WalletIdArg to walletId,
+                    WalletsNavigation.TransactionIdArg to txId
+                )
+            )
+            return TransactionDetailViewModel(
+                savedStateHandle = savedStateHandle,
+                walletReadRepository = walletRepository,
+                walletLabelRepository = walletRepository,
+                appPreferencesRepository = preferences
+            )
+        }
+
+        fun createUtxoDetailViewModel(
+            walletId: Long = StaticWalletRepository.WALLET_ID,
+            txId: String = "missing",
+            vout: Int = 0
+        ): UtxoDetailViewModel {
+            val savedStateHandle = SavedStateHandle(
+                mapOf(
+                    WalletsNavigation.WalletIdArg to walletId,
+                    WalletsNavigation.UtxoTxIdArg to txId,
+                    WalletsNavigation.UtxoVoutArg to vout
+                )
+            )
+            return UtxoDetailViewModel(
+                savedStateHandle = savedStateHandle,
+                walletReadRepository = walletRepository,
+                walletLabelRepository = walletRepository,
+                appPreferencesRepository = preferences,
+                canvasRepository = canvasRepository
+            )
+        }
+
         suspend fun seedIncomingPlaceholder(txid: String) {
             incomingTxCoordinator.onDetection(
                 com.strhodler.utxopocket.domain.model.IncomingTxDetection(
@@ -268,6 +371,15 @@ class WalletDetailViewModelRangeTest {
 
         fun coordinatorPlaceholderCount(): Int =
             incomingTxCoordinator.placeholders.value[StaticWalletRepository.WALLET_ID].orEmpty().size
+
+        fun lastTransactionLabelUpdate(): Triple<Long, String, String?>? =
+            walletRepository.lastTransactionLabelUpdate
+
+        fun lastCollectionAdd(): Triple<Long, UtxoRef, Long>? =
+            canvasRepository.lastAddedCollection
+
+        fun lastCollectionRemove(): Pair<Long, UtxoRef>? =
+            canvasRepository.lastRemovedCollection
     }
 
     internal class InMemoryIncomingTxPlaceholderRepository : IncomingTxPlaceholderRepository {
@@ -292,6 +404,9 @@ class WalletDetailViewModelRangeTest {
             items = emptyList()
         )
 
+        var lastAddedCollection: Triple<Long, UtxoRef, Long>? = null
+        var lastRemovedCollection: Pair<Long, UtxoRef>? = null
+
         override fun observeCanvasSnapshot(walletId: Long): Flow<UtxoCanvasSnapshot> = flowOf(snapshot)
 
         override suspend fun syncCanvas(walletId: Long, utxos: List<WalletUtxo>, dustThresholdSats: Long) = Unit
@@ -306,9 +421,13 @@ class WalletDetailViewModelRangeTest {
             anchorIndex: Int?
         ): UtxoCollection = error("Not needed for this test")
 
-        override suspend fun addUtxoToCollection(walletId: Long, utxo: UtxoRef, collectionId: Long) = Unit
+        override suspend fun addUtxoToCollection(walletId: Long, utxo: UtxoRef, collectionId: Long) {
+            lastAddedCollection = Triple(walletId, utxo, collectionId)
+        }
 
-        override suspend fun removeUtxoFromCollection(walletId: Long, utxo: UtxoRef) = Unit
+        override suspend fun removeUtxoFromCollection(walletId: Long, utxo: UtxoRef) {
+            lastRemovedCollection = walletId to utxo
+        }
 
         override suspend fun deleteCollection(walletId: Long, collectionId: Long) = Unit
 
@@ -325,6 +444,8 @@ class WalletDetailViewModelRangeTest {
         WalletSyncRepository,
         WalletProvisioningRepository,
         WalletLabelRepository {
+
+        var lastTransactionLabelUpdate: Triple<Long, String, String?>? = null
 
         private val detail = WalletDetail(
             summary = WalletSummary(
@@ -427,7 +548,9 @@ class WalletDetailViewModelRangeTest {
 
         override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
 
-        override suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?) = Unit
+        override suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?) {
+            lastTransactionLabelUpdate = Triple(walletId, txid, label)
+        }
 
         override suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?) = Unit
 
