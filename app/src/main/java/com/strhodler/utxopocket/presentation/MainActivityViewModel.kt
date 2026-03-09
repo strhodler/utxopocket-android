@@ -118,6 +118,108 @@ internal fun projectNodeSnapshotMetadata(
     lastSync = nodeSnapshot.lastSyncCompletedAt.takeIf { snapshotMatchesNetwork }
 )
 
+internal data class MainUiInputs(
+    val onboardingCompleted: Boolean = false,
+    val connectionSnapshot: ConnectionSnapshot = ConnectionSnapshot(),
+    val syncStatus: SyncStatusSnapshot = SyncStatusSnapshot(
+        isRefreshing = false,
+        network = BitcoinNetwork.DEFAULT
+    ),
+    val network: BitcoinNetwork = BitcoinNetwork.DEFAULT,
+    val torLog: String = "",
+    val pinEnabled: Boolean = false,
+    val locked: Boolean = false,
+    val nodeConfig: NodeConfig = NodeConfig(),
+    val incomingTxCount: Int = 0,
+    val incomingGroups: List<IncomingPlaceholderGroup> = emptyList(),
+    val duress: DuressSessionState = DuressSessionState.Inactive,
+    val duressUnlockInProgress: Boolean = false
+)
+
+internal data class MainUiPrefs(
+    val themePreference: ThemePreference = ThemePreference.SYSTEM,
+    val themeProfile: ThemeProfile = ThemeProfile.DEFAULT,
+    val appLanguage: AppLanguage = AppLanguage.EN,
+    val hapticsEnabled: Boolean = true,
+    val pinShuffleEnabled: Boolean = false,
+    val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
+    val balancesHidden: Boolean = false
+)
+
+internal fun projectMainActivityUiState(
+    inputs: MainUiInputs,
+    prefs: MainUiPrefs
+): MainActivityUiState {
+    val duressActive = inputs.duress is DuressSessionState.FakeActive
+
+    val statusProjection = projectStatusBarConnection(
+        connectionSnapshot = inputs.connectionSnapshot,
+        selectedNetwork = inputs.network,
+        duressActive = duressActive
+    )
+    val nodeSnapshot = inputs.connectionSnapshot.nodeStatus
+    val snapshotMatchesNetwork = statusProjection.snapshotMatchesNetwork
+    val nodeMetadata = projectNodeSnapshotMetadata(
+        nodeSnapshot = nodeSnapshot,
+        snapshotMatchesNetwork = snapshotMatchesNetwork
+    )
+    val effectiveNodeStatus = statusProjection.nodeStatus
+    val effectiveTorStatus = statusProjection.torStatus
+    val isNetworkOnline = if (duressActive) false else inputs.connectionSnapshot.isOnline
+    val isSyncing = !duressActive &&
+        inputs.syncStatus.network == inputs.network &&
+        effectiveNodeStatus is NodeStatus.Synced &&
+        (
+            inputs.syncStatus.isRefreshing ||
+                inputs.syncStatus.activeWalletId != null ||
+                inputs.syncStatus.refreshingWalletIds.isNotEmpty()
+            )
+    val torRequired = !duressActive && inputs.nodeConfig.requiresTor(inputs.network)
+    val connectionIndicatorModel = projectTopBarConnectionIndicator(effectiveNodeStatus)
+
+    val effectiveTorLog = when (effectiveTorStatus) {
+        is TorStatus.Connecting,
+        is TorStatus.Running -> inputs.torLog
+        else -> ""
+    }
+    val effectiveIncomingGroups = if (duressActive) emptyList() else inputs.incomingGroups
+    val effectiveIncomingCount = if (duressActive) 0 else inputs.incomingTxCount
+
+    return MainActivityUiState(
+        isReady = true,
+        onboardingCompleted = inputs.onboardingCompleted,
+        themePreference = prefs.themePreference,
+        themeProfile = prefs.themeProfile,
+        appLanguage = prefs.appLanguage,
+        appShellState = MainAppShellState(
+            status = StatusBarUiState(
+                torStatus = effectiveTorStatus,
+                torLog = effectiveTorLog,
+                nodeStatus = effectiveNodeStatus,
+                isSyncing = isSyncing,
+                nodeBlockHeight = nodeMetadata.blockHeight,
+                nodeFeeRateSatPerVb = nodeMetadata.feeRateSatPerVb,
+                nodeEndpoint = nodeMetadata.endpoint,
+                nodeServerInfo = nodeMetadata.serverInfo,
+                nodeLastSync = nodeMetadata.lastSync,
+                connectionIndicatorModel = connectionIndicatorModel,
+                network = inputs.network,
+                torRequired = torRequired,
+                isNetworkOnline = isNetworkOnline,
+                incomingTxCount = effectiveIncomingCount,
+                incomingPlaceholderGroups = effectiveIncomingGroups
+            ),
+            balanceUnit = prefs.balanceUnit,
+            balancesHidden = prefs.balancesHidden,
+            hapticsEnabled = prefs.hapticsEnabled,
+            pinShuffleEnabled = prefs.pinShuffleEnabled,
+            appLocked = inputs.pinEnabled && inputs.locked && inputs.onboardingCompleted,
+            duressState = inputs.duress,
+            duressUnlockInProgress = inputs.duressUnlockInProgress
+        )
+    )
+}
+
 internal suspend fun executePinUnlockFlow(
     pinEnabled: Boolean,
     duressAlreadyActive: Boolean,
@@ -346,111 +448,137 @@ class MainActivityViewModel @Inject constructor(
         }
     }
 
-    val uiState: StateFlow<MainActivityUiState> = combine(
+    private data class MainConnectionInputs(
+        val onboardingCompleted: Boolean,
+        val connectionSnapshot: ConnectionSnapshot,
+        val syncStatus: SyncStatusSnapshot,
+        val network: BitcoinNetwork,
+        val torLog: String
+    )
+
+    private data class MainShellInputs(
+        val pinEnabled: Boolean,
+        val locked: Boolean,
+        val nodeConfig: NodeConfig,
+        val incomingTxCount: Int,
+        val incomingGroups: List<IncomingPlaceholderGroup>
+    )
+
+    private data class MainThemePrefs(
+        val themePreference: ThemePreference,
+        val themeProfile: ThemeProfile,
+        val appLanguage: AppLanguage
+    )
+
+    private data class MainBehaviorPrefs(
+        val hapticsEnabled: Boolean,
+        val pinShuffleEnabled: Boolean,
+        val balanceUnit: BalanceUnit,
+        val balancesHidden: Boolean
+    )
+
+    private val mainConnectionInputs = combine(
         onboardingCompletedState,
         connectionOrchestrator.snapshot,
         walletSyncRepository.observeSyncStatus(),
         appPreferencesRepository.preferredNetwork,
-        torManager.latestLog,
-        appPreferencesRepository.themePreference,
-        appPreferencesRepository.themeProfile,
-        appPreferencesRepository.appLanguage,
+        torManager.latestLog
+    ) { onboardingCompleted, connectionSnapshot, syncStatus, network, torLog ->
+        MainConnectionInputs(
+            onboardingCompleted = onboardingCompleted,
+            connectionSnapshot = connectionSnapshot,
+            syncStatus = syncStatus,
+            network = network,
+            torLog = torLog
+        )
+    }
+
+    private val mainShellInputs = combine(
         pinEnabledState,
         lockState,
         nodeConfigurationRepository.nodeConfig,
+        incomingPlaceholderCount,
+        incomingPlaceholderGroups
+    ) { pinEnabled, locked, nodeConfig, incomingTxCount, incomingGroups ->
+        MainShellInputs(
+            pinEnabled = pinEnabled,
+            locked = locked,
+            nodeConfig = nodeConfig,
+            incomingTxCount = incomingTxCount,
+            incomingGroups = incomingGroups
+        )
+    }
+
+    private val mainUiInputs = combine(
+        mainConnectionInputs,
+        mainShellInputs,
+        duressState,
+        duressUnlockInProgressState
+    ) { connection, shell, duress, duressUnlockInProgress ->
+        MainUiInputs(
+            onboardingCompleted = connection.onboardingCompleted,
+            connectionSnapshot = connection.connectionSnapshot,
+            syncStatus = connection.syncStatus,
+            network = connection.network,
+            torLog = connection.torLog,
+            pinEnabled = shell.pinEnabled,
+            locked = shell.locked,
+            nodeConfig = shell.nodeConfig,
+            incomingTxCount = shell.incomingTxCount,
+            incomingGroups = shell.incomingGroups,
+            duress = duress,
+            duressUnlockInProgress = duressUnlockInProgress
+        )
+    }
+
+    private val mainThemePrefs = combine(
+        appPreferencesRepository.themePreference,
+        appPreferencesRepository.themeProfile,
+        appPreferencesRepository.appLanguage
+    ) { themePreference, themeProfile, appLanguage ->
+        MainThemePrefs(
+            themePreference = themePreference,
+            themeProfile = themeProfile,
+            appLanguage = appLanguage
+        )
+    }
+
+    private val mainBehaviorPrefs = combine(
         appPreferencesRepository.hapticsEnabled,
         appPreferencesRepository.pinShuffleEnabled,
         appPreferencesRepository.balanceUnit,
-        appPreferencesRepository.balancesHidden,
-        incomingPlaceholderCount,
-        incomingPlaceholderGroups,
-        duressState,
-        duressUnlockInProgressState
-    ) { values ->
-        val onboarding = values[0] as Boolean
-        val connectionSnapshot = values[1] as ConnectionSnapshot
-        val syncStatus = values[2] as SyncStatusSnapshot
-        val network = values[3] as BitcoinNetwork
-        val torLog = values[4] as String
-        val themePreference = values[5] as ThemePreference
-        val themeProfile = values[6] as ThemeProfile
-        val appLanguage = values[7] as AppLanguage
-        val pinEnabled = values[8] as Boolean
-        val locked = values[9] as Boolean
-        val nodeConfig = values[10] as NodeConfig
-        val hapticsEnabled = values[11] as Boolean
-        val pinShuffleEnabled = values[12] as Boolean
-        val balanceUnit = values[13] as BalanceUnit
-        val balancesHidden = values[14] as Boolean
-        val incomingTxCount = values[15] as Int
-        val incomingGroups = (values[16] as? List<*>)
-            ?.mapNotNull { it as? IncomingPlaceholderGroup }
-            .orEmpty()
-        val duress = values[17] as DuressSessionState
-        val duressUnlockInProgress = values[18] as Boolean
-        val duressActive = duress is DuressSessionState.FakeActive
-
-        val statusProjection = projectStatusBarConnection(
-            connectionSnapshot = connectionSnapshot,
-            selectedNetwork = network,
-            duressActive = duressActive
+        appPreferencesRepository.balancesHidden
+    ) { hapticsEnabled, pinShuffleEnabled, balanceUnit, balancesHidden ->
+        MainBehaviorPrefs(
+            hapticsEnabled = hapticsEnabled,
+            pinShuffleEnabled = pinShuffleEnabled,
+            balanceUnit = balanceUnit,
+            balancesHidden = balancesHidden
         )
-        val nodeSnapshot = connectionSnapshot.nodeStatus
-        val snapshotMatchesNetwork = statusProjection.snapshotMatchesNetwork
-        val nodeMetadata = projectNodeSnapshotMetadata(
-            nodeSnapshot = nodeSnapshot,
-            snapshotMatchesNetwork = snapshotMatchesNetwork
+    }
+
+    private val mainUiPrefs = combine(
+        mainThemePrefs,
+        mainBehaviorPrefs
+    ) { themePrefs, behaviorPrefs ->
+        MainUiPrefs(
+            themePreference = themePrefs.themePreference,
+            themeProfile = themePrefs.themeProfile,
+            appLanguage = themePrefs.appLanguage,
+            hapticsEnabled = behaviorPrefs.hapticsEnabled,
+            pinShuffleEnabled = behaviorPrefs.pinShuffleEnabled,
+            balanceUnit = behaviorPrefs.balanceUnit,
+            balancesHidden = behaviorPrefs.balancesHidden
         )
-        val effectiveNodeStatus = statusProjection.nodeStatus
-        val effectiveTorStatus = statusProjection.torStatus
-        val isNetworkOnline = if (duressActive) false else connectionSnapshot.isOnline
-        val isSyncing = !duressActive &&
-            syncStatus.network == network &&
-            effectiveNodeStatus is NodeStatus.Synced &&
-            (syncStatus.isRefreshing || syncStatus.activeWalletId != null || syncStatus.refreshingWalletIds.isNotEmpty())
-        val torRequired = !duressActive && nodeConfig.requiresTor(network)
-        val connectionIndicatorModel = projectTopBarConnectionIndicator(effectiveNodeStatus)
+    }
 
-        val effectiveTorLog = when (effectiveTorStatus) {
-            is TorStatus.Connecting,
-            is TorStatus.Running -> torLog
-            else -> ""
-        }
-        val effectiveIncomingGroups = if (duressActive) emptyList() else incomingGroups
-        val effectiveIncomingCount = if (duressActive) 0 else incomingTxCount
-
-        MainActivityUiState(
-            isReady = true,
-            onboardingCompleted = onboarding,
-            themePreference = themePreference,
-            themeProfile = themeProfile,
-            appLanguage = appLanguage,
-            appShellState = MainAppShellState(
-                status = StatusBarUiState(
-                    torStatus = effectiveTorStatus,
-                    torLog = effectiveTorLog,
-                    nodeStatus = effectiveNodeStatus,
-                    isSyncing = isSyncing,
-                    nodeBlockHeight = nodeMetadata.blockHeight,
-                    nodeFeeRateSatPerVb = nodeMetadata.feeRateSatPerVb,
-                    nodeEndpoint = nodeMetadata.endpoint,
-                    nodeServerInfo = nodeMetadata.serverInfo,
-                    nodeLastSync = nodeMetadata.lastSync,
-                    connectionIndicatorModel = connectionIndicatorModel,
-                    network = network,
-                    torRequired = torRequired,
-                    isNetworkOnline = isNetworkOnline,
-                    incomingTxCount = effectiveIncomingCount,
-                    incomingPlaceholderGroups = effectiveIncomingGroups
-                ),
-                balanceUnit = balanceUnit,
-                balancesHidden = balancesHidden,
-                hapticsEnabled = hapticsEnabled,
-                pinShuffleEnabled = pinShuffleEnabled,
-                appLocked = pinEnabled && locked && onboarding,
-                duressState = duress,
-                duressUnlockInProgress = duressUnlockInProgress
-            )
+    val uiState: StateFlow<MainActivityUiState> = combine(
+        mainUiInputs,
+        mainUiPrefs
+    ) { inputs, prefs ->
+        projectMainActivityUiState(
+            inputs = inputs,
+            prefs = prefs
         )
     }.stateIn(
         scope = viewModelScope,
