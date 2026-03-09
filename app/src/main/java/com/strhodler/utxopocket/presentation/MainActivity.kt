@@ -89,7 +89,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.DuressSessionState
@@ -116,6 +115,9 @@ import com.strhodler.utxopocket.presentation.navigation.MainDestination
 import com.strhodler.utxopocket.presentation.navigation.MainNavHost
 import com.strhodler.utxopocket.presentation.navigation.MainTopBarState
 import com.strhodler.utxopocket.presentation.navigation.LocalMainTopBarStateHolder
+import com.strhodler.utxopocket.presentation.navigation.navigateDuressWalletListFromRoot
+import com.strhodler.utxopocket.presentation.navigation.navigateSingleTop
+import com.strhodler.utxopocket.presentation.navigation.navigateTopLevel
 import com.strhodler.utxopocket.presentation.navigation.rememberMainBottomBarVisibilityController
 import com.strhodler.utxopocket.presentation.navigation.rememberMainTopBarStateHolder
 import com.strhodler.utxopocket.presentation.more.MoreNavigation
@@ -222,13 +224,7 @@ class MainActivity : AppCompatActivity() {
                             val active = uiState.duressState is DuressSessionState.FakeActive
                             if (active && !lastDuressActive) {
                                 showIncomingSheet = false
-                                navController.navigate(WalletsNavigation.ListRoute) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = false
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = false
-                                }
+                                navController.navigateDuressWalletListFromRoot()
                             }
                             lastDuressActive = active
                         }
@@ -256,11 +252,7 @@ class MainActivity : AppCompatActivity() {
                         val onNodeStatusClick = remember(navController, duressActive) {
                             onNodeStatusClick@{
                                 if (duressActive) return@onNodeStatusClick
-                                navController.navigate(
-                                    WalletsNavigation.nodeStatusRoute()
-                                ) {
-                                    launchSingleTop = true
-                                }
+                                navController.navigateSingleTop(WalletsNavigation.nodeStatusRoute())
                             }
                         }
                         val onIncomingTxClick = remember(navController, incomingGroups, duressActive) {
@@ -269,13 +261,7 @@ class MainActivity : AppCompatActivity() {
                                 if (incomingGroups.isNotEmpty()) {
                                     showIncomingSheet = true
                                 } else {
-                                    navController.navigate(MainDestination.Wallets.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
+                                    navController.navigateTopLevel(MainDestination.Wallets.route)
                                 }
                             }
                         }
@@ -417,19 +403,13 @@ class MainActivity : AppCompatActivity() {
                                             sheetState = modalIncomingSheetState,
                                             onOpenWallet = { walletId, walletName ->
                                                 showIncomingSheet = false
-                                                navController.navigate(
+                                                navController.navigateTopLevel(
                                                     WalletsNavigation.detailRoute(
                                                         walletId = walletId,
                                                         walletName = walletName,
                                                         initialTab = WalletDetailTab.Incoming
                                                     )
-                                                ) {
-                                                    popUpTo(navController.graph.findStartDestination().id) {
-                                                        saveState = true
-                                                    }
-                                                    launchSingleTop = true
-                                                    restoreState = true
-                                                }
+                                                )
                                             }
                                         )
                                     }
