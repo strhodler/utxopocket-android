@@ -31,7 +31,7 @@ class MainActivity : AppCompatActivity() {
     private val viewModel: MainActivityViewModel by viewModels()
     private val processLifecycleObserver = object : DefaultLifecycleObserver {
         override fun onStop(owner: LifecycleOwner) {
-            viewModel.onAppSentToBackground()
+            viewModel.onLifecycleEvent(MainActivityLifecycleEvent.SentToBackground)
         }
     }
     private val obscureScreen = MutableStateFlow(false)
@@ -83,9 +83,9 @@ class MainActivity : AppCompatActivity() {
                     OnboardingRoute(onFinished = { })
                 } else {
                     MainAppShell(
-                        uiState = uiState,
+                        state = uiState.appShellState,
                         obscureScreen = obscure,
-                        incomingSheetRequests = viewModel.incomingSheetRequests,
+                        effects = viewModel.appShellEffects,
                         onRefreshIncomingWallets = viewModel::refreshIncomingWallets,
                         onUnlockWithPin = viewModel::unlockWithPin
                     )
@@ -96,12 +96,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        viewModel.onAppForegrounded()
+        viewModel.onLifecycleEvent(MainActivityLifecycleEvent.Foregrounded)
         obscureScreen.value = false
     }
 
     override fun onStop() {
-        viewModel.onAppBackgrounded(fromConfigurationChange = isChangingConfigurations)
+        viewModel.onLifecycleEvent(
+            MainActivityLifecycleEvent.Backgrounded(fromConfigurationChange = isChangingConfigurations)
+        )
         super.onStop()
     }
 

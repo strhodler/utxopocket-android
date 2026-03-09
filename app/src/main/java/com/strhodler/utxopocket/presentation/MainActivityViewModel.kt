@@ -36,6 +36,8 @@ import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.TorManager
+import com.strhodler.utxopocket.presentation.appshell.MainAppShellEffect
+import com.strhodler.utxopocket.presentation.appshell.MainAppShellState
 import com.strhodler.utxopocket.presentation.connection.canRetryConnection
 import com.strhodler.utxopocket.presentation.connection.isNodeBusyForManualConnectionAction
 import com.strhodler.utxopocket.presentation.connection.ConnectionUiProjection
@@ -78,23 +80,6 @@ data class StatusBarUiState(
     val isNetworkOnline: Boolean = true,
     val incomingTxCount: Int = 0,
     val incomingPlaceholderGroups: List<IncomingPlaceholderGroup> = emptyList()
-)
-
-data class AppEntryUiState(
-    val isReady: Boolean = false,
-    val onboardingCompleted: Boolean = false,
-    val status: StatusBarUiState = StatusBarUiState(),
-    val themePreference: ThemePreference = ThemePreference.SYSTEM,
-    val themeProfile: ThemeProfile = ThemeProfile.DEFAULT,
-    val appLanguage: AppLanguage = AppLanguage.EN,
-    val balanceUnit: BalanceUnit = BalanceUnit.BTC,
-    val balancesHidden: Boolean = false,
-    val pinLockEnabled: Boolean = false,
-    val hapticsEnabled: Boolean = true,
-    val pinShuffleEnabled: Boolean = false,
-    val appLocked: Boolean = false,
-    val duressState: DuressSessionState = DuressSessionState.Inactive,
-    val duressUnlockInProgress: Boolean = false
 )
 
 data class IncomingPlaceholderGroup(
@@ -239,11 +224,12 @@ class MainActivityViewModel @Inject constructor(
             started = SharingStarted.Eagerly,
             initialValue = true
         )
-    private val _incomingSheetRequests = MutableSharedFlow<Unit>(
+    private val _appShellEffects = MutableSharedFlow<MainAppShellEffect>(
+        replay = 0,
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
-    val incomingSheetRequests: SharedFlow<Unit> = _incomingSheetRequests.asSharedFlow()
+    val appShellEffects: SharedFlow<MainAppShellEffect> = _appShellEffects.asSharedFlow()
     private val pendingIncomingSheet = MutableStateFlow(false)
     private val walletSummariesByNetwork = appPreferencesRepository.preferredNetwork
         .flatMapLatest { network ->
@@ -362,7 +348,7 @@ class MainActivityViewModel @Inject constructor(
         }
     }
 
-    val uiState: StateFlow<AppEntryUiState> = combine(
+    val uiState: StateFlow<MainActivityUiState> = combine(
         onboardingCompletedState,
         connectionOrchestrator.snapshot,
         walletSyncRepository.observeSyncStatus(),
@@ -435,45 +421,56 @@ class MainActivityViewModel @Inject constructor(
         val effectiveIncomingGroups = if (duressActive) emptyList() else incomingGroups
         val effectiveIncomingCount = if (duressActive) 0 else incomingTxCount
 
-        AppEntryUiState(
+        MainActivityUiState(
             isReady = true,
             onboardingCompleted = onboarding,
-            status = StatusBarUiState(
-                torStatus = effectiveTorStatus,
-                torLog = effectiveTorLog,
-                nodeStatus = effectiveNodeStatus,
-                isSyncing = isSyncing,
-                nodeBlockHeight = nodeMetadata.blockHeight,
-                nodeFeeRateSatPerVb = nodeMetadata.feeRateSatPerVb,
-                nodeEndpoint = nodeMetadata.endpoint,
-                nodeServerInfo = nodeMetadata.serverInfo,
-                nodeLastSync = nodeMetadata.lastSync,
-                connectionIndicatorModel = connectionIndicatorModel,
-                network = network,
-                torRequired = torRequired,
-                isNetworkOnline = isNetworkOnline,
-                incomingTxCount = effectiveIncomingCount,
-                incomingPlaceholderGroups = effectiveIncomingGroups
-            ),
             themePreference = themePreference,
             themeProfile = themeProfile,
             appLanguage = appLanguage,
-            balanceUnit = balanceUnit,
-            balancesHidden = balancesHidden,
-            pinLockEnabled = pinEnabled,
-            hapticsEnabled = hapticsEnabled,
-            pinShuffleEnabled = pinShuffleEnabled,
-            appLocked = pinEnabled && locked && onboarding,
-            duressState = duress,
-            duressUnlockInProgress = duressUnlockInProgress
+            appShellState = MainAppShellState(
+                status = StatusBarUiState(
+                    torStatus = effectiveTorStatus,
+                    torLog = effectiveTorLog,
+                    nodeStatus = effectiveNodeStatus,
+                    isSyncing = isSyncing,
+                    nodeBlockHeight = nodeMetadata.blockHeight,
+                    nodeFeeRateSatPerVb = nodeMetadata.feeRateSatPerVb,
+                    nodeEndpoint = nodeMetadata.endpoint,
+                    nodeServerInfo = nodeMetadata.serverInfo,
+                    nodeLastSync = nodeMetadata.lastSync,
+                    connectionIndicatorModel = connectionIndicatorModel,
+                    network = network,
+                    torRequired = torRequired,
+                    isNetworkOnline = isNetworkOnline,
+                    incomingTxCount = effectiveIncomingCount,
+                    incomingPlaceholderGroups = effectiveIncomingGroups
+                ),
+                balanceUnit = balanceUnit,
+                balancesHidden = balancesHidden,
+                hapticsEnabled = hapticsEnabled,
+                pinShuffleEnabled = pinShuffleEnabled,
+                appLocked = pinEnabled && locked && onboarding,
+                duressState = duress,
+                duressUnlockInProgress = duressUnlockInProgress
+            )
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = AppEntryUiState()
+        initialValue = MainActivityUiState()
     )
 
-    fun onAppForegrounded(skipLockRefresh: Boolean = false) {
+    fun onLifecycleEvent(event: MainActivityLifecycleEvent) {
+        when (event) {
+            MainActivityLifecycleEvent.Foregrounded -> onAppForegrounded()
+            is MainActivityLifecycleEvent.Backgrounded -> {
+                onAppBackgrounded(fromConfigurationChange = event.fromConfigurationChange)
+            }
+            MainActivityLifecycleEvent.SentToBackground -> onAppSentToBackground()
+        }
+    }
+
+    private fun onAppForegrounded(skipLockRefresh: Boolean = false) {
         val shouldSkipRefresh = skipLockRefresh || skipNextLockRefresh || !wasBackgrounded
         if (!shouldSkipRefresh) {
             refreshLockState()
@@ -493,14 +490,14 @@ class MainActivityViewModel @Inject constructor(
         }
     }
 
-    fun onAppBackgrounded(fromConfigurationChange: Boolean = false) {
+    private fun onAppBackgrounded(fromConfigurationChange: Boolean = false) {
         skipNextLockRefresh = fromConfigurationChange
         ignoreNextBackgroundEvent = fromConfigurationChange
         walletSyncRepository.setSyncForegroundState(false)
         incomingTxWatcher.setForeground(false)
     }
 
-    fun onAppSentToBackground() {
+    private fun onAppSentToBackground() {
         if (ignoreNextBackgroundEvent) {
             ignoreNextBackgroundEvent = false
             return
@@ -541,8 +538,8 @@ class MainActivityViewModel @Inject constructor(
     }
 
     fun onNetworkSelected(network: BitcoinNetwork) {
-        val currentNetwork = uiState.value.status.network
-        val status = uiState.value.status
+        val currentNetwork = uiState.value.appShellState.status.network
+        val status = uiState.value.appShellState.status
         if (isDuressActive()) {
             return
         }
@@ -560,7 +557,7 @@ class MainActivityViewModel @Inject constructor(
     }
 
     fun retryNodeConnection() {
-        val status = uiState.value.status
+        val status = uiState.value.appShellState.status
         if (isDuressActive()) {
             return
         }
@@ -604,7 +601,7 @@ class MainActivityViewModel @Inject constructor(
 
     private fun triggerIncomingSheet() {
         pendingIncomingSheet.value = false
-        _incomingSheetRequests.tryEmit(Unit)
+        _appShellEffects.tryEmit(MainAppShellEffect.OpenIncomingSheet)
     }
 
     private fun handleDuressActivated() {

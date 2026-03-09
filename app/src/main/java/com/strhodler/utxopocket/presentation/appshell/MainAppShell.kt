@@ -16,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import com.strhodler.utxopocket.domain.model.DuressSessionState
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
-import com.strhodler.utxopocket.presentation.AppEntryUiState
 import com.strhodler.utxopocket.presentation.appshell.overlay.IncomingTxSheetHost
 import com.strhodler.utxopocket.presentation.appshell.overlay.PinOverlayHost
 import com.strhodler.utxopocket.presentation.navigation.LocalMainBottomBarVisibility
@@ -34,9 +33,9 @@ import kotlinx.coroutines.flow.Flow
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainAppShell(
-    uiState: AppEntryUiState,
+    state: MainAppShellState,
     obscureScreen: Boolean,
-    incomingSheetRequests: Flow<Unit>,
+    effects: Flow<MainAppShellEffect>,
     onRefreshIncomingWallets: (Collection<Long>) -> Unit,
     onUnlockWithPin: (String, (PinVerificationResult) -> Unit) -> Unit,
     modifier: Modifier = Modifier
@@ -44,17 +43,17 @@ fun MainAppShell(
     val navController = rememberNavController()
     val topBarStateHolder = rememberMainTopBarStateHolder()
     val bottomBarVisibilityController = rememberMainBottomBarVisibilityController()
-    val duressActive = uiState.duressState is DuressSessionState.FakeActive
-    val pinOverlayVisible = uiState.appLocked || uiState.duressUnlockInProgress
+    val duressActive = state.duressActive
+    val pinOverlayVisible = state.pinOverlayVisible
     var showIncomingSheet by rememberSaveable { mutableStateOf(false) }
     var lastDuressActive by rememberSaveable { mutableStateOf(false) }
-    val incomingGroups = uiState.status.incomingPlaceholderGroups
+    val incomingGroups = state.incomingPlaceholderGroups
     val incomingCount = remember(incomingGroups) {
         incomingGroups.sumOf { it.placeholders.size }
     }
 
-    LaunchedEffect(uiState.duressState) {
-        val active = uiState.duressState is DuressSessionState.FakeActive
+    LaunchedEffect(state.duressState) {
+        val active = state.duressState is DuressSessionState.FakeActive
         if (active && !lastDuressActive) {
             showIncomingSheet = false
             navController.navigateDuressWalletListFromRoot()
@@ -66,9 +65,11 @@ fun MainAppShell(
             showIncomingSheet = false
         }
     }
-    LaunchedEffect(incomingSheetRequests) {
-        incomingSheetRequests.collect {
-            showIncomingSheet = true
+    LaunchedEffect(effects) {
+        effects.collect { effect ->
+            when (effect) {
+                MainAppShellEffect.OpenIncomingSheet -> showIncomingSheet = true
+            }
         }
     }
     LaunchedEffect(pinOverlayVisible) {
@@ -109,8 +110,8 @@ fun MainAppShell(
                 navController = navController,
                 topBarStateHolder = topBarStateHolder,
                 bottomBarVisibilityController = bottomBarVisibilityController,
-                statusBarState = uiState.status,
-                duressState = uiState.duressState,
+                statusBarState = state.status,
+                duressState = state.duressState,
                 obscureScreen = obscureScreen,
                 onNodeStatusClick = onNodeStatusClick,
                 onIncomingTxClick = onIncomingTxClick
@@ -120,8 +121,8 @@ fun MainAppShell(
                 visible = !duressActive && showIncomingSheet && incomingGroups.isNotEmpty(),
                 groups = incomingGroups,
                 totalCount = incomingCount,
-                balanceUnit = uiState.balanceUnit,
-                balancesHidden = uiState.balancesHidden,
+                balanceUnit = state.balanceUnit,
+                balancesHidden = state.balancesHidden,
                 onSyncNow = {
                     onRefreshIncomingWallets(incomingGroups.map { group -> group.walletId })
                     showIncomingSheet = false
@@ -143,8 +144,8 @@ fun MainAppShell(
 
             PinOverlayHost(
                 visible = pinOverlayVisible,
-                hapticsEnabled = uiState.hapticsEnabled,
-                shuffleDigits = uiState.pinShuffleEnabled,
+                hapticsEnabled = state.hapticsEnabled,
+                shuffleDigits = state.pinShuffleEnabled,
                 onUnlockWithPin = onUnlockWithPin
             )
         }
