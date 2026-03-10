@@ -31,13 +31,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ConnectionMode
+import com.strhodler.utxopocket.presentation.components.network.networkLabel
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomNodeEditorScreen(
     connectionMode: ConnectionMode,
+    activeNetwork: BitcoinNetwork,
     nameValue: String,
     onionValue: String,
     portValue: String,
@@ -110,6 +113,15 @@ fun CustomNodeEditorScreen(
                 )
 
                 TransportModeBadge(connectionMode = connectionMode)
+
+                Text(
+                    text = stringResource(
+                        id = R.string.node_custom_network_hint,
+                        networkLabel(activeNetwork)
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             errorMessage?.let { error ->
                 Text(

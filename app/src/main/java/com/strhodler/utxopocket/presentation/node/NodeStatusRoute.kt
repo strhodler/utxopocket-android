@@ -150,6 +150,7 @@ fun NodeStatusRoute(
             }
             CustomNodeEditorScreen(
                 connectionMode = state.connectionMode,
+                activeNetwork = state.preferredNetwork,
                 nameValue = state.newCustomName,
                 onionValue = state.newCustomOnion,
                 portValue = state.newCustomPort,

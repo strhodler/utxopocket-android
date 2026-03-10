@@ -4,6 +4,7 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NetworkErrorLog
 import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
+import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
 import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.TorConfig
@@ -37,6 +38,37 @@ class NodeConnectionTesterTest {
             NodeTransport.VPN_DIRECT,
             resolveNodeTransport("tcp://192.168.1.10:50001")
         )
+    }
+
+    @Test
+    fun resolveNetworkMismatchReturnsMismatchWhenDetectedNetworkDiffers() {
+        val result = resolveNetworkMismatch(
+            expectedNetwork = BitcoinNetwork.TESTNET4,
+            remoteGenesisHash = "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"
+        )
+
+        assertEquals(
+            NodeConnectionTestResult.NetworkMismatch(
+                expectedNetwork = BitcoinNetwork.TESTNET4,
+                detectedNetwork = BitcoinNetwork.TESTNET
+            ),
+            result
+        )
+    }
+
+    @Test
+    fun resolveNetworkMismatchReturnsNullWhenNetworkMatchesOrUnknown() {
+        val match = resolveNetworkMismatch(
+            expectedNetwork = BitcoinNetwork.TESTNET,
+            remoteGenesisHash = "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"
+        )
+        val unknown = resolveNetworkMismatch(
+            expectedNetwork = BitcoinNetwork.TESTNET,
+            remoteGenesisHash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        )
+
+        assertEquals(null, match)
+        assertEquals(null, unknown)
     }
 
     @Test

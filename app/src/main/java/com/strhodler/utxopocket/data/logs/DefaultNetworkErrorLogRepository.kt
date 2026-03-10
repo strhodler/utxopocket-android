@@ -87,7 +87,11 @@ class DefaultNetworkErrorLogRepository @Inject constructor(
         val endpointType = (event.endpointTypeHint ?: endpointInfo?.endpointType)
             ?.name ?: NetworkEndpointType.Unknown.name
         val errorKind = event.error.rootCause().javaClass.simpleName.takeUnless { it.isNullOrBlank() }
-        val errorMessage = sanitizeMessage(event.error, endpointInfo?.host ?: hostMask)
+        val errorMessage = sanitizeMessage(
+            error = event.error,
+            host = endpointInfo?.host ?: hostMask,
+            endpoint = event.endpoint
+        )
 
         val torStatus = event.torStatus
         val torBootstrapPercent = when (torStatus) {

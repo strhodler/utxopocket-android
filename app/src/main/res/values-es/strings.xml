@@ -692,6 +692,7 @@
     <string name="node_custom_transport_tor_supporting">Los nodos personalizados requieren Tor. Al cambiar entre presets u onions, Tor se mantiene activo hasta que te desconectes.</string>
     <string name="node_custom_transport_local_label">Transporte directo local</string>
     <string name="node_custom_transport_local_supporting">Local Direct usa Electrum TCP en claro solo con literales IP privadas/locales. No hay fallback a Tor.</string>
+    <string name="node_custom_network_hint">Red actual de la app: %1$s. La red del nodo y la app deben coincidir.</string>
     <string name="settings_option_enabled">Activado</string>
     <string name="settings_option_disabled">Desactivado</string>
     <string name="settings_language_label">Idioma</string>
@@ -1226,8 +1227,8 @@
     <string name="wallets_node_connecting_banner_supporting">Conectando a… %1$s</string>
     <string name="wallets_node_disconnecting_banner">Desconectando del nodo</string>
     <string name="wallets_node_connected_banner">Conectado al nodo</string>
-    <string name="wallets_node_connected_banner_with_name">Conectado a %1$s vía Tor</string>
-    <string name="wallets_node_connected_banner_generic_supporting">Conectado vía Tor</string>
+    <string name="wallets_node_connected_banner_with_name">Conectado a %1$s</string>
+    <string name="wallets_node_connected_banner_generic_supporting">Conexión activa</string>
     <string name="wallets_block_height_label">Altura de bloque en %1$s</string>
     <string name="wallets_block_height_unknown">Esperando sincronización</string>
     <string name="wallets_fee_rate_label">Tarifa</string>

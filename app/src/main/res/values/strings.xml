@@ -78,8 +78,8 @@
     <string name="wallets_node_syncing_banner_supporting">Updating your wallets</string>
     <string name="wallets_node_disconnecting_banner">Disconnecting from node</string>
     <string name="wallets_node_connected_banner">Connected to node</string>
-    <string name="wallets_node_connected_banner_with_name">Connected to %1$s using Tor</string>
-    <string name="wallets_node_connected_banner_generic_supporting">Connected via Tor</string>
+    <string name="wallets_node_connected_banner_with_name">Connected to %1$s</string>
+    <string name="wallets_node_connected_banner_generic_supporting">Connection active</string>
     <string name="wallets_block_height_label">%1$s block height</string>
     <string name="wallets_block_height_unknown">Awaiting sync</string>
     <string name="wallets_fee_rate_label">Fee rate</string>
@@ -1091,6 +1091,7 @@
     <string name="node_custom_transport_tor_supporting">Custom nodes require Tor. Switching between presets or onions keeps Tor running until you disconnect.</string>
     <string name="node_custom_transport_local_label">Local direct transport</string>
     <string name="node_custom_transport_local_supporting">Local Direct uses plaintext Electrum TCP to private/local IP literals only. No Tor fallback is applied.</string>
+    <string name="node_custom_network_hint">Current app network: %1$s. Node and app networks must match.</string>
     <string name="node_custom_add_button">Add node</string>
     <string name="node_custom_testing">Testing connection…</string>
     <string name="node_custom_success">Node added</string>

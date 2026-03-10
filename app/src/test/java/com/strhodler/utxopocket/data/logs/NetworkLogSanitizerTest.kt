@@ -22,4 +22,21 @@ class NetworkLogSanitizerTest {
         assert(!lower.contains("example.com"))
         assert(lower.contains("[host]"))
     }
+
+    @Test
+    fun `sanitizeMessage replaces full endpoint when host is unavailable`() {
+        val endpoint = "tcp://192.168.1.10:50001"
+        val error = IllegalStateException("Connection refused for $endpoint")
+
+        val sanitized = NetworkLogSanitizer.sanitizeMessage(
+            error = error,
+            host = null,
+            endpoint = endpoint
+        )
+
+        val lower = sanitized.lowercase()
+        assert(!lower.contains("192.168.1.10"))
+        assert(!lower.contains("50001"))
+        assert(lower.contains("[endpoint]"))
+    }
 }

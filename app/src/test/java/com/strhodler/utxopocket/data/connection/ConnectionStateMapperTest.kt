@@ -44,6 +44,21 @@ class ConnectionStateMapperTest {
     }
 
     @Test
+    fun torErrorIsIgnoredWhenTorIsNotRequired() {
+        val snapshot = mapper.map(
+            nodeSnapshot = NodeStatusSnapshot(
+                status = NodeStatus.Idle,
+                network = BitcoinNetwork.MAINNET
+            ),
+            torStatus = TorStatus.Error("Tor bootstrap failed"),
+            torRequired = false
+        )
+
+        assertEquals(ConnectionState.IDLE, snapshot.state)
+        assertNull(snapshot.errorMessage)
+    }
+
+    @Test
     fun offlineNodeMapsToDisconnectedState() {
         val snapshot = mapper.map(
             nodeSnapshot = NodeStatusSnapshot(
@@ -65,6 +80,20 @@ class ConnectionStateMapperTest {
                 network = BitcoinNetwork.TESTNET4
             ),
             torStatus = TorStatus.Connecting(progress = 20)
+        )
+
+        assertEquals(ConnectionState.CONNECTING, snapshot.state)
+    }
+
+    @Test
+    fun nodeConnectingStillMapsToConnectingWhenTorIsNotRequired() {
+        val snapshot = mapper.map(
+            nodeSnapshot = NodeStatusSnapshot(
+                status = NodeStatus.Connecting,
+                network = BitcoinNetwork.TESTNET4
+            ),
+            torStatus = TorStatus.Stopped,
+            torRequired = false
         )
 
         assertEquals(ConnectionState.CONNECTING, snapshot.state)

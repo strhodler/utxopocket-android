@@ -1,12 +1,14 @@
 package com.strhodler.utxopocket.data.node
 
 import com.strhodler.utxopocket.domain.model.CustomNode
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
 import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.NetworkLogOperation
 import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
 import com.strhodler.utxopocket.domain.model.NetworkNodeSource
+import com.strhodler.utxopocket.domain.model.detectBitcoinNetworkFromGenesisHash
 import com.strhodler.utxopocket.domain.node.EndpointKind
 import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.di.IoDispatcher
@@ -40,6 +42,7 @@ class DefaultNodeConnectionTester @Inject constructor(
                 torManager.withTorProxy { proxy ->
                     performConnectionTest(
                         endpoint = endpoint,
+                        expectedNetwork = node.network,
                         socksProxy = proxy,
                         usedTor = true
                     )
@@ -47,6 +50,7 @@ class DefaultNodeConnectionTester @Inject constructor(
             } else {
                 performConnectionTest(
                     endpoint = endpoint,
+                    expectedNetwork = node.network,
                     socksProxy = null,
                     usedTor = false
                 )
@@ -78,6 +82,7 @@ class DefaultNodeConnectionTester @Inject constructor(
 
     private fun performConnectionTest(
         endpoint: String,
+        expectedNetwork: BitcoinNetwork?,
         socksProxy: SocksProxyConfig?,
         usedTor: Boolean
     ): NodeConnectionTestResult {
@@ -86,10 +91,15 @@ class DefaultNodeConnectionTester @Inject constructor(
                 url = endpoint,
                 socks5 = socksProxy?.toSocks5String()
             ).use { client ->
-                val version = runCatching {
-                    client.serverFeatures().serverVersion
-                }.getOrNull()
-                NodeConnectionTestResult.Success(version)
+                val features = client.serverFeatures()
+                val mismatch = resolveNetworkMismatch(
+                    expectedNetwork = expectedNetwork,
+                    remoteGenesisHash = features.genesisHash.toString()
+                )
+                if (mismatch != null) {
+                    return@use mismatch
+                }
+                NodeConnectionTestResult.Success(features.serverVersion)
             }
         }.getOrElse { error ->
             val reason = error.toTorAwareMessage(
@@ -102,6 +112,21 @@ class DefaultNodeConnectionTester @Inject constructor(
     }
 
     private fun SocksProxyConfig.toSocks5String(): String = "${this.host}:${this.port}"
+}
+
+internal fun resolveNetworkMismatch(
+    expectedNetwork: BitcoinNetwork?,
+    remoteGenesisHash: String?
+): NodeConnectionTestResult.NetworkMismatch? {
+    val expected = expectedNetwork ?: return null
+    val detected = detectBitcoinNetworkFromGenesisHash(remoteGenesisHash) ?: return null
+    if (detected == expected) {
+        return null
+    }
+    return NodeConnectionTestResult.NetworkMismatch(
+        expectedNetwork = expected,
+        detectedNetwork = detected
+    )
 }
 
 internal fun resolveNodeTransport(endpoint: String): NodeTransport {

@@ -12,6 +12,8 @@ import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.BlockExplorerNetworkPreference
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.Bip329ImportResult
+import com.strhodler.utxopocket.domain.model.ConnectionMode
+import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeStatus
@@ -195,6 +197,73 @@ class WalletsViewModelTest {
         }
         advanceUntilIdle()
         assertEquals(false, viewModel.uiState.value.hasActiveNodeSelection)
+        collection.cancel()
+    }
+
+    @Test
+    fun localDirectModeSuppressesTorBanners() = runTest(dispatcher) {
+        val collection = backgroundScope.launch { viewModel.uiState.collect { } }
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(
+                connectionMode = ConnectionMode.LOCAL_DIRECT,
+                connectionOption = NodeConnectionOption.CUSTOM,
+                customNodes = listOf(
+                    CustomNode(
+                        id = "local",
+                        endpoint = "tcp://192.168.1.10:50001",
+                        network = BitcoinNetwork.TESTNET
+                    )
+                ),
+                selectedCustomNodeId = "local"
+            )
+        }
+        connectionOrchestrator.setSnapshot(
+            ConnectionSnapshot(
+                state = ConnectionState.CONNECTING,
+                nodeStatus = NodeStatusSnapshot(
+                    status = NodeStatus.Connecting,
+                    network = BitcoinNetwork.TESTNET
+                ),
+                torStatus = TorStatus.Connecting(message = "Bootstrapping"),
+                isOnline = true
+            )
+        )
+
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(TorStatus.Stopped, state.torStatus)
+        assertEquals(false, state.torRequired)
+        assertEquals(WalletsConnectionBannerModel.NodeConnecting, state.connectionBannerModel)
+        collection.cancel()
+    }
+
+    @Test
+    fun connectedNodeLabelDoesNotFallbackToRawEndpoint() = runTest(dispatcher) {
+        val collection = backgroundScope.launch { viewModel.uiState.collect { } }
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(
+                connectionMode = ConnectionMode.LOCAL_DIRECT,
+                connectionOption = NodeConnectionOption.CUSTOM,
+                selectedCustomNodeId = null
+            )
+        }
+        connectionOrchestrator.setSnapshot(
+            ConnectionSnapshot(
+                state = ConnectionState.CONNECTED,
+                nodeStatus = NodeStatusSnapshot(
+                    status = NodeStatus.Synced,
+                    network = BitcoinNetwork.TESTNET,
+                    endpoint = "tcp://192.168.1.10:50001"
+                ),
+                torStatus = TorStatus.Stopped,
+                isOnline = true
+            )
+        )
+
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.connectedNodeLabel)
         collection.cancel()
     }
 }

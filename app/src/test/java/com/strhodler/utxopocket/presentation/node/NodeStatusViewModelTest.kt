@@ -368,6 +368,30 @@ class NodeStatusViewModelTest {
     }
 
     @Test
+    fun addCustomNodeShowsNetworkMismatchErrorAndSkipsPersist() = runTest {
+        preferencesRepository.setPreferredNetwork(BitcoinNetwork.TESTNET4)
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionMode = ConnectionMode.LOCAL_DIRECT)
+        }
+        nodeConnectionTester.nextResult = NodeConnectionTestResult.NetworkMismatch(
+            expectedNetwork = BitcoinNetwork.TESTNET4,
+            detectedNetwork = BitcoinNetwork.TESTNET
+        )
+        advanceUntilIdle()
+
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onNewCustomOnionChanged("192.168.8.225")
+        viewModel.onNewCustomPortChanged("50001")
+        viewModel.onTestAndAddCustomNode()
+        advanceUntilIdle()
+
+        val error = viewModel.uiState.value.customNodeError.orEmpty()
+        assertTrue(error.contains("testnet4", ignoreCase = true))
+        assertTrue(error.contains("testnet", ignoreCase = true))
+        assertTrue(nodeConfigurationRepository.nodeConfig.value.customNodes.isEmpty())
+    }
+
+    @Test
     fun onionEndpointsUpdatePortFromInlineValue() = runTest {
         viewModel.onAddCustomNodeClicked()
         viewModel.onNewCustomOnionChanged("abc123def.onion:60002")
@@ -623,10 +647,11 @@ class NodeStatusViewModelTest {
 
     private class RecordingNodeConnectionTester : NodeConnectionTester {
         var lastNode: CustomNode? = null
+        var nextResult: NodeConnectionTestResult = NodeConnectionTestResult.Success()
 
         override suspend fun test(node: CustomNode): NodeConnectionTestResult {
             lastNode = node
-            return NodeConnectionTestResult.Success()
+            return nextResult
         }
     }
 

@@ -7,10 +7,13 @@ import com.strhodler.utxopocket.di.IoDispatcher
 import com.strhodler.utxopocket.domain.connection.ConnectionIntent
 import com.strhodler.utxopocket.domain.connection.ConnectionSnapshot
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.TorStatus
+import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
+import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.TorManager
@@ -38,6 +41,7 @@ class ConnectionOrchestratorV2 internal constructor(
     private val walletSyncRepository: WalletSyncRepository,
     private val torManager: TorManager,
     preferredNetworkFlow: Flow<BitcoinNetwork>,
+    nodeConfigFlow: Flow<NodeConfig>,
     networkOnlineFlow: Flow<Boolean>,
     private val connectionStateMapper: ConnectionStateMapper,
     @param:ApplicationScope private val applicationScope: CoroutineScope,
@@ -51,6 +55,7 @@ class ConnectionOrchestratorV2 internal constructor(
         walletSyncRepository: WalletSyncRepository,
         torManager: TorManager,
         appPreferencesRepository: AppPreferencesRepository,
+        nodeConfigurationRepository: NodeConfigurationRepository,
         networkStatusMonitor: NetworkStatusMonitor,
         connectionStateMapper: ConnectionStateMapper,
         @ApplicationScope applicationScope: CoroutineScope,
@@ -59,6 +64,7 @@ class ConnectionOrchestratorV2 internal constructor(
         walletSyncRepository = walletSyncRepository,
         torManager = torManager,
         preferredNetworkFlow = appPreferencesRepository.preferredNetwork,
+        nodeConfigFlow = nodeConfigurationRepository.nodeConfig,
         networkOnlineFlow = networkStatusMonitor.isOnline,
         connectionStateMapper = connectionStateMapper,
         applicationScope = applicationScope,
@@ -75,6 +81,12 @@ class ConnectionOrchestratorV2 internal constructor(
         scope = applicationScope,
         started = SharingStarted.Eagerly,
         initialValue = BitcoinNetwork.DEFAULT
+    )
+
+    private val nodeConfig = nodeConfigFlow.stateIn(
+        scope = applicationScope,
+        started = SharingStarted.Eagerly,
+        initialValue = NodeConfig()
     )
 
     private val effectiveNetworkOnline = networkOnlineFlow.stateIn(
@@ -94,8 +106,9 @@ class ConnectionOrchestratorV2 internal constructor(
                 walletSyncRepository.observeNodeStatus(),
                 torManager.status,
                 preferredNetwork,
-                effectiveNetworkOnline
-            ) { nodeSnapshot, torStatus, network, online ->
+                effectiveNetworkOnline,
+                nodeConfig
+            ) { nodeSnapshot, torStatus, network, online, currentNodeConfig ->
                 val effectiveNodeSnapshot = if (nodeSnapshot.network == network) {
                     nodeSnapshot
                 } else {
@@ -107,7 +120,8 @@ class ConnectionOrchestratorV2 internal constructor(
                 connectionStateMapper.map(
                     nodeSnapshot = effectiveNodeSnapshot,
                     torStatus = torStatus,
-                    isOnline = online
+                    isOnline = online,
+                    torRequired = currentNodeConfig.requiresTor(network)
                 )
             }.collect { mapped ->
                 _snapshot.value = mapped

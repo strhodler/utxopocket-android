@@ -29,8 +29,7 @@ internal fun projectWalletsConnectionBannerModel(
     if (duressActive) return null
     if (!isNetworkOnline) return WalletsConnectionBannerModel.Offline
 
-    val showTorStatusBanner = torRequired || torStatus !is TorStatus.Stopped
-    if (showTorStatusBanner && torStatus !is TorStatus.Running) {
+    if (torRequired && torStatus !is TorStatus.Running) {
         return when (torStatus) {
             is TorStatus.Connecting -> WalletsConnectionBannerModel.TorConnecting(torStatus.message)
             is TorStatus.Error -> WalletsConnectionBannerModel.TorError(torStatus.message)

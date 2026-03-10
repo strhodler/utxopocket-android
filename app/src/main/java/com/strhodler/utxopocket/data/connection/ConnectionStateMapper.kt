@@ -12,17 +12,22 @@ class ConnectionStateMapper @Inject constructor() {
     fun map(
         nodeSnapshot: NodeStatusSnapshot,
         torStatus: TorStatus,
-        isOnline: Boolean = true
+        isOnline: Boolean = true,
+        torRequired: Boolean = true
     ): ConnectionSnapshot {
+        val torErrorMessage = (torStatus as? TorStatus.Error)?.message
+        val torError = torRequired && torErrorMessage != null
+        val torConnecting = torRequired && torStatus is TorStatus.Connecting
+        val nodeError = nodeSnapshot.status as? NodeStatus.Error
         val errorMessage = when {
-            torStatus is TorStatus.Error -> torStatus.message
-            nodeSnapshot.status is NodeStatus.Error -> nodeSnapshot.status.message
+            torError -> torErrorMessage
+            nodeError != null -> nodeError.message
             else -> null
         }
 
         val mappedState = when {
-            torStatus is TorStatus.Error || nodeSnapshot.status is NodeStatus.Error -> ConnectionState.ERROR
-            torStatus is TorStatus.Connecting -> ConnectionState.CONNECTING
+            torError || nodeError != null -> ConnectionState.ERROR
+            torConnecting -> ConnectionState.CONNECTING
             nodeSnapshot.status == NodeStatus.Connecting ||
                 nodeSnapshot.status == NodeStatus.Disconnecting ||
                 nodeSnapshot.status == NodeStatus.WaitingForTor -> ConnectionState.CONNECTING

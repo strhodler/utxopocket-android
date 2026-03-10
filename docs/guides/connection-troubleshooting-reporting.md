@@ -17,6 +17,7 @@ Use this guide to gather the minimum information needed to debug Tor/Electrum co
 ## Quick Checks
 - If Tor shows “connecting” for long: toggle airplane mode off/on, ensure no captive portal, then retry.
 - If using a custom node: double-check onion host/port formatting and that Tor is fully bootstrapped.
+- If using Local Direct or custom endpoints: confirm the app network (Mainnet/Testnet3/Testnet4/Signet) matches the node network.
 - Switch between a **public** node and your **custom** node to see if the error is node-specific.
 
 ## Privacy Notes

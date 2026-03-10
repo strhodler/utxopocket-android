@@ -41,6 +41,19 @@ class WalletsConnectionBannerModelTest {
     }
 
     @Test
+    fun torConnectingIsIgnoredWhenTorIsNotRequired() {
+        val model = project(
+            torRequired = false,
+            torStatus = TorStatus.Connecting(message = "Bootstrapping")
+        )
+
+        assertEquals(
+            WalletsConnectionBannerModel.NodeDisconnected(errorMessage = null),
+            model
+        )
+    }
+
+    @Test
     fun torErrorMapsToTorErrorBanner() {
         val model = project(
             torStatus = TorStatus.Error(message = "Tor failed")
@@ -145,7 +158,7 @@ class WalletsConnectionBannerModelTest {
 
     private fun project(
         isNetworkOnline: Boolean = true,
-        torRequired: Boolean = false,
+        torRequired: Boolean = true,
         torStatus: TorStatus = TorStatus.Running(TEST_PROXY),
         nodeStatus: NodeStatus = NodeStatus.Idle,
         isRefreshing: Boolean = false,

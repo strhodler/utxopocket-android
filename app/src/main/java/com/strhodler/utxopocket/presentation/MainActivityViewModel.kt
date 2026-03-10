@@ -164,7 +164,12 @@ internal fun projectMainActivityUiState(
         snapshotMatchesNetwork = snapshotMatchesNetwork
     )
     val effectiveNodeStatus = statusProjection.nodeStatus
-    val effectiveTorStatus = statusProjection.torStatus
+    val torRequired = !duressActive && inputs.nodeConfig.requiresTor(inputs.network)
+    val effectiveTorStatus = if (torRequired) {
+        statusProjection.torStatus
+    } else {
+        TorStatus.Stopped
+    }
     val isNetworkOnline = if (duressActive) false else inputs.connectionSnapshot.isOnline
     val isSyncing = !duressActive &&
         inputs.syncStatus.network == inputs.network &&
@@ -174,7 +179,6 @@ internal fun projectMainActivityUiState(
                 inputs.syncStatus.activeWalletId != null ||
                 inputs.syncStatus.refreshingWalletIds.isNotEmpty()
             )
-    val torRequired = !duressActive && inputs.nodeConfig.requiresTor(inputs.network)
     val connectionIndicatorModel = projectTopBarConnectionIndicator(effectiveNodeStatus)
 
     val effectiveTorLog = when (effectiveTorStatus) {

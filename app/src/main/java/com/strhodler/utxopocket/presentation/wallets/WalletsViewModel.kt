@@ -184,7 +184,11 @@ class WalletsViewModel @Inject constructor(
         val isNetworkOnline = if (duressActive) false else connectionSnapshot.isOnline
         val snapshotMatchesNetwork = connectionProjection.snapshotMatchesNetwork
         val effectiveNodeStatus = connectionProjection.nodeStatus
-        val effectiveTorStatus = connectionProjection.torStatus
+        val effectiveTorStatus = if (torRequired) {
+            connectionProjection.torStatus
+        } else {
+            TorStatus.Stopped
+        }
         val isRefreshing = !duressActive &&
             syncStatus.isRefreshing &&
             syncStatus.network == data.network
@@ -206,7 +210,7 @@ class WalletsViewModel @Inject constructor(
             resolveConnectedNodeLabel(
                 nodeConfig = snapshot.nodeConfig,
                 network = data.network
-            ) ?: connectionSnapshot.nodeStatus.endpoint?.substringAfter("://")?.trimEnd('/')
+            )
         }
         val hasWalletErrors = walletList.any { it.lastSyncStatus is NodeStatus.Error }
         val connectionBannerModel = projectWalletsConnectionBannerModel(

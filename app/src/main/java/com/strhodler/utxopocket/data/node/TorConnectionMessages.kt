@@ -1,5 +1,7 @@
 package com.strhodler.utxopocket.data.node
 
+import com.strhodler.utxopocket.domain.node.EndpointKind
+import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import org.bitcoindevkit.ElectrumException
 import javax.net.ssl.SSLHandshakeException
 
@@ -28,8 +30,18 @@ fun Throwable.toTorAwareMessage(
         defaultMessage
     }
     return if (endpoint != null) {
-        "$base (endpoint: $endpoint)"
+        "$base (${endpointTypeLabel(endpoint)})"
     } else {
         base
+    }
+}
+
+private fun endpointTypeLabel(endpoint: String): String {
+    val normalized = runCatching { NodeEndpointClassifier.normalize(endpoint) }.getOrNull()
+    return when (normalized?.kind) {
+        EndpointKind.ONION -> "onion endpoint"
+        EndpointKind.LOCAL -> "local endpoint"
+        EndpointKind.PUBLIC -> "public endpoint"
+        null -> "endpoint hidden"
     }
 }

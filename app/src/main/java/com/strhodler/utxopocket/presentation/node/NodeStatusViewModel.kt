@@ -673,6 +673,19 @@ class NodeStatusViewModel @Inject constructor(
                         )
                     }
                 }
+
+                is NodeConnectionTestResult.NetworkMismatch -> {
+                    _uiState.update {
+                        it.copy(
+                            isTestingCustomNode = false,
+                            customNodeError = networkMismatchMessage(
+                                expected = result.expectedNetwork,
+                                detected = result.detectedNetwork
+                            ),
+                            customNodeSuccessMessage = null
+                        )
+                    }
+                }
             }
         }
     }
@@ -933,6 +946,20 @@ class NodeStatusViewModel @Inject constructor(
                 "No compatible node selected"
 
             else -> reason
+        }
+
+    private fun networkMismatchMessage(
+        expected: BitcoinNetwork,
+        detected: BitcoinNetwork
+    ): String =
+        "Network mismatch: app is ${networkLabel(expected)} while node is ${networkLabel(detected)}."
+
+    private fun networkLabel(network: BitcoinNetwork): String =
+        when (network) {
+            BitcoinNetwork.MAINNET -> "Mainnet"
+            BitcoinNetwork.TESTNET -> "Testnet3"
+            BitcoinNetwork.TESTNET4 -> "Testnet4"
+            BitcoinNetwork.SIGNET -> "Signet"
         }
 
     private fun CustomNode.isCompatibleWith(mode: ConnectionMode): Boolean {

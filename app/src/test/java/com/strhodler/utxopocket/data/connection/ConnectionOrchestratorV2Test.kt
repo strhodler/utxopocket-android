@@ -6,6 +6,7 @@ import com.strhodler.utxopocket.domain.connection.ConnectionState
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
+import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
@@ -146,11 +147,13 @@ class ConnectionOrchestratorV2Test {
         val walletRepository = TestWalletRepository()
         val torManager = TestTorManager()
         val preferredNetwork = MutableStateFlow(BitcoinNetwork.TESTNET)
+        val nodeConfig = MutableStateFlow(NodeConfig())
         val networkOnline = MutableStateFlow(true)
         val orchestrator = ConnectionOrchestratorV2(
             walletSyncRepository = walletRepository,
             torManager = torManager,
             preferredNetworkFlow = preferredNetwork,
+            nodeConfigFlow = nodeConfig,
             networkOnlineFlow = networkOnline,
             connectionStateMapper = ConnectionStateMapper(),
             applicationScope = appScope,

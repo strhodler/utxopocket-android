@@ -5,6 +5,8 @@ import com.strhodler.utxopocket.domain.connection.ConnectionState
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.ConnectionMode
+import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.DuressSessionState
 import com.strhodler.utxopocket.domain.model.IncomingTxLightStatus
 import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
@@ -269,5 +271,62 @@ class MainActivityStatusProjectionTest {
         assertEquals(1234L, status.nodeLastSync)
         assertEquals(true, status.torRequired)
         assertEquals(false, uiState.appShellState.appLocked)
+    }
+
+    @Test
+    fun typedUiProjection_hidesTorStatusWhenConnectionModeIsLocalDirect() {
+        val uiState = projectMainActivityUiState(
+            inputs = MainUiInputs(
+                onboardingCompleted = true,
+                connectionSnapshot = ConnectionSnapshot(
+                    state = ConnectionState.CONNECTED,
+                    isOnline = true,
+                    torStatus = TorStatus.Running(SocksProxyConfig("127.0.0.1", 9050)),
+                    nodeStatus = NodeStatusSnapshot(
+                        status = NodeStatus.Synced,
+                        network = BitcoinNetwork.TESTNET,
+                        endpoint = "tcp://192.168.1.10:50001"
+                    )
+                ),
+                syncStatus = SyncStatusSnapshot(
+                    isRefreshing = false,
+                    network = BitcoinNetwork.TESTNET
+                ),
+                network = BitcoinNetwork.TESTNET,
+                torLog = "Tor ready",
+                pinEnabled = false,
+                locked = false,
+                nodeConfig = NodeConfig(
+                    connectionMode = ConnectionMode.LOCAL_DIRECT,
+                    connectionOption = NodeConnectionOption.CUSTOM,
+                    customNodes = listOf(
+                        CustomNode(
+                            id = "local",
+                            endpoint = "tcp://192.168.1.10:50001",
+                            network = BitcoinNetwork.TESTNET
+                        )
+                    ),
+                    selectedCustomNodeId = "local"
+                ),
+                incomingTxCount = 0,
+                incomingGroups = emptyList(),
+                duress = DuressSessionState.Inactive,
+                duressUnlockInProgress = false
+            ),
+            prefs = MainUiPrefs(
+                themePreference = ThemePreference.SYSTEM,
+                themeProfile = ThemeProfile.STANDARD,
+                appLanguage = AppLanguage.EN,
+                hapticsEnabled = true,
+                pinShuffleEnabled = false,
+                balanceUnit = BalanceUnit.SATS,
+                balancesHidden = false
+            )
+        )
+
+        val status = uiState.appShellState.status
+        assertEquals(TorStatus.Stopped, status.torStatus)
+        assertEquals(false, status.torRequired)
+        assertEquals("", status.torLog)
     }
 }
