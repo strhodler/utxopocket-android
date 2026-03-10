@@ -19,6 +19,7 @@ import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletAddressRepository
 import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
 import com.strhodler.utxopocket.domain.repository.WalletMaintenanceRepository
+import com.strhodler.utxopocket.domain.repository.WalletBackupRepository
 import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
 import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
@@ -82,6 +83,12 @@ abstract class RepositoryModule {
     abstract fun bindWalletMaintenanceRepository(
         impl: DefaultWalletRepository
     ): WalletMaintenanceRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWalletBackupRepository(
+        impl: DefaultWalletRepository
+    ): WalletBackupRepository
 
     @Binds
     @Singleton

@@ -17,6 +17,7 @@ import androidx.paging.PagingData
 import androidx.paging.map
 import androidx.room.withTransaction
 import com.strhodler.utxopocket.data.db.WalletDao
+import com.strhodler.utxopocket.data.db.UtxoCanvasDao
 import com.strhodler.utxopocket.data.db.UtxoRefProjection
 import com.strhodler.utxopocket.data.db.WalletEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionEntity
@@ -57,6 +58,12 @@ import com.strhodler.utxopocket.domain.model.WalletCreationRequest
 import com.strhodler.utxopocket.domain.model.WalletCreationResult
 import com.strhodler.utxopocket.domain.model.Bip329LabelEntry
 import com.strhodler.utxopocket.domain.model.Bip329ImportResult
+import com.strhodler.utxopocket.domain.model.WalletBackupExportRequest
+import com.strhodler.utxopocket.domain.model.WalletBackupExportResult
+import com.strhodler.utxopocket.domain.model.WalletBackupImportRequest
+import com.strhodler.utxopocket.domain.model.WalletBackupImportResult
+import com.strhodler.utxopocket.domain.model.WalletBackupPreviewRequest
+import com.strhodler.utxopocket.domain.model.WalletBackupPreviewResult
 import com.strhodler.utxopocket.domain.model.WalletDetail
 import com.strhodler.utxopocket.domain.model.WalletLabelExport
 import com.strhodler.utxopocket.domain.model.WalletSummary
@@ -71,7 +78,9 @@ import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletAddressRepository
 import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
 import com.strhodler.utxopocket.domain.repository.WalletMaintenanceRepository
+import com.strhodler.utxopocket.domain.repository.WalletBackupRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
+import com.strhodler.utxopocket.domain.repository.WalletDetailPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
 import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
 import com.strhodler.utxopocket.domain.repository.WalletReadRepository
@@ -128,6 +137,7 @@ private const val GENERIC_DESCRIPTOR_ERROR =
 @Singleton
 class DefaultWalletRepository @Inject constructor(
     private val walletDao: WalletDao,
+    private val utxoCanvasDao: UtxoCanvasDao,
     private val torManager: TorManager,
     private val torProxyProvider: TorProxyProvider,
     private val blockchainFactory: BdkBlockchainFactory,
@@ -139,6 +149,7 @@ class DefaultWalletRepository @Inject constructor(
     private val networkStatusMonitor: NetworkStatusMonitor,
     private val networkErrorLogRepository: NetworkErrorLogRepository,
     private val walletSyncPreferencesRepository: WalletSyncPreferencesRepository,
+    private val walletDetailPreferencesRepository: WalletDetailPreferencesRepository,
     private val incomingTxCoordinator: IncomingTxCoordinator,
     @param:ApplicationContext private val applicationContext: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
@@ -148,7 +159,8 @@ class DefaultWalletRepository @Inject constructor(
     WalletProvisioningRepository,
     WalletAddressRepository,
     WalletLabelRepository,
-    WalletMaintenanceRepository {
+    WalletMaintenanceRepository,
+    WalletBackupRepository {
 
     companion object {
         private const val TAG = "DefaultWalletRepository"
@@ -292,6 +304,20 @@ class DefaultWalletRepository @Inject constructor(
         walletSyncOrchestrator = walletSyncOrchestrator,
         ioDispatcher = ioDispatcher,
         maxFullScanStopGap = MAX_FULL_SCAN_STOP_GAP
+    )
+    private val walletBackupManager = WalletBackupManager(
+        walletDao = walletDao,
+        utxoCanvasDao = utxoCanvasDao,
+        database = database,
+        appPreferencesRepository = appPreferencesRepository,
+        walletDetailPreferencesRepository = walletDetailPreferencesRepository,
+        validateDescriptor = { descriptor, changeDescriptor, network ->
+            walletProvisioningManager.validateDescriptor(descriptor, changeDescriptor, network)
+        },
+        removeWalletStorage = { walletId, network ->
+            walletFactory.removeStorage(walletId, network)
+        },
+        ioDispatcher = ioDispatcher
     )
     private val walletMaintenanceManager = WalletMaintenanceManager(
         walletDao = walletDao,
@@ -624,6 +650,21 @@ class DefaultWalletRepository @Inject constructor(
         payload = payload,
         overwriteExisting = overwriteExisting
     )
+
+    override suspend fun exportEncryptedBackup(
+        request: WalletBackupExportRequest
+    ): WalletBackupExportResult = walletBackupManager.exportEncryptedBackup(request)
+
+    override suspend fun previewEncryptedBackup(
+        request: WalletBackupPreviewRequest
+    ): WalletBackupPreviewResult = walletBackupManager.previewEncryptedBackup(request)
+
+    override suspend fun importEncryptedBackup(
+        request: WalletBackupImportRequest
+    ): WalletBackupImportResult {
+        releaseAllCachedWallets()
+        return walletBackupManager.importEncryptedBackup(request)
+    }
 
     override fun setSyncForegroundState(isForeground: Boolean) {
         val previous = appInForeground.getAndSet(isForeground)

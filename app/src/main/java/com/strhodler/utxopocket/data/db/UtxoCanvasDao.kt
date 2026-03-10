@@ -68,6 +68,24 @@ interface UtxoCanvasDao {
     @Query("DELETE FROM utxo_canvas_items WHERE wallet_id = :walletId AND item_type = :itemType")
     suspend fun deleteCanvasItemsByType(walletId: Long, itemType: String)
 
+    @Query("DELETE FROM utxo_canvas_items WHERE wallet_id = :walletId")
+    suspend fun clearCanvasItems(walletId: Long)
+
+    @Query("DELETE FROM utxo_collection_memberships WHERE wallet_id = :walletId")
+    suspend fun clearMemberships(walletId: Long)
+
+    @Query("DELETE FROM utxo_collections WHERE wallet_id = :walletId")
+    suspend fun clearCollections(walletId: Long)
+
+    @Query("DELETE FROM utxo_canvas_items")
+    suspend fun clearAllCanvasItems()
+
+    @Query("DELETE FROM utxo_collection_memberships")
+    suspend fun clearAllMemberships()
+
+    @Query("DELETE FROM utxo_collections")
+    suspend fun clearAllCollections()
+
     @Transaction
     suspend fun replaceCanvasItems(items: List<UtxoCanvasItemEntity>) {
         if (items.isEmpty()) return
