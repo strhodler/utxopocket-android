@@ -12,6 +12,8 @@ import com.strhodler.utxopocket.presentation.navigation.MainDestination
 import com.strhodler.utxopocket.presentation.navigation.navigateSingleTop
 import com.strhodler.utxopocket.presentation.navigation.stringArgOrNull
 import com.strhodler.utxopocket.presentation.node.NodeStatusRoute
+import com.strhodler.utxopocket.presentation.settings.BackupSettingsRoute
+import com.strhodler.utxopocket.presentation.settings.BackupViewModel
 import com.strhodler.utxopocket.presentation.settings.BlockExplorerSettingsRoute
 import com.strhodler.utxopocket.presentation.settings.InterfaceSettingsRoute
 import com.strhodler.utxopocket.presentation.settings.SecuritySettingsRoute
@@ -67,6 +69,16 @@ internal fun NavGraphBuilder.settingsGraph(
         val viewModel: SettingsViewModel = hiltViewModel(parentEntry)
         WalletSettingsRoute(
             viewModel = viewModel,
+            onOpenBackupSettings = {
+                navController.navigate(SettingsNavigation.BackupRoute)
+            },
+            onBack = { navController.popBackStack() }
+        )
+    }
+    composable(SettingsNavigation.BackupRoute) { _ ->
+        val backupViewModel: BackupViewModel = hiltViewModel()
+        BackupSettingsRoute(
+            viewModel = backupViewModel,
             onBack = { navController.popBackStack() }
         )
     }

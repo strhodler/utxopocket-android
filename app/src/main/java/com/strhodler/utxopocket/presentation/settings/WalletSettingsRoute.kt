@@ -33,6 +33,7 @@ import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 @Composable
 fun WalletSettingsRoute(
     viewModel: SettingsViewModel,
+    onOpenBackupSettings: () -> Unit,
     onBack: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -49,6 +50,7 @@ fun WalletSettingsRoute(
             state = state,
             onDustThresholdChanged = viewModel::onDustThresholdChanged,
             onIncomingDetectionDialogToggle = viewModel::onIncomingDetectionDialogChanged,
+            onOpenBackupSettings = onOpenBackupSettings,
             modifier = Modifier
                 .fillMaxSize()
                 .applyScreenPadding(innerPadding)
@@ -61,6 +63,7 @@ private fun WalletSettingsScreen(
     state: SettingsUiState,
     onDustThresholdChanged: (String) -> Unit,
     onIncomingDetectionDialogToggle: (Boolean) -> Unit,
+    onOpenBackupSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -130,6 +133,20 @@ private fun WalletSettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
+                )
+            }
+        }
+
+        SectionCard(
+            title = stringResource(id = R.string.settings_backup_section_title),
+            spacedContent = true,
+            divider = false
+        ) {
+            item {
+                SettingsNavigationRow(
+                    title = stringResource(id = R.string.settings_backup_screen_title),
+                    supportingText = stringResource(id = R.string.settings_backup_wallet_entry_description),
+                    onClick = onOpenBackupSettings
                 )
             }
         }
