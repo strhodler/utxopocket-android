@@ -4,7 +4,7 @@ Date: 2025‑11‑07
 
 ## Purpose
 - Keep the public wiki/glossary aligned with best layer‑1 privacy practices from reputable sources.
-- Ensure every addition is rewritten in English with UtxoPocket’s voice (watch-only, descriptor-driven, Tor-by-default) and published as Markdown under `/docs`.
+- Ensure every addition is rewritten in English with UtxoPocket’s voice (watch-only, descriptor-driven, Tor-only) and published as Markdown under `/docs`.
 
 ## Current Coverage Snapshot
 - UTXO model, wallet types, keys & seeds, descriptor basics.
@@ -155,3 +155,8 @@ Date: 2025‑11‑07
 | ✅ | glossary `key-origin` | BIP32 origin data (fingerprint and derivation path) embedded in descriptors/PSBTs to bind keys to their source and avoid mixups. Implemented in `/docs/glossary/key-origin.md`. | Medium | References `descriptor-maps-and-recovery`, `descriptors-advanced`. |
 | ✅ | glossary `vbytes` | Virtual byte unit used for fee calculation (weight/4, rounded); feerates are expressed in sats/vbyte. Implemented in `/docs/glossary/vbytes.md`. | Medium | References `fee-selection-playbook`, `rbf-cpfp-strategies`. |
 | ✅ | glossary `bridge` | Tor bridge or pluggable transport used to reach the Tor network from censored networks; helps hide node traffic and bootstrapping. Implemented in `/docs/glossary/bridge.md`. | Low | References `node-connectivity`, `electrum-servers`. |
+| ✅ | wiki `encrypted-watch-only-backup` | Operational guide for encrypted `.ubak` export/import, scope boundaries, preview checks, and fail-closed behavior. Implemented in `/docs/wiki/encrypted-watch-only-backup.md`. | High | Related: `watch-only-restoration`, `descriptor-maps-and-recovery`; Glossary: `encrypted-backup`, `backup-passphrase`, `backup-integrity`. |
+| ✅ | wiki `backup-recovery-drill` | Repeatable dry-run checklist to validate encrypted backup recovery before incidents. Implemented in `/docs/wiki/backup-recovery-drill.md`. | High | Related: `encrypted-watch-only-backup`, `self-custody-hygiene`; Glossary: `backup-integrity`, `backup-passphrase`. |
+| ✅ | glossary `encrypted-backup` | Definition of UtxoPocket encrypted `.ubak` backup scope and purpose. Implemented in `/docs/glossary/encrypted-backup.md`. | Medium | References `encrypted-watch-only-backup`. |
+| ✅ | glossary `backup-passphrase` | Definition and storage guidance for the passphrase required to unlock `.ubak` backups. Implemented in `/docs/glossary/backup-passphrase.md`. | Medium | References `encrypted-watch-only-backup`, `backup-recovery-drill`. |
+| ✅ | glossary `backup-integrity` | Definition of integrity checks before import (preview, schema/security validation, expected metadata). Implemented in `/docs/glossary/backup-integrity.md`. | Medium | References `encrypted-watch-only-backup`, `descriptor-maps-and-recovery`. |
