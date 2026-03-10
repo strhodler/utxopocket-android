@@ -35,26 +35,17 @@ class NodeSyncRetryPolicyTest {
     }
 
     @Test
-    fun vpnDirectPolicyFailsClosedUnlessExplicitlyEnabled() {
-        assertFalse(
-            isTransportAllowedByPolicy(
-                transport = NodeTransport.VPN_DIRECT,
-                policy = TransportPolicy.VPN_DIRECT_REQUIRED,
-                vpnDirectEnabled = false
-            )
-        )
+    fun vpnDirectPolicyAllowsOnlyDirectTransport() {
         assertTrue(
             isTransportAllowedByPolicy(
                 transport = NodeTransport.VPN_DIRECT,
-                policy = TransportPolicy.VPN_DIRECT_REQUIRED,
-                vpnDirectEnabled = true
+                policy = TransportPolicy.VPN_DIRECT_REQUIRED
             )
         )
         assertFalse(
             isTransportAllowedByPolicy(
                 transport = NodeTransport.TOR,
-                policy = TransportPolicy.VPN_DIRECT_REQUIRED,
-                vpnDirectEnabled = true
+                policy = TransportPolicy.VPN_DIRECT_REQUIRED
             )
         )
     }

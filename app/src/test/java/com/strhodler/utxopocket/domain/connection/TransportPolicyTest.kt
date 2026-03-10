@@ -1,9 +1,9 @@
 package com.strhodler.utxopocket.domain.connection
 
+import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.domain.model.NodeTransport
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class TransportPolicyTest {
@@ -14,8 +14,20 @@ class TransportPolicyTest {
     }
 
     @Test
-    fun vpnDirectPolicyIsFailClosedUntilEnabled() {
-        assertNull(TransportPolicy.VPN_DIRECT_REQUIRED.resolveTransportOrNull())
+    fun vpnDirectPolicyResolvesToDirectTransport() {
+        assertEquals(NodeTransport.VPN_DIRECT, TransportPolicy.VPN_DIRECT_REQUIRED.resolveTransportOrNull())
+    }
+
+    @Test
+    fun connectionModeMapsToExpectedTransportPolicy() {
+        assertEquals(
+            TransportPolicy.TOR_ONLY,
+            TransportPolicy.forConnectionMode(ConnectionMode.TOR_DEFAULT)
+        )
+        assertEquals(
+            TransportPolicy.VPN_DIRECT_REQUIRED,
+            TransportPolicy.forConnectionMode(ConnectionMode.LOCAL_DIRECT)
+        )
     }
 
     @Test

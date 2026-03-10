@@ -493,12 +493,21 @@ private class CancellingTorManager : TorManager {
 private class FakeNodeConfigurationRepository : NodeConfigurationRepository {
     private val state = MutableStateFlow(
         NodeConfig(
-            connectionOption = NodeConnectionOption.PUBLIC
+            connectionOption = NodeConnectionOption.PUBLIC,
+            selectedPublicNodeId = "test-node"
         )
     )
     override val nodeConfig: Flow<NodeConfig> = state
     override fun publicNodesFor(network: BitcoinNetwork, excludedIds: Set<String>): List<PublicNode> =
-        emptyList()
+        listOf(
+            PublicNode(
+                id = "test-node",
+                displayName = "Test",
+                endpoint = "ssl://electrum.test:50002",
+                network = network
+            )
+        ).filterNot { it.id in excludedIds }
+
     override suspend fun updateNodeConfig(mutator: (NodeConfig) -> NodeConfig) {
         state.value = mutator(state.value)
     }

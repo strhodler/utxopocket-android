@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.domain.node
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class NodeEndpointClassifierTest {
@@ -44,5 +45,13 @@ class NodeEndpointClassifierTest {
     fun treatsMdnsHostnamesAsPublic() {
         val normalized = NodeEndpointClassifier.normalize("ssl://mynode.local:50002")
         assertEquals(EndpointKind.PUBLIC, normalized.kind)
+    }
+
+    @Test
+    fun localIpLiteralValidationRejectsHostnames() {
+        assertTrue(NodeEndpointClassifier.isLocalIpLiteral("192.168.1.10"))
+        assertTrue(NodeEndpointClassifier.isLocalIpLiteral("fd12:3456::1"))
+        assertFalse(NodeEndpointClassifier.isLocalIpLiteral("localhost"))
+        assertFalse(NodeEndpointClassifier.isLocalIpLiteral("mynode.local"))
     }
 }

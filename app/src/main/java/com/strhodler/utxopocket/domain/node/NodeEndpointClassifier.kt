@@ -80,6 +80,16 @@ object NodeEndpointClassifier {
     fun isOnionAddress(host: String): Boolean =
         host.lowercase(Locale.US).endsWith(onionSuffix)
 
+    fun isLocalIpLiteral(host: String): Boolean {
+        val normalizedHost = host.lowercase(Locale.US).removePrefix("[").removeSuffix("]")
+        if (normalizedHost == "::1") {
+            return true
+        }
+        return isPrivateIpv4(normalizedHost) ||
+            isUniqueLocalIpv6(normalizedHost) ||
+            isLinkLocalIpv6(normalizedHost)
+    }
+
     fun buildUrl(
         host: String,
         port: Int,
@@ -136,15 +146,7 @@ object NodeEndpointClassifier {
         if (normalizedHost in localHostnames) {
             return true
         }
-        if (normalizedHost == "::1") {
-            return true
-        }
-        if (normalizedHost.startsWith("[") && normalizedHost.endsWith("]")) {
-            val unwrapped = normalizedHost.substring(1, normalizedHost.length - 1)
-            if (unwrapped == "::1") return true
-            if (isUniqueLocalIpv6(unwrapped) || isLinkLocalIpv6(unwrapped)) return true
-        }
-        return isPrivateIpv4(normalizedHost) || isUniqueLocalIpv6(normalizedHost) || isLinkLocalIpv6(normalizedHost)
+        return isLocalIpLiteral(normalizedHost)
     }
 
     private fun isPrivateIpv4(host: String): Boolean {

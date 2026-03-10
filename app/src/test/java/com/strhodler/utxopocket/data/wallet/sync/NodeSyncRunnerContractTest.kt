@@ -20,15 +20,13 @@ class NodeSyncRunnerContractTest {
         assertTrue(
             isTransportAllowedByPolicy(
                 transport = NodeTransport.TOR,
-                policy = TransportPolicy.TOR_ONLY,
-                vpnDirectEnabled = false
+                policy = TransportPolicy.TOR_ONLY
             )
         )
         assertFalse(
             isTransportAllowedByPolicy(
                 transport = NodeTransport.VPN_DIRECT,
-                policy = TransportPolicy.TOR_ONLY,
-                vpnDirectEnabled = true
+                policy = TransportPolicy.TOR_ONLY
             )
         )
     }

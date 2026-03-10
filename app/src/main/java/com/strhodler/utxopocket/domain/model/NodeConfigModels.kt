@@ -10,6 +10,11 @@ enum class NodeConnectionOption {
     CUSTOM
 }
 
+enum class ConnectionMode {
+    TOR_DEFAULT,
+    LOCAL_DIRECT
+}
+
 data class CustomNode(
     val id: String,
     val endpoint: String,
@@ -47,7 +52,10 @@ data class CustomNode(
 
     fun normalizedCopy(): CustomNode? {
         val parsed = normalizedEndpoint ?: return null
-        if (parsed.kind != EndpointKind.ONION) {
+        val isAllowedOnionEndpoint = parsed.kind == EndpointKind.ONION
+        val isAllowedLocalLiteral =
+            parsed.kind == EndpointKind.LOCAL && NodeEndpointClassifier.isLocalIpLiteral(parsed.host)
+        if (!isAllowedOnionEndpoint && !isAllowedLocalLiteral) {
             return null
         }
         return copy(
@@ -65,6 +73,7 @@ data class PublicNode(
 )
 
 data class NodeConfig(
+    val connectionMode: ConnectionMode = ConnectionMode.TOR_DEFAULT,
     val connectionOption: NodeConnectionOption = NodeConnectionOption.PUBLIC,
     val selectedPublicNodeId: String? = null,
     val customNodes: List<CustomNode> = emptyList(),

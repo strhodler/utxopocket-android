@@ -23,8 +23,10 @@ import com.strhodler.utxopocket.data.db.withSyncFailure
 import com.strhodler.utxopocket.data.db.withSyncResult
 import com.strhodler.utxopocket.data.node.toTorAwareMessage
 import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
+import com.strhodler.utxopocket.domain.connection.ConnectionModeErrorKeys
 import com.strhodler.utxopocket.domain.connection.TransportPolicy
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.NodeTransport
@@ -127,7 +129,8 @@ internal class NodeSyncRunner(
             performRefreshAttempt(
                 network = network,
                 targetWalletIds = targetWalletIds,
-                syncWallets = syncWallets
+                syncWallets = syncWallets,
+                connectionMode = config.connectionMode
             )
         } catch (error: CancellationException) {
             SecureLog.i(logTag) { "Wallet refresh cancelled for $network" }
@@ -160,7 +163,8 @@ internal class NodeSyncRunner(
     private suspend fun performRefreshAttempt(
         network: BitcoinNetwork,
         targetWalletIds: Set<Long>?,
-        syncWallets: Boolean
+        syncWallets: Boolean,
+        connectionMode: ConnectionMode
     ) {
         val previousSnapshot = nodeStatus.value
         val lastSyncForNetwork = previousSnapshot.lastSyncCompletedAt
@@ -221,9 +225,10 @@ internal class NodeSyncRunner(
             lastEndpointMetadata = EndpointAttemptMetadata(network, electrumEndpoint)
             activeTransport = electrumEndpoint.transport
             val pendingEndpointUrl = electrumEndpoint.url
-            val requiredTransport = TransportPolicy.default().resolveTransportOrNull(vpnDirectEnabled = false)
-            if (!isTransportAllowedByPolicy(activeTransport)) {
-                val reason = "Connection blocked by transport policy. Tor transport is required."
+            val policy = TransportPolicy.forConnectionMode(connectionMode)
+            val requiredTransport = policy.resolveTransportOrNull()
+            if (!isTransportAllowedByPolicy(transport = activeTransport, policy = policy)) {
+                val reason = ConnectionModeErrorKeys.INCOMPATIBLE_ENDPOINT
                 nodeStatus.value = NodeStatusSnapshot(
                     status = NodeStatus.Error(reason),
                     blockHeight = blockHeight,
@@ -1503,9 +1508,8 @@ internal fun shouldRetryAttempt(attempt: Int, maxAttempts: Int): Boolean {
 
 internal fun isTransportAllowedByPolicy(
     transport: NodeTransport,
-    policy: TransportPolicy = TransportPolicy.default(),
-    vpnDirectEnabled: Boolean = false
+    policy: TransportPolicy = TransportPolicy.default()
 ): Boolean {
-    val allowedTransport = policy.resolveTransportOrNull(vpnDirectEnabled = vpnDirectEnabled) ?: return false
+    val allowedTransport = policy.resolveTransportOrNull()
     return transport == allowedTransport
 }

@@ -17,6 +17,7 @@ import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.BlockExplorerCatalog
 import com.strhodler.utxopocket.domain.model.BlockExplorerNetworkPreference
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
+import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
@@ -562,6 +563,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
             val current = prefs.toNodeConfig()
             val updated = mutator(current).normalised()
 
+            prefs[Keys.NODE_CONNECTION_MODE] = updated.connectionMode.name
             prefs[Keys.NODE_CONNECTION_OPTION] = updated.connectionOption.name
             updated.selectedPublicNodeId?.let {
                 prefs[Keys.NODE_SELECTED_PUBLIC_ID] = it
@@ -595,6 +597,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
     }
 
     private fun Preferences.toNodeConfig(): NodeConfig {
+        val connectionMode = this[Keys.NODE_CONNECTION_MODE]?.let {
+            runCatching { ConnectionMode.valueOf(it) }.getOrNull()
+        } ?: ConnectionMode.TOR_DEFAULT
+
         val connectionOption = this[Keys.NODE_CONNECTION_OPTION]?.let {
             runCatching { NodeConnectionOption.valueOf(it) }.getOrNull()
         } ?: NodeConnectionOption.PUBLIC
@@ -624,6 +630,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         }
 
         return NodeConfig(
+            connectionMode = connectionMode,
             connectionOption = connectionOption,
             selectedPublicNodeId = this[Keys.NODE_SELECTED_PUBLIC_ID],
             customNodes = combinedNodes,
@@ -715,7 +722,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val normalized = runCatching {
             NodeEndpointClassifier.normalize(endpoint)
         }.getOrNull() ?: return null
-        return normalized.takeIf { it.kind == EndpointKind.ONION }?.url
+        val isOnion = normalized.kind == EndpointKind.ONION
+        val isLocalLiteral =
+            normalized.kind == EndpointKind.LOCAL && NodeEndpointClassifier.isLocalIpLiteral(normalized.host)
+        return normalized.takeIf { isOnion || isLocalLiteral }?.url
     }
 
     private fun buildLegacyOnionEndpoint(value: String): String? {
@@ -859,6 +869,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val DURESS_PIN_HASH = stringPreferencesKey("duress_pin_hash")
         val DURESS_PIN_SALT = stringPreferencesKey("duress_pin_salt")
         val DURESS_PIN_KDF_ITERATIONS = intPreferencesKey("duress_pin_kdf_iterations")
+        val NODE_CONNECTION_MODE = stringPreferencesKey("node_connection_mode")
         val NODE_CONNECTION_OPTION = stringPreferencesKey("node_connection_option")
         val NODE_ADDRESS_OPTION = stringPreferencesKey("node_address_option")
         val NODE_SELECTED_PUBLIC_ID = stringPreferencesKey("node_selected_public_id")

@@ -3,6 +3,8 @@ package com.strhodler.utxopocket.domain.model
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class NodeConfigModelsTest {
@@ -39,5 +41,30 @@ class NodeConfigModelsTest {
         val noSelection = config.copy(selectedCustomNodeId = null)
         assertFalse(noSelection.requiresTor(BitcoinNetwork.MAINNET))
         assertTrue(noSelection.activeTransport(BitcoinNetwork.MAINNET) == null)
+    }
+
+    @Test
+    fun customNodeNormalizationKeepsPrivateLocalIpLiterals() {
+        val localNode = CustomNode(
+            id = "local",
+            endpoint = "SSL://192.168.1.10:60002",
+            network = BitcoinNetwork.MAINNET
+        )
+
+        val normalized = localNode.normalizedCopy()
+
+        assertNotNull(normalized)
+        assertEquals("ssl://192.168.1.10:60002", normalized.endpoint)
+    }
+
+    @Test
+    fun customNodeNormalizationRejectsLocalHostnames() {
+        val localHostNode = CustomNode(
+            id = "localhost",
+            endpoint = "ssl://localhost:50002",
+            network = BitcoinNetwork.MAINNET
+        )
+
+        assertNull(localHostNode.normalizedCopy())
     }
 }
