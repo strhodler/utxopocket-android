@@ -297,28 +297,32 @@ internal object WalletBackupJsonCodec {
             return WalletBackupDecodeResult.Failure(it)
         }
 
-        val schema = envelope.optString("schema", "")
+        val schema = envelope.requiredString("schema")
+            ?: return WalletBackupDecodeResult.Failure(
+                WalletBackupFailure.InvalidPayload("Missing envelope schema")
+            )
         if (schema != BACKUP_SCHEMA_NAME) {
             return WalletBackupDecodeResult.Failure(
                 WalletBackupFailure.InvalidPayload("Unsupported backup schema")
             )
         }
-        if (!envelope.has("version")) {
-            return WalletBackupDecodeResult.Failure(
+        val version = envelope.requiredInt("version")
+            ?: return WalletBackupDecodeResult.Failure(
                 WalletBackupFailure.InvalidPayload("Missing envelope version")
             )
-        }
-        val version = envelope.optInt("version", Int.MIN_VALUE)
         if (version != BACKUP_SCHEMA_VERSION) {
             return WalletBackupDecodeResult.Failure(
                 WalletBackupFailure.UnsupportedVersion(version = version)
             )
         }
 
-        val createdAtMillis = envelope.optLong("createdAt", Long.MIN_VALUE)
-        if (createdAtMillis == Long.MIN_VALUE) {
-            return WalletBackupDecodeResult.Failure(
+        val createdAtMillis = envelope.requiredLong("createdAt")
+            ?: return WalletBackupDecodeResult.Failure(
                 WalletBackupFailure.InvalidPayload("Missing envelope timestamp")
+            )
+        if (createdAtMillis < 0L) {
+            return WalletBackupDecodeResult.Failure(
+                WalletBackupFailure.InvalidPayload("Invalid envelope timestamp")
             )
         }
 
@@ -329,17 +333,24 @@ internal object WalletBackupJsonCodec {
         validateKeys(kdf, kdfKeys, "envelope.kdf")?.let {
             return WalletBackupDecodeResult.Failure(it)
         }
-        val kdfName = kdf.optString("name", "")
-        val iterations = kdf.optInt("iterations", Int.MIN_VALUE)
-        if (kdfName != BACKUP_KDF_NAME || iterations !in BACKUP_MIN_KDF_ITERATIONS..BACKUP_MAX_KDF_ITERATIONS) {
+        val kdfName = kdf.requiredString("name")
+        val iterations = kdf.requiredInt("iterations")
+        if (kdfName != BACKUP_KDF_NAME ||
+            iterations == null ||
+            iterations !in BACKUP_MIN_KDF_ITERATIONS..BACKUP_MAX_KDF_ITERATIONS
+        ) {
             return WalletBackupDecodeResult.Failure(
                 WalletBackupFailure.UnsupportedKdf(
-                    name = kdfName.takeIf { it.isNotBlank() },
-                    iterations = iterations.takeIf { it != Int.MIN_VALUE }
+                    name = kdfName?.takeIf { it.isNotBlank() },
+                    iterations = iterations
                 )
             )
         }
-        val salt = decodeBase64(kdf.optString("saltB64", ""))
+        val saltB64 = kdf.requiredString("saltB64")
+            ?: return WalletBackupDecodeResult.Failure(
+                WalletBackupFailure.InvalidPayload("Invalid KDF salt encoding")
+            )
+        val salt = decodeBase64(saltB64)
             ?: return WalletBackupDecodeResult.Failure(
                 WalletBackupFailure.InvalidPayload("Invalid KDF salt encoding")
             )
@@ -356,13 +367,20 @@ internal object WalletBackupJsonCodec {
         validateKeys(encryption, encryptionKeys, "envelope.encryption")?.let {
             return WalletBackupDecodeResult.Failure(it)
         }
-        val cipherName = encryption.optString("cipher", "")
+        val cipherName = encryption.requiredString("cipher")
+            ?: return WalletBackupDecodeResult.Failure(
+                WalletBackupFailure.InvalidPayload("Unsupported encryption cipher")
+            )
         if (cipherName != BACKUP_CIPHER_NAME) {
             return WalletBackupDecodeResult.Failure(
                 WalletBackupFailure.InvalidPayload("Unsupported encryption cipher")
             )
         }
-        val nonce = decodeBase64(encryption.optString("nonceB64", ""))
+        val nonceB64 = encryption.requiredString("nonceB64")
+            ?: return WalletBackupDecodeResult.Failure(
+                WalletBackupFailure.InvalidPayload("Invalid nonce encoding")
+            )
+        val nonce = decodeBase64(nonceB64)
             ?: return WalletBackupDecodeResult.Failure(
                 WalletBackupFailure.InvalidPayload("Invalid nonce encoding")
             )
@@ -372,7 +390,11 @@ internal object WalletBackupJsonCodec {
             )
         }
 
-        val ciphertext = decodeBase64(envelope.optString("ciphertext", ""))
+        val ciphertextB64 = envelope.requiredString("ciphertext")
+            ?: return WalletBackupDecodeResult.Failure(
+                WalletBackupFailure.InvalidPayload("Invalid ciphertext encoding")
+            )
+        val ciphertext = decodeBase64(ciphertextB64)
             ?: return WalletBackupDecodeResult.Failure(
                 WalletBackupFailure.InvalidPayload("Invalid ciphertext encoding")
             )
@@ -600,17 +622,16 @@ internal object WalletBackupJsonCodec {
         for (index in 0 until walletsArray.length()) {
             val walletJson = walletsArray.optJSONObject(index) ?: return null
             validateKeys(walletJson, walletKeys, "payload.wallets[$index]")?.let { return null }
-            val walletRef = walletJson.optString("walletRef", "").trim()
+            val walletRef = walletJson.requiredString("walletRef")?.trim().orEmpty()
             if (walletRef.isBlank()) return null
 
             val metaJson = walletJson.optJSONObject("meta") ?: return null
             validateKeys(metaJson, walletMetaKeys, "payload.wallets[$index].meta")?.let { return null }
-            val name = metaJson.optString("name", "")
-            val network = metaJson.optString("network", "")
-            val descriptor = metaJson.optString("descriptor", "")
+            val name = metaJson.requiredString("name")?.trim().orEmpty()
+            val network = metaJson.requiredString("network")?.trim().orEmpty()
+            val descriptor = metaJson.requiredString("descriptor")?.trim().orEmpty()
             if (name.isBlank() || network.isBlank() || descriptor.isBlank()) return null
-            val sortOrder = metaJson.optInt("sortOrder", Int.MIN_VALUE)
-            if (sortOrder == Int.MIN_VALUE) return null
+            val sortOrder = metaJson.requiredInt("sortOrder") ?: return null
 
             val labelsJson = walletJson.optJSONObject("labels") ?: return null
             validateKeys(labelsJson, labelsKeys, "payload.wallets[$index].labels")?.let { return null }
@@ -624,8 +645,8 @@ internal object WalletBackupJsonCodec {
                     txLabelKeys,
                     "payload.wallets[$index].labels.transactionLabels[$txIndex]"
                 )?.let { return null }
-                val txid = txJson.optString("txid", "").trim()
-                val label = txJson.optString("label", "")
+                val txid = txJson.requiredString("txid")?.trim().orEmpty()
+                val label = txJson.requiredString("label").orEmpty()
                 if (txid.isBlank() || label.isBlank()) return null
                 parsedTxLabels += WalletBackupTransactionLabel(txid = txid, label = label)
             }
@@ -639,18 +660,17 @@ internal object WalletBackupJsonCodec {
                     utxoLabelKeys,
                     "payload.wallets[$index].labels.utxoLabels[$utxoIndex]"
                 )?.let { return null }
-                val txid = utxoJson.optString("txid", "").trim()
+                val txid = utxoJson.requiredString("txid")?.trim().orEmpty()
                 if (txid.isBlank()) return null
-                if (!utxoJson.has("vout")) return null
-                val vout = utxoJson.optInt("vout", Int.MIN_VALUE)
+                val vout = utxoJson.requiredInt("vout") ?: return null
                 if (vout < 0) return null
                 val label = if (utxoJson.has("label") && !utxoJson.isNull("label")) {
-                    utxoJson.optString("label", "")
+                    utxoJson.requiredString("label") ?: return null
                 } else {
                     null
                 }
                 val spendable = if (utxoJson.has("spendable") && !utxoJson.isNull("spendable")) {
-                    utxoJson.optBoolean("spendable")
+                    utxoJson.requiredBoolean("spendable") ?: return null
                 } else {
                     null
                 }
@@ -671,33 +691,34 @@ internal object WalletBackupJsonCodec {
                     pendingLabelKeys,
                     "payload.wallets[$index].labels.pendingBip329[$pendingIndex]"
                 )?.let { return null }
-                val type = pendingJson.optString("type", "").trim()
-                val ref = pendingJson.optString("ref", "").trim()
+                val type = pendingJson.requiredString("type")?.trim().orEmpty()
+                val ref = pendingJson.requiredString("ref")?.trim().orEmpty()
                 if (type.isBlank() || ref.isBlank()) return null
                 val keyPath = if (pendingJson.has("keyPath") && !pendingJson.isNull("keyPath")) {
-                    pendingJson.optString("keyPath", "")
+                    pendingJson.requiredString("keyPath") ?: return null
                 } else {
                     null
                 }
                 val label = if (pendingJson.has("label") && !pendingJson.isNull("label")) {
-                    pendingJson.optString("label", "")
+                    pendingJson.requiredString("label") ?: return null
                 } else {
                     null
                 }
                 val spendable = if (pendingJson.has("spendable") && !pendingJson.isNull("spendable")) {
-                    pendingJson.optBoolean("spendable")
+                    pendingJson.requiredBoolean("spendable") ?: return null
                 } else {
                     null
                 }
-                if (!pendingJson.has("hasSpendable") || !pendingJson.has("overwriteExisting")) return null
+                val hasSpendable = pendingJson.requiredBoolean("hasSpendable") ?: return null
+                val overwriteExisting = pendingJson.requiredBoolean("overwriteExisting") ?: return null
                 parsedPending += WalletBackupPendingLabel(
                     type = type,
                     ref = ref,
                     keyPath = keyPath,
                     label = label,
                     spendable = spendable,
-                    hasSpendable = pendingJson.optBoolean("hasSpendable"),
-                    overwriteExisting = pendingJson.optBoolean("overwriteExisting")
+                    hasSpendable = hasSpendable,
+                    overwriteExisting = overwriteExisting
                 )
             }
 
@@ -710,8 +731,8 @@ internal object WalletBackupJsonCodec {
                     collectionKeys,
                     "payload.wallets[$index].collections[$collectionIndex]"
                 )?.let { return null }
-                val collectionName = collectionJson.optString("name", "").trim()
-                val colorKey = collectionJson.optString("colorKey", "").trim()
+                val collectionName = collectionJson.requiredString("name")?.trim().orEmpty()
+                val colorKey = collectionJson.requiredString("colorKey")?.trim().orEmpty()
                 if (collectionName.isBlank() || colorKey.isBlank()) return null
                 collections += WalletBackupCollection(name = collectionName, colorKey = colorKey)
             }
@@ -725,9 +746,9 @@ internal object WalletBackupJsonCodec {
                     membershipKeys,
                     "payload.wallets[$index].collectionMemberships[$membershipIndex]"
                 )?.let { return null }
-                val txid = membershipJson.optString("txid", "").trim()
-                val vout = membershipJson.optInt("vout", Int.MIN_VALUE)
-                val collectionName = membershipJson.optString("collectionName", "").trim()
+                val txid = membershipJson.requiredString("txid")?.trim().orEmpty()
+                val vout = membershipJson.requiredInt("vout") ?: return null
+                val collectionName = membershipJson.requiredString("collectionName")?.trim().orEmpty()
                 if (txid.isBlank() || vout < 0 || collectionName.isBlank()) return null
                 memberships += WalletBackupCollectionMembership(
                     txid = txid,
@@ -745,9 +766,9 @@ internal object WalletBackupJsonCodec {
                     canvasItemKeys,
                     "payload.wallets[$index].canvasItems[$canvasIndex]"
                 )?.let { return null }
-                val itemType = canvasJson.optString("itemType", "").trim()
-                val refId = canvasJson.optString("refId", "").trim()
-                val positionIndex = canvasJson.optInt("positionIndex", Int.MIN_VALUE)
+                val itemType = canvasJson.requiredString("itemType")?.trim().orEmpty()
+                val refId = canvasJson.requiredString("refId")?.trim().orEmpty()
+                val positionIndex = canvasJson.requiredInt("positionIndex") ?: return null
                 if (itemType.isBlank() || refId.isBlank() || positionIndex < 0) return null
                 canvasItems += WalletBackupCanvasItem(
                     itemType = itemType,
@@ -763,13 +784,13 @@ internal object WalletBackupJsonCodec {
                     network = network,
                     descriptor = descriptor,
                     changeDescriptor = if (metaJson.has("changeDescriptor") && !metaJson.isNull("changeDescriptor")) {
-                        metaJson.optString("changeDescriptor", "")
+                        metaJson.requiredString("changeDescriptor") ?: return null
                     } else {
                         null
                     },
-                    sharedDescriptors = metaJson.optBoolean("sharedDescriptors"),
-                    viewOnly = metaJson.optBoolean("viewOnly"),
-                    color = metaJson.optString("color", ""),
+                    sharedDescriptors = metaJson.requiredBoolean("sharedDescriptors") ?: return null,
+                    viewOnly = metaJson.requiredBoolean("viewOnly") ?: return null,
+                    color = metaJson.requiredString("color") ?: return null,
                     sortOrder = sortOrder
                 ),
                 labels = WalletBackupLabels(
@@ -786,19 +807,31 @@ internal object WalletBackupJsonCodec {
         val appPreferences = if (payloadRoot.has("appPreferences")) {
             val appJson = payloadRoot.optJSONObject("appPreferences") ?: return null
             validateKeys(appJson, appPreferenceKeys, "payload.appPreferences")?.let { return null }
+            val preferredNetwork = appJson.requiredString("preferredNetwork")?.trim() ?: return null
+            val themePreference = appJson.requiredString("themePreference")?.trim() ?: return null
+            val themeProfile = appJson.requiredString("themeProfile")?.trim() ?: return null
+            val appLanguage = appJson.requiredString("appLanguage")?.trim() ?: return null
+            val balanceUnit = appJson.requiredString("balanceUnit")?.trim() ?: return null
+            val balancesHidden = appJson.requiredBoolean("balancesHidden") ?: return null
+            val hapticsEnabled = appJson.requiredBoolean("hapticsEnabled") ?: return null
+            val walletBalanceRange = appJson.requiredString("walletBalanceRange")?.trim() ?: return null
+            val showBalanceChart = appJson.requiredBoolean("showBalanceChart") ?: return null
+            val pinShuffleEnabled = appJson.requiredBoolean("pinShuffleEnabled") ?: return null
+            val advancedMode = appJson.requiredBoolean("advancedMode") ?: return null
+            val dustThresholdSats = appJson.requiredLong("dustThresholdSats") ?: return null
             WalletBackupAppPreferences(
-                preferredNetwork = appJson.optString("preferredNetwork", "").trim(),
-                themePreference = appJson.optString("themePreference", "").trim(),
-                themeProfile = appJson.optString("themeProfile", "").trim(),
-                appLanguage = appJson.optString("appLanguage", "").trim(),
-                balanceUnit = appJson.optString("balanceUnit", "").trim(),
-                balancesHidden = appJson.optBoolean("balancesHidden"),
-                hapticsEnabled = appJson.optBoolean("hapticsEnabled"),
-                walletBalanceRange = appJson.optString("walletBalanceRange", "").trim(),
-                showBalanceChart = appJson.optBoolean("showBalanceChart"),
-                pinShuffleEnabled = appJson.optBoolean("pinShuffleEnabled"),
-                advancedMode = appJson.optBoolean("advancedMode"),
-                dustThresholdSats = appJson.optLong("dustThresholdSats", Long.MIN_VALUE)
+                preferredNetwork = preferredNetwork,
+                themePreference = themePreference,
+                themeProfile = themeProfile,
+                appLanguage = appLanguage,
+                balanceUnit = balanceUnit,
+                balancesHidden = balancesHidden,
+                hapticsEnabled = hapticsEnabled,
+                walletBalanceRange = walletBalanceRange,
+                showBalanceChart = showBalanceChart,
+                pinShuffleEnabled = pinShuffleEnabled,
+                advancedMode = advancedMode,
+                dustThresholdSats = dustThresholdSats
             ).takeIf {
                 it.preferredNetwork.isNotBlank() &&
                     it.themePreference.isNotBlank() &&
@@ -824,25 +857,39 @@ internal object WalletBackupJsonCodec {
             val utxoFilterJson = detailJson.optJSONObject("utxoFilter") ?: return null
             validateKeys(utxoFilterJson, utxoFilterKeys, "payload.walletDetailPreferences[$index].utxoFilter")
                 ?.let { return null }
+            val walletRef = detailJson.requiredString("walletRef")?.trim().orEmpty()
+            val transactionSort = detailJson.requiredString("transactionSort")?.trim().orEmpty()
+            val showPending = detailJson.requiredBoolean("showPending") ?: return null
+            val utxoSort = detailJson.requiredString("utxoSort")?.trim().orEmpty()
+            val showBalanceChart = detailJson.requiredBoolean("showBalanceChart") ?: return null
+            val balanceRange = detailJson.requiredString("balanceRange")?.trim().orEmpty()
+            val txShowLabeled = txFilterJson.requiredBoolean("showLabeled") ?: return null
+            val txShowUnlabeled = txFilterJson.requiredBoolean("showUnlabeled") ?: return null
+            val txShowReceived = txFilterJson.requiredBoolean("showReceived") ?: return null
+            val txShowSent = txFilterJson.requiredBoolean("showSent") ?: return null
+            val utxoShowLabeled = utxoFilterJson.requiredBoolean("showLabeled") ?: return null
+            val utxoShowUnlabeled = utxoFilterJson.requiredBoolean("showUnlabeled") ?: return null
+            val utxoShowSpendable = utxoFilterJson.requiredBoolean("showSpendable") ?: return null
+            val utxoShowNotSpendable = utxoFilterJson.requiredBoolean("showNotSpendable") ?: return null
             walletDetails += WalletBackupWalletDetailPreferences(
-                walletRef = detailJson.optString("walletRef", "").trim(),
-                transactionSort = detailJson.optString("transactionSort", "").trim(),
-                showPending = detailJson.optBoolean("showPending"),
-                utxoSort = detailJson.optString("utxoSort", "").trim(),
+                walletRef = walletRef,
+                transactionSort = transactionSort,
+                showPending = showPending,
+                utxoSort = utxoSort,
                 transactionFilter = WalletBackupTransactionFilter(
-                    showLabeled = txFilterJson.optBoolean("showLabeled"),
-                    showUnlabeled = txFilterJson.optBoolean("showUnlabeled"),
-                    showReceived = txFilterJson.optBoolean("showReceived"),
-                    showSent = txFilterJson.optBoolean("showSent")
+                    showLabeled = txShowLabeled,
+                    showUnlabeled = txShowUnlabeled,
+                    showReceived = txShowReceived,
+                    showSent = txShowSent
                 ),
                 utxoFilter = WalletBackupUtxoFilter(
-                    showLabeled = utxoFilterJson.optBoolean("showLabeled"),
-                    showUnlabeled = utxoFilterJson.optBoolean("showUnlabeled"),
-                    showSpendable = utxoFilterJson.optBoolean("showSpendable"),
-                    showNotSpendable = utxoFilterJson.optBoolean("showNotSpendable")
+                    showLabeled = utxoShowLabeled,
+                    showUnlabeled = utxoShowUnlabeled,
+                    showSpendable = utxoShowSpendable,
+                    showNotSpendable = utxoShowNotSpendable
                 ),
-                balanceRange = detailJson.optString("balanceRange", "").trim(),
-                showBalanceChart = detailJson.optBoolean("showBalanceChart")
+                balanceRange = balanceRange,
+                showBalanceChart = showBalanceChart
             )
             if (walletDetails.last().walletRef.isBlank() ||
                 walletDetails.last().transactionSort.isBlank() ||
@@ -909,6 +956,36 @@ internal object WalletBackupJsonCodec {
                 null
             }
 
+            else -> null
+        }
+    }
+
+    private fun JSONObject.requiredString(key: String): String? {
+        if (!has(key) || isNull(key)) return null
+        return opt(key) as? String
+    }
+
+    private fun JSONObject.requiredBoolean(key: String): Boolean? {
+        if (!has(key) || isNull(key)) return null
+        return opt(key) as? Boolean
+    }
+
+    private fun JSONObject.requiredInt(key: String): Int? {
+        if (!has(key) || isNull(key)) return null
+        val value = opt(key)
+        return when (value) {
+            is Int -> value
+            is Long -> value.takeIf { it in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong() }?.toInt()
+            else -> null
+        }
+    }
+
+    private fun JSONObject.requiredLong(key: String): Long? {
+        if (!has(key) || isNull(key)) return null
+        val value = opt(key)
+        return when (value) {
+            is Int -> value.toLong()
+            is Long -> value
             else -> null
         }
     }
