@@ -30,6 +30,7 @@ import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
 import com.strhodler.utxopocket.data.preferences.DefaultIncomingTxPlaceholderRepository
 import com.strhodler.utxopocket.data.preferences.DefaultWalletDetailPreferencesRepository
+import com.strhodler.utxopocket.data.incoming.DefaultIncomingTxWatcher
 import com.strhodler.utxopocket.domain.service.IncomingTxChecker
 import com.strhodler.utxopocket.domain.service.IncomingTxWatcher
 import com.strhodler.utxopocket.data.preferences.DefaultWalletSyncPreferencesRepository
@@ -115,8 +116,14 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindIncomingTxChecker(
-        impl: IncomingTxWatcher
+        impl: DefaultIncomingTxWatcher
     ): IncomingTxChecker
+
+    @Binds
+    @Singleton
+    abstract fun bindIncomingTxWatcher(
+        impl: DefaultIncomingTxWatcher
+    ): IncomingTxWatcher
 
     @Binds
     @Singleton

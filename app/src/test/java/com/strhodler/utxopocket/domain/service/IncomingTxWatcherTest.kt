@@ -4,6 +4,7 @@ import com.strhodler.utxopocket.data.bdk.ElectrumEndpoint
 import com.strhodler.utxopocket.data.bdk.ElectrumEndpointProvider
 import com.strhodler.utxopocket.data.electrum.ElectrumHistoryEntry
 import com.strhodler.utxopocket.data.electrum.ElectrumUnspent
+import com.strhodler.utxopocket.data.incoming.DefaultIncomingTxWatcher
 import com.strhodler.utxopocket.domain.model.AddressUsage
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
@@ -66,8 +67,29 @@ class IncomingTxWatcherTest {
     private val walletSyncPrefs = FakeWalletSyncPreferencesRepository()
 
     @Test
+    fun watcherBoundThroughDomainPort() = runTest {
+        val watcher: IncomingTxWatcher = DefaultIncomingTxWatcher(
+            walletReadRepository = walletRepository,
+            walletSyncRepository = walletRepository,
+            walletAddressRepository = walletRepository,
+            endpointProvider = endpointProvider,
+            torManager = torManager,
+            preferencesRepository = incomingPrefs,
+            appPreferencesRepository = appPrefs,
+            coordinator = coordinator,
+            walletSyncPreferencesRepository = walletSyncPrefs,
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+            watcherPolicy = IncomingWatcherPolicy()
+        )
+
+        watcher.setForeground(true)
+        val checker: IncomingTxChecker = watcher
+        assertEquals(false, checker.manualCheck(walletId = 1L, addresses = emptyList()))
+    }
+
+    @Test
     fun handleDetectionMarksAddressUsedAndAddsPlaceholder() = runTest {
-        val watcher = IncomingTxWatcher(
+        val watcher = DefaultIncomingTxWatcher(
             walletReadRepository = walletRepository,
             walletSyncRepository = walletRepository,
             walletAddressRepository = walletRepository,
@@ -106,7 +128,7 @@ class IncomingTxWatcherTest {
 
     @Test
     fun handleDetectionSameTxidUpgradesPlaceholderWithoutDuplicating() = runTest {
-        val watcher = IncomingTxWatcher(
+        val watcher = DefaultIncomingTxWatcher(
             walletReadRepository = walletRepository,
             walletSyncRepository = walletRepository,
             walletAddressRepository = walletRepository,
@@ -155,7 +177,7 @@ class IncomingTxWatcherTest {
 
     @Test
     fun resolveWatcherWindowUsesBaselineWhenNoPreference() = runTest {
-        val watcher = IncomingTxWatcher(
+        val watcher = DefaultIncomingTxWatcher(
             walletReadRepository = walletRepository,
             walletSyncRepository = walletRepository,
             walletAddressRepository = walletRepository,
@@ -184,7 +206,7 @@ class IncomingTxWatcherTest {
 
     @Test
     fun resolveLightStatesMarksConfirmedWhenHistoryHeightIsPositive() = runTest {
-        val watcher = IncomingTxWatcher(
+        val watcher = DefaultIncomingTxWatcher(
             walletReadRepository = walletRepository,
             walletSyncRepository = walletRepository,
             walletAddressRepository = walletRepository,
@@ -210,7 +232,7 @@ class IncomingTxWatcherTest {
 
     @Test
     fun resolveLightStatesKeepsUnconfirmedWhenNoPositiveHeight() = runTest {
-        val watcher = IncomingTxWatcher(
+        val watcher = DefaultIncomingTxWatcher(
             walletReadRepository = walletRepository,
             walletSyncRepository = walletRepository,
             walletAddressRepository = walletRepository,
@@ -236,7 +258,7 @@ class IncomingTxWatcherTest {
 
     @Test
     fun resolveLightStatesUsesHistoryWhenUnspentIsEmpty() = runTest {
-        val watcher = IncomingTxWatcher(
+        val watcher = DefaultIncomingTxWatcher(
             walletReadRepository = walletRepository,
             walletSyncRepository = walletRepository,
             walletAddressRepository = walletRepository,
@@ -265,7 +287,7 @@ class IncomingTxWatcherTest {
 
     @Test
     fun manualCheckRethrowsCancellationFromTorAwaitProxy() = runTest {
-        val watcher = IncomingTxWatcher(
+        val watcher = DefaultIncomingTxWatcher(
             walletReadRepository = walletRepository,
             walletSyncRepository = walletRepository,
             walletAddressRepository = walletRepository,
