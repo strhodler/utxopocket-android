@@ -11,6 +11,7 @@ import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.BlockExplorerNetworkPreference
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.Bip329ImportResult
+import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
@@ -57,6 +58,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
@@ -219,6 +221,150 @@ class NodeStatusViewModelTest {
 
         assertEquals(ConnectionIntent.Disconnect, connectionOrchestrator.intents.last())
         assertNull(nodeConfigurationRepository.nodeConfig.value.selectedCustomNodeId)
+    }
+
+    @Test
+    fun confirmingLocalDirectModeClearsPublicSelectionAndForcesCustomOption() = runTest {
+        nodeConfigurationRepository.setPublicNodes(
+            BitcoinNetwork.TESTNET,
+            listOf(
+                PublicNode(
+                    id = "pub-a",
+                    displayName = "Preset A",
+                    endpoint = "ssl://preset-a:50002",
+                    network = BitcoinNetwork.TESTNET
+                )
+            )
+        )
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(
+                connectionMode = ConnectionMode.TOR_DEFAULT,
+                connectionOption = NodeConnectionOption.PUBLIC,
+                selectedPublicNodeId = "pub-a"
+            )
+        }
+        advanceUntilIdle()
+
+        viewModel.onConnectionModeSelectionRequested(ConnectionMode.LOCAL_DIRECT)
+        assertEquals(ConnectionMode.LOCAL_DIRECT, viewModel.uiState.value.pendingModeChange)
+
+        viewModel.onConfirmConnectionModeChange()
+        advanceUntilIdle()
+
+        val updated = nodeConfigurationRepository.nodeConfig.value
+        assertEquals(ConnectionMode.LOCAL_DIRECT, updated.connectionMode)
+        assertEquals(NodeConnectionOption.CUSTOM, updated.connectionOption)
+        assertNull(updated.selectedPublicNodeId)
+        assertNull(viewModel.uiState.value.pendingModeChange)
+    }
+
+    @Test
+    fun selectingPublicNodeIsIgnoredInLocalDirectMode() = runTest {
+        nodeConfigurationRepository.setPublicNodes(
+            BitcoinNetwork.TESTNET,
+            listOf(
+                PublicNode(
+                    id = "pub-a",
+                    displayName = "Preset A",
+                    endpoint = "ssl://preset-a:50002",
+                    network = BitcoinNetwork.TESTNET
+                )
+            )
+        )
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(
+                connectionMode = ConnectionMode.LOCAL_DIRECT,
+                connectionOption = NodeConnectionOption.CUSTOM,
+                selectedPublicNodeId = null
+            )
+        }
+        advanceUntilIdle()
+
+        viewModel.onPublicNodeSelected("pub-a")
+        advanceUntilIdle()
+
+        assertNull(nodeConfigurationRepository.nodeConfig.value.selectedPublicNodeId)
+    }
+
+    @Test
+    fun qrHostPortUpdatesEditorInLocalDirectMode() = runTest {
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionMode = ConnectionMode.LOCAL_DIRECT)
+        }
+        advanceUntilIdle()
+
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onCustomNodeQrParsed(
+            NodeQrParseResult.HostPort(
+                host = "192.168.1.10",
+                port = "50001",
+                useSsl = false
+            )
+        )
+
+        val state = viewModel.uiState.value
+        assertEquals("192.168.1.10", state.newCustomOnion)
+        assertEquals("50001", state.newCustomPort)
+        assertNull(state.customNodeError)
+    }
+
+    @Test
+    fun qrOnionShowsModeErrorInLocalDirectMode() = runTest {
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionMode = ConnectionMode.LOCAL_DIRECT)
+        }
+        advanceUntilIdle()
+
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onCustomNodeQrParsed(
+            NodeQrParseResult.Onion(
+                host = "abc123.onion",
+                port = "50001"
+            )
+        )
+
+        val error = viewModel.uiState.value.customNodeError.orEmpty()
+        assertTrue(error.contains("private/local", ignoreCase = true))
+    }
+
+    @Test
+    fun qrHostPortShowsModeErrorInTorDefaultMode() = runTest {
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionMode = ConnectionMode.TOR_DEFAULT)
+        }
+        advanceUntilIdle()
+
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onCustomNodeQrParsed(
+            NodeQrParseResult.HostPort(
+                host = "192.168.1.10",
+                port = "50001",
+                useSsl = false
+            )
+        )
+
+        val error = viewModel.uiState.value.customNodeError.orEmpty()
+        assertTrue(error.contains(".onion", ignoreCase = true))
+    }
+
+    @Test
+    fun qrHostPortRejectsHostnameInLocalDirectMode() = runTest {
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionMode = ConnectionMode.LOCAL_DIRECT)
+        }
+        advanceUntilIdle()
+
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onCustomNodeQrParsed(
+            NodeQrParseResult.HostPort(
+                host = "umbrel.local",
+                port = "50001",
+                useSsl = false
+            )
+        )
+
+        val error = viewModel.uiState.value.customNodeError.orEmpty()
+        assertTrue(error.contains("private/local", ignoreCase = true))
     }
 
     @Test

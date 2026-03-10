@@ -3,9 +3,11 @@ package com.strhodler.utxopocket.presentation.node
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.domain.connection.ConnectionModeErrorKeys
 import com.strhodler.utxopocket.domain.connection.ConnectionIntent
 import com.strhodler.utxopocket.domain.connection.ConnectionState
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
@@ -15,6 +17,7 @@ import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.customNodesFor
 import com.strhodler.utxopocket.domain.model.removedPublicNodesFor
+import com.strhodler.utxopocket.domain.node.EndpointKind
 import com.strhodler.utxopocket.domain.node.EndpointScheme
 import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
@@ -97,6 +100,7 @@ class NodeStatusViewModel @Inject constructor(
                 }
                 NodeConfigSnapshot(
                     networkLabel = network,
+                    connectionMode = config.connectionMode,
                     connectionOption = config.connectionOption,
                     publicNodes = publicNodes,
                     customNodes = customNodes,
@@ -112,6 +116,7 @@ class NodeStatusViewModel @Inject constructor(
                 _uiState.update { previous ->
                     previous.copy(
                         preferredNetwork = snapshot.networkLabel,
+                        connectionMode = snapshot.connectionMode,
                         nodeConnectionOption = snapshot.connectionOption,
                         publicNodes = snapshot.publicNodes,
                         selectedPublicNodeId = snapshot.selectedPublic,
@@ -162,8 +167,12 @@ class NodeStatusViewModel @Inject constructor(
             }
             appPreferencesRepository.setPreferredNetwork(network)
             nodeConfigurationRepository.updateNodeConfig { current ->
+                val nextOption = when (current.connectionMode) {
+                    ConnectionMode.TOR_DEFAULT -> NodeConnectionOption.PUBLIC
+                    ConnectionMode.LOCAL_DIRECT -> NodeConnectionOption.CUSTOM
+                }
                 current.copy(
-                    connectionOption = NodeConnectionOption.PUBLIC,
+                    connectionOption = nextOption,
                     selectedPublicNodeId = null,
                     selectedCustomNodeId = null
                 )
@@ -174,10 +183,13 @@ class NodeStatusViewModel @Inject constructor(
 
     fun disconnectNode() {
         viewModelScope.launch {
-            val state = _uiState.value
             nodeConfigurationRepository.updateNodeConfig { current ->
+                val nextOption = when (current.connectionMode) {
+                    ConnectionMode.TOR_DEFAULT -> NodeConnectionOption.PUBLIC
+                    ConnectionMode.LOCAL_DIRECT -> NodeConnectionOption.CUSTOM
+                }
                 current.copy(
-                    connectionOption = NodeConnectionOption.PUBLIC,
+                    connectionOption = nextOption,
                     selectedPublicNodeId = null,
                     selectedCustomNodeId = null
                 )
@@ -187,7 +199,66 @@ class NodeStatusViewModel @Inject constructor(
         }
     }
 
+    fun onConnectionModeSelectionRequested(mode: ConnectionMode) {
+        val state = _uiState.value
+        if (state.connectionMode == mode || state.pendingModeChange == mode) {
+            return
+        }
+        if (state.isSyncBusy) {
+            notifyInteractionBlocked()
+            return
+        }
+        _uiState.update {
+            it.copy(
+                pendingModeChange = mode,
+                customNodeError = null,
+                customNodeSuccessMessage = null
+            )
+        }
+    }
+
+    fun onDismissConnectionModeChange() {
+        _uiState.update { it.copy(pendingModeChange = null) }
+    }
+
+    fun onConfirmConnectionModeChange() {
+        val currentState = _uiState.value
+        val targetMode = currentState.pendingModeChange ?: return
+        viewModelScope.launch {
+            val network = _uiState.value.preferredNetwork
+            updateNodeConfigAndReconcileConnection(network = network) { current ->
+                current.withModeAndCompatibleSelection(
+                    mode = targetMode,
+                    network = network
+                )
+            }
+            _uiState.update {
+                it.copy(
+                    pendingModeChange = null,
+                    showIncompatibleNodes = false,
+                    customNodeError = null,
+                    customNodeSuccessMessage = null
+                )
+            }
+        }
+    }
+
+    fun onShowIncompatibleNodesChanged(show: Boolean) {
+        _uiState.update { it.copy(showIncompatibleNodes = show) }
+    }
+
     fun onNodeConnectionOptionSelected(option: NodeConnectionOption) {
+        val state = _uiState.value
+        if (state.connectionMode == ConnectionMode.LOCAL_DIRECT && option == NodeConnectionOption.PUBLIC) {
+            viewModelScope.launch {
+                _events.tryEmit(
+                    NodeStatusEvent.Info(
+                        message = R.string.connection_mode_public_nodes_unavailable
+                    )
+                )
+            }
+            return
+        }
         updateEditorState {
             it.copy(
                 nodeConnectionOption = option,
@@ -208,6 +279,16 @@ class NodeStatusViewModel @Inject constructor(
     }
 
     fun onPublicNodeSelected(nodeId: String) {
+        if (_uiState.value.connectionMode != ConnectionMode.TOR_DEFAULT) {
+            viewModelScope.launch {
+                _events.tryEmit(
+                    NodeStatusEvent.Info(
+                        message = R.string.connection_mode_public_nodes_unavailable
+                    )
+                )
+            }
+            return
+        }
         val node = _uiState.value.publicNodes.firstOrNull { it.id == nodeId } ?: return
         _uiState.update {
             it.copy(
@@ -296,6 +377,16 @@ class NodeStatusViewModel @Inject constructor(
 
     fun onCustomNodeSelected(nodeId: String) {
         val node = _uiState.value.customNodes.firstOrNull { it.id == nodeId } ?: return
+        if (!node.isCompatibleWith(_uiState.value.connectionMode)) {
+            viewModelScope.launch {
+                _events.tryEmit(
+                    NodeStatusEvent.Info(
+                        message = incompatibleSelectionMessage(_uiState.value.connectionMode)
+                    )
+                )
+            }
+            return
+        }
         _uiState.update {
             it.copy(
                 selectedCustomNodeId = nodeId,
@@ -430,7 +521,7 @@ class NodeStatusViewModel @Inject constructor(
     }
 
     fun onNewCustomOnionChanged(value: String) {
-        applyOnionInput(value)
+        applyEndpointInput(value)
     }
 
     fun onNewCustomPortChanged(value: String) {
@@ -446,24 +537,53 @@ class NodeStatusViewModel @Inject constructor(
     }
 
     fun onCustomNodeQrParsed(result: NodeQrParseResult) {
+        val mode = _uiState.value.connectionMode
         when (result) {
-            is NodeQrParseResult.HostPort -> _uiState.update {
-                it.copy(
-                    customNodeError = "Only onion endpoints are supported",
-                    customNodeSuccessMessage = null
-                )
+            is NodeQrParseResult.HostPort -> {
+                if (mode == ConnectionMode.TOR_DEFAULT) {
+                    _uiState.update {
+                        it.copy(
+                            customNodeError = connectionModeErrorMessage(ConnectionMode.TOR_DEFAULT),
+                            customNodeSuccessMessage = null
+                        )
+                    }
+                } else {
+                    val host = result.host.trim().removePrefix("[").removeSuffix("]")
+                    if (!NodeEndpointClassifier.isLocalIpLiteral(host)) {
+                        _uiState.update {
+                            it.copy(
+                                customNodeError = connectionModeErrorMessage(ConnectionMode.LOCAL_DIRECT),
+                                customNodeSuccessMessage = null
+                            )
+                        }
+                    } else {
+                        applyEndpointInput(
+                            raw = result.host,
+                            portOverride = result.port
+                        )
+                    }
+                }
             }
 
             is NodeQrParseResult.Onion -> {
-                applyOnionInput(
-                    raw = result.host,
-                    portOverride = result.port
-                )
+                if (mode == ConnectionMode.LOCAL_DIRECT) {
+                    _uiState.update {
+                        it.copy(
+                            customNodeError = connectionModeErrorMessage(ConnectionMode.LOCAL_DIRECT),
+                            customNodeSuccessMessage = null
+                        )
+                    }
+                } else {
+                    applyEndpointInput(
+                        raw = result.host,
+                        portOverride = result.port
+                    )
+                }
             }
 
             is NodeQrParseResult.Error -> _uiState.update {
                 it.copy(
-                    customNodeError = result.reason,
+                    customNodeError = resolveErrorMessage(result.reason),
                     customNodeSuccessMessage = null
                 )
             }
@@ -548,7 +668,7 @@ class NodeStatusViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isTestingCustomNode = false,
-                            customNodeError = result.reason,
+                            customNodeError = resolveErrorMessage(result.reason),
                             customNodeSuccessMessage = null
                         )
                     }
@@ -668,85 +788,99 @@ class NodeStatusViewModel @Inject constructor(
     }
 
     private fun NodeStatusUiState.buildCustomNodeCandidate(existingId: String?): Pair<String?, CustomNode?> {
-        val input = newCustomOnion.trim()
+        val input = sanitizeEndpointInput(newCustomOnion)
         if (input.isEmpty()) {
-            return "Onion host cannot be empty" to null
+            return endpointRequiredMessage(connectionMode) to null
         }
-        val sanitized = input
-            .removePrefix("ssl://")
-            .removePrefix("tcp://")
-            .substringBefore("/")
-            .trim()
-            .lowercase(Locale.US)
-        if (sanitized.isEmpty()) {
-            return "Onion host cannot be empty" to null
+        val normalizedInput = runCatching {
+            NodeEndpointClassifier.normalize(
+                raw = input,
+                defaultScheme = EndpointScheme.TCP
+            )
+        }.getOrElse {
+            return "Invalid host" to null
         }
-        val parts = sanitized.split(':', limit = 2)
-        val hostOnly = parts[0].trim()
-        if (hostOnly.isEmpty()) {
-            return "Onion host cannot be empty" to null
-        }
-        if (!NodeEndpointClassifier.isOnionAddress(hostOnly)) {
-            return "Only .onion hosts are supported" to null
-        }
-        val inlinePortDigits = parts.getOrNull(1)?.filter { it.isDigit() }
-        val portDigits = when {
-            !inlinePortDigits.isNullOrEmpty() -> inlinePortDigits
-            else -> newCustomPort.filter { it.isDigit() }
-        }.ifEmpty { NodeStatusUiState.ONION_DEFAULT_PORT }
-        val portValue = portDigits.toIntOrNull()
+
+        val fallbackPort = newCustomPort.filter { it.isDigit() }
+            .ifEmpty { NodeStatusUiState.DEFAULT_PORT }
+            .toIntOrNull()
+        val portValue = normalizedInput.port ?: fallbackPort
         if (portValue == null || portValue !in 1..65535) {
             return "Enter a valid port" to null
         }
+
+        val endpointUrl = runCatching {
+            NodeEndpointClassifier.buildUrl(
+                host = normalizedInput.host,
+                port = portValue,
+                scheme = EndpointScheme.TCP
+            )
+        }.getOrElse {
+            return "Invalid endpoint" to null
+        }
+        val normalizedEndpoint = runCatching {
+            NodeEndpointClassifier.normalize(endpointUrl, EndpointScheme.TCP)
+        }.getOrElse {
+            return "Invalid endpoint" to null
+        }
+
+        val compatibilityError = when (connectionMode) {
+            ConnectionMode.TOR_DEFAULT -> {
+                if (normalizedEndpoint.kind == EndpointKind.ONION) {
+                    null
+                } else {
+                    connectionModeErrorMessage(ConnectionMode.TOR_DEFAULT)
+                }
+            }
+
+            ConnectionMode.LOCAL_DIRECT -> {
+                val isLocalIp = normalizedEndpoint.kind == EndpointKind.LOCAL &&
+                    NodeEndpointClassifier.isLocalIpLiteral(normalizedEndpoint.host)
+                if (isLocalIp) {
+                    null
+                } else {
+                    connectionModeErrorMessage(ConnectionMode.LOCAL_DIRECT)
+                }
+            }
+        }
+        if (compatibilityError != null) {
+            return compatibilityError to null
+        }
+
         val targetNetwork = if (existingId != null) {
             customNodes.firstOrNull { it.id == existingId }?.network ?: preferredNetwork
         } else {
             preferredNetwork
         }
-        val prepared = runCatching {
-            NodeEndpointClassifier.buildUrl(
-                host = hostOnly,
-                port = portValue,
-                scheme = EndpointScheme.TCP
-            )
-        }.getOrElse { error ->
-            return (error.message ?: "Invalid host") to null
-        }
-        val normalized = runCatching {
-            NodeEndpointClassifier.normalize(prepared, EndpointScheme.TCP)
-        }.getOrElse { error ->
-            return (error.message ?: "Invalid endpoint") to null
-        }
-        val effectiveName = newCustomName.trim().ifBlank { normalized.hostPort }
+        val effectiveName = newCustomName.trim().ifBlank { normalizedEndpoint.hostPort }
         return null to CustomNode(
             id = existingId ?: UUID.randomUUID().toString(),
-            endpoint = normalized.url,
+            endpoint = normalizedEndpoint.url,
             name = effectiveName,
             network = targetNetwork
         )
     }
 
-    private fun applyOnionInput(
+    private fun applyEndpointInput(
         raw: String,
         portOverride: String? = null
     ) {
-        val trimmed = raw.trim()
-        val sanitized = trimmed
-            .removePrefix("ssl://")
-            .removePrefix("tcp://")
-            .substringBefore("/")
-            .trim()
-        val lower = sanitized.lowercase(Locale.US)
-        val parts = lower.split(':', limit = 2)
-        val host = parts.getOrNull(0).orEmpty()
-        val portDigitsFromHost = parts.getOrNull(1)?.filter { it.isDigit() }
+        val sanitized = sanitizeEndpointInput(raw)
+        val normalized = runCatching {
+            NodeEndpointClassifier.normalize(
+                raw = sanitized,
+                defaultScheme = EndpointScheme.TCP
+            )
+        }.getOrNull()
+        val host = normalized?.host ?: sanitized.substringBefore(':').lowercase(Locale.US)
+        val portFromInput = normalized?.port?.toString()
         val overrideDigits = portOverride?.filter { it.isDigit() }
         val currentPort = _uiState.value.newCustomPort
         val resolvedPort = when {
             !overrideDigits.isNullOrEmpty() -> overrideDigits
-            !portDigitsFromHost.isNullOrEmpty() -> portDigitsFromHost
+            !portFromInput.isNullOrEmpty() -> portFromInput
             else -> currentPort
-        }.ifBlank { NodeStatusUiState.ONION_DEFAULT_PORT }
+        }.ifBlank { NodeStatusUiState.DEFAULT_PORT }
 
         updateEditorState {
             it.copy(
@@ -758,6 +892,95 @@ class NodeStatusViewModel @Inject constructor(
         }
     }
 
+    private fun sanitizeEndpointInput(raw: String): String = raw.trim()
+        .removePrefix("ssl://")
+        .removePrefix("tcp://")
+        .substringBefore("/")
+        .trim()
+        .lowercase(Locale.US)
+
+    private fun endpointRequiredMessage(mode: ConnectionMode): String =
+        when (mode) {
+            ConnectionMode.TOR_DEFAULT -> "Onion host cannot be empty"
+            ConnectionMode.LOCAL_DIRECT -> "Local IP host cannot be empty"
+        }
+
+    private fun connectionModeErrorMessage(mode: ConnectionMode): String =
+        when (mode) {
+            ConnectionMode.TOR_DEFAULT -> "Only .onion hosts are supported"
+            ConnectionMode.LOCAL_DIRECT -> "Only private/local IP literals are supported"
+        }
+
+    private fun incompatibleSelectionMessage(mode: ConnectionMode): Int =
+        when (mode) {
+            ConnectionMode.TOR_DEFAULT -> R.string.connection_mode_requires_tor_message
+            ConnectionMode.LOCAL_DIRECT -> R.string.connection_mode_requires_local_ip_message
+        }
+
+    private fun resolveErrorMessage(reason: String): String =
+        when (reason) {
+            ConnectionModeErrorKeys.INCOMPATIBLE_ENDPOINT ->
+                connectionModeErrorMessage(_uiState.value.connectionMode)
+
+            ConnectionModeErrorKeys.REQUIRES_TOR ->
+                connectionModeErrorMessage(ConnectionMode.TOR_DEFAULT)
+
+            ConnectionModeErrorKeys.REQUIRES_LOCAL_IP_LITERAL,
+            ConnectionModeErrorKeys.REQUIRES_TCP ->
+                connectionModeErrorMessage(ConnectionMode.LOCAL_DIRECT)
+
+            ConnectionModeErrorKeys.NO_FALLBACK_APPLIED ->
+                "No compatible node selected"
+
+            else -> reason
+        }
+
+    private fun CustomNode.isCompatibleWith(mode: ConnectionMode): Boolean {
+        val normalized = runCatching { NodeEndpointClassifier.normalize(endpoint) }.getOrNull() ?: return false
+        return when (mode) {
+            ConnectionMode.TOR_DEFAULT -> normalized.kind == EndpointKind.ONION
+            ConnectionMode.LOCAL_DIRECT ->
+                normalized.kind == EndpointKind.LOCAL && NodeEndpointClassifier.isLocalIpLiteral(normalized.host)
+        }
+    }
+
+    private fun NodeConfig.withModeAndCompatibleSelection(
+        mode: ConnectionMode,
+        network: BitcoinNetwork
+    ): NodeConfig {
+        val scopedCustom = customNodesFor(network)
+        fun selectedCustomCompatible(id: String?): String? {
+            val candidate = scopedCustom.firstOrNull { it.id == id } ?: return null
+            return if (candidate.isCompatibleWith(mode)) candidate.id else null
+        }
+
+        return when (mode) {
+            ConnectionMode.TOR_DEFAULT -> {
+                val nextSelectedCustom = selectedCustomCompatible(selectedCustomNodeId)
+                copy(
+                    connectionMode = mode,
+                    selectedCustomNodeId = nextSelectedCustom,
+                    connectionOption = when {
+                        connectionOption == NodeConnectionOption.CUSTOM && nextSelectedCustom == null ->
+                            NodeConnectionOption.PUBLIC
+
+                        else -> connectionOption
+                    }
+                )
+            }
+
+            ConnectionMode.LOCAL_DIRECT -> {
+                val nextSelectedCustom = selectedCustomCompatible(selectedCustomNodeId)
+                copy(
+                    connectionMode = mode,
+                    connectionOption = NodeConnectionOption.CUSTOM,
+                    selectedPublicNodeId = null,
+                    selectedCustomNodeId = nextSelectedCustom
+                )
+            }
+        }
+    }
+
     private fun CustomNode.isEquivalentTo(other: CustomNode): Boolean =
         endpoint == other.endpoint &&
             name == other.name &&
@@ -765,6 +988,7 @@ class NodeStatusViewModel @Inject constructor(
 
 private data class NodeConfigSnapshot(
     val networkLabel: BitcoinNetwork,
+    val connectionMode: ConnectionMode,
     val connectionOption: NodeConnectionOption,
     val publicNodes: List<PublicNode>,
     val customNodes: List<CustomNode>,

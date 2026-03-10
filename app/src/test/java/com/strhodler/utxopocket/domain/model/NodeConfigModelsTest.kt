@@ -44,6 +44,24 @@ class NodeConfigModelsTest {
     }
 
     @Test
+    fun localDirectModeDoesNotRequireTorForLocalCustomSelection() {
+        val localNode = CustomNode(
+            id = "local",
+            endpoint = "tcp://192.168.10.10:50001",
+            network = BitcoinNetwork.MAINNET
+        )
+        val config = NodeConfig(
+            connectionMode = ConnectionMode.LOCAL_DIRECT,
+            connectionOption = NodeConnectionOption.CUSTOM,
+            customNodes = listOf(localNode),
+            selectedCustomNodeId = localNode.id
+        )
+
+        assertFalse(config.requiresTor(BitcoinNetwork.MAINNET))
+        assertEquals(NodeTransport.VPN_DIRECT, config.activeTransport(BitcoinNetwork.MAINNET))
+    }
+
+    @Test
     fun customNodeNormalizationKeepsPrivateLocalIpLiterals() {
         val localNode = CustomNode(
             id = "local",

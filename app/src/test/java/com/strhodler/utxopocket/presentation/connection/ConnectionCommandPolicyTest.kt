@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.presentation.connection
 
 import com.strhodler.utxopocket.domain.connection.ConnectionIntent
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
@@ -86,6 +87,33 @@ class ConnectionCommandPolicyTest {
             reconcileConnectionIntentForNodeConfigChange(
                 previous = activated,
                 updated = switched,
+                network = BitcoinNetwork.TESTNET
+            )
+        )
+    }
+
+    @Test
+    fun reconcileStartsWhenConnectionModeChangesOnActiveSelection() {
+        val previous = NodeConfig(
+            connectionMode = ConnectionMode.TOR_DEFAULT,
+            connectionOption = NodeConnectionOption.CUSTOM,
+            customNodes = listOf(
+                CustomNode(
+                    id = "c1",
+                    endpoint = "tcp://abc123.onion:50001",
+                    name = "c1",
+                    network = BitcoinNetwork.TESTNET
+                )
+            ),
+            selectedCustomNodeId = "c1"
+        )
+        val updated = previous.copy(connectionMode = ConnectionMode.LOCAL_DIRECT)
+
+        assertEquals(
+            ConnectionIntent.Start,
+            reconcileConnectionIntentForNodeConfigChange(
+                previous = previous,
+                updated = updated,
                 network = BitcoinNetwork.TESTNET
             )
         )

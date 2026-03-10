@@ -44,6 +44,7 @@ fun reconcileConnectionIntentForNodeConfigChange(
     }
 
     val selectionChanged = previous.connectionOption != updated.connectionOption ||
+        previous.connectionMode != updated.connectionMode ||
         previous.selectedPublicNodeId != updated.selectedPublicNodeId ||
         previous.selectedCustomNodeId != updated.selectedCustomNodeId
 

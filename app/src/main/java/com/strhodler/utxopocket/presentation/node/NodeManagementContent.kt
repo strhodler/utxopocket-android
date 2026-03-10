@@ -45,9 +45,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.PublicNode
+import com.strhodler.utxopocket.domain.node.EndpointKind
+import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
 import com.strhodler.utxopocket.presentation.common.ListSection
 import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.components.network.NetworkSelector
@@ -61,6 +64,8 @@ fun NodeManagementContent(
     interactionsLocked: Boolean,
     onInteractionBlocked: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
+    onConnectionModeSelectionRequested: (ConnectionMode) -> Unit,
+    onShowIncompatibleNodesChanged: (Boolean) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
     onRemovePublicNode: (String) -> Unit,
     onRestorePublicNodes: () -> Unit,
@@ -76,18 +81,22 @@ fun NodeManagementContent(
     ) {
         NodeConfigurationContent(
             network = state.preferredNetwork,
+            connectionMode = state.connectionMode,
             publicNodes = state.publicNodes,
             nodeConnectionOption = state.nodeConnectionOption,
             selectedPublicNodeId = state.selectedPublicNodeId,
             removedPublicNodeIds = state.removedPublicNodeIds,
             customNodes = state.customNodes,
             selectedCustomNodeId = state.selectedCustomNodeId,
+            showIncompatibleNodes = state.showIncompatibleNodes,
             isNodeConnected = state.isNodeConnected,
             isNodeActivating = state.isNodeActivating,
             isNetworkOnline = isNetworkOnline,
             interactionsLocked = interactionsLocked,
             onInteractionBlocked = onInteractionBlocked,
             onNetworkSelected = onNetworkSelected,
+            onConnectionModeSelectionRequested = onConnectionModeSelectionRequested,
+            onShowIncompatibleNodesChanged = onShowIncompatibleNodesChanged,
             onPublicNodeSelected = onPublicNodeSelected,
             onRemovePublicNode = onRemovePublicNode,
             onCustomNodeSelected = onCustomNodeSelected,
@@ -104,18 +113,22 @@ fun NodeManagementContent(
 @Composable
 fun NodeConfigurationContent(
     network: BitcoinNetwork,
+    connectionMode: ConnectionMode,
     publicNodes: List<PublicNode>,
     nodeConnectionOption: NodeConnectionOption,
     selectedPublicNodeId: String?,
     removedPublicNodeIds: Set<String>,
     customNodes: List<CustomNode>,
     selectedCustomNodeId: String?,
+    showIncompatibleNodes: Boolean,
     isNodeConnected: Boolean,
     isNodeActivating: Boolean,
     isNetworkOnline: Boolean,
     interactionsLocked: Boolean,
     onInteractionBlocked: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
+    onConnectionModeSelectionRequested: (ConnectionMode) -> Unit,
+    onShowIncompatibleNodesChanged: (Boolean) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
     onRemovePublicNode: (String) -> Unit,
     onCustomNodeSelected: (String) -> Unit,
@@ -138,11 +151,20 @@ fun NodeConfigurationContent(
             onInteractionBlocked = onInteractionBlocked
         )
 
+        ConnectionModeSelectorSection(
+            connectionMode = connectionMode,
+            interactionsLocked = interactionsLocked,
+            onInteractionBlocked = onInteractionBlocked,
+            onConnectionModeSelectionRequested = onConnectionModeSelectionRequested
+        )
+
         AvailableNodesSection(
+            connectionMode = connectionMode,
             publicNodes = publicNodes,
             customNodes = customNodes,
             selectedPublicId = selectedPublicNodeId,
             selectedCustomId = selectedCustomNodeId,
+            showIncompatibleNodes = showIncompatibleNodes,
             activeOption = nodeConnectionOption,
             isNodeConnected = isNodeConnected,
             isNodeActivating = isNodeActivating,
@@ -158,6 +180,7 @@ fun NodeConfigurationContent(
             onAddCustomNodeClick = onAddCustomNodeClick,
             onDisconnect = onDisconnectNode,
             onRestorePublicNodes = onRestorePublicNodes,
+            onShowIncompatibleNodesChanged = onShowIncompatibleNodesChanged,
             showTorReminder = showTorReminder,
             removedPublicNodeIds = removedPublicNodeIds
         )
@@ -190,11 +213,93 @@ private fun NodeNetworkSelector(
 }
 
 @Composable
+private fun ConnectionModeSelectorSection(
+    connectionMode: ConnectionMode,
+    interactionsLocked: Boolean,
+    onInteractionBlocked: () -> Unit,
+    onConnectionModeSelectionRequested: (ConnectionMode) -> Unit
+) {
+    SectionCard(
+        title = stringResource(id = R.string.connection_mode_title),
+        contentPadding = PaddingValues(vertical = 8.dp),
+        divider = false
+    ) {
+        item {
+            ConnectionModeOption(
+                selected = connectionMode == ConnectionMode.TOR_DEFAULT,
+                title = stringResource(id = R.string.connection_mode_tor_default_label),
+                supporting = stringResource(id = R.string.connection_mode_tor_default_supporting),
+                onClick = {
+                    if (interactionsLocked) {
+                        onInteractionBlocked()
+                    } else {
+                        onConnectionModeSelectionRequested(ConnectionMode.TOR_DEFAULT)
+                    }
+                }
+            )
+        }
+        item { HorizontalDivider() }
+        item {
+            ConnectionModeOption(
+                selected = connectionMode == ConnectionMode.LOCAL_DIRECT,
+                title = stringResource(id = R.string.connection_mode_local_direct_label),
+                supporting = stringResource(id = R.string.connection_mode_local_direct_supporting),
+                onClick = {
+                    if (interactionsLocked) {
+                        onInteractionBlocked()
+                    } else {
+                        onConnectionModeSelectionRequested(ConnectionMode.LOCAL_DIRECT)
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ConnectionModeOption(
+    selected: Boolean,
+    title: String,
+    supporting: String,
+    onClick: () -> Unit
+) {
+    ListItem(
+        headlineContent = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+            )
+        },
+        supportingContent = {
+            Text(
+                text = supporting,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        trailingContent = {
+            Switch(
+                checked = selected,
+                onCheckedChange = { if (!selected) onClick() },
+                colors = SwitchDefaults.colors()
+            )
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    )
+}
+
+@Composable
 private fun AvailableNodesSection(
+    connectionMode: ConnectionMode,
     publicNodes: List<PublicNode>,
     customNodes: List<CustomNode>,
     selectedPublicId: String?,
     selectedCustomId: String?,
+    showIncompatibleNodes: Boolean,
     activeOption: NodeConnectionOption,
     isNodeConnected: Boolean,
     isNodeActivating: Boolean,
@@ -210,6 +315,7 @@ private fun AvailableNodesSection(
     onAddCustomNodeClick: () -> Unit,
     onDisconnect: (() -> Unit)?,
     onRestorePublicNodes: () -> Unit,
+    onShowIncompatibleNodesChanged: (Boolean) -> Unit,
     showTorReminder: Boolean,
     removedPublicNodeIds: Set<String>
 ) {
@@ -225,9 +331,9 @@ private fun AvailableNodesSection(
         containerColor = MaterialTheme.colorScheme.primary,
         contentColor = MaterialTheme.colorScheme.onPrimary
     )
-    val visiblePublicNodes = publicNodes
     val nodes = buildList {
-        visiblePublicNodes.forEach { node ->
+        publicNodes.forEach { node ->
+            val compatible = connectionMode == ConnectionMode.TOR_DEFAULT
             add(
                 AvailableNodeItem(
                     title = node.displayName,
@@ -239,11 +345,16 @@ private fun AvailableNodesSection(
                     onActivate = { onPublicNodeSelected(node.id) },
                     onDetailsClick = { onPublicNodeSelected(node.id) },
                     onDeactivate = onDisconnect,
+                    compatible = compatible,
+                    incompatibleReason = if (compatible) null else {
+                        R.string.connection_mode_public_nodes_unavailable
+                    },
                     onRemove = { onRemovePublicNode(node.id) }
                 )
             )
         }
         customNodes.forEach { node ->
+            val compatible = node.isCompatibleWith(connectionMode)
             add(
                 AvailableNodeItem(
                     title = node.displayLabel(),
@@ -256,10 +367,25 @@ private fun AvailableNodesSection(
                     onDetailsClick = { onCustomNodeDetails(node.id) },
                     onDeactivate = onDisconnect,
                     showSettings = true,
+                    compatible = compatible,
+                    incompatibleReason = if (compatible) {
+                        null
+                    } else {
+                        when (connectionMode) {
+                            ConnectionMode.TOR_DEFAULT -> R.string.connection_mode_requires_tor_message
+                            ConnectionMode.LOCAL_DIRECT -> R.string.connection_mode_requires_local_ip_message
+                        }
+                    },
                     onRemove = { onRemoveCustomNode(node.id) }
                 )
             )
         }
+    }
+    val incompatibleCount = nodes.count { !it.compatible }
+    val visibleNodes = if (showIncompatibleNodes) {
+        nodes
+    } else {
+        nodes.filter { it.compatible }
     }
     val hasRemovedPublicNodes = removedPublicNodeIds.isNotEmpty()
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -267,7 +393,36 @@ private fun AvailableNodesSection(
             title = stringResource(id = R.string.node_section_available_title),
             subtitle = stringResource(id = R.string.node_section_available_description)
         ) {
-            if (nodes.isEmpty()) {
+            if (incompatibleCount > 0) {
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.connection_mode_show_incompatible_toggle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = showIncompatibleNodes,
+                            onCheckedChange = { checked ->
+                                if (interactionsLocked) {
+                                    onInteractionBlocked()
+                                } else {
+                                    onShowIncompatibleNodesChanged(checked)
+                                }
+                            }
+                        )
+                    }
+                }
+                item { HorizontalDivider() }
+            }
+            if (visibleNodes.isEmpty()) {
                 item {
                     Text(
                         text = stringResource(id = R.string.node_section_available_empty),
@@ -299,7 +454,7 @@ private fun AvailableNodesSection(
                     }
                 }
             } else {
-                nodes.forEach { nodeItem ->
+                visibleNodes.forEach { nodeItem ->
                     item {
                         NodeListItem(
                             title = nodeItem.title,
@@ -313,6 +468,8 @@ private fun AvailableNodesSection(
                             isNetworkOnline = isNetworkOnline,
                             interactionsLocked = interactionsLocked,
                             onInteractionBlocked = onInteractionBlocked,
+                            enabled = nodeItem.compatible,
+                            incompatibleReason = nodeItem.incompatibleReason?.let { stringResource(id = it) },
                             showSettings = nodeItem.showSettings,
                             onRemove = nodeItem.onRemove
                         )
@@ -392,11 +549,13 @@ private fun NodeListItem(
     connected: Boolean,
     onActivate: () -> Unit,
     onDetailsClick: () -> Unit,
-    onDeactivate: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    onDeactivate: (() -> Unit)? = null,
     isNetworkOnline: Boolean = true,
     interactionsLocked: Boolean = false,
     onInteractionBlocked: () -> Unit = {},
+    enabled: Boolean = true,
+    incompatibleReason: String? = null,
     showSettings: Boolean = false,
     onSettingsClick: (() -> Unit)? = null,
     onRemove: (() -> Unit)? = null
@@ -411,6 +570,13 @@ private fun NodeListItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+                }
+                incompatibleReason?.let { reason ->
+                    Text(
+                        text = reason,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
                     )
                 }
                 TypeBadge(badge = typeBadge)
@@ -431,7 +597,7 @@ private fun NodeListItem(
                 val switchContent: @Composable () -> Unit = {
                     Switch(
                         checked = connected,
-                        enabled = isNetworkOnline,
+                        enabled = isNetworkOnline && enabled,
                         interactionSource = remember { MutableInteractionSource() },
                         onCheckedChange = { checked ->
                             if (interactionsLocked) {
@@ -459,6 +625,9 @@ private fun NodeListItem(
                                 modifier = Modifier
                                     .size(24.dp)
                                     .clickable {
+                                        if (!enabled) {
+                                            return@clickable
+                                        }
                                         if (interactionsLocked) {
                                             onInteractionBlocked()
                                         } else {
@@ -514,6 +683,9 @@ private fun NodeListItem(
                 .selectable(
                     selected = selected,
                     onClick = {
+                        if (!enabled) {
+                            return@selectable
+                        }
                         if (interactionsLocked) {
                             onInteractionBlocked()
                         } else {
@@ -556,6 +728,8 @@ data class AvailableNodeItem(
     val typeBadge: NodeTypeBadge,
     val selected: Boolean,
     val connected: Boolean,
+    val compatible: Boolean,
+    val incompatibleReason: Int? = null,
     val onActivate: () -> Unit,
     val onDetailsClick: () -> Unit,
     val onDeactivate: (() -> Unit)? = null,
@@ -575,3 +749,12 @@ private val AddCustomNodeButtonContentPadding =
 
 private fun sanitizeEndpoint(endpoint: String): String =
     endpoint.removePrefix("ssl://").removePrefix("tcp://")
+
+private fun CustomNode.isCompatibleWith(mode: ConnectionMode): Boolean {
+    val normalized = runCatching { NodeEndpointClassifier.normalize(endpoint) }.getOrNull() ?: return false
+    return when (mode) {
+        ConnectionMode.TOR_DEFAULT -> normalized.kind == EndpointKind.ONION
+        ConnectionMode.LOCAL_DIRECT ->
+            normalized.kind == EndpointKind.LOCAL && NodeEndpointClassifier.isLocalIpLiteral(normalized.host)
+    }
+}

@@ -14,7 +14,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.res.stringResource
 import com.strhodler.utxopocket.R
-import com.strhodler.utxopocket.domain.model.NodeConnectionOption
+import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.presentation.node.NodeQrParseResult
 import kotlinx.coroutines.launch
 
@@ -28,14 +28,14 @@ data class NodeCustomNodeEditorState(
 @Composable
 fun rememberNodeCustomNodeEditorState(
     isEditorVisible: Boolean,
-    nodeConnectionOption: NodeConnectionOption,
+    connectionMode: ConnectionMode,
     snackbarHostState: SnackbarHostState,
-    onConnectionOptionSelected: (NodeConnectionOption) -> Unit,
     onQrParsed: (NodeQrParseResult) -> Unit
 ): NodeCustomNodeEditorState {
     val permissionDeniedMessage = stringResource(id = R.string.node_scan_error_permission)
     val invalidNodeMessage = stringResource(id = R.string.node_scan_error_invalid)
-    val onionOnlyMessage = stringResource(id = R.string.node_scan_error_onion_only)
+    val torOnlyMessage = stringResource(id = R.string.connection_mode_requires_tor_message)
+    val localOnlyMessage = stringResource(id = R.string.connection_mode_requires_local_ip_message)
     val scanSuccessMessage = stringResource(id = R.string.qr_scan_success)
     val coroutineScope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
@@ -52,16 +52,24 @@ fun rememberNodeCustomNodeEditorState(
             qrErrorMessage = null
             when (result) {
                 is NodeQrParseResult.Onion -> {
-                    if (nodeConnectionOption != NodeConnectionOption.CUSTOM) {
-                        onConnectionOptionSelected(NodeConnectionOption.CUSTOM)
+                    if (connectionMode == ConnectionMode.LOCAL_DIRECT) {
+                        qrErrorMessage = localOnlyMessage
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(localOnlyMessage)
+                        }
+                    } else {
+                        onQrParsed(result)
                     }
-                    onQrParsed(result)
                 }
 
                 is NodeQrParseResult.HostPort -> {
-                    qrErrorMessage = onionOnlyMessage
-                    coroutineScope.launch {
-                        snackbarHostState.showSnackbar(onionOnlyMessage)
+                    if (connectionMode == ConnectionMode.TOR_DEFAULT) {
+                        qrErrorMessage = torOnlyMessage
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(torOnlyMessage)
+                        }
+                    } else {
+                        onQrParsed(result)
                     }
                 }
 

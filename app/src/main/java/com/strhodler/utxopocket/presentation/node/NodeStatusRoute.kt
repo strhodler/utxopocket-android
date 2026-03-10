@@ -26,6 +26,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.collectLatest
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.motion.rememberReducedMotionEnabled
 import com.strhodler.utxopocket.presentation.motion.sharedAxisXEnter
@@ -51,9 +52,8 @@ fun NodeStatusRoute(
     val reducedMotion = rememberReducedMotionEnabled()
     val qrEditorState = rememberNodeCustomNodeEditorState(
         isEditorVisible = state.isCustomNodeEditorVisible,
-        nodeConnectionOption = state.nodeConnectionOption,
+        connectionMode = state.connectionMode,
         snackbarHostState = snackbarHostState,
-        onConnectionOptionSelected = viewModel::onNodeConnectionOptionSelected,
         onQrParsed = viewModel::onCustomNodeQrParsed
     )
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -149,6 +149,7 @@ fun NodeStatusRoute(
                 state.customNodeFormValid
             }
             CustomNodeEditorScreen(
+                connectionMode = state.connectionMode,
                 nameValue = state.newCustomName,
                 onionValue = state.newCustomOnion,
                 portValue = state.newCustomPort,
@@ -235,6 +236,8 @@ fun NodeStatusRoute(
                 onInteractionBlocked = viewModel::notifyInteractionBlocked,
                 onOpenNetworkLogs = onOpenNetworkLogs,
                 onNetworkSelected = viewModel::onNetworkSelected,
+                onConnectionModeSelectionRequested = viewModel::onConnectionModeSelectionRequested,
+                onShowIncompatibleNodesChanged = viewModel::onShowIncompatibleNodesChanged,
                 onPublicNodeSelected = viewModel::onPublicNodeSelected,
                 onRemovePublicNode = viewModel::onRemovePublicNode,
                 onRestorePublicNodes = viewModel::onRestorePublicNodes,
@@ -248,6 +251,32 @@ fun NodeStatusRoute(
                 onStartTor = torViewModel::onStartTor
             )
         }
+    }
+
+    state.pendingModeChange?.let { mode ->
+        val titleRes = when (mode) {
+            ConnectionMode.TOR_DEFAULT -> R.string.connection_mode_confirm_tor_title
+            ConnectionMode.LOCAL_DIRECT -> R.string.connection_mode_confirm_local_title
+        }
+        val messageRes = when (mode) {
+            ConnectionMode.TOR_DEFAULT -> R.string.connection_mode_confirm_tor_message
+            ConnectionMode.LOCAL_DIRECT -> R.string.connection_mode_confirm_local_message
+        }
+        AlertDialog(
+            onDismissRequest = viewModel::onDismissConnectionModeChange,
+            title = { Text(text = stringResource(id = titleRes)) },
+            text = { Text(text = stringResource(id = messageRes)) },
+            confirmButton = {
+                TextButton(onClick = viewModel::onConfirmConnectionModeChange) {
+                    Text(text = stringResource(id = R.string.connection_mode_confirm_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::onDismissConnectionModeChange) {
+                    Text(text = stringResource(id = android.R.string.cancel))
+                }
+            }
+        )
     }
 }
 

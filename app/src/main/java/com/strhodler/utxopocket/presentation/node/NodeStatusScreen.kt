@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.presentation.StatusBarUiState
@@ -75,6 +76,8 @@ fun NodeStatusScreen(
     onInteractionBlocked: () -> Unit,
     onOpenNetworkLogs: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
+    onConnectionModeSelectionRequested: (ConnectionMode) -> Unit,
+    onShowIncompatibleNodesChanged: (Boolean) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
     onRemovePublicNode: (String) -> Unit,
     onRestorePublicNodes: () -> Unit,
@@ -224,6 +227,8 @@ fun NodeStatusScreen(
                                     interactionsLocked = interactionsLocked,
                                     onInteractionBlocked = onInteractionBlocked,
                                     onNetworkSelected = onNetworkSelected,
+                                    onConnectionModeSelectionRequested = onConnectionModeSelectionRequested,
+                                    onShowIncompatibleNodesChanged = onShowIncompatibleNodesChanged,
                                     onPublicNodeSelected = onPublicNodeSelected,
                                     onRemovePublicNode = onRemovePublicNode,
                                     onRestorePublicNodes = onRestorePublicNodes,
@@ -235,7 +240,7 @@ fun NodeStatusScreen(
                                 )
                             }
 
-                            NodeStatusTab.Tor -> NodeTorStatusSection(
+                            NodeStatusTab.Connection -> NodeTorStatusSection(
                                 status = status,
                                 actionsState = torActionsState,
                                 onRenewIdentity = onRenewTorIdentity,
@@ -255,7 +260,7 @@ enum class NodeStatusTab(
 ) {
     Management(R.string.node_overview_tab_management),
     Overview(R.string.node_overview_tab_status),
-    Tor(R.string.node_overview_tab_tor)
+    Connection(R.string.node_overview_tab_connection)
 }
 
 @Composable
@@ -284,9 +289,9 @@ private fun NodeStatusTabs(
 @Composable
 private fun NodeHeroHeader(
     status: StatusBarUiState,
+    modifier: Modifier = Modifier,
     nodeTitleOverride: String? = null,
-    selectedEndpoint: String? = null,
-    modifier: Modifier = Modifier
+    selectedEndpoint: String? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val primaryContentColor = colorScheme.onSurface

@@ -92,7 +92,7 @@ internal fun NavGraphBuilder.walletsGraph(
                     if (globalDuressActive) return@WalletsRoute
                     navController.navigateSingleTop(
                         WalletsNavigation.nodeStatusRoute(
-                            WalletsNavigation.NodeStatusTabDestination.Tor
+                            WalletsNavigation.NodeStatusTabDestination.Connection
                         )
                     )
                 },

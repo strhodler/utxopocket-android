@@ -5,6 +5,7 @@ package com.strhodler.utxopocket.data.incoming
 import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.common.logging.WalletLogAliasProvider
 import androidx.annotation.VisibleForTesting
+import com.strhodler.utxopocket.data.bdk.ElectrumEndpoint
 import com.strhodler.utxopocket.data.bdk.ElectrumEndpointProvider
 import com.strhodler.utxopocket.data.electrum.ElectrumHistoryEntry
 import com.strhodler.utxopocket.data.electrum.LightElectrumClient
@@ -15,6 +16,8 @@ import com.strhodler.utxopocket.domain.model.IncomingTxDetection
 import com.strhodler.utxopocket.domain.model.IncomingTxLightStatus
 import com.strhodler.utxopocket.domain.model.IncomingTxPreferences
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
+import com.strhodler.utxopocket.domain.model.NodeTransport
+import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
@@ -204,13 +207,12 @@ class DefaultIncomingTxWatcher @Inject constructor(
                 LightElectrumClient.computeScriptHash(detail.scriptPubKey)
             }
             val scripthashes = addressByScripthash.keys.toList()
-            val proxy = runCatching { torManager.awaitProxy() }
-                .onFailure { error ->
-                    if (error is CancellationException) throw error
-                    SecureLog.w(TAG) { "IncomingTx skipped for $walletAlias: ${error.message}" }
-                }
-                .getOrNull()
-            if (proxy == null) {
+            val proxy = resolveProxyForEndpoint(
+                endpoint = endpoint,
+                walletAlias = walletAlias,
+                logPrefix = "IncomingTx skipped"
+            )
+            if (endpoint.transport == NodeTransport.TOR && proxy == null) {
                 delay(watcherPolicy.nextDelayMillis(currentIntervalSeconds, success = false))
                 continue
             }
@@ -309,12 +311,14 @@ class DefaultIncomingTxWatcher @Inject constructor(
         SecureLog.d(TAG) {
             "IncomingTx poll start wallet=$walletAlias network=$network addressCount=${addresses.size}"
         }
-        val proxy = runCatching { torManager.awaitProxy() }
-            .onFailure { error ->
-                if (error is CancellationException) throw error
-                SecureLog.w(TAG) { "IncomingTx poll skipped for $walletAlias: ${error.message}" }
-            }
-            .getOrNull() ?: return
+        val proxy = resolveProxyForEndpoint(
+            endpoint = endpoint,
+            walletAlias = walletAlias,
+            logPrefix = "IncomingTx poll skipped"
+        )
+        if (endpoint.transport == NodeTransport.TOR && proxy == null) {
+            return
+        }
 
         LightElectrumClient(endpoint, proxy, endpoint.validateDomain).use { client ->
             openSessionWithLogging(client, walletAlias)
@@ -353,12 +357,14 @@ class DefaultIncomingTxWatcher @Inject constructor(
         val walletAlias = WalletLogAliasProvider.alias(walletId)
         if (addresses.isEmpty()) return emptyList()
         val endpoint = endpointProvider.endpointFor(network)
-        val proxy = runCatching { torManager.awaitProxy() }
-            .onFailure { error ->
-                if (error is CancellationException) throw error
-                SecureLog.w(TAG) { "IncomingTx manual check skipped for $walletAlias: ${error.message}" }
-            }
-            .getOrNull() ?: return emptyList()
+        val proxy = resolveProxyForEndpoint(
+            endpoint = endpoint,
+            walletAlias = walletAlias,
+            logPrefix = "IncomingTx manual check skipped"
+        )
+        if (endpoint.transport == NodeTransport.TOR && proxy == null) {
+            return emptyList()
+        }
 
         return LightElectrumClient(endpoint, proxy, endpoint.validateDomain).use { client ->
             openSessionWithLogging(client, walletAlias)
@@ -578,6 +584,23 @@ class DefaultIncomingTxWatcher @Inject constructor(
                 }
             }
             .getOrThrow()
+    }
+
+    @VisibleForTesting
+    internal suspend fun resolveProxyForEndpoint(
+        endpoint: ElectrumEndpoint,
+        walletAlias: String,
+        logPrefix: String
+    ): SocksProxyConfig? {
+        if (endpoint.transport != NodeTransport.TOR) {
+            return null
+        }
+        return runCatching { torManager.awaitProxy() }
+            .onFailure { error ->
+                if (error is CancellationException) throw error
+                SecureLog.w(TAG) { "$logPrefix for $walletAlias: ${error.message}" }
+            }
+            .getOrNull()
     }
 
     internal data class IncomingTxLightSnapshot(

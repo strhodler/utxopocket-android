@@ -31,11 +31,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomNodeEditorScreen(
+    connectionMode: ConnectionMode,
     nameValue: String,
     onionValue: String,
     portValue: String,
@@ -84,7 +86,8 @@ fun CustomNodeEditorScreen(
                     singleLine = true
                 )
 
-                OnionField(
+                EndpointField(
+                    connectionMode = connectionMode,
                     value = onionValue,
                     qrErrorMessage = qrErrorMessage,
                     onValueChange = {
@@ -106,7 +109,7 @@ fun CustomNodeEditorScreen(
                     keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number)
                 )
 
-                TransportModeBadge()
+                TransportModeBadge(connectionMode = connectionMode)
             }
             errorMessage?.let { error ->
                 Text(
@@ -154,14 +157,26 @@ fun CustomNodeEditorScreen(
 }
 
 @Composable
-private fun OnionField(
+private fun EndpointField(
+    connectionMode: ConnectionMode,
     value: String,
     qrErrorMessage: String?,
     onValueChange: (String) -> Unit,
     onStartQrScan: () -> Unit
 ) {
     val scanDescription = stringResource(id = R.string.node_scan_qr_content_description)
-    val supportingText = qrErrorMessage ?: stringResource(id = R.string.node_custom_endpoint_supporting)
+    val supportingText = qrErrorMessage ?: when (connectionMode) {
+        ConnectionMode.TOR_DEFAULT -> stringResource(id = R.string.node_custom_endpoint_supporting)
+        ConnectionMode.LOCAL_DIRECT -> stringResource(id = R.string.node_custom_endpoint_local_supporting)
+    }
+    val labelRes = when (connectionMode) {
+        ConnectionMode.TOR_DEFAULT -> R.string.node_custom_endpoint_label
+        ConnectionMode.LOCAL_DIRECT -> R.string.node_custom_endpoint_local_label
+    }
+    val placeholderRes = when (connectionMode) {
+        ConnectionMode.TOR_DEFAULT -> R.string.node_custom_endpoint_placeholder
+        ConnectionMode.LOCAL_DIRECT -> R.string.node_custom_endpoint_local_placeholder
+    }
     val supportingColor = if (qrErrorMessage != null) {
         MaterialTheme.colorScheme.error
     } else {
@@ -170,8 +185,8 @@ private fun OnionField(
     TextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(stringResource(id = R.string.node_custom_endpoint_label)) },
-        placeholder = { Text(stringResource(id = R.string.node_custom_endpoint_placeholder)) },
+        label = { Text(stringResource(id = labelRes)) },
+        placeholder = { Text(stringResource(id = placeholderRes)) },
         modifier = Modifier.fillMaxWidth(),
         trailingIcon = {
             IconButton(onClick = onStartQrScan) {
@@ -194,7 +209,7 @@ private fun OnionField(
 }
 
 @Composable
-private fun TransportModeBadge() {
+private fun TransportModeBadge(connectionMode: ConnectionMode) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
         shape = MaterialTheme.shapes.medium,
@@ -207,12 +222,18 @@ private fun TransportModeBadge() {
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = stringResource(id = R.string.node_custom_transport_tor_label),
+                text = when (connectionMode) {
+                    ConnectionMode.TOR_DEFAULT -> stringResource(id = R.string.node_custom_transport_tor_label)
+                    ConnectionMode.LOCAL_DIRECT -> stringResource(id = R.string.node_custom_transport_local_label)
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = stringResource(id = R.string.node_custom_transport_tor_supporting),
+                text = when (connectionMode) {
+                    ConnectionMode.TOR_DEFAULT -> stringResource(id = R.string.node_custom_transport_tor_supporting)
+                    ConnectionMode.LOCAL_DIRECT -> stringResource(id = R.string.node_custom_transport_local_supporting)
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

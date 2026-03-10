@@ -18,6 +18,7 @@ import com.strhodler.utxopocket.domain.model.IncomingTxLightStatus
 import com.strhodler.utxopocket.domain.model.IncomingWatcherPolicy
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
+import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
@@ -314,6 +315,64 @@ class IncomingTxWatcherTest {
 
         assertFailsWith<CancellationException> {
             watcher.manualCheck(walletId = 1L, addresses = listOf(detail))
+        }
+    }
+
+    @Test
+    fun resolveProxyForEndpointSkipsTorLookupForDirectTransport() = runTest {
+        val watcher = DefaultIncomingTxWatcher(
+            walletReadRepository = walletRepository,
+            walletSyncRepository = walletRepository,
+            walletAddressRepository = walletRepository,
+            endpointProvider = endpointProvider,
+            torManager = CancellingTorManager(),
+            preferencesRepository = incomingPrefs,
+            appPreferencesRepository = appPrefs,
+            coordinator = coordinator,
+            walletSyncPreferencesRepository = walletSyncPrefs,
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+            watcherPolicy = IncomingWatcherPolicy()
+        )
+
+        val proxy = watcher.resolveProxyForEndpoint(
+            endpoint = ElectrumEndpoint(
+                url = "tcp://192.168.1.10:50001",
+                validateDomain = false,
+                transport = NodeTransport.VPN_DIRECT
+            ),
+            walletAlias = "wallet-1",
+            logPrefix = "IncomingTx skipped"
+        )
+
+        assertEquals(null, proxy)
+    }
+
+    @Test
+    fun resolveProxyForEndpointRethrowsCancellationWhenTorIsRequired() = runTest {
+        val watcher = DefaultIncomingTxWatcher(
+            walletReadRepository = walletRepository,
+            walletSyncRepository = walletRepository,
+            walletAddressRepository = walletRepository,
+            endpointProvider = endpointProvider,
+            torManager = CancellingTorManager(),
+            preferencesRepository = incomingPrefs,
+            appPreferencesRepository = appPrefs,
+            coordinator = coordinator,
+            walletSyncPreferencesRepository = walletSyncPrefs,
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+            watcherPolicy = IncomingWatcherPolicy()
+        )
+
+        assertFailsWith<CancellationException> {
+            watcher.resolveProxyForEndpoint(
+                endpoint = ElectrumEndpoint(
+                    url = "tcp://abc123xyz.onion:50001",
+                    validateDomain = false,
+                    transport = NodeTransport.TOR
+                ),
+                walletAlias = "wallet-1",
+                logPrefix = "IncomingTx skipped"
+            )
         }
     }
 }

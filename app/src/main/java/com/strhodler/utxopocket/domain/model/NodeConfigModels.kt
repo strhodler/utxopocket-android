@@ -101,15 +101,35 @@ fun NodeConfig.activeCustomNode(network: BitcoinNetwork? = null): CustomNode? {
 }
 
 fun NodeConfig.activeTransport(network: BitcoinNetwork? = null): NodeTransport? = when (connectionOption) {
-    NodeConnectionOption.PUBLIC -> if (selectedPublicNodeId != null) {
-        NodeTransport.TOR
-    } else {
-        null
+    NodeConnectionOption.PUBLIC -> when (connectionMode) {
+        ConnectionMode.TOR_DEFAULT -> if (selectedPublicNodeId != null) {
+            NodeTransport.TOR
+        } else {
+            null
+        }
+
+        ConnectionMode.LOCAL_DIRECT -> null
     }
 
     NodeConnectionOption.CUSTOM -> {
         val selected = activeCustomNode(network) ?: return null
-        selected.activeTransport()
+        when (connectionMode) {
+            ConnectionMode.TOR_DEFAULT -> {
+                if (selected.activeTransport() == NodeTransport.TOR) {
+                    NodeTransport.TOR
+                } else {
+                    null
+                }
+            }
+
+            ConnectionMode.LOCAL_DIRECT -> {
+                if (selected.activeTransport() == NodeTransport.VPN_DIRECT) {
+                    NodeTransport.VPN_DIRECT
+                } else {
+                    null
+                }
+            }
+        }
     }
 }
 
@@ -117,7 +137,10 @@ fun NodeConfig.requiresTor(network: BitcoinNetwork? = null): Boolean =
     activeTransport(network) == NodeTransport.TOR
 
 fun CustomNode.activeTransport(): NodeTransport =
-    NodeTransport.TOR
+    when (normalisedEndpointKind()) {
+        EndpointKind.LOCAL -> NodeTransport.VPN_DIRECT
+        else -> NodeTransport.TOR
+    }
 
 fun CustomNode.requiresTor(): Boolean = activeTransport() == NodeTransport.TOR
 

@@ -41,6 +41,7 @@ object WalletsNavigation {
     enum class NodeStatusTabDestination(val argValue: String) {
         Overview("overview"),
         Management("management"),
+        Connection("connection"),
         Tor("tor")
     }
 

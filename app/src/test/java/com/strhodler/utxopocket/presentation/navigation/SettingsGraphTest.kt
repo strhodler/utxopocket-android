@@ -22,7 +22,14 @@ class SettingsGraphTest {
     }
 
     @Test
-    fun `nodeStatusInitialTabIndex maps tor tab to third index`() {
+    fun `nodeStatusInitialTabIndex maps connection tab to third index`() {
+        val index = nodeStatusInitialTabIndex(WalletsNavigation.NodeStatusTabDestination.Connection.argValue)
+
+        assertEquals(2, index)
+    }
+
+    @Test
+    fun `nodeStatusInitialTabIndex keeps tor tab as third index for compatibility`() {
         val index = nodeStatusInitialTabIndex(WalletsNavigation.NodeStatusTabDestination.Tor.argValue)
 
         assertEquals(2, index)

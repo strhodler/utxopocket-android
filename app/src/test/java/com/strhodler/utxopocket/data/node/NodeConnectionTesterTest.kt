@@ -4,6 +4,7 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NetworkErrorLog
 import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
+import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.model.TorConfig
 import com.strhodler.utxopocket.domain.model.TorStatus
@@ -11,6 +12,7 @@ import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.service.TorManager
 import kotlin.coroutines.CoroutineContext
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineDispatcher
@@ -20,6 +22,22 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 
 class NodeConnectionTesterTest {
+
+    @Test
+    fun resolveNodeTransportUsesTorForOnionEndpoints() {
+        assertEquals(
+            NodeTransport.TOR,
+            resolveNodeTransport("tcp://abc123xyz.onion:50001")
+        )
+    }
+
+    @Test
+    fun resolveNodeTransportUsesDirectForLocalIpEndpoints() {
+        assertEquals(
+            NodeTransport.VPN_DIRECT,
+            resolveNodeTransport("tcp://192.168.1.10:50001")
+        )
+    }
 
     @Test
     fun testUsesInjectedIoDispatcher() = runTest {
