@@ -6,6 +6,7 @@ import com.strhodler.utxopocket.di.ApplicationScope
 import com.strhodler.utxopocket.di.IoDispatcher
 import com.strhodler.utxopocket.domain.connection.ConnectionIntent
 import com.strhodler.utxopocket.domain.connection.ConnectionSnapshot
+import com.strhodler.utxopocket.domain.connection.ConnectionState
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeStatus
@@ -98,6 +99,12 @@ class ConnectionOrchestratorV2 internal constructor(
     @Volatile
     private var heartbeatJob: Job? = null
 
+    @Volatile
+    private var forceDisconnectedSnapshot: Boolean = false
+
+    @Volatile
+    private var awaitingFreshSyncingAfterReconnect: Boolean = false
+
     private val lifecycleJobs = mutableListOf<Job>()
 
     init {
@@ -124,7 +131,7 @@ class ConnectionOrchestratorV2 internal constructor(
                     torRequired = currentNodeConfig.requiresTor(network)
                 )
             }.collect { mapped ->
-                _snapshot.value = mapped
+                _snapshot.value = applySnapshotGuards(mapped)
             }
         }
 
@@ -146,29 +153,49 @@ class ConnectionOrchestratorV2 internal constructor(
     private suspend fun processIntent(intent: ConnectionIntent) {
         when (intent) {
             ConnectionIntent.Start -> {
-                handleStartOrForeground()
+                handleConnectIntent(startHeartbeat = true)
             }
 
             ConnectionIntent.Retry -> {
-                refreshWithSingleRetry()
+                handleConnectIntent(startHeartbeat = false)
             }
 
             ConnectionIntent.OnAppForeground -> {
-                handleStartOrForeground()
+                handleConnectIntent(startHeartbeat = true)
             }
 
             ConnectionIntent.Disconnect -> {
-                stopHeartbeat()
-                withContext(ioDispatcher) {
-                    walletSyncRepository.disconnect(preferredNetwork.value)
-                }
+                handleDisconnectIntent()
             }
         }
     }
 
-    private suspend fun handleStartOrForeground() {
-        startHeartbeatIfNeeded()
-        refreshWithSingleRetry()
+    private suspend fun handleDisconnectIntent() {
+        forceDisconnectedSnapshot = true
+        awaitingFreshSyncingAfterReconnect = false
+        stopHeartbeat()
+        withContext(ioDispatcher) {
+            walletSyncRepository.disconnect(preferredNetwork.value)
+        }
+    }
+
+    private suspend fun handleConnectIntent(startHeartbeat: Boolean) {
+        val network = preferredNetwork.value
+        if (!hasActiveSelection(network)) {
+            forceDisconnectedSnapshot = true
+            awaitingFreshSyncingAfterReconnect = false
+            stopHeartbeat()
+            return
+        }
+
+        val reconnectingAfterDisconnect = forceDisconnectedSnapshot
+        forceDisconnectedSnapshot = false
+        awaitingFreshSyncingAfterReconnect = reconnectingAfterDisconnect
+
+        if (startHeartbeat) {
+            startHeartbeatIfNeeded()
+        }
+        refreshWithSingleRetry(network = network, selectionVerified = true)
     }
 
     private fun startHeartbeatIfNeeded() {
@@ -178,7 +205,7 @@ class ConnectionOrchestratorV2 internal constructor(
         heartbeatJob = applicationScope.launch {
             while (true) {
                 delay(heartbeatIntervalMs)
-                refreshWithSingleRetry()
+                onIntent(ConnectionIntent.Retry)
             }
         }
     }
@@ -195,17 +222,44 @@ class ConnectionOrchestratorV2 internal constructor(
         intentChannel.close()
     }
 
-    private suspend fun refreshWithSingleRetry(assumeOnline: Boolean = false) {
-        val network = preferredNetwork.value
+    private suspend fun refreshWithSingleRetry(
+        network: BitcoinNetwork = preferredNetwork.value,
+        assumeOnline: Boolean = false,
+        selectionVerified: Boolean = false
+    ) {
         if (!assumeOnline && !effectiveNetworkOnline.value) {
             return
         }
-        if (!walletSyncRepository.hasActiveNodeSelection(network)) {
+        if (!selectionVerified && !hasActiveSelection(network)) {
             return
         }
         runActionWithSingleRetry {
             walletSyncRepository.refresh(network)
         }
+    }
+
+    private suspend fun hasActiveSelection(network: BitcoinNetwork): Boolean = withContext(ioDispatcher) {
+        walletSyncRepository.hasActiveNodeSelection(network)
+    }
+
+    private fun applySnapshotGuards(mapped: ConnectionSnapshot): ConnectionSnapshot {
+        if (mapped.nodeStatus.status is NodeStatus.Syncing) {
+            awaitingFreshSyncingAfterReconnect = false
+        }
+        if (forceDisconnectedSnapshot && mapped.state != ConnectionState.ERROR) {
+            return mapped.copy(
+                state = ConnectionState.DISCONNECTED,
+                errorMessage = null
+            )
+        }
+        if (
+            awaitingFreshSyncingAfterReconnect &&
+            mapped.nodeStatus.status is NodeStatus.Synced &&
+            mapped.state == ConnectionState.CONNECTED
+        ) {
+            return mapped.copy(state = ConnectionState.CONNECTING)
+        }
+        return mapped
     }
 
     private suspend fun runActionWithSingleRetry(action: suspend () -> Unit) {
@@ -227,8 +281,11 @@ class ConnectionOrchestratorV2 internal constructor(
         val message = lastError?.message.orEmpty().ifBlank { "Connection action failed" }
         val errorType = lastError?.javaClass?.simpleName ?: "UnknownError"
         SecureLog.w(logTag, lastError) { "Connection action failed after retry ($errorType)" }
+        if (forceDisconnectedSnapshot) {
+            return
+        }
         _snapshot.value = _snapshot.value.copy(
-            state = com.strhodler.utxopocket.domain.connection.ConnectionState.ERROR,
+            state = ConnectionState.ERROR,
             errorMessage = message
         )
     }

@@ -34,6 +34,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -141,6 +144,169 @@ class ConnectionOrchestratorV2Test {
         }
     }
 
+    @Test
+    fun disconnectDuringActiveRefreshCannotLeaveFinalStateConnecting() = runTest {
+        val harness = createHarness(this)
+        val staleEmissionGate = CompletableDeferred<Unit>()
+        try {
+            harness.walletRepository.refreshBehavior = { network, invocation ->
+                if (invocation == 1) {
+                    harness.appScope.launch {
+                        staleEmissionGate.await()
+                        harness.walletRepository.nodeStatus.value = NodeStatusSnapshot(
+                            status = NodeStatus.Connecting,
+                            network = network
+                        )
+                    }
+                }
+            }
+
+            harness.orchestrator.onIntent(ConnectionIntent.Start)
+            runCurrent()
+            harness.orchestrator.onIntent(ConnectionIntent.Disconnect)
+            runCurrent()
+
+            staleEmissionGate.complete(Unit)
+            runCurrent()
+
+            assertEquals(ConnectionState.DISCONNECTED, harness.orchestrator.snapshot.value.state)
+        } finally {
+            harness.close()
+        }
+    }
+
+    @Test
+    fun rapidStartDisconnectStartDoesNotSurfaceStaleStateFromOldAttempt() = runTest {
+        val harness = createHarness(this)
+        val staleEmissionGate = CompletableDeferred<Unit>()
+        try {
+            harness.walletRepository.refreshBehavior = { network, invocation ->
+                when (invocation) {
+                    1 -> {
+                        harness.walletRepository.nodeStatus.value = NodeStatusSnapshot(
+                            status = NodeStatus.Connecting,
+                            network = network
+                        )
+                        harness.appScope.launch {
+                            staleEmissionGate.await()
+                            harness.walletRepository.nodeStatus.value = NodeStatusSnapshot(
+                                status = NodeStatus.Synced,
+                                network = network
+                            )
+                        }
+                    }
+
+                    else -> {
+                        harness.walletRepository.nodeStatus.value = NodeStatusSnapshot(
+                            status = NodeStatus.Connecting,
+                            network = network
+                        )
+                    }
+                }
+            }
+
+            harness.orchestrator.onIntent(ConnectionIntent.Start)
+            runCurrent()
+            harness.orchestrator.onIntent(ConnectionIntent.Disconnect)
+            harness.orchestrator.onIntent(ConnectionIntent.Start)
+            runCurrent()
+
+            staleEmissionGate.complete(Unit)
+            runCurrent()
+
+            assertEquals(ConnectionState.CONNECTING, harness.orchestrator.snapshot.value.state)
+        } finally {
+            harness.close()
+        }
+    }
+
+    @Test
+    fun noActiveSelectionBranchWinsOverStaleInflightCompletion() = runTest {
+        val harness = createHarness(this)
+        val staleEmissionGate = CompletableDeferred<Unit>()
+        try {
+            harness.walletRepository.refreshBehavior = { network, invocation ->
+                if (invocation == 1) {
+                    harness.walletRepository.nodeStatus.value = NodeStatusSnapshot(
+                        status = NodeStatus.Connecting,
+                        network = network
+                    )
+                    harness.appScope.launch {
+                        staleEmissionGate.await()
+                        harness.walletRepository.nodeStatus.value = NodeStatusSnapshot(
+                            status = NodeStatus.Synced,
+                            network = network
+                        )
+                    }
+                } else {
+                    harness.walletRepository.nodeStatus.value = NodeStatusSnapshot(
+                        status = NodeStatus.Connecting,
+                        network = network
+                    )
+                }
+            }
+
+            harness.orchestrator.onIntent(ConnectionIntent.Start)
+            runCurrent()
+
+            harness.walletRepository.hasActiveSelection = false
+            harness.orchestrator.onIntent(ConnectionIntent.Disconnect)
+            harness.orchestrator.onIntent(ConnectionIntent.Start)
+            runCurrent()
+
+            staleEmissionGate.complete(Unit)
+            runCurrent()
+
+            assertEquals(ConnectionState.DISCONNECTED, harness.orchestrator.snapshot.value.state)
+            assertEquals(1, harness.walletRepository.refreshCalls.size)
+        } finally {
+            harness.close()
+        }
+    }
+
+    @Test
+    fun heartbeatRetriesDoNotOverlapWhenRefreshIsSlow() = runTest {
+        val harness = createHarness(this)
+        try {
+            harness.walletRepository.refreshBehavior = { network, _ ->
+                delay(1_500)
+                harness.walletRepository.nodeStatus.value = NodeStatusSnapshot(
+                    status = NodeStatus.Connecting,
+                    network = network
+                )
+            }
+
+            harness.orchestrator.onIntent(ConnectionIntent.OnAppForeground)
+            runCurrent()
+
+            advanceTimeBy(5_000)
+            runCurrent()
+
+            assertEquals(1, harness.walletRepository.maxConcurrentRefreshCalls)
+        } finally {
+            harness.close()
+        }
+    }
+
+    @Test
+    fun heartbeatDoesNotTriggerRefreshWithoutActiveSelection() = runTest {
+        val harness = createHarness(this)
+        try {
+            harness.walletRepository.hasActiveSelection = false
+
+            harness.orchestrator.onIntent(ConnectionIntent.OnAppForeground)
+            runCurrent()
+
+            advanceTimeBy(3_000)
+            runCurrent()
+
+            assertEquals(0, harness.walletRepository.refreshCalls.size)
+            assertEquals(ConnectionState.DISCONNECTED, harness.orchestrator.snapshot.value.state)
+        } finally {
+            harness.close()
+        }
+    }
+
     private fun createHarness(scope: TestScope): Harness {
         val dispatcher = StandardTestDispatcher(scope.testScheduler)
         val appScope = TestScope(dispatcher)
@@ -186,20 +352,33 @@ class ConnectionOrchestratorV2Test {
         val syncStatus = MutableStateFlow(SyncStatusSnapshot(isRefreshing = false, network = BitcoinNetwork.TESTNET))
         val refreshCalls = mutableListOf<BitcoinNetwork>()
         val disconnectCalls = mutableListOf<BitcoinNetwork>()
+        var maxConcurrentRefreshCalls: Int = 0
+        private var concurrentRefreshCalls: Int = 0
         var refreshFailuresBeforeSuccess: Int = 0
         var hasActiveSelection: Boolean = true
+        var refreshBehavior: suspend (BitcoinNetwork, Int) -> Unit = { network, _ ->
+            nodeStatus.value = NodeStatusSnapshot(status = NodeStatus.Connecting, network = network)
+        }
 
         override fun observeNodeStatus(): Flow<NodeStatusSnapshot> = nodeStatus
 
         override fun observeSyncStatus(): Flow<SyncStatusSnapshot> = syncStatus
 
         override suspend fun refresh(network: BitcoinNetwork) {
-            refreshCalls += network
-            if (refreshFailuresBeforeSuccess > 0) {
-                refreshFailuresBeforeSuccess -= 1
-                throw IllegalStateException("forced refresh failure")
+            concurrentRefreshCalls += 1
+            if (concurrentRefreshCalls > maxConcurrentRefreshCalls) {
+                maxConcurrentRefreshCalls = concurrentRefreshCalls
             }
-            nodeStatus.value = NodeStatusSnapshot(status = NodeStatus.Connecting, network = network)
+            refreshCalls += network
+            try {
+                if (refreshFailuresBeforeSuccess > 0) {
+                    refreshFailuresBeforeSuccess -= 1
+                    throw IllegalStateException("forced refresh failure")
+                }
+                refreshBehavior(network, refreshCalls.size)
+            } finally {
+                concurrentRefreshCalls -= 1
+            }
         }
 
         override suspend fun refreshWallet(walletId: Long, operation: SyncOperation) = Unit

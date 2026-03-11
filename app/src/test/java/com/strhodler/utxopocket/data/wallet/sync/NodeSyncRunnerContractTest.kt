@@ -1,8 +1,12 @@
 package com.strhodler.utxopocket.data.wallet.sync
 
 import com.strhodler.utxopocket.domain.connection.TransportPolicy
+import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.NodeStatus
+import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.NodeTransport
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -29,5 +33,42 @@ class NodeSyncRunnerContractTest {
                 policy = TransportPolicy.TOR_ONLY
             )
         )
+    }
+
+    @Test
+    fun terminalStatusWritesRequireCurrentAttemptAndActiveSelection() {
+        assertTrue(
+            shouldPublishTerminalNodeStatus(
+                attemptStillActive = true,
+                hasActiveSelection = true
+            )
+        )
+        assertFalse(
+            shouldPublishTerminalNodeStatus(
+                attemptStillActive = false,
+                hasActiveSelection = true
+            )
+        )
+        assertFalse(
+            shouldPublishTerminalNodeStatus(
+                attemptStillActive = true,
+                hasActiveSelection = false
+            )
+        )
+    }
+
+    @Test
+    fun staleSyncedSnapshotDoesNotCountAsOutcomeWhenAttemptIsInvalid() {
+        val outcome = resolveRefreshOutcome(
+            network = BitcoinNetwork.TESTNET,
+            snapshot = NodeStatusSnapshot(
+                status = NodeStatus.Synced,
+                network = BitcoinNetwork.TESTNET
+            ),
+            attemptStillActive = false,
+            hasActiveSelection = true
+        )
+
+        assertEquals(NodeRefreshOutcome.Incomplete, outcome)
     }
 }

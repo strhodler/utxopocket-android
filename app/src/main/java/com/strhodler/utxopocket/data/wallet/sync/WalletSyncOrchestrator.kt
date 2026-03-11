@@ -722,6 +722,11 @@ internal class WalletSyncOrchestrator(
 
     private suspend fun handleDisconnectIntent(network: BitcoinNetwork) = withContext(ioDispatcher) {
         disconnectRequests.add(network)
+        val hasActiveSelection = nodeConfigurationRepository.nodeConfig.first().hasActiveSelection(network)
+        publishDisconnectNodeStatus(
+            network = network,
+            hasActiveSelection = hasActiveSelection
+        )
         var queuedSize = 0
         val jobToCancel = syncQueueMutex.withLock {
             val job = runningSyncJobs.remove(network)
@@ -745,24 +750,20 @@ internal class WalletSyncOrchestrator(
         jobToCancel?.cancel()
         jobToCancel?.join()
         debugLog { "handleDisconnectIntent($network) queued=$queuedSize" }
-        val snapshot = nodeStatus.value
-        val matchesNetwork = snapshot.network == network
-        val disconnectingSnapshot = NodeStatusSnapshot(
-            status = NodeStatus.Disconnecting,
-            blockHeight = snapshot.blockHeight.takeIf { matchesNetwork },
-            serverInfo = snapshot.serverInfo.takeIf { matchesNetwork },
-            endpoint = snapshot.endpoint.takeIf { matchesNetwork },
-            lastSyncCompletedAt = snapshot.lastSyncCompletedAt.takeIf { matchesNetwork },
+    }
+
+    private fun publishDisconnectNodeStatus(
+        network: BitcoinNetwork,
+        hasActiveSelection: Boolean
+    ) {
+        val transition = disconnectNodeStatusTransition(
+            snapshot = nodeStatus.value,
             network = network,
-            feeRateSatPerVb = snapshot.feeRateSatPerVb.takeIf { matchesNetwork }
+            hasActiveSelection = hasActiveSelection
         )
-        nodeStatus.value = disconnectingSnapshot
-        val hasActiveSelection = nodeConfigurationRepository.nodeConfig.first().hasActiveSelection(network)
-        if (!hasActiveSelection) {
-            nodeStatus.value = disconnectingSnapshot.copy(
-                status = NodeStatus.Idle,
-                endpoint = null
-            )
+        nodeStatus.value = transition.disconnectingSnapshot
+        transition.idleSnapshotWithoutSelection?.let { idleSnapshot ->
+            nodeStatus.value = idleSnapshot
         }
     }
 
@@ -982,6 +983,36 @@ internal class WalletSyncOrchestrator(
         }
 
         @VisibleForTesting
+        internal fun disconnectNodeStatusTransition(
+            snapshot: NodeStatusSnapshot,
+            network: BitcoinNetwork,
+            hasActiveSelection: Boolean
+        ): DisconnectNodeStatusTransition {
+            val matchesNetwork = snapshot.network == network
+            val disconnectingSnapshot = NodeStatusSnapshot(
+                status = NodeStatus.Disconnecting,
+                blockHeight = snapshot.blockHeight.takeIf { matchesNetwork },
+                serverInfo = snapshot.serverInfo.takeIf { matchesNetwork },
+                endpoint = snapshot.endpoint.takeIf { matchesNetwork },
+                lastSyncCompletedAt = snapshot.lastSyncCompletedAt.takeIf { matchesNetwork },
+                network = network,
+                feeRateSatPerVb = snapshot.feeRateSatPerVb.takeIf { matchesNetwork }
+            )
+            val idleSnapshot = if (hasActiveSelection) {
+                null
+            } else {
+                disconnectingSnapshot.copy(
+                    status = NodeStatus.Idle,
+                    endpoint = null
+                )
+            }
+            return DisconnectNodeStatusTransition(
+                disconnectingSnapshot = disconnectingSnapshot,
+                idleSnapshotWithoutSelection = idleSnapshot
+            )
+        }
+
+        @VisibleForTesting
         internal fun reduceSyncStatus(
             network: BitcoinNetwork,
             activeWalletId: Long?,
@@ -1041,6 +1072,12 @@ internal class WalletSyncOrchestrator(
     internal data class ReenqueueChunk(
         val operation: SyncOperation,
         val walletIds: List<Long>
+    )
+
+    @VisibleForTesting
+    internal data class DisconnectNodeStatusTransition(
+        val disconnectingSnapshot: NodeStatusSnapshot,
+        val idleSnapshotWithoutSelection: NodeStatusSnapshot?
     )
 
     internal data class WalletSyncSuccessEvent(
