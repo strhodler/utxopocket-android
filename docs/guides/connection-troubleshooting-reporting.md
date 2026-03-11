@@ -21,6 +21,12 @@ Use this guide to gather the minimum information needed to debug Electrum connec
 - If custom-node save is blocked, verify the node Electrum genesis hash matches the selected network.
 - Switch between a **public** node and your **custom** node to see if the error is node-specific.
 
+## Logcat Signals For Mode-Switch Race Regressions
+- Filter tags with `adb logcat -s WalletSyncOrchestrator NodeSyncRunner ConnectionOrchestratorV2`.
+- Expected sequence when switching mode without activating a node: `WalletSyncOrchestrator` logs `event=Disconnect`, then `NodeSyncRunner` does not resume sync until a new activation intent.
+- Expected sequence after explicit activation: `WalletSyncOrchestrator` logs `event=Start`, then `NodeSyncRunner` progresses through `Node status -> Connecting` and eventually `Node status -> Syncing`/`Node status -> Synced`.
+- Red flag: after a disconnect, any late `Connecting`/`Synced` status appears without a fresh `event=Start` for the same network.
+
 ## Privacy Notes
 - The copied log contains only masked/hashed hosts, operation type, transport, and error class/message. No descriptors, addresses, or balances are included.
 - You can clear the log anytime from the viewer; panic wipe also removes this log.

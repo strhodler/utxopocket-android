@@ -373,4 +373,99 @@ class ConnectionModeUiTest {
         composeRule.onNodeWithText(idleLabel).assertIsDisplayed()
         composeRule.onAllNodesWithText(connectingLabel).assertCountEquals(0)
     }
+
+    @Test
+    fun explicitNodeActivationAfterModeSwitchReturnsToConnecting() {
+        val localDirectLabel = composeRule.activity.getString(R.string.connection_mode_local_direct_label)
+        val connectingLabel = composeRule.activity.getString(R.string.node_status_connecting)
+        val idleLabel = composeRule.activity.getString(R.string.node_status_idle)
+
+        val publicNode = PublicNode(
+            id = "pub-b",
+            displayName = "Public preset B",
+            endpoint = "ssl://public-b.example:50002",
+            network = BitcoinNetwork.TESTNET
+        )
+        val localCustomNode = CustomNode(
+            id = "local-b",
+            endpoint = "tcp://192.168.1.30:50001",
+            name = "Local reconnect node",
+            network = BitcoinNetwork.TESTNET
+        )
+
+        var status by mutableStateOf(
+            StatusBarUiState(
+                network = BitcoinNetwork.TESTNET,
+                nodeStatus = NodeStatus.Connecting,
+                torStatus = TorStatus.Connecting(progress = 40),
+                torRequired = true,
+                isNetworkOnline = true
+            )
+        )
+        var state by mutableStateOf(
+            NodeStatusUiState(
+                preferredNetwork = BitcoinNetwork.TESTNET,
+                connectionMode = ConnectionMode.TOR_DEFAULT,
+                nodeConnectionOption = NodeConnectionOption.PUBLIC,
+                publicNodes = listOf(publicNode),
+                selectedPublicNodeId = publicNode.id,
+                customNodes = listOf(localCustomNode),
+                selectedCustomNodeId = null
+            )
+        )
+
+        composeRule.setContent {
+            MaterialTheme {
+                NodeStatusScreen(
+                    status = status,
+                    state = state,
+                    snackbarHostState = remember { SnackbarHostState() },
+                    torActionsState = com.strhodler.utxopocket.presentation.tor.TorStatusActionUiState(),
+                    interactionsLocked = false,
+                    onInteractionBlocked = {},
+                    onOpenNetworkLogs = {},
+                    onNetworkSelected = {},
+                    onConnectionModeSelectionRequested = { mode ->
+                        state = state.copy(
+                            connectionMode = mode,
+                            nodeConnectionOption = if (mode == ConnectionMode.TOR_DEFAULT) {
+                                NodeConnectionOption.PUBLIC
+                            } else {
+                                NodeConnectionOption.CUSTOM
+                            },
+                            selectedPublicNodeId = null,
+                            selectedCustomNodeId = null
+                        )
+                        status = status.copy(
+                            nodeStatus = NodeStatus.Idle,
+                            torRequired = false
+                        )
+                    },
+                    onShowIncompatibleNodesChanged = {},
+                    onPublicNodeSelected = {},
+                    onRemovePublicNode = {},
+                    onRestorePublicNodes = {},
+                    onCustomNodeSelected = { nodeId ->
+                        state = state.copy(
+                            nodeConnectionOption = NodeConnectionOption.CUSTOM,
+                            selectedCustomNodeId = nodeId
+                        )
+                        status = status.copy(nodeStatus = NodeStatus.Connecting)
+                    },
+                    onCustomNodeDetails = {},
+                    onRemoveCustomNode = {},
+                    onAddCustomNodeClick = {},
+                    initialTabIndex = NodeStatusTab.Management.ordinal,
+                    onDisconnect = {},
+                    onRenewTorIdentity = {}
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(connectingLabel).assertIsDisplayed()
+        composeRule.onNodeWithText(localDirectLabel).performClick()
+        composeRule.onNodeWithText(idleLabel).assertIsDisplayed()
+        composeRule.onNodeWithText(localCustomNode.name).performClick()
+        composeRule.onNodeWithText(connectingLabel).assertIsDisplayed()
+    }
 }
