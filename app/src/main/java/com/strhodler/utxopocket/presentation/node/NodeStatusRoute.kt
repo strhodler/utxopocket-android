@@ -248,8 +248,7 @@ fun NodeStatusRoute(
                 onAddCustomNodeClick = viewModel::onAddCustomNodeClicked,
                 initialTabIndex = initialTabIndex,
                 onDisconnect = viewModel::disconnectNode,
-                onRenewTorIdentity = torViewModel::onRenewIdentity,
-                onStartTor = torViewModel::onStartTor
+                onRenewTorIdentity = torViewModel::onRenewIdentity
             )
         }
     }

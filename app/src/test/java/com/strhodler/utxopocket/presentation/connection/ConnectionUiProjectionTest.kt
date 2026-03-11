@@ -71,4 +71,22 @@ class ConnectionUiProjectionTest {
         assertEquals(NodeStatus.Idle, projection.nodeStatus)
         assertEquals(TorStatus.Stopped, projection.torStatus)
     }
+
+    @Test
+    fun connectingSnapshotRequiresExplicitSelectionBeforeProjectingBusyState() {
+        val projection = projectConnectionUi(
+            connectionSnapshot = ConnectionSnapshot(
+                state = ConnectionState.CONNECTING,
+                nodeStatus = NodeStatusSnapshot(
+                    status = NodeStatus.Connecting,
+                    network = BitcoinNetwork.TESTNET
+                )
+            ),
+            selectedNetwork = BitcoinNetwork.TESTNET,
+            duressActive = false,
+            hasActiveSelection = false
+        )
+
+        assertEquals(NodeStatus.Idle, projection.nodeStatus)
+    }
 }

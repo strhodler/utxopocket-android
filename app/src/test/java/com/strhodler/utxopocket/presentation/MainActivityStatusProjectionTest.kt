@@ -274,7 +274,55 @@ class MainActivityStatusProjectionTest {
     }
 
     @Test
-    fun typedUiProjection_hidesTorStatusWhenConnectionModeIsLocalDirect() {
+    fun typedUiProjection_forcesIdleWhenNoNodeSelectionIsActive() {
+        val uiState = projectMainActivityUiState(
+            inputs = MainUiInputs(
+                onboardingCompleted = true,
+                connectionSnapshot = ConnectionSnapshot(
+                    state = ConnectionState.CONNECTING,
+                    isOnline = true,
+                    torStatus = TorStatus.Connecting(progress = 30),
+                    nodeStatus = NodeStatusSnapshot(
+                        status = NodeStatus.Connecting,
+                        network = BitcoinNetwork.TESTNET,
+                        endpoint = "ssl://preset.node:50002"
+                    )
+                ),
+                syncStatus = SyncStatusSnapshot(
+                    isRefreshing = false,
+                    network = BitcoinNetwork.TESTNET
+                ),
+                network = BitcoinNetwork.TESTNET,
+                torLog = "Tor bootstrapping",
+                pinEnabled = false,
+                locked = false,
+                nodeConfig = NodeConfig(
+                    connectionMode = ConnectionMode.TOR_DEFAULT,
+                    connectionOption = NodeConnectionOption.PUBLIC,
+                    selectedPublicNodeId = null,
+                    selectedCustomNodeId = null
+                ),
+                incomingTxCount = 0,
+                incomingGroups = emptyList(),
+                duress = DuressSessionState.Inactive,
+                duressUnlockInProgress = false
+            ),
+            prefs = MainUiPrefs(
+                themePreference = ThemePreference.SYSTEM,
+                themeProfile = ThemeProfile.STANDARD,
+                appLanguage = AppLanguage.EN,
+                hapticsEnabled = true,
+                pinShuffleEnabled = false,
+                balanceUnit = BalanceUnit.SATS,
+                balancesHidden = false
+            )
+        )
+
+        assertEquals(NodeStatus.Idle, uiState.appShellState.status.nodeStatus)
+    }
+
+    @Test
+    fun typedUiProjection_localDirectDoesNotProjectTorStoppedBadgePath() {
         val uiState = projectMainActivityUiState(
             inputs = MainUiInputs(
                 onboardingCompleted = true,
@@ -325,8 +373,7 @@ class MainActivityStatusProjectionTest {
         )
 
         val status = uiState.appShellState.status
-        assertEquals(TorStatus.Stopped, status.torStatus)
+        assertEquals(TorStatus.Running(SocksProxyConfig("127.0.0.1", 9050)), status.torStatus)
         assertEquals(false, status.torRequired)
-        assertEquals("", status.torLog)
     }
 }

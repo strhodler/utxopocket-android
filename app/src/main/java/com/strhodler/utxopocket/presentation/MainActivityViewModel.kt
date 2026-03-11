@@ -92,11 +92,13 @@ internal typealias StatusBarConnectionProjection = ConnectionUiProjection
 internal fun projectStatusBarConnection(
     connectionSnapshot: ConnectionSnapshot,
     selectedNetwork: BitcoinNetwork,
-    duressActive: Boolean
+    duressActive: Boolean,
+    hasActiveSelection: Boolean = true
 ): StatusBarConnectionProjection = projectConnectionUi(
     connectionSnapshot = connectionSnapshot,
     selectedNetwork = selectedNetwork,
-    duressActive = duressActive
+    duressActive = duressActive,
+    hasActiveSelection = hasActiveSelection
 )
 
 internal data class NodeSnapshotMetadata(
@@ -151,11 +153,13 @@ internal fun projectMainActivityUiState(
     prefs: MainUiPrefs
 ): MainActivityUiState {
     val duressActive = inputs.duress is DuressSessionState.FakeActive
+    val hasActiveSelection = !duressActive && inputs.nodeConfig.hasActiveSelection(inputs.network)
 
     val statusProjection = projectStatusBarConnection(
         connectionSnapshot = inputs.connectionSnapshot,
         selectedNetwork = inputs.network,
-        duressActive = duressActive
+        duressActive = duressActive,
+        hasActiveSelection = hasActiveSelection
     )
     val nodeSnapshot = inputs.connectionSnapshot.nodeStatus
     val snapshotMatchesNetwork = statusProjection.snapshotMatchesNetwork
@@ -165,11 +169,7 @@ internal fun projectMainActivityUiState(
     )
     val effectiveNodeStatus = statusProjection.nodeStatus
     val torRequired = !duressActive && inputs.nodeConfig.requiresTor(inputs.network)
-    val effectiveTorStatus = if (torRequired) {
-        statusProjection.torStatus
-    } else {
-        TorStatus.Stopped
-    }
+    val effectiveTorStatus = statusProjection.torStatus
     val isNetworkOnline = if (duressActive) false else inputs.connectionSnapshot.isOnline
     val isSyncing = !duressActive &&
         inputs.syncStatus.network == inputs.network &&

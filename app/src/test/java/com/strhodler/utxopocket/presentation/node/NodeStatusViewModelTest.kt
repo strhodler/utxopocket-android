@@ -259,6 +259,98 @@ class NodeStatusViewModelTest {
     }
 
     @Test
+    fun confirmingLocalDirectModeClearsAllSelectionsAndDisconnectsUntilExplicitSelection() = runTest {
+        val localCustom = CustomNode(
+            id = "local-custom",
+            endpoint = "tcp://192.168.1.10:50001",
+            name = "Local",
+            network = BitcoinNetwork.TESTNET
+        )
+        nodeConfigurationRepository.setPublicNodes(
+            BitcoinNetwork.TESTNET,
+            listOf(
+                PublicNode(
+                    id = "pub-a",
+                    displayName = "Preset A",
+                    endpoint = "ssl://preset-a:50002",
+                    network = BitcoinNetwork.TESTNET
+                )
+            )
+        )
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(
+                connectionMode = ConnectionMode.TOR_DEFAULT,
+                connectionOption = NodeConnectionOption.PUBLIC,
+                selectedPublicNodeId = "pub-a",
+                customNodes = listOf(localCustom),
+                selectedCustomNodeId = localCustom.id
+            )
+        }
+        advanceUntilIdle()
+
+        viewModel.onConnectionModeSelectionRequested(ConnectionMode.LOCAL_DIRECT)
+        viewModel.onConfirmConnectionModeChange()
+        advanceUntilIdle()
+
+        val updated = nodeConfigurationRepository.nodeConfig.value
+        assertEquals(ConnectionMode.LOCAL_DIRECT, updated.connectionMode)
+        assertEquals(NodeConnectionOption.CUSTOM, updated.connectionOption)
+        assertNull(updated.selectedPublicNodeId)
+        assertNull(updated.selectedCustomNodeId)
+        assertEquals(
+            listOf<ConnectionIntent>(ConnectionIntent.Disconnect),
+            connectionOrchestrator.intents
+        )
+        assertFalse(connectionOrchestrator.intents.contains(ConnectionIntent.Start))
+    }
+
+    @Test
+    fun confirmingTorDefaultModeClearsAllSelectionsAndDisconnectsUntilExplicitSelection() = runTest {
+        val localCustom = CustomNode(
+            id = "local-custom",
+            endpoint = "tcp://192.168.1.10:50001",
+            name = "Local",
+            network = BitcoinNetwork.TESTNET
+        )
+        nodeConfigurationRepository.setPublicNodes(
+            BitcoinNetwork.TESTNET,
+            listOf(
+                PublicNode(
+                    id = "pub-a",
+                    displayName = "Preset A",
+                    endpoint = "ssl://preset-a:50002",
+                    network = BitcoinNetwork.TESTNET
+                )
+            )
+        )
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(
+                connectionMode = ConnectionMode.LOCAL_DIRECT,
+                connectionOption = NodeConnectionOption.CUSTOM,
+                selectedPublicNodeId = "pub-a",
+                customNodes = listOf(localCustom),
+                selectedCustomNodeId = localCustom.id
+            )
+        }
+        advanceUntilIdle()
+
+        viewModel.onConnectionModeSelectionRequested(ConnectionMode.TOR_DEFAULT)
+        viewModel.onConfirmConnectionModeChange()
+        advanceUntilIdle()
+
+        val updated = nodeConfigurationRepository.nodeConfig.value
+        assertEquals(ConnectionMode.TOR_DEFAULT, updated.connectionMode)
+        assertEquals(NodeConnectionOption.PUBLIC, updated.connectionOption)
+        assertNull(updated.selectedPublicNodeId)
+        assertNull(updated.selectedCustomNodeId)
+        assertEquals(
+            listOf<ConnectionIntent>(ConnectionIntent.Disconnect),
+            connectionOrchestrator.intents
+        )
+        assertFalse(connectionOrchestrator.intents.contains(ConnectionIntent.Start))
+    }
+
+    @Test
     fun selectingPublicNodeIsIgnoredInLocalDirectMode() = runTest {
         nodeConfigurationRepository.setPublicNodes(
             BitcoinNetwork.TESTNET,

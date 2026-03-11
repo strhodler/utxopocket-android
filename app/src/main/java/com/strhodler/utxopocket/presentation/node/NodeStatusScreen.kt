@@ -87,8 +87,7 @@ fun NodeStatusScreen(
     onAddCustomNodeClick: () -> Unit,
     initialTabIndex: Int,
     onDisconnect: () -> Unit,
-    onRenewTorIdentity: () -> Unit,
-    onStartTor: () -> Unit
+    onRenewTorIdentity: () -> Unit
 ) {
     val listState = rememberLazyListState()
     val heroAlpha = rememberLazyHeaderFadeAlpha(listState)
@@ -154,6 +153,7 @@ fun NodeStatusScreen(
             item("hero") {
                 NodeHeroHeader(
                     status = status,
+                    connectionMode = state.connectionMode,
                     nodeTitleOverride = heroTitleOverride,
                     selectedEndpoint = selectedNodeEndpoint,
                     modifier = Modifier
@@ -244,7 +244,6 @@ fun NodeStatusScreen(
                                 status = status,
                                 torActionsState = torActionsState,
                                 onRenewTorIdentity = onRenewTorIdentity,
-                                onStartTor = onStartTor,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -289,6 +288,7 @@ private fun NodeStatusTabs(
 @Composable
 private fun NodeHeroHeader(
     status: StatusBarUiState,
+    connectionMode: ConnectionMode,
     modifier: Modifier = Modifier,
     nodeTitleOverride: String? = null,
     selectedEndpoint: String? = null
@@ -320,52 +320,90 @@ private fun NodeHeroHeader(
         status.nodeStatus == NodeStatus.WaitingForTor ||
         status.nodeStatus is NodeStatus.Error
     val torStatus = status.torStatus
-    val showTorOffline = !status.isNetworkOnline
-    val torRunning = torStatus is TorStatus.Running
-    val torConnecting = torStatus is TorStatus.Connecting
-    val torBadgeLabel = if (showTorOffline) {
-        stringResource(id = R.string.wallets_state_offline)
-    } else {
-        torStatusMessage(torStatus)
+    val torModeActive = connectionMode == ConnectionMode.TOR_DEFAULT
+    val showTorOffline = torModeActive && !status.isNetworkOnline
+    val torRunning = torModeActive && torStatus is TorStatus.Running
+    val torConnecting = torModeActive && torStatus is TorStatus.Connecting
+    val effectiveTorBadgeStatus = if (showTorOffline) TorStatus.Stopped else torStatus
+    val secondaryBadgeLabel = when (connectionMode) {
+        ConnectionMode.TOR_DEFAULT -> if (showTorOffline) {
+            stringResource(id = R.string.wallets_state_offline)
+        } else {
+            torStatusMessage(torStatus)
+        }
+        ConnectionMode.LOCAL_DIRECT -> if (status.isNetworkOnline) {
+            stringResource(id = R.string.connection_mode_local_direct_label)
+        } else {
+            stringResource(id = R.string.wallets_state_offline)
+        }
     }
-    val torBadgeStatus = if (showTorOffline) TorStatus.Stopped else torStatus
-    val torBadgeContainer = when (torBadgeStatus) {
-        is TorStatus.Running -> colorScheme.tertiary
-        is TorStatus.Connecting -> colorScheme.surfaceVariant
-        else -> colorScheme.errorContainer
+    val secondaryBadgeContainer = when (connectionMode) {
+        ConnectionMode.TOR_DEFAULT -> when (effectiveTorBadgeStatus) {
+            is TorStatus.Running -> colorScheme.tertiary
+            is TorStatus.Connecting -> colorScheme.surfaceVariant
+            else -> colorScheme.errorContainer
+        }
+        ConnectionMode.LOCAL_DIRECT -> if (status.isNetworkOnline) {
+            colorScheme.secondaryContainer
+        } else {
+            colorScheme.errorContainer
+        }
     }
-    val torBadgeContent = when (torBadgeStatus) {
-        is TorStatus.Running -> colorScheme.onTertiary
-        is TorStatus.Connecting -> colorScheme.onSurfaceVariant
-        else -> colorScheme.onErrorContainer
+    val secondaryBadgeContent = when (connectionMode) {
+        ConnectionMode.TOR_DEFAULT -> when (effectiveTorBadgeStatus) {
+            is TorStatus.Running -> colorScheme.onTertiary
+            is TorStatus.Connecting -> colorScheme.onSurfaceVariant
+            else -> colorScheme.onErrorContainer
+        }
+        ConnectionMode.LOCAL_DIRECT -> if (status.isNetworkOnline) {
+            colorScheme.onSecondaryContainer
+        } else {
+            colorScheme.onErrorContainer
+        }
     }
-    val torBadgeLeading: (@Composable () -> Unit)? = when (torBadgeStatus) {
-        is TorStatus.Running -> {
-            {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = null,
-                    tint = torBadgeContent,
-                    modifier = Modifier.size(16.dp)
-                )
+    val secondaryBadgeLeading: (@Composable () -> Unit)? = when (connectionMode) {
+        ConnectionMode.TOR_DEFAULT -> when (effectiveTorBadgeStatus) {
+            is TorStatus.Running -> {
+                {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = secondaryBadgeContent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            is TorStatus.Connecting -> {
+                {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = secondaryBadgeContent
+                    )
+                }
+            }
+            is TorStatus.Error,
+            TorStatus.Stopped -> {
+                {
+                    Icon(
+                        imageVector = Icons.Filled.ErrorOutline,
+                        contentDescription = null,
+                        tint = secondaryBadgeContent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
-        is TorStatus.Connecting -> {
-            {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
-                    color = torBadgeContent
-                )
-            }
-        }
-        is TorStatus.Error,
-        TorStatus.Stopped -> {
+        ConnectionMode.LOCAL_DIRECT -> {
             {
                 Icon(
-                    imageVector = Icons.Filled.ErrorOutline,
+                    imageVector = if (status.isNetworkOnline) {
+                        Icons.Filled.Check
+                    } else {
+                        Icons.Filled.ErrorOutline
+                    },
                     contentDescription = null,
-                    tint = torBadgeContent,
+                    tint = secondaryBadgeContent,
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -374,9 +412,9 @@ private fun NodeHeroHeader(
     val reconnectInfoMessage = when {
         showReconnect && !status.isNetworkOnline ->
             stringResource(id = R.string.node_reconnect_network_required)
-        showReconnect && torConnecting ->
+        showReconnect && torModeActive && torConnecting ->
             stringResource(id = R.string.node_reconnect_waiting_for_tor)
-        showReconnect && status.torRequired && !torRunning ->
+        showReconnect && torModeActive && status.torRequired && !torRunning ->
             stringResource(id = R.string.node_reconnect_tor_required)
         showReconnect && status.nodeEndpoint.isNullOrBlank() ->
             stringResource(id = R.string.node_reconnect_select_node)
@@ -460,10 +498,10 @@ private fun NodeHeroHeader(
                     leadingContent = statusBadgeLeading
                 )
                 StatusBadge(
-                    label = torBadgeLabel,
-                    containerColor = torBadgeContainer,
-                    contentColor = torBadgeContent,
-                    leadingContent = torBadgeLeading
+                    label = secondaryBadgeLabel,
+                    containerColor = secondaryBadgeContainer,
+                    contentColor = secondaryBadgeContent,
+                    leadingContent = secondaryBadgeLeading
                 )
             }
 

@@ -227,10 +227,7 @@ class NodeStatusViewModel @Inject constructor(
         viewModelScope.launch {
             val network = _uiState.value.preferredNetwork
             updateNodeConfigAndReconcileConnection(network = network) { current ->
-                current.withModeAndCompatibleSelection(
-                    mode = targetMode,
-                    network = network
-                )
+                current.withModeAndNeutralSelection(mode = targetMode)
             }
             _uiState.update {
                 it.copy(
@@ -971,42 +968,16 @@ class NodeStatusViewModel @Inject constructor(
         }
     }
 
-    private fun NodeConfig.withModeAndCompatibleSelection(
-        mode: ConnectionMode,
-        network: BitcoinNetwork
-    ): NodeConfig {
-        val scopedCustom = customNodesFor(network)
-        fun selectedCustomCompatible(id: String?): String? {
-            val candidate = scopedCustom.firstOrNull { it.id == id } ?: return null
-            return if (candidate.isCompatibleWith(mode)) candidate.id else null
-        }
-
-        return when (mode) {
-            ConnectionMode.TOR_DEFAULT -> {
-                val nextSelectedCustom = selectedCustomCompatible(selectedCustomNodeId)
-                copy(
-                    connectionMode = mode,
-                    selectedCustomNodeId = nextSelectedCustom,
-                    connectionOption = when {
-                        connectionOption == NodeConnectionOption.CUSTOM && nextSelectedCustom == null ->
-                            NodeConnectionOption.PUBLIC
-
-                        else -> connectionOption
-                    }
-                )
-            }
-
-            ConnectionMode.LOCAL_DIRECT -> {
-                val nextSelectedCustom = selectedCustomCompatible(selectedCustomNodeId)
-                copy(
-                    connectionMode = mode,
-                    connectionOption = NodeConnectionOption.CUSTOM,
-                    selectedPublicNodeId = null,
-                    selectedCustomNodeId = nextSelectedCustom
-                )
-            }
-        }
-    }
+    private fun NodeConfig.withModeAndNeutralSelection(mode: ConnectionMode): NodeConfig =
+        copy(
+            connectionMode = mode,
+            connectionOption = when (mode) {
+                ConnectionMode.TOR_DEFAULT -> NodeConnectionOption.PUBLIC
+                ConnectionMode.LOCAL_DIRECT -> NodeConnectionOption.CUSTOM
+            },
+            selectedPublicNodeId = null,
+            selectedCustomNodeId = null
+        )
 
     private fun CustomNode.isEquivalentTo(other: CustomNode): Boolean =
         endpoint == other.endpoint &&

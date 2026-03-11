@@ -30,7 +30,7 @@ Change:  wpkh([abcd1234/84h/1h/0h]tpub.../1/*)
 2. Select the target network (Mainnet/Testnet3/Testnet4/Signet) so the Electrum presets/stop-gap match.
 3. Paste the receive descriptor, then the change descriptor (or the multipath descriptor if applicable).
 4. Choose a color and label; toggle “Shared descriptors” on if another app also watches this wallet to increase the address gap.
-5. Confirm. In Tor mode (default), Tor will bootstrap before Electrum sync; in Local Direct mode, sync runs directly to your private/local IP literal node. In both modes, connection policy is fail-closed and does not auto-fallback.
+5. Confirm. In Tor mode (default), Tor will bootstrap before Electrum sync; in Local Direct mode, sync runs directly to your private/local IP literal node. In both modes, connection policy is fail-closed and does not auto-fallback. When you switch modes later, UtxoPocket clears the active node and stays idle until you explicitly activate a compatible node again.
 
 ## 5. Explore The UI
 - **Wallet list**: shows balance, transaction count, last sync time, and connection/node status per wallet.
@@ -47,6 +47,7 @@ Change:  wpkh([abcd1234/84h/1h/0h]tpub.../1/*)
 
 ## 7. Tips & Troubleshooting
 - If Tor is slow to start, leave the app in the foreground until the progress reaches 100%; renewing the identity (Settings → Tor → Renew) can help.
+- `More → Network` no longer has a manual `Connect Tor` button. Tor starts automatically only after you activate a Tor-compatible node in Tor mode.
 - Local Direct accepts only private/local IP literals (IPv4/IPv6). DNS names, `.local`, and hostnames are rejected.
 - When saving a custom node, UtxoPocket validates the Electrum genesis hash for the selected network and blocks save on mismatch.
 - Descriptor validation errors usually mean a missing wildcard (`*`) or a private key snippet—double-check the source wallet export.

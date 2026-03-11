@@ -1167,9 +1167,9 @@
     <string name="connection_mode_requires_local_ip_message">Local Direct mode only supports private/local IP literals.</string>
     <string name="connection_mode_confirm_action">Switch mode</string>
     <string name="connection_mode_confirm_tor_title">Switch to Tor mode?</string>
-    <string name="connection_mode_confirm_tor_message">Tor mode allows public presets and custom .onion endpoints. Incompatible Local Direct selections will be cleared.</string>
+    <string name="connection_mode_confirm_tor_message">Tor mode allows public presets and custom .onion endpoints. Switching mode clears the active node; select and activate a compatible node to reconnect.</string>
     <string name="connection_mode_confirm_local_title">Switch to Local Direct mode?</string>
-    <string name="connection_mode_confirm_local_message">Local Direct bypasses Tor and exposes your private network routing metadata to the selected local node. Public presets and incompatible endpoints will be disabled.</string>
+    <string name="connection_mode_confirm_local_message">Local Direct bypasses Tor and exposes your private network routing metadata to the selected local node. Switching mode clears the active node; select and activate a private/local IP literal node to reconnect.</string>
     <string name="tor_overview_section_title">Tor details</string>
     <string name="node_overview_network_title">Active network</string>
     <string name="node_overview_network_action">Switch network</string>

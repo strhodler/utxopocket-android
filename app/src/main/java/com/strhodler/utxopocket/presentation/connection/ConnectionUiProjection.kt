@@ -14,7 +14,8 @@ internal data class ConnectionUiProjection(
 internal fun projectConnectionUi(
     connectionSnapshot: ConnectionSnapshot,
     selectedNetwork: BitcoinNetwork,
-    duressActive: Boolean
+    duressActive: Boolean,
+    hasActiveSelection: Boolean = true
 ): ConnectionUiProjection {
     if (duressActive) {
         return ConnectionUiProjection(
@@ -26,7 +27,7 @@ internal fun projectConnectionUi(
 
     val snapshotMatchesNetwork = connectionSnapshot.network == selectedNetwork
     return ConnectionUiProjection(
-        nodeStatus = if (snapshotMatchesNetwork) {
+        nodeStatus = if (snapshotMatchesNetwork && hasActiveSelection) {
             connectionSnapshot.nodeStatus.status
         } else {
             NodeStatus.Idle

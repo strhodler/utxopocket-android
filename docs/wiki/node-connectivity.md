@@ -17,6 +17,8 @@ keywords: [tor, node, electrum, connectivity, networking]
 
 ## Adding or switching nodes
 - Use `More → Network` to select a bundled public Electrum server or point to your own. Custom entries use onion hostnames in Tor mode, or private/local IP literals in Local Direct mode.
+- Switching between Tor and Local Direct always clears the active node selection and leaves connectivity idle. After switching, explicitly activate a compatible node to reconnect.
+- The Connections & network screen has no manual `Connect Tor` button. In Tor mode, Tor starts only after you activate a Tor-compatible node.
 - Custom-node save validates the Electrum genesis hash for the selected app network and blocks save on mismatch.
 - After selecting a node, pull to refresh on the home screen so the wallet replays discovery using the new backend. Expect a short lock while descriptors rescan.
 

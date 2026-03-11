@@ -758,9 +758,9 @@
     <string name="connection_mode_requires_local_ip_message">El modo Local Direct solo admite literales IP privadas/locales.</string>
     <string name="connection_mode_confirm_action">Cambiar modo</string>
     <string name="connection_mode_confirm_tor_title">¿Cambiar al modo Tor?</string>
-    <string name="connection_mode_confirm_tor_message">El modo Tor permite presets públicos y endpoints .onion personalizados. Las selecciones incompatibles de Local Direct se limpiarán.</string>
+    <string name="connection_mode_confirm_tor_message">El modo Tor permite presets públicos y endpoints .onion personalizados. Cambiar de modo limpia el nodo activo; selecciona y activa un nodo compatible para reconectar.</string>
     <string name="connection_mode_confirm_local_title">¿Cambiar al modo Local Direct?</string>
-    <string name="connection_mode_confirm_local_message">Local Direct omite Tor y expone metadatos de enrutamiento de tu red privada al nodo local seleccionado. Los presets públicos y endpoints incompatibles se deshabilitarán.</string>
+    <string name="connection_mode_confirm_local_message">Local Direct omite Tor y expone metadatos de enrutamiento de tu red privada al nodo local seleccionado. Cambiar de modo limpia el nodo activo; selecciona y activa un nodo con IP privada/local literal para reconectar.</string>
     <string name="tor_overview_section_title">Detalles de Tor</string>
     <string name="node_overview_network_title">Red activa</string>
     <string name="node_overview_network_action">Cambiar red</string>

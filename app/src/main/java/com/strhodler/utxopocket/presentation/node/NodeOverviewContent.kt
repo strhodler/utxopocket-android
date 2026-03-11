@@ -15,14 +15,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -47,7 +42,6 @@ import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.presentation.StatusBarUiState
-import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.node.NodeContentSpacing
 import com.strhodler.utxopocket.presentation.tor.TorStatusActionUiState
@@ -59,7 +53,6 @@ fun NodeOverviewContent(
     status: StatusBarUiState,
     torActionsState: TorStatusActionUiState,
     onRenewTorIdentity: () -> Unit,
-    onStartTor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val resources = LocalContext.current.resources
@@ -116,7 +109,6 @@ fun NodeOverviewContent(
                 status = status,
                 actionsState = torActionsState,
                 onRenewIdentity = onRenewTorIdentity,
-                onStartTor = onStartTor,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -128,7 +120,6 @@ fun NodeTorStatusSection(
     status: StatusBarUiState,
     actionsState: TorStatusActionUiState,
     onRenewIdentity: () -> Unit,
-    onStartTor: () -> Unit,
     modifier: Modifier = Modifier
     ) {
     val resources = LocalContext.current.resources
@@ -278,17 +269,6 @@ fun NodeTorStatusSection(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(NodeContentSpacing)
             ) {
-                if (status.torRequired && status.torStatus !is TorStatus.Running && status.torStatus !is TorStatus.Connecting) {
-                    ActionableStatusBanner(
-                        title = stringResource(id = R.string.node_overview_tor_required),
-                        supporting = stringResource(id = R.string.tor_connect_action),
-                        icon = Icons.Outlined.Info,
-                        onClick = if (actionsState.isStarting) null else onStartTor,
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
                 actionsState.errorMessageRes?.let { errorRes ->
                     Text(
                         text = stringResource(id = errorRes),
@@ -307,7 +287,6 @@ fun NodeTorStatusSection(
         torStatus = status.torStatus,
         actionsState = actionsState,
         onRenewIdentity = onRenewIdentity,
-        onStartTor = onStartTor,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 0.dp)
@@ -347,7 +326,6 @@ private fun TorActionButtons(
     torStatus: TorStatus,
     actionsState: TorStatusActionUiState,
     onRenewIdentity: () -> Unit,
-    onStartTor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -388,38 +366,7 @@ private fun TorActionButtons(
             is TorStatus.Connecting -> Unit
 
             is TorStatus.Error,
-            TorStatus.Stopped -> {
-                Button(
-                    onClick = onStartTor,
-                    enabled = !actionsState.isStarting,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = TorCtaMinHeight),
-                    contentPadding = TorCtaContentPadding,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    if (actionsState.isStarting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Outlined.PlayArrow,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Text(
-                        text = stringResource(id = R.string.tor_connect_action),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(start = TorCtaIconSpacing)
-                    )
-                }
-            }
+            TorStatus.Stopped -> Unit
         }
     }
 }
