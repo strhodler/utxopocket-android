@@ -39,8 +39,10 @@ object WalletsNavigation {
     const val AddressValueArg: String = "addressValue"
 
     enum class NodeStatusTabDestination(val argValue: String) {
-        Overview("overview"),
         Management("management"),
+        Nodes("nodes"),
+        Details("details"),
+        Overview("overview"),
         Connection("connection"),
         Tor("tor")
     }

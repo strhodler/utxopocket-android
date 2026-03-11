@@ -17,7 +17,7 @@ Thanks for helping keep this privacy-first watch-only wallet moving. This docume
 - MVVM + Clean Architecture. New features belong under `app/src/main/java/com/strhodler/utxopocket` within the existing module structure.
 - Kotlin style: JetBrains defaults (see IDE tips in `docs/project-setup.md`).
 - UI strings live in `app/src/main/res/values/strings.xml` (English source). Avoid inlined text.
-- Security-sensitive paths (Tor, PIN, SQLCipher) must keep parity with the guarantees documented in `README.md`. If behavior changes, update the docs in the same PR.
+- Security-sensitive paths (connection mode policy, Tor, Local Direct validation, PIN, SQLCipher) must keep parity with the guarantees documented in `README.md` and `SECURITY.md`. If behavior changes, update the docs in the same PR.
 
 ## 4. Documentation & Wiki
 - Every user-facing change must update the relevant docs in the same PR (README, `docs/` guides, wiki Markdown, release notes).
@@ -60,13 +60,13 @@ Files to read before submitting:
 ## 5. Pull Request Checklist
 1. Reference the issue ID and summarize the change in English.
 2. Paste the output of the required Gradle commands.
-3. Note manual test steps (Tor bootstrap, panic wipe, descriptor import, etc.) so testers can reproduce them.
+3. Note manual test steps (Tor mode, Local Direct mode, panic wipe, descriptor import, etc.) so testers can reproduce them.
 4. Highlight any docs updated (`README.md`, `docs/...`, strings) and attach screenshots for UI tweaks.
 5. Confirm no private keys or telemetry were introduced.
 
 ## 7. Reporting Bugs & Security Concerns
 - File bugs via GitHub issues with repro steps, logs, and environment details.
-- Critical security findings (Tor offline, panic wipe failure, coverage < 80%) should also be tagged `security-alert`.
+- Critical security findings (Tor-mode failures, Local Direct validation/fail-closed regressions, panic wipe failure, coverage < 80%) should also be tagged `security-alert`.
 - For sensitive disclosures, reach out privately before filing a public issue.
 
 By following this workflow we keep development, QA, release, and documentation efforts aligned, ship reproducible builds, and maintain the open-source trust model outlined in the README. Happy contributing!

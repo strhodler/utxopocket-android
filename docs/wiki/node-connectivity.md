@@ -1,7 +1,7 @@
 ---
 id: node-connectivity
 title: Connect UtxoPocket to your node
-summary: Keep Tor running, choose a reliable backend, and verify connectivity before importing descriptors.
+summary: Use Tor by default, switch to Local Direct only for trusted private/local nodes, and verify connectivity before importing descriptors.
 category_id: privacy-networking
 category_title: Privacy & Networking
 category_description: How to protect your privacy and understand how Bitcoin nodes communicate.
@@ -10,17 +10,17 @@ glossary_refs: [tor, electrum-server]
 keywords: [tor, node, electrum, connectivity, networking]
 ---
 
-## Tor-first requirements
-- UtxoPocket routes every RPC and Electrum call through its embedded Tor daemon. Wait until the status bar shows Tor as “Running” before attempting to add or switch nodes—otherwise connection requests are blocked.
-- If your device is offline or Tor cannot bootstrap, the node picker disables custom endpoints. Fix Tor first (renew identity, toggle airplane mode, or check captive portals) and then retry.
-- Keep onion endpoints handy. Clearnet hosts defeat the privacy guarantees promised in the README and are now rejected entirely.
+## Connection mode requirements
+- Tor is the default mode for bundled presets and custom onion endpoints. Wait until the status bar shows Tor as “Running” before adding or switching nodes in Tor mode.
+- Local Direct is optional and explicit opt-in. It accepts only custom private/local IP literals over `tcp://` (IPv4/IPv6 only; no DNS, `.local`, or hostnames).
+- If mode prerequisites are not met (for example, Tor unavailable while Tor mode is active), connection requests are blocked fail-closed. UtxoPocket never auto-switches between Tor and Local Direct.
 
 ## Adding or switching nodes
-- Use `More → Network` to select a bundled public Electrum server or point to your own. Custom entries need the onion hostname and port; Tor handles the transport so no SSL toggle is exposed.
-- The wallet refuses to add a node when Tor is offline. This prevents accidental clearnet leaks and keeps behavior consistent across devices.
+- Use `More → Network` to select a bundled public Electrum server or point to your own. Custom entries use onion hostnames in Tor mode, or private/local IP literals in Local Direct mode.
+- Custom-node save validates the Electrum genesis hash for the selected app network and blocks save on mismatch.
 - After selecting a node, pull to refresh on the home screen so the wallet replays discovery using the new backend. Expect a short lock while descriptors rescan.
 
 ## Connectivity checks
 - Compare the reported block height and fee rate in the app bar with another trusted source. Large mismatches indicate a stale or malicious server.
-- Renew your Tor identity from the Tor status screen if you suspect the circuit is sluggish or the server is unreachable.
-- Keep at least one fallback server configured. If the primary onion host is down, switch to a known-good peer manually. UtxoPocket does not auto-rotate presets.
+- In Tor mode, renew your Tor identity from the Tor status screen if you suspect the circuit is sluggish or the server is unreachable.
+- Keep at least one known-good node per mode configured. If the active host is down, switch peers manually. UtxoPocket does not auto-rotate presets or auto-fallback across modes.

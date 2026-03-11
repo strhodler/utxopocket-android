@@ -111,6 +111,15 @@ fun NodeOverviewContent(
                 }
             }
         }
+        if (status.torRequired) {
+            NodeTorStatusSection(
+                status = status,
+                actionsState = torActionsState,
+                onRenewIdentity = onRenewTorIdentity,
+                onStartTor = onStartTor,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 

@@ -64,7 +64,36 @@ fun NodeManagementContent(
     interactionsLocked: Boolean,
     onInteractionBlocked: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
-    onConnectionModeSelectionRequested: (ConnectionMode) -> Unit,
+    onConnectionModeSelectionRequested: (ConnectionMode) -> Unit
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(NodeContentSpacing)
+    ) {
+        NodeNetworkSelector(
+            selectedNetwork = state.preferredNetwork,
+            enabled = isNetworkOnline,
+            interactionsLocked = interactionsLocked,
+            onNetworkSelected = onNetworkSelected,
+            onInteractionBlocked = onInteractionBlocked
+        )
+
+        ConnectionModeSelectorSection(
+            connectionMode = state.connectionMode,
+            interactionsLocked = interactionsLocked,
+            onInteractionBlocked = onInteractionBlocked,
+            onConnectionModeSelectionRequested = onConnectionModeSelectionRequested,
+        )
+    }
+}
+
+@Composable
+fun NodeNodesContent(
+    isNetworkOnline: Boolean,
+    state: NodeStatusUiState,
+    modifier: Modifier = Modifier,
+    interactionsLocked: Boolean,
+    onInteractionBlocked: () -> Unit,
     onShowIncompatibleNodesChanged: (Boolean) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
     onRemovePublicNode: (String) -> Unit,
@@ -79,33 +108,31 @@ fun NodeManagementContent(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(NodeContentSpacing)
     ) {
-        NodeConfigurationContent(
-            network = state.preferredNetwork,
+        AvailableNodesSection(
             connectionMode = state.connectionMode,
             publicNodes = state.publicNodes,
-            nodeConnectionOption = state.nodeConnectionOption,
-            selectedPublicNodeId = state.selectedPublicNodeId,
-            removedPublicNodeIds = state.removedPublicNodeIds,
             customNodes = state.customNodes,
-            selectedCustomNodeId = state.selectedCustomNodeId,
+            selectedPublicId = state.selectedPublicNodeId,
+            selectedCustomId = state.selectedCustomNodeId,
             showIncompatibleNodes = state.showIncompatibleNodes,
+            activeOption = state.nodeConnectionOption,
             isNodeConnected = state.isNodeConnected,
             isNodeActivating = state.isNodeActivating,
             isNetworkOnline = isNetworkOnline,
             interactionsLocked = interactionsLocked,
             onInteractionBlocked = onInteractionBlocked,
-            onNetworkSelected = onNetworkSelected,
-            onConnectionModeSelectionRequested = onConnectionModeSelectionRequested,
-            onShowIncompatibleNodesChanged = onShowIncompatibleNodesChanged,
+            network = state.preferredNetwork,
             onPublicNodeSelected = onPublicNodeSelected,
-            onRemovePublicNode = onRemovePublicNode,
             onCustomNodeSelected = onCustomNodeSelected,
             onCustomNodeDetails = onCustomNodeDetails,
+            onRemovePublicNode = onRemovePublicNode,
             onRemoveCustomNode = onRemoveCustomNode,
             onAddCustomNodeClick = onAddCustomNodeClick,
-            onDisconnectNode = onDisconnect,
+            onDisconnect = onDisconnect,
             onRestorePublicNodes = onRestorePublicNodes,
-            showTorReminder = false
+            onShowIncompatibleNodesChanged = onShowIncompatibleNodesChanged,
+            showTorReminder = false,
+            removedPublicNodeIds = state.removedPublicNodeIds
         )
     }
 }

@@ -82,7 +82,7 @@
 
     <!-- Onboarding -->
     <string name="onboarding_title">Bienvenido a UtxoPocket</string>
-    <string name="onboarding_subtitle">Replica tus hardware wallets, monitorea saldos y navega tras Tor sin exponer llaves privadas.</string>
+    <string name="onboarding_subtitle">Replica tus hardware wallets, monitorea saldos y conserva la privacidad de red con Tor por defecto o Local Direct en infraestructura privada de confianza.</string>
     <string name="onboarding_get_started">Comenzar</string>
     <string name="onboarding_skip">Omitir</string>
     <string name="onboarding_back">Atrás</string>
@@ -663,7 +663,7 @@
     <string name="feature_backup_title">Copias de seguridad watch-only cifradas</string>
     <string name="feature_backup_description">Exporta e importa respaldos .ubak cifrados para recuperar descriptores, etiquetas, colecciones y preferencias seleccionadas de forma segura.</string>
     <string name="feature_connectivity_title">Conectividad privada</string>
-    <string name="feature_connectivity_description">Encamina cada sincronización por Tor, alterna entre servidores Electrum curados o añade tu propio endpoint onion para tener control total.</string>
+    <string name="feature_connectivity_description">Usa Tor por defecto con servidores Electrum curados o endpoints onion personalizados, o activa Local Direct para nodos con literales IP privadas/locales de confianza.</string>
     <string name="feature_analysis_title">Visualizaciones de análisis</string>
     <string name="feature_analysis_description">Donuts por antigüedad más desglose por gastables y bandas de valor, con treemap interactivo para inspeccionar UTXOs rápido.</string>
     <string name="wiki_detail_related_glossary_label">Glosario relacionado</string>
@@ -678,7 +678,7 @@
     <string name="disclaimer_point_watch_only">Sólo watch-only: no se almacenan llaves privadas ni semillas. Aquí no puedes firmar transacciones.</string>
     <string name="disclaimer_point_no_advice">Sin asesoramiento financiero: la app y su documentación tienen fines educativos.</string>
     <string name="disclaimer_point_security_storage">Seguridad y almacenamiento: los datos locales están cifrados, pero un dispositivo comprometido o una mala configuración pueden exponerlos. Eres responsable de tu configuración, copias de seguridad y controles de acceso.</string>
-    <string name="disclaimer_point_network_trust">Red y modelo de confianza: todo el tráfico se encamina por Tor hacia los servidores Electrum que elijas. Las respuestas del servidor pueden ser maliciosas o inexactas; verifica con tu propio nodo cuando sea posible.</string>
+    <string name="disclaimer_point_network_trust">Red y modelo de confianza: el modo Tor es el predeterminado para presets y endpoints onion, mientras que Local Direct es opcional solo para nodos de confianza con literales IP privadas/locales. Las respuestas del servidor pueden ser maliciosas o inexactas; verifica con tu propio nodo cuando sea posible.</string>
     <string name="disclaimer_footer">Al usar UtxoPocket aceptas estos términos y utilizas el software bajo tu propio riesgo.</string>
     <string name="wallets_add_wallet_disabled_hint">Selecciona un nodo antes de añadir una billetera.</string>
     <string name="wallets_node_prompt_title">Selecciona un nodo para comenzar</string>
@@ -689,7 +689,7 @@
     <string name="node_custom_name_placeholder">Mi servidor Electrum</string>
     <string name="node_custom_edit_title">Editar nodo</string>
     <string name="node_custom_transport_tor_label">Transporte Tor</string>
-    <string name="node_custom_transport_tor_supporting">Los nodos personalizados requieren Tor. Al cambiar entre presets u onions, Tor se mantiene activo hasta que te desconectes.</string>
+    <string name="node_custom_transport_tor_supporting">En modo Tor, los nodos personalizados usan endpoints .onion a través de Tor. Al cambiar entre presets u onions, Tor se mantiene activo hasta que te desconectes.</string>
     <string name="node_custom_transport_local_label">Transporte directo local</string>
     <string name="node_custom_transport_local_supporting">Local Direct usa Electrum TCP en claro solo con literales IP privadas/locales. No hay fallback a Tor.</string>
     <string name="node_custom_network_hint">Red actual de la app: %1$s. La red del nodo y la app deben coincidir.</string>
@@ -744,6 +744,7 @@
     <string name="node_overview_tab_status">Detalles</string>
     <string name="node_overview_details_section_title">Detalles del servidor</string>
     <string name="node_overview_tab_management">Gestión</string>
+    <string name="node_overview_tab_nodes">Nodos</string>
     <string name="node_overview_tab_connection">Conexión</string>
     <string name="node_overview_tab_tor">Tor</string>
     <string name="connection_mode_title">Modo de conexión</string>
@@ -760,7 +761,7 @@
     <string name="connection_mode_confirm_tor_message">El modo Tor permite presets públicos y endpoints .onion personalizados. Las selecciones incompatibles de Local Direct se limpiarán.</string>
     <string name="connection_mode_confirm_local_title">¿Cambiar al modo Local Direct?</string>
     <string name="connection_mode_confirm_local_message">Local Direct omite Tor y expone metadatos de enrutamiento de tu red privada al nodo local seleccionado. Los presets públicos y endpoints incompatibles se deshabilitarán.</string>
-    <string name="tor_overview_section_title">Conexión Tor</string>
+    <string name="tor_overview_section_title">Detalles de Tor</string>
     <string name="node_overview_network_title">Red activa</string>
     <string name="node_overview_network_action">Cambiar red</string>
     <string name="node_custom_save_button">Guardar cambios</string>
@@ -771,22 +772,22 @@
     <string name="node_custom_delete_confirm_confirm">Eliminar</string>
     <string name="node_custom_info_button">Guía del nodo personalizado</string>
     <string name="node_custom_info_title">Acceso a nodo personalizado</string>
-    <string name="node_custom_info_description">Los nodos personalizados ahora aceptan únicamente endpoints .onion. Revisa estas notas antes de probar tu servicio oculto.</string>
+    <string name="node_custom_info_description">Los nodos personalizados admiten endpoints .onion en modo Tor y literales IP privadas/locales en modo Local Direct. Revisa estas notas antes de probar.</string>
     <string name="node_custom_info_host_title">Host .onion</string>
     <string name="node_custom_info_host_body">Pega el nombre .onion. Si el QR o enlace incluye “:puerto”, rellenaremos el campo Puerto automáticamente. De lo contrario se usa el puerto Electrum por defecto (50001).</string>
     <string name="node_custom_info_tor_title">Enrutamiento Tor</string>
-    <string name="node_custom_info_tor_body">Todos los nodos públicos y personalizados se enrutan por Tor. Tor permanece activo mientras haya un nodo seleccionado y se detiene cuando te desconectas.</string>
+    <string name="node_custom_info_tor_body">El modo Tor enruta presets públicos y endpoints onion personalizados a través de Tor. Local Direct omite Tor y se limita a literales IP privadas/locales.</string>
     <string name="node_custom_info_ssl_title">Transporte TCP</string>
     <string name="node_custom_info_ssl_body">El tráfico de Electrum viaja como TCP en claro dentro del túnel Tor. Se eliminaron los interruptores SSL/TLS para evitar fugas por clearnet y mantener un flujo coherente.</string>
     <string name="node_custom_info_local_title">Consejos de respaldo</string>
-    <string name="node_custom_info_local_body">Mantén al menos un servidor predefinido disponible para recuperar la conexión si tu endpoint .onion está fuera de línea. Verifica que tu servicio oculto responda antes de cambiar.</string>
+    <string name="node_custom_info_local_body">Usa Local Direct solo con infraestructura privada/local bajo tu control. Mantén al menos un nodo compatible con Tor para recuperar conexión rápido si tu nodo local queda fuera de línea.</string>
     <string name="node_custom_endpoint_label">Dirección .onion</string>
     <string name="node_custom_endpoint_placeholder">abc123def.onion</string>
     <string name="node_custom_endpoint_supporting">Introduce el host .onion (con o sin “:puerto”). El campo Puerto reflejará lo que incluyas aquí.</string>
     <string name="node_custom_endpoint_local_label">Dirección IP local</string>
     <string name="node_custom_endpoint_local_placeholder">192.168.1.50</string>
     <string name="node_custom_endpoint_local_supporting">Introduce un literal IP privado/local (host o host:puerto). Los nombres de host no se permiten en modo Local Direct.</string>
-    <string name="node_custom_endpoint_onion_hint">Los nodos personalizados deben usar direcciones .onion. Todo el tráfico viaja por Tor usando TCP en claro.</string>
+    <string name="node_custom_endpoint_onion_hint">En modo Tor, los nodos personalizados deben usar direcciones .onion. El modo Local Direct solo admite literales IP privadas/locales.</string>
     <string name="node_tor_reminder">Todas las conexiones se enrutan por Tor de forma predeterminada.</string>
     <string name="node_connection_standard">Host + Puerto</string>
     <string name="node_connection_onion">Onion</string>
@@ -865,7 +866,7 @@
     <string name="node_scan_qr_content_description">Escanear QR del nodo</string>
     <string name="node_scan_error_permission">La cámara es necesaria para escanear códigos QR.</string>
     <string name="node_scan_error_invalid">No se detectó un endpoint de nodo válido en el código QR.</string>
-    <string name="node_scan_error_onion_only">Solo se admiten direcciones .onion. Proporciona una URL .onion.</string>
+    <string name="node_scan_error_onion_only">En modo Tor, solo se admiten direcciones .onion. Proporciona una URL .onion o cambia a Local Direct para literales IP privadas/locales.</string>
 
     <!-- Onboarding slides -->
     <string name="onboarding_slide_watch_title">Inteligencia watch-only</string>
@@ -875,7 +876,7 @@
     <string name="onboarding_slide_bips_title">Compatible con los BIPs de Bitcoin</string>
     <string name="onboarding_slide_bips_description">Entiende semillas BIP‑32/39, derivaciones BIP‑84/86 y políticas de descriptores para que las configuraciones multisig encajen sin fricción.</string>
     <string name="onboarding_slide_privacy_title">Privacidad primero</string>
-    <string name="onboarding_slide_privacy_description">Cada sincronización viaja por Tor; usa presets curados o tu endpoint onion para custodiar los metadatos.</string>
+    <string name="onboarding_slide_privacy_description">El modo Tor es el predeterminado para presets curados y endpoints onion. Cambia a Local Direct solo para nodos de confianza con literales IP privadas/locales; no hay fallback automático entre modos.</string>
     <string name="onboarding_slide_trust_title">No confíes, verifica</string>
     <string name="onboarding_slide_trust_description">Apunta UtxoPocket a tu propio nodo o a un peer onion para mantener a terceros fuera de tu validación.</string>
     <string name="onboarding_slide_network_title">Elige tu red de Bitcoin</string>

@@ -6,7 +6,7 @@
 - _List bug fixes or UX polish items._
 
 ### Security
-- _Call out security/privacy hardening (PIN, Tor, SQLCipher, panic wipe, etc.)._
+- _Call out security/privacy hardening (connection mode policy: Tor default + optional Local Direct, no silent fallback, PIN, Tor, SQLCipher, panic wipe, etc.)._
 - _If backup flows changed, state whether `.ubak` scope and exclusions still hold (watch-only only, no PIN/duress secrets, no node policy import)._ 
 
 ### Known issues

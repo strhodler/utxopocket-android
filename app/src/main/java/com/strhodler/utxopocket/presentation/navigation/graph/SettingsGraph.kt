@@ -27,7 +27,9 @@ import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 
 internal fun nodeStatusInitialTabIndex(tabArg: String?): Int = when (tabArg) {
     WalletsNavigation.NodeStatusTabDestination.Management.argValue -> 0
-    WalletsNavigation.NodeStatusTabDestination.Overview.argValue -> 1
+    WalletsNavigation.NodeStatusTabDestination.Nodes.argValue -> 1
+    WalletsNavigation.NodeStatusTabDestination.Details.argValue -> 2
+    WalletsNavigation.NodeStatusTabDestination.Overview.argValue -> 2
     WalletsNavigation.NodeStatusTabDestination.Connection.argValue -> 2
     WalletsNavigation.NodeStatusTabDestination.Tor.argValue -> 2
     else -> 0

@@ -200,14 +200,6 @@ fun NodeStatusScreen(
                     ) {
                         Spacer(modifier = Modifier.height(NodeContentSpacing))
                         when (tab) {
-                            NodeStatusTab.Overview -> NodeOverviewContent(
-                                status = status,
-                                torActionsState = torActionsState,
-                                onRenewTorIdentity = onRenewTorIdentity,
-                                onStartTor = onStartTor,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
                             NodeStatusTab.Management -> {
                                 if (state.networkLogsEnabled) {
                                     ActionableStatusBanner(
@@ -227,23 +219,31 @@ fun NodeStatusScreen(
                                     interactionsLocked = interactionsLocked,
                                     onInteractionBlocked = onInteractionBlocked,
                                     onNetworkSelected = onNetworkSelected,
-                                    onConnectionModeSelectionRequested = onConnectionModeSelectionRequested,
-                                    onShowIncompatibleNodesChanged = onShowIncompatibleNodesChanged,
-                                    onPublicNodeSelected = onPublicNodeSelected,
-                                    onRemovePublicNode = onRemovePublicNode,
-                                    onRestorePublicNodes = onRestorePublicNodes,
-                                    onCustomNodeSelected = onCustomNodeSelected,
-                                    onCustomNodeDetails = onCustomNodeDetails,
-                                    onRemoveCustomNode = onRemoveCustomNode,
-                                    onAddCustomNodeClick = onAddCustomNodeClick,
-                                    onDisconnect = onDisconnect
+                                    onConnectionModeSelectionRequested = onConnectionModeSelectionRequested
                                 )
                             }
 
-                            NodeStatusTab.Connection -> NodeTorStatusSection(
+                            NodeStatusTab.Nodes -> NodeNodesContent(
+                                isNetworkOnline = status.isNetworkOnline,
+                                state = state,
+                                modifier = Modifier.fillMaxWidth(),
+                                interactionsLocked = interactionsLocked,
+                                onInteractionBlocked = onInteractionBlocked,
+                                onShowIncompatibleNodesChanged = onShowIncompatibleNodesChanged,
+                                onPublicNodeSelected = onPublicNodeSelected,
+                                onRemovePublicNode = onRemovePublicNode,
+                                onRestorePublicNodes = onRestorePublicNodes,
+                                onCustomNodeSelected = onCustomNodeSelected,
+                                onCustomNodeDetails = onCustomNodeDetails,
+                                onRemoveCustomNode = onRemoveCustomNode,
+                                onAddCustomNodeClick = onAddCustomNodeClick,
+                                onDisconnect = onDisconnect
+                            )
+
+                            NodeStatusTab.Details -> NodeOverviewContent(
                                 status = status,
-                                actionsState = torActionsState,
-                                onRenewIdentity = onRenewTorIdentity,
+                                torActionsState = torActionsState,
+                                onRenewTorIdentity = onRenewTorIdentity,
                                 onStartTor = onStartTor,
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -259,8 +259,8 @@ enum class NodeStatusTab(
     @param:StringRes val labelRes: Int
 ) {
     Management(R.string.node_overview_tab_management),
-    Overview(R.string.node_overview_tab_status),
-    Connection(R.string.node_overview_tab_connection)
+    Nodes(R.string.node_overview_tab_nodes),
+    Details(R.string.node_overview_tab_status)
 }
 
 @Composable

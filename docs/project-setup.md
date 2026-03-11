@@ -38,7 +38,7 @@ Touching Tor, networking, or Compose UI? also run:
 adb devices             # ensure your target shows “device”
 ./gradlew :app:installDebug
 ```
-Launch the “UtxoPocket” icon, complete onboarding, and verify Tor bootstrap. Keep the device awake the first time so Electrum syncs without being backgrounded.
+Launch the “UtxoPocket” icon, complete onboarding, and verify initial connectivity (Tor bootstrap in default mode, or Local Direct only if explicitly selected). Keep the device awake the first time so Electrum syncs without being backgrounded.
 
 ### 4.1 WSL + USB Devices
 On WSL, Gradle's `:app:installDebug` may not detect USB devices even when `adb.exe` from Windows does. Use this fallback flow:
@@ -55,6 +55,7 @@ If your Android SDK lives in another Windows profile, replace `<windows-user>` i
 - Switch network selector (Mainnet → Signet) and confirm presets change.
 - Import a testnet descriptor pair, sync, and confirm balance/UTXO lists populate.
 - Trigger a full rescan from wallet detail after import and confirm the sync indicator completes.
+- If testing Local Direct, use a custom private/local IP literal endpoint only (no DNS/`.local`/hostnames), and verify custom-node save is blocked when Electrum genesis hash does not match the selected network.
 
 ## 6. IDE Tips
 - After dependency updates (`gradle/libs.versions.toml`), run “Sync Project with Gradle Files” inside Android Studio.
@@ -63,6 +64,7 @@ If your Android SDK lives in another Windows profile, replace `<windows-user>` i
 
 ## 7. Troubleshooting
 - **Tor stuck** → ensure you are using an ARM64 image and that host firewalls allow outbound Tor connections. Inspect `adb logcat | grep TorRuntimeManager`.
+- **Local Direct endpoint rejected** → use only private/local IP literals (IPv4/IPv6), avoid DNS/`.local`/hostnames, and confirm the node network matches the selected app network.
 - **Descriptor rejected** → confirm it is public (tpub/zpub, no `xprv`) and includes `*` or BIP-389 multipath notation.
 - **Gradle cache issues** → run `./gradlew --stop && ./gradlew clean` or nuke `.gradle`/`.idea` directories when IDE sync drifts.
 - **No connected devices (WSL)** → if Linux `adb devices` is empty but `adb.exe devices` shows your phone, use the fallback commands from section **4.1 WSL + USB Devices**.

@@ -15,14 +15,28 @@ class SettingsGraphTest {
     }
 
     @Test
-    fun `nodeStatusInitialTabIndex maps overview tab to second index`() {
-        val index = nodeStatusInitialTabIndex(WalletsNavigation.NodeStatusTabDestination.Overview.argValue)
+    fun `nodeStatusInitialTabIndex maps nodes tab to second index`() {
+        val index = nodeStatusInitialTabIndex(WalletsNavigation.NodeStatusTabDestination.Nodes.argValue)
 
         assertEquals(1, index)
     }
 
     @Test
-    fun `nodeStatusInitialTabIndex maps connection tab to third index`() {
+    fun `nodeStatusInitialTabIndex maps details tab to third index`() {
+        val index = nodeStatusInitialTabIndex(WalletsNavigation.NodeStatusTabDestination.Details.argValue)
+
+        assertEquals(2, index)
+    }
+
+    @Test
+    fun `nodeStatusInitialTabIndex keeps overview tab as third index for compatibility`() {
+        val index = nodeStatusInitialTabIndex(WalletsNavigation.NodeStatusTabDestination.Overview.argValue)
+
+        assertEquals(2, index)
+    }
+
+    @Test
+    fun `nodeStatusInitialTabIndex keeps connection tab as third index for compatibility`() {
         val index = nodeStatusInitialTabIndex(WalletsNavigation.NodeStatusTabDestination.Connection.argValue)
 
         assertEquals(2, index)

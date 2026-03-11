@@ -1,11 +1,11 @@
 # UtxoPocket — privacy-first open-source watch-only wallet
 
-UtxoPocket is an open-source Android app for monitoring multiple Bitcoin wallets via descriptors. Bundled Electrum nodes and onion endpoints route through Tor only, local data is encrypted, and the entire flow is designed to stay fast, accessible, and low friction. Custom nodes accept onion endpoints only, so every sync stays behind Tor.
+UtxoPocket is an open-source Android app for monitoring multiple Bitcoin wallets via descriptors. Tor is the default connection mode for bundled Electrum presets and custom onion endpoints, local data is encrypted, and the entire flow is designed to stay fast, accessible, and low friction. Local Direct is optional for custom private/local IP literal endpoints only (no DNS, `.local`, or hostnames), with no automatic fallback between modes.
 
 ---
 
 ## Value proposition
-- **Tor-only privacy posture**: embedded Tor, zero telemetry, and no clearnet fallbacks for curated or custom onion nodes.
+- **Privacy-first connection posture**: Tor is default, Local Direct is explicit opt-in for trusted private/local networks, zero telemetry, and no silent fallback between modes.
 - **Complete visibility**: clear dashboards plus wallet-level warnings whenever a sync misbehaves.
 - **UX with intent**: adaptive Compose UI grounded in Material Design 3 + Expressive motion/shape/type guidance, responsive loaders (e.g., Tor bootstrap progress), intentional micro-interactions.
 - **Reproducible & auditable**: deterministic build scripts and a strictly watch-only trust model.
@@ -52,10 +52,12 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 - Watch-only monitoring across multiple wallets with labels, UTXOs, and history.
 - Home-screen UTXO canvas with drag-and-drop collections, color tags, and automatic Dust grouping.
 - Encrypted watch-only backup export/import (`.ubak`) with passphrase-protected preview before import.
-- Tor-only networking with curated nodes and custom onion endpoints. Tor remains mandatory; direct LAN/IP hosts and SSL toggles have been removed to keep behavior consistent.
+- Mode-aware networking: Tor (default) supports curated nodes and custom onion endpoints; Local Direct (optional) supports only custom private/local IP literals over `tcp://`.
+- Fail-closed connection policy: incompatible mode/endpoint combinations are blocked, and the app never auto-switches between Tor and Local Direct.
 - Connection retries do not auto-rotate bundled presets; switching presets remains an explicit user action.
+- Custom node save validates the Electrum genesis hash for the selected app network and blocks mismatches.
 - Multi-network support (Mainnet, Testnet3/4, Signet) with per-network presets.
-- Incoming detection uses a lightweight Electrum watcher over Tor for early `unconfirmed`/`confirmed-light` signals, while BDK sync remains the canonical source for wallet state.
+- Incoming detection uses a lightweight Electrum watcher on the active connection mode for early `unconfirmed`/`confirmed-light` signals, while BDK sync remains the canonical source for wallet state.
 - Incoming placeholders have no time expiration; they are removed only after a successful BDK sync reconciles the txid.
 - Per-wallet Analysis section with age distribution and hold-wave views to assess how long coins have been sitting and where value concentrates.
 - Fast onboarding and descriptor import (paste or QR), plus a searchable offline wiki.
@@ -68,7 +70,7 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 - Install the latest release and verify it (fingerprints + checksums).
 - Open UtxoPocket and import your public descriptors (paste or scan QR).
 - Select a test network (Signet/Testnet) in onboarding to trial safely; switch to Mainnet when ready.
-- Connect via Tor, activate your preferred preset or onion node, and let the first sync complete.
+- Keep Tor mode (default) for bundled presets/onion nodes, or explicitly switch to Local Direct for your own private/local IP literal node; then let the first sync complete.
 - Create an encrypted `.ubak` backup from `Settings -> Wallets -> Backups`, and store the file and backup passphrase separately.
 
 ---
@@ -123,7 +125,7 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 
 ## Privacy & security
 - Watch-only by design; no private keys or signing on device.
-- Tor-backed networking for curated and custom onion nodes. Direct LAN/IP connectivity and SSL/TLS toggles were removed to enforce onion-only routing. See `SECURITY.md` for details and the privacy guarantees.
+- Tor-default networking for curated presets and custom onion nodes, plus optional Local Direct for private/local IP literal custom nodes. No silent fallback is applied between modes. See `SECURITY.md` for constraints and privacy guarantees.
 - Encrypted `.ubak` backups are watch-only by scope: they restore descriptors and local metadata, but never include seeds/private keys or PIN/duress PIN material.
 
 ---
