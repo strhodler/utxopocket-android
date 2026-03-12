@@ -321,8 +321,21 @@ class DefaultWalletRepository @Inject constructor(
     )
     private val walletMaintenanceManager = WalletMaintenanceManager(
         walletDao = walletDao,
-        walletFactory = walletFactory,
-        walletSyncOrchestrator = walletSyncOrchestrator,
+        removeWalletStorage = { walletId, network ->
+            walletFactory.removeStorage(walletId, network)
+        },
+        removeFromSyncQueue = { walletId, network ->
+            walletSyncOrchestrator.removeFromSyncQueue(walletId, network)
+        },
+        cancelSyncIfActive = { walletId, network ->
+            walletSyncOrchestrator.cancelSyncIfActive(walletId, network)
+        },
+        drainNetworkQueue = { network ->
+            walletSyncOrchestrator.drainNetworkQueue(network)
+        },
+        reenqueueDrainedWallets = { network, drainedQueue, deletedWalletId ->
+            walletSyncOrchestrator.reenqueueDrainedWallets(network, drainedQueue, deletedWalletId)
+        },
         database = database,
         appPreferencesRepository = appPreferencesRepository,
         torManager = torManager,
@@ -337,6 +350,7 @@ class DefaultWalletRepository @Inject constructor(
         cancelBackgroundJobs = { repositoryScope.coroutineContext.cancelChildren() },
         resetEncryptedDatabase = ::resetEncryptedDatabase,
         clearCacheDirectories = ::clearCacheDirectories,
+        terminateProcess = { Process.killProcess(Process.myPid()) },
         logTag = TAG
     )
 
@@ -706,17 +720,8 @@ class DefaultWalletRepository @Inject constructor(
 
     private fun resetEncryptedDatabase() {
         runCatching { database.close() }
-        val dbPath = applicationContext.getDatabasePath(UtxoPocketDatabase.NAME)
-        listOf(
-            dbPath,
-            File("${dbPath.absolutePath}-wal"),
-            File("${dbPath.absolutePath}-shm")
-        ).forEach { file ->
-            if (file.exists() && !file.delete()) {
-                SecureLog.w(TAG) { "Failed to delete database file: ${file.absolutePath}" }
-            }
-        }
-        passphraseProvider.clearPassphrase()
+        deleteDatabaseArtifacts(UtxoPocketDatabase.NAME)
+        passphraseProvider.clearAllCryptoArtifacts()
     }
 
     private fun clearCacheDirectories() {
@@ -734,7 +739,23 @@ class DefaultWalletRepository @Inject constructor(
     private fun File?.clearContents() {
         if (this == null || !exists()) return
         listFiles()?.forEach { child ->
-            child.deleteRecursively()
+            if (!child.deleteRecursively()) {
+                throw IllegalStateException("Failed to clear cache artifact: ${child.absolutePath}")
+            }
+        }
+    }
+
+    private fun deleteDatabaseArtifacts(name: String) {
+        runCatching { applicationContext.deleteDatabase(name) }
+        val dbPath = applicationContext.getDatabasePath(name)
+        listOf(
+            dbPath,
+            File("${dbPath.absolutePath}-wal"),
+            File("${dbPath.absolutePath}-shm")
+        ).forEach { file ->
+            if (file.exists() && !file.delete()) {
+                throw IllegalStateException("Failed to delete database file: ${file.absolutePath}")
+            }
         }
     }
 

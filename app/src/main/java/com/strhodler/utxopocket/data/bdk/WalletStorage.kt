@@ -1,10 +1,6 @@
-@file:Suppress("DEPRECATION")
-
 package com.strhodler.utxopocket.data.bdk
 
 import android.content.Context
-import androidx.security.crypto.EncryptedFile
-import androidx.security.crypto.MasterKey
 import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.data.security.TinkCrypto
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
@@ -36,7 +32,6 @@ interface WalletStorage {
 
 enum class WalletMaterializationSource {
     ENCRYPTED_BUNDLE,
-    LEGACY_PLAINTEXT,
     EMPTY
 }
 
@@ -52,12 +47,6 @@ class DefaultWalletStorage @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val tinkCrypto: TinkCrypto
 ) : WalletStorage {
-
-    private val masterKey by lazy {
-        MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-    }
 
     private val sessions = ConcurrentHashMap<String, WalletSession>()
 
@@ -95,24 +84,13 @@ class DefaultWalletStorage @Inject constructor(
             }
         }
         val encryptedBundle = encryptedBundleFile(walletId, network)
-        if (encryptedBundle.exists()) {
-            encryptedBundle.delete()
-        }
+        deleteFileIfExists(encryptedBundle, "encrypted wallet bundle")
         val legacyBase = legacyBaseFile(walletId, network)
-        listOf(
-            legacyBase,
-            File("${legacyBase.absolutePath}-wal"),
-            File("${legacyBase.absolutePath}-shm")
-        ).forEach { file ->
-            if (file.exists()) {
-                runCatching { file.delete() }
-            }
-        }
-        val legacyDir = legacyBase.parentFile
-        if (legacyDir?.exists() == true && legacyDir.list()?.isEmpty() == true) {
-            runCatching { legacyDir.delete() }
-        }
-        workingDir(walletId, network).deleteRecursively()
+        clearLegacyArtifacts(legacyBase)
+        deleteRecursivelyIfExists(
+            workingDir(walletId, network),
+            "wallet working directory"
+        )
     }
 
     private fun materializeSession(session: WalletSession) {
@@ -123,11 +101,8 @@ class DefaultWalletStorage @Inject constructor(
                 decryptBundle(session)
                 WalletMaterializationSource.ENCRYPTED_BUNDLE
             }
-            session.legacyBase.exists() -> {
-                migrateLegacyPlaintext(session)
-                WalletMaterializationSource.LEGACY_PLAINTEXT
-            }
             else -> {
+                clearLegacyArtifacts(session.legacyBase)
                 ensureFileExists(session.databaseFile)
                 WalletMaterializationSource.EMPTY
             }
@@ -137,32 +112,15 @@ class DefaultWalletStorage @Inject constructor(
 
     private fun persistSession(session: WalletSession) {
         if (!session.workingDir.exists()) return
-        val encrypted = encryptBundle(session)
-        if (!encrypted) return
+        encryptBundle(session)
         listOf(session.databaseFile, session.walFile, session.shmFile).forEach { secureDelete(it) }
-        session.workingDir.deleteRecursively()
-        listOf(
-            session.legacyBase,
-            File("${session.legacyBase.absolutePath}-wal"),
-            File("${session.legacyBase.absolutePath}-shm")
-        ).forEach { legacy ->
-            if (legacy.exists()) {
-                legacy.delete()
-            }
-        }
+        deleteRecursivelyIfExists(session.workingDir, "wallet working directory")
+        clearLegacyArtifacts(session.legacyBase)
     }
 
     private fun decryptBundle(session: WalletSession) {
-        val tinkSucceeded = decryptBundleWithTink(session)
-        if (!tinkSucceeded) {
-            decryptBundleWithLegacy(session)
-        }
-        ensureFileExists(session.databaseFile)
-    }
-
-    private fun decryptBundleWithTink(session: WalletSession): Boolean {
-        val streamingAead = tinkCrypto.streamingAeadOrNull() ?: return false
-        return runCatching {
+        val streamingAead = tinkCrypto.requireStreamingAead()
+        runCatching {
             FileInputStream(session.encryptedBundle).use { input ->
                 streamingAead.newDecryptingStream(input, associatedData(session)).use { cipherIn ->
                     ZipInputStream(BufferedInputStream(cipherIn)).use { zip ->
@@ -170,36 +128,24 @@ class DefaultWalletStorage @Inject constructor(
                     }
                 }
             }
+            if (!session.databaseFile.exists()) {
+                throw IllegalStateException("Wallet bundle is missing database entry")
+            }
         }.onSuccess {
             SecureLog.d(TAG) { "Decrypted bundle with Tink for wallet=${session.walletId} network=${session.network}" }
-        }.onFailure {
-            SecureLog.w(TAG, it) { "Failed to decrypt bundle with Tink for wallet=${session.walletId} network=${session.network}" }
-        }.isSuccess
-    }
-
-    private fun decryptBundleWithLegacy(session: WalletSession) {
-        val encryptedFile = EncryptedFile.Builder(
-            context,
-            session.encryptedBundle,
-            masterKey,
-            EncryptedFile.FileEncryptionScheme.AES256_GCM_HKDF_4KB
-        ).build()
-        encryptedFile.openFileInput().use { input ->
-            ZipInputStream(BufferedInputStream(input)).use { zip ->
-                unzipEntries(session, zip)
-            }
+        }.onFailure { error ->
+            cleanWorkingDir(session)
+            throw IllegalStateException(
+                "Unable to decrypt wallet bundle with strict Tink storage",
+                error
+            )
         }
     }
 
-    private fun encryptBundle(session: WalletSession): Boolean {
-        if (encryptBundleWithTink(session)) return true
-        return encryptBundleWithLegacy(session)
-    }
-
-    private fun encryptBundleWithTink(session: WalletSession): Boolean {
-        val streamingAead = tinkCrypto.streamingAeadOrNull() ?: return false
+    private fun encryptBundle(session: WalletSession) {
+        val streamingAead = tinkCrypto.requireStreamingAead()
         val tempFile = File("${session.encryptedBundle.absolutePath}.tmp")
-        return runCatching {
+        runCatching {
             tempFile.parentFile?.mkdirs()
             FileOutputStream(tempFile).use { raw ->
                 streamingAead.newEncryptingStream(raw, associatedData(session)).use { cipherOut ->
@@ -210,43 +156,20 @@ class DefaultWalletStorage @Inject constructor(
                     }
                 }
             }
-            if (session.encryptedBundle.exists()) {
-                session.encryptedBundle.delete()
-            }
+            deleteFileIfExists(session.encryptedBundle, "encrypted wallet bundle")
             if (!tempFile.renameTo(session.encryptedBundle)) {
                 throw IllegalStateException("Unable to move encrypted bundle into place")
             }
         }.onSuccess {
             SecureLog.d(TAG) { "Encrypted bundle with Tink for wallet=${session.walletId} network=${session.network}" }
-        }.onFailure {
+        }.onFailure { error ->
             tempFile.delete()
-            SecureLog.w(TAG, it) { "Failed to encrypt bundle with Tink for wallet=${session.walletId} network=${session.network}" }
-        }.isSuccess
+            throw IllegalStateException(
+                "Unable to encrypt wallet bundle with strict Tink storage",
+                error
+            )
+        }
     }
-
-    private fun encryptBundleWithLegacy(session: WalletSession): Boolean =
-        runCatching {
-            if (session.encryptedBundle.exists()) {
-                session.encryptedBundle.delete()
-            }
-            val encryptedFile = EncryptedFile.Builder(
-                context,
-                session.encryptedBundle,
-                masterKey,
-                EncryptedFile.FileEncryptionScheme.AES256_GCM_HKDF_4KB
-            ).build()
-            encryptedFile.openFileOutput().use { output ->
-                ZipOutputStream(BufferedOutputStream(output)).use { zip ->
-                    writeEntry(zip, session.databaseFile, DB_ENTRY)
-                    writeEntry(zip, session.walFile, WAL_ENTRY)
-                    writeEntry(zip, session.shmFile, SHM_ENTRY)
-                }
-            }
-        }.onSuccess {
-            SecureLog.d(TAG) { "Encrypted bundle with legacy EncryptedFile for wallet=${session.walletId} network=${session.network}" }
-        }.onFailure {
-            SecureLog.w(TAG, it) { "Failed to encrypt bundle with legacy EncryptedFile for wallet=${session.walletId} network=${session.network}" }
-        }.isSuccess
 
     private fun unzipEntries(session: WalletSession, zip: ZipInputStream) {
         var entry: ZipEntry? = zip.nextEntry
@@ -271,23 +194,8 @@ class DefaultWalletStorage @Inject constructor(
     private fun associatedData(session: WalletSession): ByteArray =
         "wallet-${session.walletId}-${session.network.name}".toByteArray(Charsets.UTF_8)
 
-    private fun migrateLegacyPlaintext(session: WalletSession) {
-        ensureFileExists(session.databaseFile)
-        listOf(
-            session.legacyBase to session.databaseFile,
-            File("${session.legacyBase.absolutePath}-wal") to session.walFile,
-            File("${session.legacyBase.absolutePath}-shm") to session.shmFile
-        ).forEach { (legacy, target) ->
-            if (legacy.exists()) {
-                legacy.copyTo(target, overwrite = true)
-            }
-        }
-    }
-
     private fun cleanWorkingDir(session: WalletSession) {
-        if (session.workingDir.exists()) {
-            session.workingDir.deleteRecursively()
-        }
+        deleteRecursivelyIfExists(session.workingDir, "wallet working directory")
     }
 
     override fun materializationState(connectionPath: String): WalletMaterializationState? =
@@ -317,8 +225,44 @@ class DefaultWalletStorage @Inject constructor(
                 }
                 raf.fd.sync()
             }
+        }.onFailure { error ->
+            throw IllegalStateException("Unable to overwrite wallet artifact before deletion", error)
         }
-        runCatching { file.delete() }
+        if (!file.delete()) {
+            throw IllegalStateException("Unable to delete wallet artifact at ${file.absolutePath}")
+        }
+    }
+
+    private fun clearLegacyArtifacts(legacyBase: File) {
+        listOf(
+            legacyBase,
+            File("${legacyBase.absolutePath}-wal"),
+            File("${legacyBase.absolutePath}-shm")
+        ).forEach { legacy ->
+            deleteFileIfExists(legacy, "legacy wallet artifact")
+        }
+        deleteIfEmpty(legacyBase.parentFile)
+    }
+
+    private fun deleteFileIfExists(file: File, label: String) {
+        if (!file.exists()) return
+        if (!file.delete()) {
+            throw IllegalStateException("Unable to delete $label at ${file.absolutePath}")
+        }
+    }
+
+    private fun deleteRecursivelyIfExists(directory: File, label: String) {
+        if (!directory.exists()) return
+        if (!directory.deleteRecursively()) {
+            throw IllegalStateException("Unable to delete $label at ${directory.absolutePath}")
+        }
+    }
+
+    private fun deleteIfEmpty(directory: File?) {
+        if (directory?.exists() != true) return
+        if (directory.list()?.isEmpty() == true && !directory.delete()) {
+            throw IllegalStateException("Unable to delete empty directory at ${directory.absolutePath}")
+        }
     }
 
     private fun ensureFileExists(file: File) {
