@@ -139,50 +139,17 @@ class TorRuntimeManagerFacadeTest {
         }
     }
 
-    @Test
-    fun rollbackToggleDisablesProjectNetworkPolicyObserver() = runTest {
-        ServerSocket(0).use { socksSocket ->
-            val onlineFlow = MutableStateFlow(false)
-            val fakeFacade = FakeTorControlFacade(
-                startResult = true,
-                runningAfterStart = true,
-                socksPort = socksSocket.localPort
-            )
-            val manager = createManager(
-                fakeFacade = fakeFacade,
-                ioDispatcher = StandardTestDispatcher(testScheduler),
-                networkOnlineFlow = onlineFlow,
-                projectConnectivityPolicyEnabled = false
-            )
-
-            manager.start()
-            runCurrent()
-
-            assertEquals(TorRuntimeManager.ConnectionState.CONNECTED, manager.state.value)
-            assertEquals(emptyList(), fakeFacade.networkEnableRequests)
-
-            onlineFlow.value = true
-            runCurrent()
-
-            assertEquals(emptyList(), fakeFacade.networkEnableRequests)
-
-            manager.stop()
-        }
-    }
-
     private fun createManager(
         fakeFacade: FakeTorControlFacade,
         ioDispatcher: CoroutineDispatcher,
-        networkOnlineFlow: MutableStateFlow<Boolean>,
-        projectConnectivityPolicyEnabled: Boolean = true
+        networkOnlineFlow: MutableStateFlow<Boolean>
     ): TorRuntimeManager {
         val context = ApplicationProvider.getApplicationContext<Context>()
         return TorRuntimeManager(
             context = context,
             ioDispatcher = ioDispatcher,
             torControlFacade = fakeFacade,
-            networkOnlineFlow = networkOnlineFlow,
-            projectConnectivityPolicyEnabled = projectConnectivityPolicyEnabled
+            networkOnlineFlow = networkOnlineFlow
         )
     }
 }

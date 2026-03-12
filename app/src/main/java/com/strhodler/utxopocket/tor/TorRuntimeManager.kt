@@ -4,7 +4,6 @@ import android.content.Context
 import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
 import com.strhodler.utxopocket.di.IoDispatcher
-import com.strhodler.utxopocket.di.ProjectTorConnectivityPolicyEnabled
 import com.strhodler.utxopocket.tor.control.TorControlFacade
 import com.strhodler.utxopocket.tor.sanitization.TorTextSanitizer
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -38,8 +37,7 @@ class TorRuntimeManager internal constructor(
     @param:ApplicationContext private val context: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val torControlFacade: TorControlFacade,
-    private val networkOnlineFlow: Flow<Boolean>,
-    private val projectConnectivityPolicyEnabled: Boolean = true
+    private val networkOnlineFlow: Flow<Boolean>
 ) {
 
     @Inject
@@ -47,14 +45,12 @@ class TorRuntimeManager internal constructor(
         @ApplicationContext context: Context,
         @IoDispatcher ioDispatcher: CoroutineDispatcher,
         torControlFacade: TorControlFacade,
-        networkStatusMonitor: NetworkStatusMonitor,
-        @ProjectTorConnectivityPolicyEnabled projectConnectivityPolicyEnabled: Boolean
+        networkStatusMonitor: NetworkStatusMonitor
     ) : this(
         context = context,
         ioDispatcher = ioDispatcher,
         torControlFacade = torControlFacade,
-        networkOnlineFlow = networkStatusMonitor.isOnline,
-        projectConnectivityPolicyEnabled = projectConnectivityPolicyEnabled
+        networkOnlineFlow = networkStatusMonitor.isOnline
     )
 
     enum class ConnectionState {
@@ -121,9 +117,7 @@ class TorRuntimeManager internal constructor(
                 _state.value = ConnectionState.CONNECTED
                 _bootstrapProgress.value = 100
                 startHealthMonitor()
-                if (projectConnectivityPolicyEnabled) {
-                    startNetworkPolicyObserver()
-                }
+                startNetworkPolicyObserver()
             }.onFailure { error ->
                 val cancelled = error is CancellationException
                 if (cancelled) {
