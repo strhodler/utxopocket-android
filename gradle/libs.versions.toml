@@ -25,7 +25,6 @@ coroutines = "1.10.2"
 bdkAndroid = "2.3.0"
 sqlcipher = "4.5.4"
 sqliteKtx = "2.6.2"
-securityCrypto = "1.1.0"
 torAndroid = "0.4.9.5"
 torBinary = "0.4.8.18"
 datastore = "1.2.0"
@@ -80,7 +79,6 @@ bdk-android = { group = "org.bitcoindevkit", name = "bdk-android", version.ref =
 material = { module = "com.google.android.material:material", version.ref = "material" }
 #noinspection Aligned16KB
 sqlcipher = { group = "net.zetetic", name = "android-database-sqlcipher", version.ref = "sqlcipher" }
-androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 tor-android = { group = "info.guardianproject", name = "tor-android", version.ref = "torAndroid" }
 tor-android-binary = { group = "org.torproject", name = "tor-android-binary", version.ref = "torBinary" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }

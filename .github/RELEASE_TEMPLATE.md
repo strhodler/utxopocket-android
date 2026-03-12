@@ -6,7 +6,8 @@
 - _List bug fixes or UX polish items._
 
 ### Security
-- _Call out security/privacy hardening (connection mode policy: Tor default + optional Local Direct, no silent fallback, PIN, Tor, SQLCipher, panic wipe, etc.)._
+- _Call out security/privacy hardening (connection mode policy: Tor default + optional Local Direct, no silent fallback, strict keystore-backed Tink fail-closed crypto path, PIN, Tor, SQLCipher, panic wipe, etc.)._
+- _If crypto/storage dependencies changed, state whether `androidx.security:security-crypto` is absent from `releaseRuntimeClasspath` and confirm active dependencies (`tink-android`, `sqlcipher`)._
 - _If backup flows changed, state whether `.ubak` scope and exclusions still hold (watch-only only, no PIN/duress secrets, no node policy import)._ 
 
 ### Known issues

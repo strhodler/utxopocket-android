@@ -5,7 +5,8 @@ This product bundles third-party components:
 
 - AndroidX, Jetpack Compose, Material, Hilt (Apache License 2.0)
 - Kotlin Coroutines (Apache License 2.0)
-- Room, Paging, DataStore, Security Crypto (Apache License 2.0)
+- Room, Paging, DataStore (Apache License 2.0)
+- Google Tink / tink-android (Apache License 2.0)
 - BDK / bdk-android (MIT License)
 - Tor Android / Tor binaries (BSD 3-Clause)
 - SQLCipher (GPLv3/commercial dual-license; used under GPLv3 terms)

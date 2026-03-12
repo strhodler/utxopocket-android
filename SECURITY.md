@@ -4,9 +4,9 @@ UtxoPocket is a watch-only Android wallet that treats privacy as a functional re
 
 ## Security Posture
 - **Watch-only trust model** — only public descriptors are accepted. Private keys, seeds, and transaction signing never touch the device.
-- **Data at rest** — Room uses SQLCipher with a 64-byte passphrase kept in Jetpack Security `EncryptedSharedPreferences`. BDK bundles are decrypted only inside a temporary cache directory and sealed again with `EncryptedFile` as soon as the wallet persister releases.
+- **Data at rest** — Room uses SQLCipher with a 64-byte passphrase encrypted with Tink AEAD and stored in app-private SharedPreferences (`secure_store_tink`). Tink keysets are bound to Android Keystore (`android-keystore://utxopocket-tink-master`), and crypto initialization fails closed if keystore-backed primitives are unavailable. BDK bundles are materialized only inside a temporary cache directory and sealed again with Tink StreamingAead as soon as the wallet persister releases.
 - **Preferences** — Descriptor metadata, node settings, PIN material, and onboarding flags live in `Preferences DataStore`. Panic wipe clears the entire store and truncates the backing `user_preferences.preferences_pb` file to eliminate remnants.
-- **Panic wipe coverage** — `Settings → Danger Zone → Panic wipe` now invalidates every wallet cache, deletes all Room tables inside a single transaction to avoid partial states if interrupted, removes encrypted BDK bundles, resets the SQLCipher database + key, clears DataStore, wipes Tor state (`torfiles`), removes cache/ code-cache/ external-cache directories, and deletes the private network error log DB before restarting the app into the onboarding carousel.
+- **Panic wipe coverage** — `Settings → Danger Zone → Panic wipe` now invalidates every wallet cache, deletes all Room tables inside a single transaction to avoid partial states if interrupted, removes encrypted BDK bundles, resets the SQLCipher database + key, clears strict Tink artifacts (`secure_store_tink`, `tink_keyset_prefs`, `tink_streaming_keyset_prefs`) plus legacy `secure_store` remnants, clears DataStore, wipes Tor state (`torfiles`), removes cache/ code-cache/ external-cache directories, and deletes the private network error log DB before restarting the app into the onboarding carousel.
 - **PIN gate** — Optional 6-digit PIN is stored as PBKDF2(HMAC-SHA256, 150k iterations, 256-bit key) plus per-user salt. Verification enforces exponential backoff and temporary lockouts; panic wipe removes the hash/salt/counters.
 - **Encrypted watch-only backups** — `Settings -> Wallets -> Backups -> Encrypted backup` exports `.ubak` files using PBKDF2(HMAC-SHA256) plus AES-256-GCM. Import requires passphrase-based preview and strict allowlist validation with forbidden-field rejection. Backups include watch-only descriptors/metadata (wallets, labels, collections, selected preferences) but exclude PIN/duress PIN material, node endpoint state, and any signing secrets.
 - **Backup import semantics** — Restore is fail-closed and device-local: unsupported versions/security params, malformed payloads, forbidden fields, wrong passphrase, or tampering are rejected. Confirmed import replaces current local watch-only wallets and related metadata before rehydration.
@@ -33,7 +33,7 @@ Not requested: contacts, location, telephony, legacy storage, SMS, analytics, or
 ## Dependencies of Interest
 - [BDK Android 2.2.0](https://bitcoindevkit.org/)
 - [SQLCipher 4.5.4](https://github.com/sqlcipher/sqlcipher)
-- [Jetpack Security Crypto 1.1.0](https://developer.android.com/topic/security/data)
+- [Google Tink Android 1.20.0](https://github.com/tink-crypto/tink-java)
 - [Tor Android binary 0.4.8.x + jtorctl](https://gitweb.torproject.org/)
 - [Jetpack DataStore, Room, Compose, Hilt] (latest versions listed in `gradle/libs.versions.toml`)
 

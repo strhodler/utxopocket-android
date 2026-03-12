@@ -3,6 +3,7 @@ package com.strhodler.utxopocket.data.preferences
 import android.content.Context
 import androidx.core.os.LocaleListCompat
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -43,6 +44,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -551,7 +553,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
     }
 
     override val nodeConfig: Flow<NodeConfig> =
-        dataStore.data.map { prefs -> prefs.toNodeConfig() }
+        dataStore.data
+            .onStart { ensureNodePreferencesMigrationContract() }
+            .map { prefs -> prefs.toNodeConfig() }
 
     override fun publicNodesFor(network: BitcoinNetwork, excludedIds: Set<String>): List<PublicNode> =
         PUBLIC_NODES
@@ -559,6 +563,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
             .filterNot { excludedIds.contains(it.id) }
 
     override suspend fun updateNodeConfig(mutator: (NodeConfig) -> NodeConfig) {
+        ensureNodePreferencesMigrationContract()
         dataStore.edit { prefs ->
             val current = prefs.toNodeConfig()
             val updated = mutator(current).normalised()
@@ -596,6 +601,81 @@ class DefaultAppPreferencesRepository @Inject constructor(
         }
     }
 
+    private suspend fun ensureNodePreferencesMigrationContract() {
+        dataStore.edit { prefs ->
+            if (!requiresNodePreferencesMigration(prefs)) {
+                return@edit
+            }
+            migrateNodePreferencesIfNeeded(prefs)
+        }
+    }
+
+    private fun requiresNodePreferencesMigration(prefs: Preferences): Boolean {
+        val storedVersion = prefs[Keys.NODE_SCHEMA_VERSION] ?: NODE_SCHEMA_VERSION_NONE
+        return storedVersion < NODE_SCHEMA_VERSION_CURRENT || hasLegacyNodeMarkers(prefs)
+    }
+
+    private fun hasLegacyNodeMarkers(prefs: Preferences): Boolean {
+        if (prefs[Keys.NODE_CUSTOM_HOST] != null) return true
+        if (prefs[Keys.NODE_CUSTOM_PORT] != null) return true
+        if (!prefs[Keys.NODE_CUSTOM_ONION].isNullOrBlank()) return true
+        if (!prefs[Keys.NODE_ADDRESS_OPTION].isNullOrBlank()) return true
+
+        val customNodesRaw = prefs[Keys.NODE_CUSTOM_LIST].orEmpty()
+        if (customNodesRaw.isBlank()) return false
+
+        return runCatching {
+            val array = JSONArray(customNodesRaw)
+            (0 until array.length()).any { index ->
+                val item = array.optJSONObject(index) ?: return@any false
+                val hasLegacyOnion = item.optString("onion").isNotBlank()
+                val hasEndpoint = item.optString("endpoint").isNotBlank()
+                hasLegacyOnion && !hasEndpoint
+            }
+        }.getOrDefault(false)
+    }
+
+    private fun migrateNodePreferencesIfNeeded(prefs: MutablePreferences) {
+        val migratedCustomNodes = migrateCustomNodesForSchemaV1(prefs)
+        if (migratedCustomNodes.isEmpty()) {
+            prefs.remove(Keys.NODE_CUSTOM_LIST)
+            prefs.remove(Keys.NODE_CUSTOM_SELECTED_ID)
+        } else {
+            prefs[Keys.NODE_CUSTOM_LIST] = encodeCustomNodes(migratedCustomNodes)
+            val selectedId = prefs[Keys.NODE_CUSTOM_SELECTED_ID]
+            if (selectedId != null && migratedCustomNodes.none { node -> node.id == selectedId }) {
+                prefs.remove(Keys.NODE_CUSTOM_SELECTED_ID)
+            }
+        }
+
+        prefs.remove(Keys.NODE_CUSTOM_HOST)
+        prefs.remove(Keys.NODE_CUSTOM_PORT)
+        prefs.remove(Keys.NODE_CUSTOM_ONION)
+        prefs.remove(Keys.NODE_ADDRESS_OPTION)
+        prefs[Keys.NODE_SCHEMA_VERSION] = NODE_SCHEMA_VERSION_CURRENT
+    }
+
+    private fun migrateCustomNodesForSchemaV1(prefs: Preferences): List<CustomNode> {
+        val fromCustomList = prefs[Keys.NODE_CUSTOM_LIST]
+            ?.let { raw -> decodeCustomNodes(raw, allowLegacyOnion = true) }
+            .orEmpty()
+        if (fromCustomList.isNotEmpty()) {
+            return fromCustomList
+        }
+
+        val legacyOnion = prefs[Keys.NODE_CUSTOM_ONION]
+        val legacyEndpoint = legacyOnion?.let(::normalizeLegacyOnionEndpoint)
+        return legacyEndpoint?.let { endpoint ->
+            listOf(
+                CustomNode(
+                    id = "legacy-onion-${legacyOnion.trim()}",
+                    endpoint = endpoint,
+                    name = legacyOnion.trim()
+                )
+            )
+        } ?: emptyList()
+    }
+
     private fun Preferences.toNodeConfig(): NodeConfig {
         val connectionMode = this[Keys.NODE_CONNECTION_MODE]?.let {
             runCatching { ConnectionMode.valueOf(it) }.getOrNull()
@@ -610,18 +690,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
             ?: emptyList()
 
         val selectedCustomId = this[Keys.NODE_CUSTOM_SELECTED_ID]
-
-        val legacyNodes = if (customNodes.isEmpty()) {
-            legacyCustomNodes(
-                host = this[Keys.NODE_CUSTOM_HOST],
-                port = this[Keys.NODE_CUSTOM_PORT],
-                onion = this[Keys.NODE_CUSTOM_ONION]
-            )
-        } else {
-            emptyList()
-        }
-
-        val combinedNodes = if (customNodes.isEmpty()) legacyNodes else customNodes
         val removedPublic = BitcoinNetwork.entries.associateWith { network ->
             this[nodePublicRemovedKey(network)]?.split(",")
                 ?.filter { it.isNotBlank() }
@@ -633,7 +701,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
             connectionMode = connectionMode,
             connectionOption = connectionOption,
             selectedPublicNodeId = this[Keys.NODE_SELECTED_PUBLIC_ID],
-            customNodes = combinedNodes,
+            customNodes = customNodes,
             selectedCustomNodeId = selectedCustomId,
             removedPublicNodeIds = removedPublic
         ).normalised()
@@ -686,7 +754,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         return array.toString()
     }
 
-    private fun decodeCustomNodes(raw: String): List<CustomNode> {
+    private fun decodeCustomNodes(raw: String, allowLegacyOnion: Boolean = false): List<CustomNode> {
         return runCatching {
             val array = JSONArray(raw)
             buildList {
@@ -701,7 +769,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
                     }
                     val resolvedEndpoint = when {
                         storedEndpoint.isNotBlank() -> sanitizeEndpoint(storedEndpoint)
-                        !onion.isNullOrBlank() -> buildLegacyOnionEndpoint(onion)
+                        allowLegacyOnion && !onion.isNullOrBlank() ->
+                            normalizeLegacyOnionEndpoint(onion)
+
                         else -> null
                     } ?: continue
 
@@ -728,7 +798,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         return normalized.takeIf { isOnion || isLocalLiteral }?.url
     }
 
-    private fun buildLegacyOnionEndpoint(value: String): String? {
+    private fun normalizeLegacyOnionEndpoint(value: String): String? {
         if (value.isBlank()) return null
         val sanitized = value
             .removePrefix("ssl://")
@@ -742,25 +812,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
             )
         }.getOrNull() ?: return null
         return normalized.takeIf { it.kind == EndpointKind.ONION }?.url
-    }
-
-    private fun legacyCustomNodes(
-        host: String?,
-        port: Int?,
-        onion: String?
-    ): List<CustomNode> {
-        val trimmedOnion = onion?.trim().orEmpty()
-        if (trimmedOnion.isBlank()) {
-            return emptyList()
-        }
-        val endpoint = buildLegacyOnionEndpoint(trimmedOnion) ?: return emptyList()
-        return listOf(
-            CustomNode(
-                id = "legacy-onion-$trimmedOnion",
-                endpoint = endpoint,
-                name = trimmedOnion
-            )
-        )
     }
 
     private fun purgePreferencesFile() {
@@ -870,6 +921,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val DURESS_PIN_SALT = stringPreferencesKey("duress_pin_salt")
         val DURESS_PIN_KDF_ITERATIONS = intPreferencesKey("duress_pin_kdf_iterations")
         val NODE_CONNECTION_MODE = stringPreferencesKey("node_connection_mode")
+        val NODE_SCHEMA_VERSION = intPreferencesKey("node_schema_version")
         val NODE_CONNECTION_OPTION = stringPreferencesKey("node_connection_option")
         val NODE_ADDRESS_OPTION = stringPreferencesKey("node_address_option")
         val NODE_SELECTED_PUBLIC_ID = stringPreferencesKey("node_selected_public_id")
@@ -929,6 +981,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
         private const val PIN_BACKOFF_MAX_MS = 300_000L
         private const val PIN_BACKOFF_EXPONENT_CAP = 10
         private const val PIN_FAILURE_RESET_WINDOW_MS = 900_000L
+        private const val NODE_SCHEMA_VERSION_NONE = 0
+        private const val NODE_SCHEMA_VERSION_CURRENT = 1
         private val SECURE_RANDOM = SecureRandom()
         private const val DATA_STORE_DIRECTORY = "datastore"
         private const val DATA_STORE_FILE_NAME =

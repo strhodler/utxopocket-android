@@ -1,6 +1,7 @@
 package com.strhodler.utxopocket.data.preferences
 
 import android.content.Context
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.test.core.app.ApplicationProvider
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ConnectionMode
@@ -48,6 +49,18 @@ class DefaultAppPreferencesRepositoryTest {
     }
 
     @Test
+    fun nodeConfigReadInitializesNodeSchemaVersionForFreshPreferences() = runTest {
+        val repository = createRepository(RecordingDispatcher())
+        repository.wipeAll()
+
+        repository.nodeConfig.first()
+
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val storedPrefs = context.userPreferencesDataStore.data.first()
+        assertEquals(CURRENT_NODE_SCHEMA_VERSION, storedPrefs[NODE_SCHEMA_VERSION])
+    }
+
+    @Test
     fun updateNodeConfigPersistsConnectionModeAndLocalLiteralEndpoint() = runTest {
         val repository = createRepository(RecordingDispatcher())
         repository.wipeAll()
@@ -74,6 +87,42 @@ class DefaultAppPreferencesRepositoryTest {
         assertEquals(localNode.id, persisted.selectedCustomNodeId)
         assertEquals(1, persisted.customNodes.size)
         assertEquals("ssl://192.168.50.20:50002", persisted.customNodes.first().endpoint)
+
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val storedPrefs = context.userPreferencesDataStore.data.first()
+        assertEquals(CURRENT_NODE_SCHEMA_VERSION, storedPrefs[NODE_SCHEMA_VERSION])
+    }
+
+    @Test
+    fun updateNodeConfigPersistsTorOnionCustomEndpoint() = runTest {
+        val repository = createRepository(RecordingDispatcher())
+        repository.wipeAll()
+
+        val onionNode = CustomNode(
+            id = "onion-node",
+            endpoint = "ssl://HiddenServiceAbcdef.onion:50002",
+            network = BitcoinNetwork.MAINNET
+        )
+
+        repository.updateNodeConfig { current ->
+            current.copy(
+                connectionMode = ConnectionMode.TOR_DEFAULT,
+                connectionOption = NodeConnectionOption.CUSTOM,
+                customNodes = listOf(onionNode),
+                selectedCustomNodeId = onionNode.id
+            )
+        }
+
+        val persisted = repository.nodeConfig.first()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val storedPrefs = context.userPreferencesDataStore.data.first()
+
+        assertEquals(ConnectionMode.TOR_DEFAULT, persisted.connectionMode)
+        assertEquals(NodeConnectionOption.CUSTOM, persisted.connectionOption)
+        assertEquals(onionNode.id, persisted.selectedCustomNodeId)
+        assertEquals(1, persisted.customNodes.size)
+        assertEquals("tcp://hiddenserviceabcdef.onion:50002", persisted.customNodes.first().endpoint)
+        assertEquals(CURRENT_NODE_SCHEMA_VERSION, storedPrefs[NODE_SCHEMA_VERSION])
     }
 
     @Test
@@ -110,6 +159,9 @@ class DefaultAppPreferencesRepositoryTest {
         )
     }
 }
+
+private const val CURRENT_NODE_SCHEMA_VERSION = 1
+private val NODE_SCHEMA_VERSION = intPreferencesKey("node_schema_version")
 
 private class RecordingDispatcher : CoroutineDispatcher() {
     var used: Boolean = false

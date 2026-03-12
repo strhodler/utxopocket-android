@@ -134,7 +134,7 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 - Build: Kotlin 2.2.21, JDK 21, AGP 8.13, Gradle VCs, KSP.
 - UI: Jetpack Compose (Material 3 + Expressive motion/shape/type APIs where adopted), Navigation, Vico charts; bundled fonts (SIL OFL).
 - Architecture: MVVM + Clean Architecture, coroutines/Flows, Hilt DI.
-- Data & privacy: Room + SQLCipher, EncryptedFile + EncryptedSharedPreferences, DataStore.
+- Data & privacy: Room + SQLCipher, strict keystore-backed Tink (AEAD + StreamingAead, fail-closed), DataStore.
 - Bitcoin & networking: BDK 2.2.0, Tor + jtorctl, Electrum nodes, ZXing QR.
 - Testing: JUnit, coroutines test, Room testing, Compose UI tests.
 
