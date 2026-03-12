@@ -5,7 +5,7 @@ summary: Keep coins in clear compartments, avoid toxic change, and spend with in
 category_id: privacy-toolkit
 category_title: Privacy toolkit
 category_description: Practical guides to reduce on‑chain exposure and keep compartments isolated.
-related: [utxo-basics, labeling-metadata, bitcoin-privacy, change-output-hygiene]
+related: [utxo-lifecycle-audit, provenance-labeling, watch-only-threat-model, change-output-hygiene]
 glossary_refs: [utxo, change-output, address-reuse, coin-control]
 keywords: [segregation, coin control, change, labels]
 ---

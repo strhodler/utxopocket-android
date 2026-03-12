@@ -11,6 +11,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
 import com.strhodler.utxopocket.domain.model.DuressSessionState
+import com.strhodler.utxopocket.domain.model.WikiTopicIds
 import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.glossary.GlossaryNavigation
 import com.strhodler.utxopocket.presentation.navigation.MainDestination
@@ -38,7 +39,6 @@ import com.strhodler.utxopocket.presentation.wallets.labels.WalletLabelExportRou
 import com.strhodler.utxopocket.presentation.wallets.labels.WalletLabelImportRoute
 import com.strhodler.utxopocket.presentation.wallets.receive.ReceiveRoute
 import com.strhodler.utxopocket.presentation.wallets.sync.WalletSyncSettingsRoute
-import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import com.strhodler.utxopocket.presentation.wiki.WikiNavigation
 
 internal fun NavGraphBuilder.walletsGraph(
@@ -137,7 +137,7 @@ internal fun NavGraphBuilder.walletsGraph(
                 },
                 onDescriptorHelp = {
                     navController.navigateTopLevel(
-                        WikiNavigation.detailRoute(WikiContent.DescriptorCompatibilityTopicId)
+                        WikiNavigation.detailRoute(WikiTopicIds.DescriptorCompatibility)
                     )
                 }
             )

@@ -64,6 +64,7 @@ import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.TransactionStructure
 import com.strhodler.utxopocket.domain.model.WalletAddressType
+import com.strhodler.utxopocket.domain.model.WikiTopicIds
 import com.strhodler.utxopocket.presentation.common.ContentSection
 import com.strhodler.utxopocket.presentation.common.ListSection
 import com.strhodler.utxopocket.presentation.common.balanceText
@@ -73,7 +74,6 @@ import com.strhodler.utxopocket.presentation.common.transactionAmount
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.format.confirmationLabel
 import com.strhodler.utxopocket.presentation.motion.rememberScrollHeaderFadeAlpha
-import com.strhodler.utxopocket.presentation.wiki.WikiContent
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -636,10 +636,10 @@ private fun TransactionDetailContent(
                         icon = Icons.AutoMirrored.Outlined.OpenInNew,
                         iconTint = Color.Transparent,
                         onClick = {
-                            explorerScope.launch { explorerSheetState.hide() }
+                                    explorerScope.launch { explorerSheetState.hide() }
                                 .invokeOnCompletion {
                                     showExplorerSheet = false
-                                    onOpenWikiTopic(WikiContent.BlockExplorerPrivacyTopicId)
+                                    onOpenWikiTopic(WikiTopicIds.BlockExplorerPrivacy)
                                 }
                         }
                     )

@@ -6,7 +6,7 @@ category_id: privacy-toolkit
 category_title: Privacy toolkit
 category_description: Practical guides to reduce on-chain exposure and keep compartments isolated.
 related: [label-export-bip329-workflows, psbt-airgap-basics]
-glossary_refs: [bbqr, bip-329, ur]
+glossary_refs: [bbqr, bip-329, psbt]
 keywords: [labels, qr, sparrow, bip-329]
 ---
 

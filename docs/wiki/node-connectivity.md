@@ -5,7 +5,7 @@ summary: Use Tor by default, switch to Local Direct only for trusted private/loc
 category_id: privacy-networking
 category_title: Privacy & Networking
 category_description: How to protect your privacy and understand how Bitcoin nodes communicate.
-related: [why-tor, electrum-servers, node-trust-model]
+related: [tor-hardening-for-nodes, electrum-servers, node-trust-model]
 glossary_refs: [tor, electrum-server]
 keywords: [tor, node, electrum, connectivity, networking]
 ---

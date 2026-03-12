@@ -8,9 +8,7 @@ import com.strhodler.utxopocket.data.tor.DefaultTorManager
 import com.strhodler.utxopocket.data.preferences.DefaultIncomingTxPreferencesRepository
 import com.strhodler.utxopocket.data.wallet.DefaultWalletRepository
 import com.strhodler.utxopocket.data.wiki.DefaultWikiRepository
-import com.strhodler.utxopocket.data.wiki.WikiRepository
 import com.strhodler.utxopocket.data.glossary.DefaultGlossaryRepository
-import com.strhodler.utxopocket.data.glossary.GlossaryRepository
 import com.strhodler.utxopocket.data.logs.DefaultNetworkErrorLogRepository
 import com.strhodler.utxopocket.data.connection.ConnectionOrchestratorV2
 import com.strhodler.utxopocket.data.utxo.DefaultUtxoCanvasRepository
@@ -29,6 +27,8 @@ import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.TorManager
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
+import com.strhodler.utxopocket.domain.repository.GlossaryRepository
+import com.strhodler.utxopocket.domain.repository.WikiRepository
 import com.strhodler.utxopocket.data.preferences.DefaultIncomingTxPlaceholderRepository
 import com.strhodler.utxopocket.data.preferences.DefaultWalletDetailPreferencesRepository
 import com.strhodler.utxopocket.data.incoming.DefaultIncomingTxWatcher
