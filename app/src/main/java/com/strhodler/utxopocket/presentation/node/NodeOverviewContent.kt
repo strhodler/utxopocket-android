@@ -45,6 +45,7 @@ import com.strhodler.utxopocket.presentation.StatusBarUiState
 import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.node.NodeContentSpacing
 import com.strhodler.utxopocket.presentation.tor.TorStatusActionUiState
+import com.strhodler.utxopocket.tor.sanitization.TorTextSanitizer
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -123,7 +124,7 @@ fun NodeTorStatusSection(
     modifier: Modifier = Modifier
     ) {
     val resources = LocalContext.current.resources
-    val latestLog = remember(status.torLog) { latestTorLogEntry(status.torLog) }
+    val latestLog = remember(status.torLog) { latestSafeTorLogEntry(status.torLog) }
     val displayTorStatus = if (!status.isNetworkOnline) TorStatus.Stopped else status.torStatus
     val proxyValue = remember(displayTorStatus) {
         (displayTorStatus as? TorStatus.Running)?.let {
@@ -430,11 +431,12 @@ private fun NodeDetailListItem(
     )
 }
 
-private fun latestTorLogEntry(log: String): String? =
+internal fun latestSafeTorLogEntry(log: String): String? =
     log.lineSequence()
         .map { it.trim() }
         .filter { it.isNotEmpty() }
         .lastOrNull()
+        ?.let(TorTextSanitizer::sanitizeForPublicDisplay)
 
 private fun buildNodeDetails(
     resources: Resources,

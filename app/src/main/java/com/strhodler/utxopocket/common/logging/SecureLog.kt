@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.common.logging
 
 import android.util.Log
 import com.strhodler.utxopocket.BuildConfig
+import com.strhodler.utxopocket.tor.sanitization.TorTextSanitizer
 import java.security.MessageDigest
 
 /**
@@ -33,6 +34,10 @@ object SecureLog {
         }
     }
 
+    inline fun iTor(tag: String, message: () -> String) {
+        i(tag) { sanitizeTorMessage(message()) }
+    }
+
     /**
      * Emits a warning, optionally with a [Throwable], when logging is enabled.
      */
@@ -44,6 +49,10 @@ object SecureLog {
                 emit { Log.w(tag, message()) }
             }
         }
+    }
+
+    inline fun wTor(tag: String, throwable: Throwable? = null, message: () -> String) {
+        w(tag, throwable) { sanitizeTorMessage(message()) }
     }
 
     /**
@@ -59,12 +68,21 @@ object SecureLog {
         }
     }
 
+    inline fun eTor(tag: String, throwable: Throwable? = null, message: () -> String) {
+        e(tag, throwable) { sanitizeTorMessage(message()) }
+    }
+
     // Java-friendly overloads (no lambdas)
     @JvmStatic
     fun d(tag: String, message: String) {
         if (enabled()) {
             emit { Log.d(tag, message) }
         }
+    }
+
+    @JvmStatic
+    fun dTor(tag: String, message: String) {
+        d(tag, sanitizeTorMessage(message))
     }
 
     @JvmStatic
@@ -75,10 +93,20 @@ object SecureLog {
     }
 
     @JvmStatic
+    fun iTor(tag: String, message: String) {
+        i(tag, sanitizeTorMessage(message))
+    }
+
+    @JvmStatic
     fun w(tag: String, message: String) {
         if (enabled()) {
             emit { Log.w(tag, message) }
         }
+    }
+
+    @JvmStatic
+    fun wTor(tag: String, message: String) {
+        w(tag, sanitizeTorMessage(message))
     }
 
     @JvmStatic
@@ -89,6 +117,11 @@ object SecureLog {
     }
 
     @JvmStatic
+    fun wTor(tag: String, throwable: Throwable, message: String) {
+        w(tag, throwable, sanitizeTorMessage(message))
+    }
+
+    @JvmStatic
     fun e(tag: String, message: String) {
         if (enabled()) {
             emit { Log.e(tag, message) }
@@ -96,10 +129,20 @@ object SecureLog {
     }
 
     @JvmStatic
+    fun eTor(tag: String, message: String) {
+        e(tag, sanitizeTorMessage(message))
+    }
+
+    @JvmStatic
     fun e(tag: String, throwable: Throwable, message: String) {
         if (enabled()) {
             emit { Log.e(tag, message, throwable) }
         }
+    }
+
+    @JvmStatic
+    fun eTor(tag: String, throwable: Throwable, message: String) {
+        e(tag, throwable, sanitizeTorMessage(message))
     }
 
     @JvmStatic
@@ -139,5 +182,10 @@ object SecureLog {
             append(((byte.toInt() ushr 4) and 0x0F).toString(16))
             append((byte.toInt() and 0x0F).toString(16))
         }
+    }
+
+    @PublishedApi
+    internal fun sanitizeTorMessage(message: String): String {
+        return TorTextSanitizer.sanitizeForPublicDisplay(message)
     }
 }

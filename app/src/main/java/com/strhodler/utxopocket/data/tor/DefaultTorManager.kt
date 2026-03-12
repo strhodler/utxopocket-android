@@ -111,10 +111,11 @@ class DefaultTorManager @Inject constructor(
             lastConfig = config
             when (val current = _status.value) {
                 is TorStatus.Running -> immediateResult = Result.success(current.proxy)
-                is TorStatus.Connecting -> Unit
                 else -> {
                     _status.value = TorStatus.Connecting()
-                    sendAction(TorServiceActions.ACTION_START)
+                    if (shouldSendTorStartAction(torRuntimeManager.state.value)) {
+                        sendAction(TorServiceActions.ACTION_START)
+                    }
                 }
             }
         }
@@ -243,4 +244,14 @@ class DefaultTorManager @Inject constructor(
     companion object {
         private const val START_TIMEOUT_MILLIS = 4 * 60_000L
     }
+}
+
+internal fun shouldSendTorStartAction(
+    runtimeState: TorRuntimeManager.ConnectionState
+): Boolean = when (runtimeState) {
+    TorRuntimeManager.ConnectionState.CONNECTING,
+    TorRuntimeManager.ConnectionState.CONNECTED -> false
+    TorRuntimeManager.ConnectionState.IDLE,
+    TorRuntimeManager.ConnectionState.DISCONNECTED,
+    TorRuntimeManager.ConnectionState.ERROR -> true
 }

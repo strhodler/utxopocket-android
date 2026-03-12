@@ -75,7 +75,7 @@
     <string name="wallets_node_connecting_banner">Connecting to node</string>
     <string name="wallets_node_connecting_banner_supporting">Connecting to… %1$s</string>
     <string name="wallets_node_syncing_banner">Syncing with node</string>
-    <string name="wallets_node_syncing_banner_supporting">Updating your wallets</string>
+    <string name="wallets_node_syncing_banner_supporting">Syncing your wallets</string>
     <string name="wallets_node_disconnecting_banner">Disconnecting from node</string>
     <string name="wallets_node_connected_banner">Connected to node</string>
     <string name="wallets_node_connected_banner_with_name">Connected to %1$s</string>

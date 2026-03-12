@@ -1,20 +1,25 @@
 package com.strhodler.utxopocket.tor
 
 import android.content.Context
-import com.msopentech.thali.android.toronionproxy.AndroidOnionProxyManager
-import com.strhodler.utxopocket.di.IoDispatcher
 import com.strhodler.utxopocket.common.logging.SecureLog
+import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
+import com.strhodler.utxopocket.di.IoDispatcher
+import com.strhodler.utxopocket.di.ProjectTorConnectivityPolicyEnabled
+import com.strhodler.utxopocket.tor.control.TorControlFacade
+import com.strhodler.utxopocket.tor.sanitization.TorTextSanitizer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -29,10 +34,28 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class TorRuntimeManager @Inject constructor(
+class TorRuntimeManager internal constructor(
     @param:ApplicationContext private val context: Context,
-    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val torControlFacade: TorControlFacade,
+    private val networkOnlineFlow: Flow<Boolean>,
+    private val projectConnectivityPolicyEnabled: Boolean = true
 ) {
+
+    @Inject
+    constructor(
+        @ApplicationContext context: Context,
+        @IoDispatcher ioDispatcher: CoroutineDispatcher,
+        torControlFacade: TorControlFacade,
+        networkStatusMonitor: NetworkStatusMonitor,
+        @ProjectTorConnectivityPolicyEnabled projectConnectivityPolicyEnabled: Boolean
+    ) : this(
+        context = context,
+        ioDispatcher = ioDispatcher,
+        torControlFacade = torControlFacade,
+        networkOnlineFlow = networkStatusMonitor.isOnline,
+        projectConnectivityPolicyEnabled = projectConnectivityPolicyEnabled
+    )
 
     enum class ConnectionState {
         IDLE,
@@ -42,15 +65,16 @@ class TorRuntimeManager @Inject constructor(
         ERROR
     }
 
-    private val onionProxyManager = AndroidOnionProxyManager(context, "torfiles")
     private val processRunning = AtomicBoolean(false)
     private val startMutex = Mutex()
-    private val runtimeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val runtimeScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 
     private val _state = MutableStateFlow(ConnectionState.IDLE)
     val state: StateFlow<ConnectionState> = _state.asStateFlow()
 
-    private val _latestLog = MutableStateFlow("Bootstrapping...")
+    private val _latestLog = MutableStateFlow(
+        TorTextSanitizer.sanitizeForPublicDisplay("Bootstrapping...")
+    )
     val latestLog: StateFlow<String> = _latestLog.asStateFlow()
 
     private val _errorMessage = MutableStateFlow<String?>(null)
@@ -64,6 +88,7 @@ class TorRuntimeManager @Inject constructor(
 
     private var logJob: Job? = null
     private var healthJob: Job? = null
+    private var networkPolicyJob: Job? = null
 
     suspend fun start() {
         startMutex.withLock {
@@ -72,36 +97,41 @@ class TorRuntimeManager @Inject constructor(
             }
             _state.value = ConnectionState.CONNECTING
             _errorMessage.value = null
-            _latestLog.value = "Bootstrapping..."
+            _latestLog.value = TorTextSanitizer.sanitizeForPublicDisplay("Bootstrapping...")
             _bootstrapProgress.value = 0
             startLogPump()
             runCatching {
                 withContext(ioDispatcher) {
                     val totalSecondsPerTorStartup = 4 * 60
                     val totalTriesPerTorStartup = 5
-                    val ok = onionProxyManager.startWithRepeat(
+                    val ok = torControlFacade.startWithRepeat(
                         totalSecondsPerTorStartup,
                         totalTriesPerTorStartup
                     )
                     if (!ok) {
                         throw IllegalStateException("Tor bootstrap exceeded retry budget")
                     }
-                    while (!onionProxyManager.isRunning) {
+                    while (!torControlFacade.isRunning()) {
                         delay(90)
                     }
-                    val socksPort = onionProxyManager.getIPv4LocalHostSocksPort()
+                    val socksPort = torControlFacade.getIpv4LocalHostSocksPort()
                     _proxy.value = Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", socksPort))
                     processRunning.set(true)
                 }
                 _state.value = ConnectionState.CONNECTED
                 _bootstrapProgress.value = 100
                 startHealthMonitor()
+                if (projectConnectivityPolicyEnabled) {
+                    startNetworkPolicyObserver()
+                }
             }.onFailure { error ->
                 val cancelled = error is CancellationException
                 if (cancelled) {
-                    SecureLog.i("TorRuntimeManager") { "Tor start cancelled" }
+                    SecureLog.iTor("TorRuntimeManager") { "Tor start cancelled" }
                 } else {
-                    SecureLog.e("TorRuntimeManager", error) { "Tor start failed" }
+                    SecureLog.eTor("TorRuntimeManager") {
+                        "Tor start failed: ${error.message ?: error.javaClass.simpleName}"
+                    }
                 }
                 processRunning.set(false)
                 _proxy.value = null
@@ -113,11 +143,14 @@ class TorRuntimeManager @Inject constructor(
                 _errorMessage.value = if (cancelled) {
                     null
                 } else {
-                    error.message ?: error.javaClass.simpleName
+                    TorTextSanitizer.sanitizeForPublicDisplay(
+                        error.message ?: error.javaClass.simpleName
+                    )
                 }
                 _bootstrapProgress.value = 0
                 stopLogPump()
                 stopHealthMonitor()
+                stopNetworkPolicyObserver()
             }
         }
     }
@@ -125,6 +158,7 @@ class TorRuntimeManager @Inject constructor(
     suspend fun stop() {
         startMutex.withLock {
             if (!processRunning.get()) {
+                stopNetworkPolicyObserver()
                 _state.value = ConnectionState.DISCONNECTED
                 _proxy.value = null
                 _latestLog.value = ""
@@ -132,9 +166,10 @@ class TorRuntimeManager @Inject constructor(
             }
             stopLogPump()
             stopHealthMonitor()
+            stopNetworkPolicyObserver()
             runCatching {
                 withContext(ioDispatcher) {
-                    onionProxyManager.stop()
+                    torControlFacade.stop()
                 }
             }
             processRunning.set(false)
@@ -151,7 +186,7 @@ class TorRuntimeManager @Inject constructor(
             if (!processRunning.get()) {
                 false
             } else {
-                onionProxyManager.newIdentity()
+                torControlFacade.newIdentity()
             }
         }
     }
@@ -180,10 +215,10 @@ class TorRuntimeManager @Inject constructor(
                     break
                 }
                 val latest = withContext(ioDispatcher) {
-                    runCatching { onionProxyManager.getLastLog() }.getOrDefault("")
+                    runCatching { torControlFacade.getLastLog() }.getOrDefault("")
                 }
                 if (latest.isNotBlank()) {
-                    _latestLog.value = latest
+                    _latestLog.value = TorTextSanitizer.sanitizeForPublicDisplay(latest)
                     extractBootstrapProgress(latest)?.let { progress ->
                         _bootstrapProgress.value = progress.coerceIn(0, 100)
                     }
@@ -234,6 +269,42 @@ class TorRuntimeManager @Inject constructor(
         healthJob = null
     }
 
+    private fun startNetworkPolicyObserver() {
+        if (networkPolicyJob?.isActive == true) return
+        val job = runtimeScope.launch {
+            networkOnlineFlow
+                .distinctUntilChanged()
+                .collect { online ->
+                    startMutex.withLock {
+                        if (!processRunning.get()) return@withLock
+                        applyNetworkPolicyLocked(online)
+                    }
+                }
+        }
+        job.invokeOnCompletion { networkPolicyJob = null }
+        networkPolicyJob = job
+    }
+
+    private fun stopNetworkPolicyObserver() {
+        networkPolicyJob?.cancel()
+        networkPolicyJob = null
+    }
+
+    private suspend fun applyNetworkPolicyLocked(online: Boolean) {
+        runCatching {
+            withContext(ioDispatcher) {
+                torControlFacade.setNetworkEnabled(online)
+            }
+        }.onFailure { error ->
+            if (error is CancellationException) {
+                throw error
+            }
+            SecureLog.wTor("TorRuntimeManager") {
+                "Unable to apply Tor network policy: ${error.message ?: error.javaClass.simpleName}"
+            }
+        }
+    }
+
     private suspend fun probeSocksPort(address: InetSocketAddress): Boolean =
         withContext(ioDispatcher) {
             runCatching {
@@ -247,9 +318,10 @@ class TorRuntimeManager @Inject constructor(
         processRunning.set(false)
         _proxy.value = null
         _state.value = ConnectionState.ERROR
-        _errorMessage.value = message
+        _errorMessage.value = TorTextSanitizer.sanitizeForPublicDisplay(message)
         _bootstrapProgress.value = 0
         stopLogPump()
+        stopNetworkPolicyObserver()
     }
 
     private fun candidateTorDirectories(): List<File> = buildList {

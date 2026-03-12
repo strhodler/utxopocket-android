@@ -3,6 +3,7 @@ package com.strhodler.utxopocket.common.logging
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class SecureLogTest {
@@ -25,5 +26,15 @@ class SecureLogTest {
 
         val short = SecureLog.fingerprint("abc", length = 1)
         assertTrue(short.length >= 4)
+    }
+
+    @Test
+    fun torSanitizationBranchRedactsSensitiveMetadata() {
+        val raw = "Bootstrapped 5%: dialing abcdefghijklmnop.onion:50001"
+
+        val sanitized = SecureLog.sanitizeTorMessage(raw)
+
+        assertFalse(sanitized.contains(".onion"))
+        assertTrue(sanitized.contains("[redacted]"))
     }
 }
