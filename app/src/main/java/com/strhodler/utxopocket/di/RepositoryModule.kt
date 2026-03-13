@@ -6,6 +6,7 @@ import com.strhodler.utxopocket.data.node.DefaultNodeConnectionTester
 import com.strhodler.utxopocket.data.preferences.DefaultAppPreferencesRepository
 import com.strhodler.utxopocket.data.tor.DefaultTorManager
 import com.strhodler.utxopocket.data.preferences.DefaultIncomingTxPreferencesRepository
+import com.strhodler.utxopocket.data.wallet.DefaultWalletLabelRepository
 import com.strhodler.utxopocket.data.wallet.DefaultWalletRepository
 import com.strhodler.utxopocket.data.wiki.DefaultWikiRepository
 import com.strhodler.utxopocket.data.glossary.DefaultGlossaryRepository
@@ -75,7 +76,7 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindWalletLabelRepository(
-        impl: DefaultWalletRepository
+        impl: DefaultWalletLabelRepository
     ): WalletLabelRepository
 
     @Binds

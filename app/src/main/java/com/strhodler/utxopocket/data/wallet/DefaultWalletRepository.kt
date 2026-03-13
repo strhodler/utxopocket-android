@@ -18,14 +18,10 @@ import androidx.paging.map
 import androidx.room.withTransaction
 import com.strhodler.utxopocket.data.db.WalletDao
 import com.strhodler.utxopocket.data.db.UtxoCanvasDao
-import com.strhodler.utxopocket.data.db.UtxoRefProjection
 import com.strhodler.utxopocket.data.db.WalletEntity
-import com.strhodler.utxopocket.data.db.WalletTransactionEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionInputEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionOutputEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionWithRelations
-import com.strhodler.utxopocket.data.db.WalletUtxoEntity
-import com.strhodler.utxopocket.data.db.PendingBip329LabelEntity
 import com.strhodler.utxopocket.data.db.toDomain
 import com.strhodler.utxopocket.data.db.UtxoPocketDatabase
 import com.strhodler.utxopocket.data.logs.NetworkErrorLogDatabase
@@ -56,8 +52,6 @@ import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletColor
 import com.strhodler.utxopocket.domain.model.WalletCreationRequest
 import com.strhodler.utxopocket.domain.model.WalletCreationResult
-import com.strhodler.utxopocket.domain.model.Bip329LabelEntry
-import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.WalletBackupExportRequest
 import com.strhodler.utxopocket.domain.model.WalletBackupExportResult
 import com.strhodler.utxopocket.domain.model.WalletBackupImportRequest
@@ -65,7 +59,6 @@ import com.strhodler.utxopocket.domain.model.WalletBackupImportResult
 import com.strhodler.utxopocket.domain.model.WalletBackupPreviewRequest
 import com.strhodler.utxopocket.domain.model.WalletBackupPreviewResult
 import com.strhodler.utxopocket.domain.model.WalletDetail
-import com.strhodler.utxopocket.domain.model.WalletLabelExport
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
@@ -76,7 +69,6 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletAddressRepository
-import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
 import com.strhodler.utxopocket.domain.repository.WalletMaintenanceRepository
 import com.strhodler.utxopocket.domain.repository.WalletBackupRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
@@ -114,18 +106,13 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
 import java.io.File
-import java.util.concurrent.ConcurrentHashMap
-import kotlin.text.Charsets
-import java.util.UUID
 import org.bitcoindevkit.Descriptor
 import org.bitcoindevkit.KeychainKind
 import org.bitcoindevkit.Persister
 import org.bitcoindevkit.ServerFeaturesRes
 import org.bitcoindevkit.Wallet
 import org.bitcoindevkit.use
-import org.json.JSONObject
 import java.util.Locale
-import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -158,13 +145,11 @@ class DefaultWalletRepository @Inject constructor(
     WalletSyncRepository,
     WalletProvisioningRepository,
     WalletAddressRepository,
-    WalletLabelRepository,
     WalletMaintenanceRepository,
     WalletBackupRepository {
 
     companion object {
         private const val TAG = "DefaultWalletRepository"
-        private const val MAX_LABEL_LENGTH = 255
         private const val DEFAULT_PAGING_PAGE_SIZE = 50
         private const val MILLIS_PER_MINUTE = 60_000L
         private val EXTENDED_PRIVATE_KEY_REGEX =
@@ -173,126 +158,61 @@ class DefaultWalletRepository @Inject constructor(
             Regex("\\b[KL][1-9A-HJ-NP-Za-km-z]{50,51}\\b")
         private val EXTERNAL_PATH_REGEX = Regex("/0+/?\\*")
         private val CHANGE_PATH_REGEX = Regex("/1+/?\\*")
-        private val WHITESPACE_REGEX = Regex("\\s+")
         private val MULTIPATH_SEGMENT_REGEX = Regex("/<[^>]+>/")
         private const val MAX_FULL_SCAN_STOP_GAP = 500
-        private val ORIGIN_FINGERPRINT_REGEX = Regex("\\[([0-9a-fA-F]{8})(?:/|])")
 
         @VisibleForTesting
-        internal fun normalizeOrigin(value: String?): String? {
-            if (value.isNullOrBlank()) return null
-            val trimmed = value.substringBefore("#").trim().replace("’", "'")
-            val descriptorPrefix = run {
-                val bracketIndex = trimmed.indexOf(']')
-                if (bracketIndex == -1) {
-                    trimmed
-                } else {
-                    val prefix = trimmed.substring(0, bracketIndex + 1)
-                    val openParens = prefix.count { it == '(' } - prefix.count { it == ')' }
-                    val closing = ")".repeat(openParens.coerceAtLeast(0))
-                    prefix + closing
-                }
-            }
-            val collapsedWhitespace = WHITESPACE_REGEX.replace(descriptorPrefix, "")
-            return collapsedWhitespace
-                .replace("'", "h")
-                .lowercase(Locale.US)
-        }
+        internal fun normalizeOrigin(value: String?): String? =
+            WalletDescriptorOriginUtils.normalizeOrigin(value)
 
         @VisibleForTesting
-        internal fun originsCompatible(recordOrigin: String?, walletOrigin: String?): Boolean {
-            val normalizedRecord = normalizeOrigin(recordOrigin)
-            val normalizedWallet = normalizeOrigin(walletOrigin)
-            if (normalizedRecord.isNullOrBlank() || normalizedWallet.isNullOrBlank()) return true
-            if (normalizedRecord == normalizedWallet) return true
-            if (normalizedRecord.startsWith(normalizedWallet) || normalizedWallet.startsWith(normalizedRecord)) return true
-            return false
-        }
+        internal fun originsCompatible(recordOrigin: String?, walletOrigin: String?): Boolean =
+            WalletDescriptorOriginUtils.originsCompatible(recordOrigin, walletOrigin)
 
         @VisibleForTesting
-        internal fun extractMasterFingerprints(descriptor: String?): List<String> {
-            if (descriptor.isNullOrBlank()) return emptyList()
-            val seen = linkedSetOf<String>()
-            ORIGIN_FINGERPRINT_REGEX.findAll(descriptor).forEach { matchResult ->
-                val fingerprint = matchResult.groupValues.getOrNull(1)?.uppercase(Locale.US)
-                if (!fingerprint.isNullOrBlank()) {
-                    seen.add(fingerprint)
-                }
-            }
-            return seen.toList()
-        }
+        internal fun extractMasterFingerprints(descriptor: String?): List<String> =
+            WalletDescriptorOriginUtils.extractMasterFingerprints(descriptor)
 
         @VisibleForTesting
         internal fun collectMasterFingerprints(
             descriptor: String?,
             changeDescriptor: String?
-        ): List<String> {
-            val combined = linkedSetOf<String>()
-            extractMasterFingerprints(descriptor).forEach(combined::add)
-            extractMasterFingerprints(changeDescriptor).forEach(combined::add)
-            return combined.toList()
-        }
+        ): List<String> =
+            WalletDescriptorOriginUtils.collectMasterFingerprints(descriptor, changeDescriptor)
     }
 
-    private val nodeStatus = MutableStateFlow(
-        NodeStatusSnapshot(
-            status = NodeStatus.Idle,
-            network = BitcoinNetwork.DEFAULT
-        )
-    )
-    private lateinit var nodeSyncRunner: NodeSyncRunner
-    private val appInForeground = AtomicBoolean(true)
-    private val panicWipeInProgress = AtomicBoolean(false)
-    private val panicWipeState = MutableStateFlow(false)
-    @Volatile
-    private var backgroundGraceExpiryMillis: Long = 0L
-    @Volatile
-    private var backgroundGraceDurationMillis: Long =
-        AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES * MILLIS_PER_MINUTE
-    @Volatile
-    private var backgroundIdleJob: Job? = null
-    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val walletSyncOrchestrator = WalletSyncOrchestrator(
+    private val walletLabelManager = WalletLabelRepositorySupport.createManager(
         walletDao = walletDao,
+        ioDispatcher = ioDispatcher
+    )
+    private val repositoryRuntime = WalletRepositoryRuntime(
+        walletDao = walletDao,
+        walletFactory = walletFactory,
+        blockchainFactory = blockchainFactory,
+        torManager = torManager,
+        torProxyProvider = torProxyProvider,
         nodeConfigurationRepository = nodeConfigurationRepository,
         networkStatusMonitor = networkStatusMonitor,
         appPreferencesRepository = appPreferencesRepository,
-        nodeStatus = nodeStatus,
-        scope = repositoryScope,
+        networkErrorLogRepository = networkErrorLogRepository,
+        walletSyncPreferencesRepository = walletSyncPreferencesRepository,
         ioDispatcher = ioDispatcher,
-        refreshAction = { network, targetWalletIds, syncWallets ->
-            nodeSyncRunner.refresh(network, targetWalletIds, syncWallets)
-        },
-        recordNetworkFailure = { error, durationMs, attemptIndex, networkType ->
-            nodeSyncRunner.recordNetworkFailure(error, durationMs, attemptIndex, networkType)
-        },
+        maxFullScanStopGap = MAX_FULL_SCAN_STOP_GAP,
+        sanitizeLabel = WalletLabelRepositorySupport::sanitizeLabel,
+        applyPendingLabels = walletLabelManager::applyPendingLabels,
+        onWalletSyncSuccess = ::reconcileIncomingPlaceholders,
         logTag = TAG
     )
-    private val walletLabelManager = WalletLabelManager(
-        walletDao = walletDao,
-        ioDispatcher = ioDispatcher,
-        sanitizeLabel = ::sanitizeLabel,
-        originsCompatible = { recordOrigin, walletOrigin ->
-            originsCompatible(recordOrigin, walletOrigin)
-        }
-    )
-    private val walletSessionRunner = object : WalletSessionRunner {
-        override suspend fun <T> withWallet(
-            entity: WalletEntity,
-            sealAfterUse: Boolean,
-            block: suspend (Wallet, Persister, WalletMaterializationSource?) -> T
-        ): T = this@DefaultWalletRepository.withWallet(entity, sealAfterUse, block)
-    }
     private val walletAddressManager = WalletAddressManager(
         walletDao = walletDao,
-        sessionRunner = walletSessionRunner,
+        sessionRunner = repositoryRuntime,
         ioDispatcher = ioDispatcher,
         logTag = TAG
     )
     private val walletReadManager = WalletReadManager(
         walletDao = walletDao,
         ioDispatcher = ioDispatcher,
-        panicWipeState = panicWipeState,
+        panicWipeState = repositoryRuntime.panicWipeState,
         collectMasterFingerprints = { descriptor, changeDescriptor ->
             collectMasterFingerprints(descriptor, changeDescriptor)
         }
@@ -301,7 +221,7 @@ class DefaultWalletRepository @Inject constructor(
         walletDao = walletDao,
         database = database,
         walletSyncPreferencesRepository = walletSyncPreferencesRepository,
-        walletSyncOrchestrator = walletSyncOrchestrator,
+        walletSyncOrchestrator = repositoryRuntime.walletSyncOrchestrator,
         ioDispatcher = ioDispatcher,
         maxFullScanStopGap = MAX_FULL_SCAN_STOP_GAP
     )
@@ -325,29 +245,29 @@ class DefaultWalletRepository @Inject constructor(
             walletFactory.removeStorage(walletId, network)
         },
         removeFromSyncQueue = { walletId, network ->
-            walletSyncOrchestrator.removeFromSyncQueue(walletId, network)
+            repositoryRuntime.walletSyncOrchestrator.removeFromSyncQueue(walletId, network)
         },
         cancelSyncIfActive = { walletId, network ->
-            walletSyncOrchestrator.cancelSyncIfActive(walletId, network)
+            repositoryRuntime.walletSyncOrchestrator.cancelSyncIfActive(walletId, network)
         },
         drainNetworkQueue = { network ->
-            walletSyncOrchestrator.drainNetworkQueue(network)
+            repositoryRuntime.walletSyncOrchestrator.drainNetworkQueue(network)
         },
         reenqueueDrainedWallets = { network, drainedQueue, deletedWalletId ->
-            walletSyncOrchestrator.reenqueueDrainedWallets(network, drainedQueue, deletedWalletId)
+            repositoryRuntime.walletSyncOrchestrator.reenqueueDrainedWallets(network, drainedQueue, deletedWalletId)
         },
         database = database,
         appPreferencesRepository = appPreferencesRepository,
         torManager = torManager,
         applicationContext = applicationContext,
         ioDispatcher = ioDispatcher,
-        panicWipeInProgress = panicWipeInProgress,
-        panicWipeState = panicWipeState,
-        markWalletDeletionPending = ::markWalletDeletionPending,
-        clearWalletDeletionPending = ::clearWalletDeletionPending,
-        invalidateWalletCache = ::invalidateWalletCache,
-        releaseAllCachedWallets = ::releaseAllCachedWallets,
-        cancelBackgroundJobs = { repositoryScope.coroutineContext.cancelChildren() },
+        panicWipeInProgress = repositoryRuntime.panicWipeInProgress,
+        panicWipeState = repositoryRuntime.panicWipeState,
+        markWalletDeletionPending = repositoryRuntime::markWalletDeletionPending,
+        clearWalletDeletionPending = repositoryRuntime::clearWalletDeletionPending,
+        invalidateWalletCache = repositoryRuntime::invalidateWalletCache,
+        releaseAllCachedWallets = repositoryRuntime::releaseAllCachedWallets,
+        cancelBackgroundJobs = repositoryRuntime::cancelBackgroundJobs,
         resetEncryptedDatabase = ::resetEncryptedDatabase,
         clearCacheDirectories = ::clearCacheDirectories,
         terminateProcess = { Process.killProcess(Process.myPid()) },
@@ -355,65 +275,8 @@ class DefaultWalletRepository @Inject constructor(
     )
 
     init {
-        nodeSyncRunner = NodeSyncRunner(
-            blockchainFactory = blockchainFactory,
-            torManager = torManager,
-            torProxyProvider = torProxyProvider,
-            nodeConfigurationRepository = nodeConfigurationRepository,
-            networkStatusMonitor = networkStatusMonitor,
-            walletSyncPreferencesRepository = walletSyncPreferencesRepository,
-            walletDao = walletDao,
-            networkErrorLogRepository = networkErrorLogRepository,
-            nodeStatus = nodeStatus,
-            sanitizeLabel = ::sanitizeLabel,
-            applyPendingLabels = ::applyPendingLabels,
-            invalidateWalletCache = ::invalidateWalletCache,
-            withWallet = ::withWallet,
-            isWalletDeletionPending = ::isWalletDeletionPending,
-            isSyncAllowed = ::isSyncAllowed,
-            maxFullScanStopGap = MAX_FULL_SCAN_STOP_GAP,
-            ioDispatcher = ioDispatcher,
-            logTag = TAG
-        )
-        walletSyncOrchestrator.start()
-        repositoryScope.launch {
-            rehydratePendingSyncSessions()
-        }
-        repositoryScope.launch {
-            walletSyncOrchestrator.observeWalletSyncSuccesses().collect { event ->
-                reconcileIncomingPlaceholders(event.walletId)
-            }
-        }
-        repositoryScope.launch {
-            appPreferencesRepository.connectionIdleTimeoutMinutes.collect { minutes ->
-                backgroundGraceDurationMillis =
-                    minutes.coerceAtLeast(AppPreferencesRepository.MIN_CONNECTION_IDLE_MINUTES) *
-                        MILLIS_PER_MINUTE
-            }
-        }
+        repositoryRuntime.start()
     }
-
-    private suspend fun rehydratePendingSyncSessions() = withContext(ioDispatcher) {
-        val pending = walletDao.getPendingSyncSessions()
-        if (pending.isEmpty()) return@withContext
-        SecureLog.w(TAG) { "Found ${pending.size} wallets with unapplied sync session; forcing full scan." }
-        pending.forEach { wallet ->
-            val walletAlias = WalletLogAliasProvider.alias(wallet.id)
-            runCatching { walletDao.resetSyncSessionAndForceFullScan(wallet.id) }
-                .onFailure { error ->
-                    SecureLog.w(TAG, error) { "Failed to reset pending sync session for $walletAlias" }
-                }
-        }
-    }
-
-    private data class CachedWallet(
-        val managed: BdkManagedWallet,
-        val lock: Mutex = Mutex()
-    )
-
-    private val walletCacheMutex = Mutex()
-    private val walletCache = mutableMapOf<Long, CachedWallet>()
-    private val deletingWallets = ConcurrentHashMap<Long, Boolean>()
 
     override fun observeWalletSummaries(network: BitcoinNetwork): Flow<List<WalletSummary>> =
         walletReadManager.observeWalletSummaries(network)
@@ -464,10 +327,11 @@ class DefaultWalletRepository @Inject constructor(
     override fun observeWalletDetail(id: Long): Flow<WalletDetail?> =
         walletReadManager.observeWalletDetail(id)
 
-    override fun observeNodeStatus(): Flow<NodeStatusSnapshot> = nodeStatus.asStateFlow()
+    override fun observeNodeStatus(): Flow<NodeStatusSnapshot> =
+        repositoryRuntime.observeNodeStatus()
 
     override fun observeSyncStatus(): Flow<SyncStatusSnapshot> =
-        walletSyncOrchestrator.observeSyncStatus()
+        repositoryRuntime.observeSyncStatus()
 
     private suspend fun reconcileIncomingPlaceholders(walletId: Long) = withContext(ioDispatcher) {
         val placeholders = incomingTxCoordinator.placeholders.value[walletId].orEmpty()
@@ -495,92 +359,21 @@ class DefaultWalletRepository @Inject constructor(
         }
     }
 
-    private suspend fun cachedWalletFor(entity: WalletEntity): CachedWallet =
-        walletCacheMutex.withLock {
-            walletCache[entity.id]?.let { return it }
-            val created = CachedWallet(walletFactory.create(entity))
-            walletCache[entity.id] = created
-            created
-        }
-
-    private suspend fun <T> withWallet(
-        entity: WalletEntity,
-        sealAfterUse: Boolean = false,
-        block: suspend (Wallet, Persister, WalletMaterializationSource?) -> T
-    ): T {
-        ensureNotWiping()
-        seedSyncGapIfMissing(entity, walletSyncPreferencesRepository)
-        if (sealAfterUse) {
-            val managed = walletFactory.create(entity)
-            return try {
-                block(managed.wallet, managed.persister, managed.materializationSource)
-            } finally {
-                runCatching { managed.wallet.destroy() }
-                runCatching { managed.release() }
-            }
-        }
-        val cached = cachedWalletFor(entity)
-        return cached.lock.withLock {
-            block(cached.managed.wallet, cached.managed.persister, cached.managed.materializationSource)
-        }
-    }
-
-    private suspend fun invalidateWalletCache(id: Long) {
-        val cached = walletCacheMutex.withLock {
-            walletCache.remove(id)
-        } ?: return
-        cached.lock.withLock {
-            runCatching { cached.managed.wallet.destroy() }
-            runCatching { cached.managed.release() }
-        }
-    }
-
-    private suspend fun releaseAllCachedWallets() {
-        walletCacheMutex.withLock {
-            walletCache.values.forEach { cached ->
-                cached.lock.withLock {
-                    runCatching { cached.managed.wallet.destroy() }
-                    runCatching { cached.managed.release() }
-                }
-            }
-            walletCache.clear()
-        }
-    }
-
-    private fun markWalletDeletionPending(id: Long) {
-        deletingWallets[id] = true
-    }
-
-    private fun ensureNotWiping() {
-        if (panicWipeInProgress.get()) {
-            throw CancellationException("Panic wipe in progress")
-        }
-    }
-
-    private fun clearWalletDeletionPending(id: Long) {
-        deletingWallets.remove(id)
-    }
-
-    private fun isWalletDeletionPending(id: Long): Boolean = deletingWallets.containsKey(id)
-
     override suspend fun refresh(network: BitcoinNetwork) {
-        walletSyncOrchestrator.refresh(network)
+        repositoryRuntime.refresh(network)
     }
 
     override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean =
         nodeConfigurationRepository.nodeConfig.first().hasActiveSelection(network)
 
     override suspend fun disconnect(network: BitcoinNetwork) {
-        walletSyncOrchestrator.disconnect(network)
+        repositoryRuntime.disconnect(network)
     }
 
     override suspend fun refreshWallet(walletId: Long, operation: SyncOperation) {
-        walletSyncOrchestrator.refreshWallet(walletId, operation)
+        repositoryRuntime.refreshWallet(walletId, operation)
     }
 
-    private suspend fun applyPendingLabels(walletId: Long) {
-        walletLabelManager.applyPendingLabels(walletId)
-    }
     override suspend fun validateDescriptor(
         descriptor: String,
         changeDescriptor: String?,
@@ -629,41 +422,8 @@ class DefaultWalletRepository @Inject constructor(
     override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> =
         walletAddressManager.highestUsedIndices(walletId)
 
-    override suspend fun updateUtxoLabel(
-        walletId: Long,
-        txid: String,
-        vout: Int,
-        label: String?
-    ) = walletLabelManager.updateUtxoLabel(walletId, txid, vout, label)
-
-    override suspend fun updateTransactionLabel(
-        walletId: Long,
-        txid: String,
-        label: String?
-    ) = walletLabelManager.updateTransactionLabel(walletId, txid, label)
-
-    override suspend fun updateUtxoSpendable(
-        walletId: Long,
-        txid: String,
-        vout: Int,
-        spendable: Boolean?
-    ) = walletLabelManager.updateUtxoSpendable(walletId, txid, vout, spendable)
-
     override suspend fun renameWallet(id: Long, name: String) =
         walletProvisioningManager.renameWallet(id, name)
-
-    override suspend fun exportWalletLabels(walletId: Long): WalletLabelExport =
-        walletLabelManager.exportWalletLabels(walletId)
-
-    override suspend fun importWalletLabels(
-        walletId: Long,
-        payload: ByteArray,
-        overwriteExisting: Boolean
-    ): Bip329ImportResult = walletLabelManager.importWalletLabels(
-        walletId = walletId,
-        payload = payload,
-        overwriteExisting = overwriteExisting
-    )
 
     override suspend fun exportEncryptedBackup(
         request: WalletBackupExportRequest
@@ -676,46 +436,12 @@ class DefaultWalletRepository @Inject constructor(
     override suspend fun importEncryptedBackup(
         request: WalletBackupImportRequest
     ): WalletBackupImportResult {
-        releaseAllCachedWallets()
+        repositoryRuntime.releaseAllCachedWallets()
         return walletBackupManager.importEncryptedBackup(request)
     }
 
     override fun setSyncForegroundState(isForeground: Boolean) {
-        val previous = appInForeground.getAndSet(isForeground)
-        if (previous == isForeground) {
-            return
-        }
-        SecureLog.d(TAG) { "Wallet sync foreground state -> $isForeground" }
-        if (isForeground) {
-            backgroundGraceExpiryMillis = 0L
-            backgroundIdleJob?.cancel()
-            backgroundIdleJob = null
-        } else {
-            backgroundGraceExpiryMillis = SystemClock.elapsedRealtime() + backgroundGraceDurationMillis
-            backgroundIdleJob?.cancel()
-            backgroundIdleJob = repositoryScope.launch {
-                delay(backgroundGraceDurationMillis)
-                if (!appInForeground.get()) {
-                    val snapshot = nodeStatus.value
-                    nodeStatus.value = snapshot.copy(status = NodeStatus.Idle)
-                }
-            }
-        }
-    }
-
-    private fun isSyncAllowed(network: BitcoinNetwork): Boolean {
-        if (appInForeground.get()) {
-            return true
-        }
-        val expiry = backgroundGraceExpiryMillis
-        return expiry != 0L && SystemClock.elapsedRealtime() < expiry
-    }
-
-    private fun sanitizeLabel(value: String?): String? {
-        if (value == null) return null
-        val normalized = WHITESPACE_REGEX.replace(value, " ").trim()
-        if (normalized.isEmpty()) return null
-        return normalized.take(MAX_LABEL_LENGTH)
+        repositoryRuntime.setSyncForegroundState(isForeground)
     }
 
     private fun resetEncryptedDatabase() {
