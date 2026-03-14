@@ -21,7 +21,7 @@ data class SettingsUiState(
     val networkLogsEnabled: Boolean = false,
     val pinEnabled: Boolean = false,
     val pinShuffleEnabled: Boolean = false,
-    val snakeGateEnabled: Boolean = false,
+    val calculatorGateEnabled: Boolean = false,
     val pinAutoLockTimeoutMinutes: Int = AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES,
     val connectionIdleTimeoutMinutes: Int = AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES,
     val dustThresholdSats: Long = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS,

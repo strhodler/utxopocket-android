@@ -602,7 +602,7 @@ class WalletDetailViewModelRangeTest {
         private val balanceRangeState = MutableStateFlow(BalanceRange.All)
         private val showBalanceChartState = MutableStateFlow(false)
         private val pinShuffleEnabledState = MutableStateFlow(false)
-        private val snakeGateEnabledState = MutableStateFlow(false)
+        private val calculatorGateEnabledState = MutableStateFlow(false)
         private val hapticsEnabledState = MutableStateFlow(false)
         private val advancedModeState = MutableStateFlow(false)
         private val pinAutoLockTimeoutMinutesState =
@@ -629,7 +629,7 @@ class WalletDetailViewModelRangeTest {
         override val walletBalanceRange: Flow<BalanceRange> = balanceRangeState
         override val showBalanceChart: Flow<Boolean> = showBalanceChartState
         override val pinShuffleEnabled: Flow<Boolean> = pinShuffleEnabledState
-        override val snakeGateEnabled: Flow<Boolean> = snakeGateEnabledState
+        override val calculatorGateEnabled: Flow<Boolean> = calculatorGateEnabledState
         override val hapticsEnabled: Flow<Boolean> = hapticsEnabledState
         override val advancedMode: Flow<Boolean> = advancedModeState
         override val pinAutoLockTimeoutMinutes: Flow<Int> = pinAutoLockTimeoutMinutesState
@@ -719,8 +719,8 @@ class WalletDetailViewModelRangeTest {
             pinShuffleEnabledState.value = enabled
         }
 
-        override suspend fun setSnakeGateEnabled(enabled: Boolean) {
-            snakeGateEnabledState.value = enabled
+        override suspend fun setCalculatorGateEnabled(enabled: Boolean) {
+            calculatorGateEnabledState.value = enabled
         }
 
         override suspend fun setConnectionIdleTimeoutMinutes(minutes: Int) {

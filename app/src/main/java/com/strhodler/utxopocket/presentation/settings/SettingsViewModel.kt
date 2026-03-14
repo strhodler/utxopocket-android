@@ -68,8 +68,8 @@ class SettingsViewModel @Inject constructor(
         .combine(appPreferencesRepository.pinShuffleEnabled) { snapshot, pinShuffleEnabled ->
             snapshot.copy(pinShuffleEnabled = pinShuffleEnabled)
         }
-        .combine(appPreferencesRepository.snakeGateEnabled) { snapshot, snakeGateEnabled ->
-            snapshot.copy(snakeGateEnabled = snakeGateEnabled)
+        .combine(appPreferencesRepository.calculatorGateEnabled) { snapshot, calculatorGateEnabled ->
+            snapshot.copy(calculatorGateEnabled = calculatorGateEnabled)
         }
         .combine(appPreferencesRepository.advancedMode) { snapshot, advancedMode ->
             snapshot.copy(advancedMode = advancedMode)
@@ -124,7 +124,7 @@ class SettingsViewModel @Inject constructor(
                     hapticsEnabled = snapshot.hapticsEnabled,
                     pinAutoLockTimeoutMinutes = snapshot.pinAutoLockTimeoutMinutes,
                     pinShuffleEnabled = snapshot.pinShuffleEnabled,
-                    snakeGateEnabled = snapshot.snakeGateEnabled,
+                    calculatorGateEnabled = snapshot.calculatorGateEnabled,
                     connectionIdleTimeoutMinutes = snapshot.connectionIdleTimeoutMinutes,
                     networkLogsEnabled = snapshot.networkLogsEnabled,
                     dustThresholdSats = snapshot.dustThresholdSats,
@@ -160,7 +160,7 @@ class SettingsViewModel @Inject constructor(
         val hapticsEnabled: Boolean = false,
         val pinAutoLockTimeoutMinutes: Int = MIN_PIN_AUTO_LOCK_MINUTES,
         val pinShuffleEnabled: Boolean = false,
-        val snakeGateEnabled: Boolean = false,
+        val calculatorGateEnabled: Boolean = false,
         val connectionIdleTimeoutMinutes: Int = MIN_CONNECTION_IDLE_MINUTES,
         val networkLogsEnabled: Boolean = false,
         val dustThresholdSats: Long = 0L,
@@ -211,10 +211,10 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun onSnakeGateChanged(enabled: Boolean) {
-        _uiState.update { it.copy(snakeGateEnabled = enabled) }
+    fun onCalculatorGateChanged(enabled: Boolean) {
+        _uiState.update { it.copy(calculatorGateEnabled = enabled) }
         viewModelScope.launch {
-            appPreferencesRepository.setSnakeGateEnabled(enabled)
+            appPreferencesRepository.setCalculatorGateEnabled(enabled)
         }
     }
 

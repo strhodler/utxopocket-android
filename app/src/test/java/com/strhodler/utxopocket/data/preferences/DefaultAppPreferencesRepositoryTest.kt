@@ -152,30 +152,30 @@ class DefaultAppPreferencesRepositoryTest {
     }
 
     @Test
-    fun snakeGateDefaultsToFalseAndPersistsUpdates() = runTest {
+    fun calculatorGateDefaultsToFalseAndPersistsUpdates() = runTest {
         val repository = createRepository(RecordingDispatcher())
         repository.wipeAll()
 
-        assertEquals(false, repository.snakeGateEnabled.first())
+        assertEquals(false, repository.calculatorGateEnabled.first())
 
-        repository.setSnakeGateEnabled(enabled = true)
-        assertEquals(true, repository.snakeGateEnabled.first())
+        repository.setCalculatorGateEnabled(enabled = true)
+        assertEquals(true, repository.calculatorGateEnabled.first())
 
-        repository.setSnakeGateEnabled(enabled = false)
-        assertEquals(false, repository.snakeGateEnabled.first())
+        repository.setCalculatorGateEnabled(enabled = false)
+        assertEquals(false, repository.calculatorGateEnabled.first())
     }
 
     @Test
-    fun wipeAllClearsSnakeGatePreference() = runTest {
+    fun wipeAllClearsCalculatorGatePreference() = runTest {
         val repository = createRepository(RecordingDispatcher())
         repository.wipeAll()
-        repository.setSnakeGateEnabled(enabled = true)
+        repository.setCalculatorGateEnabled(enabled = true)
 
-        assertEquals(true, repository.snakeGateEnabled.first())
+        assertEquals(true, repository.calculatorGateEnabled.first())
 
         repository.wipeAll()
 
-        assertEquals(false, repository.snakeGateEnabled.first())
+        assertEquals(false, repository.calculatorGateEnabled.first())
     }
 
     private fun createRepository(dispatcher: CoroutineDispatcher): DefaultAppPreferencesRepository {

@@ -17,7 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
-import com.strhodler.utxopocket.presentation.appshell.overlay.snake.SnakeGateScreen
+import com.strhodler.utxopocket.presentation.appshell.overlay.calculator.CalculatorGateScreen
 import com.strhodler.utxopocket.presentation.motion.rememberReducedMotionEnabled
 import com.strhodler.utxopocket.presentation.motion.sharedAxisXEnter
 import com.strhodler.utxopocket.presentation.motion.sharedAxisXExit
@@ -32,7 +32,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun PinOverlayHost(
     visible: Boolean,
-    snakeGateEnabled: Boolean,
+    calculatorGateEnabled: Boolean,
     hapticsEnabled: Boolean,
     shuffleDigits: Boolean,
     onUnlockWithPin: (String, (PinVerificationResult) -> Unit) -> Unit,
@@ -40,11 +40,11 @@ fun PinOverlayHost(
 ) {
     val reducedMotion = rememberReducedMotionEnabled()
     var overlayFlowState by remember { mutableStateOf(PinOverlayFlowState()) }
-    val projectedOverlayFlowState = remember(overlayFlowState, visible, snakeGateEnabled) {
+    val projectedOverlayFlowState = remember(overlayFlowState, visible, calculatorGateEnabled) {
         transitionOverlayVisibility(
             state = overlayFlowState,
             visible = visible,
-            snakeGateEnabled = snakeGateEnabled
+            calculatorGateEnabled = calculatorGateEnabled
         )
     }
     SideEffect {
@@ -80,7 +80,7 @@ fun PinOverlayHost(
 
     val overlayTarget = when {
         !projectedOverlayFlowState.overlayVisible -> PinOverlayTarget.Hidden
-        projectedOverlayFlowState.stage == PinOverlayStage.SnakeGate -> PinOverlayTarget.SnakeGate
+        projectedOverlayFlowState.stage == PinOverlayStage.CalculatorGate -> PinOverlayTarget.CalculatorGate
         else -> PinOverlayTarget.PinPrompt
     }
 
@@ -103,10 +103,10 @@ fun PinOverlayHost(
                 Box(modifier = Modifier.fillMaxSize())
             }
 
-            PinOverlayTarget.SnakeGate -> {
-                SnakeGateScreen(
+            PinOverlayTarget.CalculatorGate -> {
+                CalculatorGateScreen(
                     onSolved = {
-                        overlayFlowState = transitionSnakeGateSolved(projectedOverlayFlowState)
+                        overlayFlowState = transitionCalculatorGateSolved(projectedOverlayFlowState)
                     }
                 )
             }
@@ -142,6 +142,6 @@ fun PinOverlayHost(
 
 private enum class PinOverlayTarget {
     Hidden,
-    SnakeGate,
+    CalculatorGate,
     PinPrompt
 }

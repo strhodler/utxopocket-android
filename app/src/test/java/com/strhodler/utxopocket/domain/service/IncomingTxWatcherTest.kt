@@ -471,7 +471,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val walletBalanceRange: Flow<BalanceRange> = flowOf(BalanceRange.All)
     override val showBalanceChart: Flow<Boolean> = flowOf(false)
     override val pinShuffleEnabled: Flow<Boolean> = flowOf(true)
-    override val snakeGateEnabled: Flow<Boolean> = flowOf(false)
+    override val calculatorGateEnabled: Flow<Boolean> = flowOf(false)
     override val advancedMode: Flow<Boolean> = flowOf(false)
     override val pinAutoLockTimeoutMinutes: Flow<Int> = flowOf(0)
     override val connectionIdleTimeoutMinutes: Flow<Int> = flowOf(10)
@@ -502,7 +502,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override suspend fun setWalletBalanceRange(range: BalanceRange) = Unit
     override suspend fun setShowBalanceChart(show: Boolean) = Unit
     override suspend fun setPinShuffleEnabled(enabled: Boolean) = Unit
-    override suspend fun setSnakeGateEnabled(enabled: Boolean) = Unit
+    override suspend fun setCalculatorGateEnabled(enabled: Boolean) = Unit
     override suspend fun setAdvancedMode(enabled: Boolean) = Unit
     override suspend fun setDustThresholdSats(thresholdSats: Long) = Unit
     override suspend fun setConnectionIdleTimeoutMinutes(minutes: Int) = Unit

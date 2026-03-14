@@ -144,7 +144,7 @@ fun MainAppShell(
 
             PinOverlayHost(
                 visible = pinOverlayVisible,
-                snakeGateEnabled = state.snakeGateEnabled,
+                calculatorGateEnabled = state.calculatorGateEnabled,
                 hapticsEnabled = state.hapticsEnabled,
                 shuffleDigits = state.pinShuffleEnabled,
                 onUnlockWithPin = onUnlockWithPin

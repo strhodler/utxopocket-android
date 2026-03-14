@@ -378,22 +378,22 @@ class MainActivityStatusProjectionTest {
     }
 
     @Test
-    fun typedUiProjection_projectsSnakeGatePreferenceIntoShellState() {
+    fun typedUiProjection_projectsCalculatorGatePreferenceIntoShellState() {
         val uiState = projectMainActivityUiState(
             inputs = MainUiInputs(onboardingCompleted = true),
-            prefs = MainUiPrefs(snakeGateEnabled = true)
+            prefs = MainUiPrefs(calculatorGateEnabled = true)
         )
 
-        assertEquals(true, uiState.appShellState.snakeGateEnabled)
+        assertEquals(true, uiState.appShellState.calculatorGateEnabled)
     }
 
     @Test
-    fun typedUiProjection_defaultsSnakeGateDisabledWhenPreferenceMissing() {
+    fun typedUiProjection_defaultsCalculatorGateDisabledWhenPreferenceMissing() {
         val uiState = projectMainActivityUiState(
             inputs = MainUiInputs(onboardingCompleted = true),
             prefs = MainUiPrefs()
         )
 
-        assertEquals(false, uiState.appShellState.snakeGateEnabled)
+        assertEquals(false, uiState.appShellState.calculatorGateEnabled)
     }
 }

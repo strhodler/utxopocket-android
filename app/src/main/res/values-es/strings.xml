@@ -662,6 +662,8 @@
     <string name="feature_bip329_description">Importa, edita y exporta etiquetas mediante el formato JSON BIP-329 para mantener la nomenclatura sincronizada entre dispositivos y firmantes.</string>
     <string name="feature_backup_title">Copias de seguridad watch-only cifradas</string>
     <string name="feature_backup_description">Exporta e importa respaldos .ubak cifrados para recuperar descriptores, etiquetas, colecciones y preferencias seleccionadas de forma segura.</string>
+    <string name="feature_security_title">Controles de seguridad por capas</string>
+    <string name="feature_security_description">Usa bloqueo PIN opcional con espera progresiva, modo PIN de coacción oculto, borrado de pánico y desafío de calculadora opcional antes de introducir el PIN.</string>
     <string name="feature_connectivity_title">Conectividad privada</string>
     <string name="feature_connectivity_description">Usa Tor por defecto con servidores Electrum curados o endpoints onion personalizados, o activa Local Direct para nodos con literales IP privadas/locales de confianza.</string>
     <string name="feature_analysis_title">Visualizaciones de análisis</string>
@@ -1061,15 +1063,29 @@
     <string name="wallet_detail_hide_chart">Ocultar gráfico</string>
     <string name="settings_pin_shuffle_title">Aleatorizar teclado PIN</string>
     <string name="settings_pin_shuffle_subtitle">Desordena los dígitos cada vez que se muestra el teclado PIN.</string>
-    <string name="settings_snake_gate_title">Desafío de camuflaje</string>
-    <string name="settings_snake_gate_subtitle">Muestra un desafío breve antes de solicitar el PIN.</string>
-    <string name="snake_gate_title">Desafío rápido</string>
-    <string name="snake_gate_description">Recoge 2 marcadores para continuar.</string>
-    <string name="snake_gate_progress">%1$d/%2$d</string>
-    <string name="snake_gate_move_up">Arriba</string>
-    <string name="snake_gate_move_down">Abajo</string>
-    <string name="snake_gate_move_left">Izquierda</string>
-    <string name="snake_gate_move_right">Derecha</string>
+    <string name="settings_calculator_gate_title">Desafío de camuflaje</string>
+    <string name="settings_calculator_gate_subtitle">Muestra un desafío breve opcional antes de solicitar el PIN. La verificación y la espera del PIN siguen igual.</string>
+    <string name="settings_calculator_gate_enable_dialog_message">Para desbloquear, introduce 21000000 y pulsa = en la calculadora.</string>
+    <string name="settings_calculator_gate_enable_dialog_confirm">Entendido</string>
+    <string name="calculator_key_clear">C</string>
+    <string name="calculator_key_backspace">DEL</string>
+    <string name="calculator_key_divide">/</string>
+    <string name="calculator_key_multiply">*</string>
+    <string name="calculator_key_subtract">-</string>
+    <string name="calculator_key_add">+</string>
+    <string name="calculator_key_equals">=</string>
+    <string name="calculator_key_dot">.</string>
+    <string name="calculator_key_double_zero">00</string>
+    <string name="calculator_key_0">0</string>
+    <string name="calculator_key_1">1</string>
+    <string name="calculator_key_2">2</string>
+    <string name="calculator_key_3">3</string>
+    <string name="calculator_key_4">4</string>
+    <string name="calculator_key_5">5</string>
+    <string name="calculator_key_6">6</string>
+    <string name="calculator_key_7">7</string>
+    <string name="calculator_key_8">8</string>
+    <string name="calculator_key_9">9</string>
     <string name="wallet_labels_export_title">Exportar etiquetas</string>
     <string name="wallet_labels_export_nav_title">Exportar etiquetas de la billetera</string>
     <string name="wallet_labels_export_loading">Preparando etiquetas...</string>

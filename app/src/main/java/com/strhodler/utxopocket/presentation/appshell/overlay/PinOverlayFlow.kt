@@ -1,7 +1,7 @@
 package com.strhodler.utxopocket.presentation.appshell.overlay
 
 internal enum class PinOverlayStage {
-    SnakeGate,
+    CalculatorGate,
     PinPrompt
 }
 
@@ -13,7 +13,7 @@ internal data class PinOverlayFlowState(
 internal fun transitionOverlayVisibility(
     state: PinOverlayFlowState,
     visible: Boolean,
-    snakeGateEnabled: Boolean
+    calculatorGateEnabled: Boolean
 ): PinOverlayFlowState {
     if (!visible) {
         return PinOverlayFlowState(
@@ -25,11 +25,11 @@ internal fun transitionOverlayVisibility(
     if (!state.overlayVisible) {
         return PinOverlayFlowState(
             overlayVisible = true,
-            stage = if (snakeGateEnabled) PinOverlayStage.SnakeGate else PinOverlayStage.PinPrompt
+            stage = if (calculatorGateEnabled) PinOverlayStage.CalculatorGate else PinOverlayStage.PinPrompt
         )
     }
 
-    val stage = if (!snakeGateEnabled && state.stage == PinOverlayStage.SnakeGate) {
+    val stage = if (!calculatorGateEnabled && state.stage == PinOverlayStage.CalculatorGate) {
         PinOverlayStage.PinPrompt
     } else {
         state.stage
@@ -41,8 +41,8 @@ internal fun transitionOverlayVisibility(
     )
 }
 
-internal fun transitionSnakeGateSolved(state: PinOverlayFlowState): PinOverlayFlowState {
-    if (!state.overlayVisible || state.stage != PinOverlayStage.SnakeGate) {
+internal fun transitionCalculatorGateSolved(state: PinOverlayFlowState): PinOverlayFlowState {
+    if (!state.overlayVisible || state.stage != PinOverlayStage.CalculatorGate) {
         return state
     }
 

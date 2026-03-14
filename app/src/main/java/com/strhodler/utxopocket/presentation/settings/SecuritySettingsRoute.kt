@@ -130,6 +130,7 @@ fun SecuritySettingsRoute(
     var duressFlowInProgress by rememberSaveable { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     var showNetworkLogsInfoSheet by rememberSaveable { mutableStateOf(false) }
+    var showCalculatorGateEnableDialog by rememberSaveable { mutableStateOf(false) }
     val networkLogsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val pinPromptFormatter = remember(resourcesState.value) {
         resourcesPinPromptFormatter(resourcesState.value)
@@ -260,7 +261,12 @@ fun SecuritySettingsRoute(
                 onDuressTapUnlock = { handleDuressTapUnlock() },
                 duressToggleVisible = duressToggleVisible,
                 onPinShuffleChanged = viewModel::onPinShuffleChanged,
-                onSnakeGateChanged = viewModel::onSnakeGateChanged,
+                onCalculatorGateChanged = { enabled ->
+                    viewModel.onCalculatorGateChanged(enabled)
+                    if (enabled) {
+                        showCalculatorGateEnableDialog = true
+                    }
+                },
                 onPinAutoLockTimeoutSelected = viewModel::onPinAutoLockTimeoutSelected,
                 onConnectionIdleTimeoutSelected = viewModel::onConnectionIdleTimeoutSelected,
                 onNetworkLogsToggle = viewModel::onNetworkLogsToggled,
@@ -271,6 +277,19 @@ fun SecuritySettingsRoute(
                 pinToggleEnabled = !pinDisablePromptState.isVerifying && !showPinSetup && !showPinDisable,
                 modifier = Modifier.fillMaxSize()
             )
+
+            if (showCalculatorGateEnableDialog) {
+                AlertDialog(
+                    onDismissRequest = { showCalculatorGateEnableDialog = false },
+                    title = { Text(text = stringResource(id = R.string.settings_calculator_gate_title)) },
+                    text = { Text(text = stringResource(id = R.string.settings_calculator_gate_enable_dialog_message)) },
+                    confirmButton = {
+                        TextButton(onClick = { showCalculatorGateEnableDialog = false }) {
+                            Text(text = stringResource(id = R.string.settings_calculator_gate_enable_dialog_confirm))
+                        }
+                    }
+                )
+            }
 
             if (showPanicFirstConfirmation) {
                 AlertDialog(
@@ -586,7 +605,7 @@ private fun SecuritySettingsScreen(
     onDuressTapUnlock: () -> Unit,
     duressToggleVisible: Boolean,
     onPinShuffleChanged: (Boolean) -> Unit,
-    onSnakeGateChanged: (Boolean) -> Unit,
+    onCalculatorGateChanged: (Boolean) -> Unit,
     onPinAutoLockTimeoutSelected: (Int) -> Unit,
     onConnectionIdleTimeoutSelected: (Int) -> Unit,
     onNetworkLogsToggle: (Boolean) -> Unit,
@@ -737,19 +756,19 @@ private fun SecuritySettingsScreen(
                 item {
                     ListItem(
                         headlineContent = {
-                            Text(text = stringResource(id = R.string.settings_snake_gate_title))
+                            Text(text = stringResource(id = R.string.settings_calculator_gate_title))
                         },
                         supportingContent = {
                             Text(
-                                text = stringResource(id = R.string.settings_snake_gate_subtitle),
+                                text = stringResource(id = R.string.settings_calculator_gate_subtitle),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         },
                         trailingContent = {
                             Switch(
-                                checked = state.snakeGateEnabled,
-                                onCheckedChange = onSnakeGateChanged,
+                                checked = state.calculatorGateEnabled,
+                                onCheckedChange = onCalculatorGateChanged,
                                 colors = SwitchDefaults.colors()
                             )
                         },

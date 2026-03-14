@@ -38,23 +38,23 @@ class MainAppShellContractTest {
     }
 
     @Test
-    fun snakeGateDisabledByDefault() {
+    fun calculatorGateDisabledByDefault() {
         val state = MainAppShellState()
 
-        assertFalse(state.snakeGateEnabled)
+        assertFalse(state.calculatorGateEnabled)
     }
 
     @Test
-    fun pinOverlayVisibilityIgnoresSnakeGatePreference() {
+    fun pinOverlayVisibilityIgnoresCalculatorGatePreference() {
         val hidden = MainAppShellState(
             appLocked = false,
             duressUnlockInProgress = false,
-            snakeGateEnabled = true
+            calculatorGateEnabled = true
         )
         val visible = MainAppShellState(
             appLocked = true,
             duressUnlockInProgress = false,
-            snakeGateEnabled = false
+            calculatorGateEnabled = false
         )
 
         assertFalse(hidden.pinOverlayVisible)

@@ -24,7 +24,7 @@ interface AppPreferencesRepository {
     val walletBalanceRange: Flow<BalanceRange>
     val showBalanceChart: Flow<Boolean>
     val pinShuffleEnabled: Flow<Boolean>
-    val snakeGateEnabled: Flow<Boolean>
+    val calculatorGateEnabled: Flow<Boolean>
     val advancedMode: Flow<Boolean>
     val pinAutoLockTimeoutMinutes: Flow<Int>
     val connectionIdleTimeoutMinutes: Flow<Int>
@@ -55,7 +55,7 @@ interface AppPreferencesRepository {
     suspend fun setWalletBalanceRange(range: BalanceRange)
     suspend fun setShowBalanceChart(show: Boolean)
     suspend fun setPinShuffleEnabled(enabled: Boolean)
-    suspend fun setSnakeGateEnabled(enabled: Boolean)
+    suspend fun setCalculatorGateEnabled(enabled: Boolean)
     suspend fun setAdvancedMode(enabled: Boolean)
     suspend fun setDustThresholdSats(thresholdSats: Long)
     suspend fun setConnectionIdleTimeoutMinutes(minutes: Int)

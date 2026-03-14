@@ -8,23 +8,23 @@ import kotlin.test.assertTrue
 class PinOverlayFlowTest {
 
     @Test
-    fun visibleWithSnakeEnabledStartsSnakeStage() {
+    fun visibleWithCalculatorEnabledStartsCalculatorStage() {
         val state = transitionOverlayVisibility(
             state = PinOverlayFlowState(),
             visible = true,
-            snakeGateEnabled = true
+            calculatorGateEnabled = true
         )
 
         assertTrue(state.overlayVisible)
-        assertEquals(PinOverlayStage.SnakeGate, state.stage)
+        assertEquals(PinOverlayStage.CalculatorGate, state.stage)
     }
 
     @Test
-    fun visibleWithSnakeDisabledStartsPinPromptStage() {
+    fun visibleWithCalculatorDisabledStartsPinPromptStage() {
         val state = transitionOverlayVisibility(
             state = PinOverlayFlowState(),
             visible = true,
-            snakeGateEnabled = false
+            calculatorGateEnabled = false
         )
 
         assertTrue(state.overlayVisible)
@@ -32,60 +32,60 @@ class PinOverlayFlowTest {
     }
 
     @Test
-    fun snakeSolvedTransitionsToPinPromptWithoutHidingOverlay() {
+    fun calculatorSolvedTransitionsToPinPromptWithoutHidingOverlay() {
         val started = transitionOverlayVisibility(
             state = PinOverlayFlowState(),
             visible = true,
-            snakeGateEnabled = true
+            calculatorGateEnabled = true
         )
 
-        val solved = transitionSnakeGateSolved(started)
+        val solved = transitionCalculatorGateSolved(started)
 
         assertTrue(solved.overlayVisible)
         assertEquals(PinOverlayStage.PinPrompt, solved.stage)
     }
 
     @Test
-    fun hidingOverlayResetsFlowAndRelockRearmsSnakeStage() {
-        val solved = transitionSnakeGateSolved(
+    fun hidingOverlayResetsFlowAndRelockRearmsCalculatorStage() {
+        val solved = transitionCalculatorGateSolved(
             transitionOverlayVisibility(
                 state = PinOverlayFlowState(),
                 visible = true,
-                snakeGateEnabled = true
+                calculatorGateEnabled = true
             )
         )
 
         val hidden = transitionOverlayVisibility(
             state = solved,
             visible = false,
-            snakeGateEnabled = true
+            calculatorGateEnabled = true
         )
         val relocked = transitionOverlayVisibility(
             state = hidden,
             visible = true,
-            snakeGateEnabled = true
+            calculatorGateEnabled = true
         )
 
         assertFalse(hidden.overlayVisible)
         assertEquals(PinOverlayStage.PinPrompt, hidden.stage)
         assertTrue(relocked.overlayVisible)
-        assertEquals(PinOverlayStage.SnakeGate, relocked.stage)
+        assertEquals(PinOverlayStage.CalculatorGate, relocked.stage)
     }
 
     @Test
-    fun visibleProjectionKeepsPinPromptAfterSnakeSolved() {
-        val solved = transitionSnakeGateSolved(
+    fun visibleProjectionKeepsPinPromptAfterCalculatorSolved() {
+        val solved = transitionCalculatorGateSolved(
             transitionOverlayVisibility(
                 state = PinOverlayFlowState(),
                 visible = true,
-                snakeGateEnabled = true
+                calculatorGateEnabled = true
             )
         )
 
         val projectedAgain = transitionOverlayVisibility(
             state = solved,
             visible = true,
-            snakeGateEnabled = true
+            calculatorGateEnabled = true
         )
 
         assertEquals(PinOverlayStage.PinPrompt, projectedAgain.stage)

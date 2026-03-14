@@ -45,6 +45,8 @@
     <string name="feature_bip329_description">Import, edit, and export wallet labels with the BIP-329 JSON format to keep naming in sync across devices and signers.</string>
     <string name="feature_backup_title">Encrypted watch-only backups</string>
     <string name="feature_backup_description">Export and import encrypted .ubak backups to recover descriptors, labels, collections, and selected app preferences safely.</string>
+    <string name="feature_security_title">Layered security controls</string>
+    <string name="feature_security_description">Use optional PIN lock with backoff, hidden duress PIN mode, panic wipe, and an optional calculator camouflage challenge before PIN entry.</string>
     <string name="feature_connectivity_title">Private connectivity</string>
     <string name="feature_connectivity_description">Use Tor by default with curated Electrum servers or custom onion endpoints, or opt into Local Direct for trusted private/local IP literal nodes.</string>
     <string name="feature_analysis_title">Analysis visuals</string>
@@ -387,15 +389,29 @@
     <string name="wallet_detail_hide_chart">Hide chart</string>
     <string name="settings_pin_shuffle_title">Randomize PIN keypad</string>
     <string name="settings_pin_shuffle_subtitle">Shuffle digit positions each time the PIN keypad is shown.</string>
-    <string name="settings_snake_gate_title">Camouflage challenge</string>
-    <string name="settings_snake_gate_subtitle">Show a short challenge before the PIN prompt.</string>
-    <string name="snake_gate_title">Quick challenge</string>
-    <string name="snake_gate_description">Collect 2 markers to continue.</string>
-    <string name="snake_gate_progress">%1$d/%2$d</string>
-    <string name="snake_gate_move_up">Up</string>
-    <string name="snake_gate_move_down">Down</string>
-    <string name="snake_gate_move_left">Left</string>
-    <string name="snake_gate_move_right">Right</string>
+    <string name="settings_calculator_gate_title">Camouflage challenge</string>
+    <string name="settings_calculator_gate_subtitle">Show an optional short challenge before the PIN prompt. PIN checks and backoff stay the same.</string>
+    <string name="settings_calculator_gate_enable_dialog_message">To unlock, enter 21000000 and tap = in the calculator.</string>
+    <string name="settings_calculator_gate_enable_dialog_confirm">Understood</string>
+    <string name="calculator_key_clear">C</string>
+    <string name="calculator_key_backspace">DEL</string>
+    <string name="calculator_key_divide">/</string>
+    <string name="calculator_key_multiply">*</string>
+    <string name="calculator_key_subtract">-</string>
+    <string name="calculator_key_add">+</string>
+    <string name="calculator_key_equals">=</string>
+    <string name="calculator_key_dot">.</string>
+    <string name="calculator_key_double_zero">00</string>
+    <string name="calculator_key_0">0</string>
+    <string name="calculator_key_1">1</string>
+    <string name="calculator_key_2">2</string>
+    <string name="calculator_key_3">3</string>
+    <string name="calculator_key_4">4</string>
+    <string name="calculator_key_5">5</string>
+    <string name="calculator_key_6">6</string>
+    <string name="calculator_key_7">7</string>
+    <string name="calculator_key_8">8</string>
+    <string name="calculator_key_9">9</string>
     <string name="wallet_detail_full_rescan_title">Full rescan</string>
     <string name="wallet_detail_full_rescan_description">Select the gap limit for this rescan. Minimum %1$d, maximum %2$d addresses. %3$s</string>
     <string name="wallet_detail_full_rescan_gap_value">Gap limit: %1$d</string>

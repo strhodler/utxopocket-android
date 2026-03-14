@@ -32,7 +32,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
-class SettingsViewModelSnakeGateTest {
+class SettingsViewModelCalculatorGateTest {
 
     private val dispatcher = StandardTestDispatcher()
     private lateinit var appPreferencesRepository: FakeAppPreferencesRepository
@@ -57,26 +57,26 @@ class SettingsViewModelSnakeGateTest {
     }
 
     @Test
-    fun snakeGatePreferenceProjectsIntoUiState() = runTest(dispatcher) {
+    fun calculatorGatePreferenceProjectsIntoUiState() = runTest(dispatcher) {
         advanceUntilIdle()
-        assertEquals(false, viewModel.uiState.value.snakeGateEnabled)
+        assertEquals(false, viewModel.uiState.value.calculatorGateEnabled)
 
-        appPreferencesRepository.setSnakeGateEnabled(true)
+        appPreferencesRepository.setCalculatorGateEnabled(true)
         advanceUntilIdle()
 
-        assertEquals(true, viewModel.uiState.value.snakeGateEnabled)
+        assertEquals(true, viewModel.uiState.value.calculatorGateEnabled)
     }
 
     @Test
-    fun onSnakeGateChangedPersistsToggle() = runTest(dispatcher) {
+    fun onCalculatorGateChangedPersistsToggle() = runTest(dispatcher) {
         advanceUntilIdle()
 
-        viewModel.onSnakeGateChanged(true)
+        viewModel.onCalculatorGateChanged(true)
         advanceUntilIdle()
 
-        assertEquals(listOf(true), appPreferencesRepository.snakeGateSetCalls)
-        assertEquals(true, appPreferencesRepository.snakeGateEnabledState.value)
-        assertEquals(true, viewModel.uiState.value.snakeGateEnabled)
+        assertEquals(listOf(true), appPreferencesRepository.calculatorGateSetCalls)
+        assertEquals(true, appPreferencesRepository.calculatorGateEnabledState.value)
+        assertEquals(true, viewModel.uiState.value.calculatorGateEnabled)
     }
 }
 
@@ -93,7 +93,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val walletBalanceRangeState = MutableStateFlow(BalanceRange.All)
     private val showBalanceChartState = MutableStateFlow(false)
     private val pinShuffleEnabledState = MutableStateFlow(false)
-    val snakeGateEnabledState = MutableStateFlow(false)
+    val calculatorGateEnabledState = MutableStateFlow(false)
     private val advancedModeState = MutableStateFlow(false)
     private val pinAutoLockTimeoutMinutesState = MutableStateFlow(
         AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES
@@ -108,7 +108,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val blockExplorerPreferencesState = MutableStateFlow(BlockExplorerPreferences())
     private val duressConfiguredState = MutableStateFlow(false)
 
-    val snakeGateSetCalls = mutableListOf<Boolean>()
+    val calculatorGateSetCalls = mutableListOf<Boolean>()
 
     override val onboardingCompleted: Flow<Boolean> = onboardingCompletedState
     override val preferredNetwork: Flow<BitcoinNetwork> = preferredNetworkState
@@ -122,7 +122,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val walletBalanceRange: Flow<BalanceRange> = walletBalanceRangeState
     override val showBalanceChart: Flow<Boolean> = showBalanceChartState
     override val pinShuffleEnabled: Flow<Boolean> = pinShuffleEnabledState
-    override val snakeGateEnabled: Flow<Boolean> = snakeGateEnabledState
+    override val calculatorGateEnabled: Flow<Boolean> = calculatorGateEnabledState
     override val advancedMode: Flow<Boolean> = advancedModeState
     override val pinAutoLockTimeoutMinutes: Flow<Int> = pinAutoLockTimeoutMinutesState
     override val connectionIdleTimeoutMinutes: Flow<Int> = connectionIdleTimeoutMinutesState
@@ -199,9 +199,9 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
         pinShuffleEnabledState.value = enabled
     }
 
-    override suspend fun setSnakeGateEnabled(enabled: Boolean) {
-        snakeGateSetCalls += enabled
-        snakeGateEnabledState.value = enabled
+    override suspend fun setCalculatorGateEnabled(enabled: Boolean) {
+        calculatorGateSetCalls += enabled
+        calculatorGateEnabledState.value = enabled
     }
 
     override suspend fun setAdvancedMode(enabled: Boolean) {

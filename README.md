@@ -62,6 +62,7 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 - Per-wallet Analysis section with age distribution and hold-wave views to assess how long coins have been sitting and where value concentrates.
 - Fast onboarding and descriptor import (paste or QR), plus a searchable offline wiki.
 - Safety controls: PIN lock with backoff, panic wipe with atomic DB wipe + storage removal, and encrypted local storage.
+- Optional calculator camouflage challenge before unlock; this UI step never replaces PIN verification, duress behavior, or lockout/backoff enforcement.
 - Modern Compose UI (Material 3), responsive and accessible across screen sizes.
 
 ---
@@ -126,6 +127,7 @@ If any fingerprint or checksum deviates from the values above, treat the artifac
 ## Privacy & security
 - Watch-only by design; no private keys or signing on device.
 - Tor-default networking for curated presets and custom onion nodes, plus optional Local Direct for private/local IP literal custom nodes. No silent fallback is applied between modes. See `SECURITY.md` for constraints and privacy guarantees.
+- Optional calculator camouflage can be enabled before lock prompts, but the real unlock gate remains the same 6-digit PIN flow (including duress and backoff rules).
 - Encrypted `.ubak` backups are watch-only by scope: they restore descriptors and local metadata, but never include seeds/private keys or PIN/duress PIN material.
 
 ---

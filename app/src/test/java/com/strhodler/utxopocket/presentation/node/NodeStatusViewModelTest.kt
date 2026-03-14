@@ -515,7 +515,7 @@ class NodeStatusViewModelTest {
         private val _balanceUnit = MutableStateFlow(BalanceUnit.SATS)
         private val _balancesHidden = MutableStateFlow(false)
         private val _hapticsEnabled = MutableStateFlow(false)
-        private val _snakeGateEnabled = MutableStateFlow(false)
+        private val _calculatorGateEnabled = MutableStateFlow(false)
         private val _connectionIdleTimeoutMinutes = MutableStateFlow(
             AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES
         )
@@ -536,7 +536,7 @@ class NodeStatusViewModelTest {
         override val walletBalanceRange: StateFlow<BalanceRange> = MutableStateFlow(BalanceRange.All)
         override val showBalanceChart: StateFlow<Boolean> = MutableStateFlow(false)
         override val pinShuffleEnabled: StateFlow<Boolean> = MutableStateFlow(false)
-        override val snakeGateEnabled: StateFlow<Boolean> = _snakeGateEnabled
+        override val calculatorGateEnabled: StateFlow<Boolean> = _calculatorGateEnabled
         override val advancedMode: StateFlow<Boolean> = MutableStateFlow(false)
         override val pinAutoLockTimeoutMinutes: StateFlow<Int> =
             MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
@@ -598,8 +598,8 @@ class NodeStatusViewModelTest {
             _connectionIdleTimeoutMinutes.value = minutes
         }
         override suspend fun setPinShuffleEnabled(enabled: Boolean) = Unit
-        override suspend fun setSnakeGateEnabled(enabled: Boolean) {
-            _snakeGateEnabled.value = enabled
+        override suspend fun setCalculatorGateEnabled(enabled: Boolean) {
+            _calculatorGateEnabled.value = enabled
         }
         override suspend fun setNetworkLogsEnabled(enabled: Boolean) {
             _networkLogsEnabled.value = enabled

@@ -55,6 +55,10 @@ private fun FeaturesScreen(onBack: () -> Unit) {
                 descriptionRes = R.string.feature_backup_description
             ),
             FeatureItem(
+                titleRes = R.string.feature_security_title,
+                descriptionRes = R.string.feature_security_description
+            ),
+            FeatureItem(
                 titleRes = R.string.feature_connectivity_title,
                 descriptionRes = R.string.feature_connectivity_description
             ),
