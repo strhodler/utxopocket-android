@@ -64,7 +64,6 @@ import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletAddressRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
-import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
 import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
@@ -129,8 +128,7 @@ class DefaultWalletRepository @Inject constructor(
     @param:ApplicationContext private val applicationContext: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) :
-    WalletSyncRepository,
-    WalletProvisioningRepository {
+    WalletSyncRepository {
 
     companion object {
         private const val TAG = "DefaultWalletRepository"
@@ -205,7 +203,7 @@ class DefaultWalletRepository @Inject constructor(
         walletDao = walletDao,
         database = database,
         walletSyncPreferencesRepository = walletSyncPreferencesRepository,
-        walletSyncOrchestrator = repositoryRuntime.walletSyncOrchestrator,
+        refreshWallet = repositoryRuntime.walletSyncOrchestrator::refreshWallet,
         ioDispatcher = ioDispatcher,
         maxFullScanStopGap = MAX_FULL_SCAN_STOP_GAP
     )
@@ -295,36 +293,17 @@ class DefaultWalletRepository @Inject constructor(
         repositoryRuntime.refreshWallet(walletId, operation)
     }
 
-    override suspend fun validateDescriptor(
-        descriptor: String,
-        changeDescriptor: String?,
-        network: BitcoinNetwork
-    ): DescriptorValidationResult =
-        walletProvisioningManager.validateDescriptor(descriptor, changeDescriptor, network)
-
-    override suspend fun addWallet(request: WalletCreationRequest): WalletCreationResult =
-        walletProvisioningManager.addWallet(request)
-
-    override suspend fun deleteWallet(id: Long) =
-        walletMaintenanceManager.deleteWallet(id)
-
     internal fun walletReadManagerForReadRepository(): WalletReadManager =
         walletReadManager
 
     internal fun walletAddressManagerForAddressRepository(): WalletAddressManager =
         walletAddressManager
 
+    internal fun walletProvisioningManagerForProvisioningRepository(): WalletProvisioningManager =
+        walletProvisioningManager
+
     internal fun walletMaintenanceManagerForMaintenanceRepository(): WalletMaintenanceManager =
         walletMaintenanceManager
-
-    override suspend fun updateWalletColor(id: Long, color: WalletColor) =
-        walletProvisioningManager.updateWalletColor(id, color)
-
-    override suspend fun forceFullRescan(walletId: Long, stopGap: Int) =
-        walletProvisioningManager.forceFullRescan(walletId, stopGap)
-
-    override suspend fun renameWallet(id: Long, name: String) =
-        walletProvisioningManager.renameWallet(id, name)
 
     internal suspend fun releaseRuntimeBeforeBackupImport() {
         repositoryRuntime.releaseAllCachedWallets()

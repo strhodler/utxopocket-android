@@ -8,7 +8,6 @@ import com.strhodler.utxopocket.data.db.toDomain
 import com.strhodler.utxopocket.data.db.toStorage
 import com.strhodler.utxopocket.data.db.UtxoPocketDatabase
 import com.strhodler.utxopocket.data.wallet.SyncGapInitializer.seedSyncGapIfMissing
-import com.strhodler.utxopocket.data.wallet.sync.WalletSyncOrchestrator
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
@@ -29,7 +28,7 @@ internal class WalletProvisioningManager(
     private val walletDao: WalletDao,
     private val database: UtxoPocketDatabase,
     private val walletSyncPreferencesRepository: WalletSyncPreferencesRepository,
-    private val walletSyncOrchestrator: WalletSyncOrchestrator,
+    private val refreshWallet: suspend (Long, SyncOperation) -> Unit,
     private val ioDispatcher: CoroutineDispatcher,
     private val maxFullScanStopGap: Int
 ) {
@@ -111,7 +110,7 @@ internal class WalletProvisioningManager(
         val entity = walletDao.findById(walletId) ?: return@withContext
         val normalizedStopGap = stopGap.coerceIn(1, maxFullScanStopGap)
         walletDao.upsert(entity.scheduleFullScan(normalizedStopGap))
-        walletSyncOrchestrator.refreshWallet(walletId, SyncOperation.FullRescan)
+        refreshWallet(walletId, SyncOperation.FullRescan)
     }
 
     suspend fun renameWallet(id: Long, name: String) = withContext(ioDispatcher) {
