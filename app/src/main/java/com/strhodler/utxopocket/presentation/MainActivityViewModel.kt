@@ -144,6 +144,7 @@ internal data class MainUiPrefs(
     val appLanguage: AppLanguage = AppLanguage.EN,
     val hapticsEnabled: Boolean = true,
     val pinShuffleEnabled: Boolean = false,
+    val snakeGateEnabled: Boolean = false,
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
     val balancesHidden: Boolean = false
 )
@@ -217,6 +218,7 @@ internal fun projectMainActivityUiState(
             balancesHidden = prefs.balancesHidden,
             hapticsEnabled = prefs.hapticsEnabled,
             pinShuffleEnabled = prefs.pinShuffleEnabled,
+            snakeGateEnabled = prefs.snakeGateEnabled,
             appLocked = inputs.pinEnabled && inputs.locked && inputs.onboardingCompleted,
             duressState = inputs.duress,
             duressUnlockInProgress = inputs.duressUnlockInProgress
@@ -477,6 +479,7 @@ class MainActivityViewModel @Inject constructor(
     private data class MainBehaviorPrefs(
         val hapticsEnabled: Boolean,
         val pinShuffleEnabled: Boolean,
+        val snakeGateEnabled: Boolean,
         val balanceUnit: BalanceUnit,
         val balancesHidden: Boolean
     )
@@ -550,12 +553,14 @@ class MainActivityViewModel @Inject constructor(
     private val mainBehaviorPrefs = combine(
         appPreferencesRepository.hapticsEnabled,
         appPreferencesRepository.pinShuffleEnabled,
+        appPreferencesRepository.snakeGateEnabled,
         appPreferencesRepository.balanceUnit,
         appPreferencesRepository.balancesHidden
-    ) { hapticsEnabled, pinShuffleEnabled, balanceUnit, balancesHidden ->
+    ) { hapticsEnabled, pinShuffleEnabled, snakeGateEnabled, balanceUnit, balancesHidden ->
         MainBehaviorPrefs(
             hapticsEnabled = hapticsEnabled,
             pinShuffleEnabled = pinShuffleEnabled,
+            snakeGateEnabled = snakeGateEnabled,
             balanceUnit = balanceUnit,
             balancesHidden = balancesHidden
         )
@@ -571,6 +576,7 @@ class MainActivityViewModel @Inject constructor(
             appLanguage = themePrefs.appLanguage,
             hapticsEnabled = behaviorPrefs.hapticsEnabled,
             pinShuffleEnabled = behaviorPrefs.pinShuffleEnabled,
+            snakeGateEnabled = behaviorPrefs.snakeGateEnabled,
             balanceUnit = behaviorPrefs.balanceUnit,
             balancesHidden = behaviorPrefs.balancesHidden
         )

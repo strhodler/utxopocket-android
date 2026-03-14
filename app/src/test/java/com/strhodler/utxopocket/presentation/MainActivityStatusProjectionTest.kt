@@ -376,4 +376,24 @@ class MainActivityStatusProjectionTest {
         assertEquals(TorStatus.Running(SocksProxyConfig("127.0.0.1", 9050)), status.torStatus)
         assertEquals(false, status.torRequired)
     }
+
+    @Test
+    fun typedUiProjection_projectsSnakeGatePreferenceIntoShellState() {
+        val uiState = projectMainActivityUiState(
+            inputs = MainUiInputs(onboardingCompleted = true),
+            prefs = MainUiPrefs(snakeGateEnabled = true)
+        )
+
+        assertEquals(true, uiState.appShellState.snakeGateEnabled)
+    }
+
+    @Test
+    fun typedUiProjection_defaultsSnakeGateDisabledWhenPreferenceMissing() {
+        val uiState = projectMainActivityUiState(
+            inputs = MainUiInputs(onboardingCompleted = true),
+            prefs = MainUiPrefs()
+        )
+
+        assertEquals(false, uiState.appShellState.snakeGateEnabled)
+    }
 }

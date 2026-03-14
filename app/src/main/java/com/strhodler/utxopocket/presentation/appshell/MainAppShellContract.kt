@@ -10,6 +10,7 @@ data class MainAppShellState(
     val balancesHidden: Boolean = false,
     val hapticsEnabled: Boolean = true,
     val pinShuffleEnabled: Boolean = false,
+    val snakeGateEnabled: Boolean = false,
     val appLocked: Boolean = false,
     val duressState: DuressSessionState = DuressSessionState.Inactive,
     val duressUnlockInProgress: Boolean = false

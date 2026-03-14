@@ -36,4 +36,28 @@ class MainAppShellContractTest {
         assertTrue(active.duressActive)
         assertFalse(inactive.duressActive)
     }
+
+    @Test
+    fun snakeGateDisabledByDefault() {
+        val state = MainAppShellState()
+
+        assertFalse(state.snakeGateEnabled)
+    }
+
+    @Test
+    fun pinOverlayVisibilityIgnoresSnakeGatePreference() {
+        val hidden = MainAppShellState(
+            appLocked = false,
+            duressUnlockInProgress = false,
+            snakeGateEnabled = true
+        )
+        val visible = MainAppShellState(
+            appLocked = true,
+            duressUnlockInProgress = false,
+            snakeGateEnabled = false
+        )
+
+        assertFalse(hidden.pinOverlayVisible)
+        assertTrue(visible.pinOverlayVisible)
+    }
 }
