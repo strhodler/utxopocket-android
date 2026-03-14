@@ -131,4 +131,43 @@ class MainActivityViewModelDuressUnlockTest {
             events
         )
     }
+
+    @Test
+    fun failedVerificationDoesNotUnlockOrActivateDuress() = runTest {
+        val events = mutableListOf<String>()
+
+        val result = executePinUnlockFlow(
+            pinEnabled = true,
+            duressAlreadyActive = false,
+            verifyPin = {
+                events += "verifyPin"
+                PinVerificationResult.Incorrect(attempts = 1, lockDurationMillis = 30_000L)
+            },
+            verifyPinIgnoringDuress = {
+                events += "verifyPinIgnoringDuress"
+                PinVerificationResult.Success
+            },
+            markPinUnlocked = {
+                events += "markPinUnlocked"
+            },
+            setAppLocked = { locked ->
+                events += "setAppLocked:$locked"
+            },
+            setDuressUnlockInProgress = { inProgress ->
+                events += "duressUnlockInProgress:$inProgress"
+            },
+            activateFake = {
+                events += "activateFake"
+            },
+            awaitFakeActivation = {
+                events += "awaitFakeActivation"
+            }
+        )
+
+        assertEquals(
+            PinVerificationResult.Incorrect(attempts = 1, lockDurationMillis = 30_000L),
+            result
+        )
+        assertEquals(listOf("verifyPin"), events)
+    }
 }
