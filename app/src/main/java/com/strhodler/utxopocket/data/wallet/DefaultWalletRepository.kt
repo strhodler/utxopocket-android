@@ -17,7 +17,6 @@ import androidx.paging.PagingData
 import androidx.paging.map
 import androidx.room.withTransaction
 import com.strhodler.utxopocket.data.db.WalletDao
-import com.strhodler.utxopocket.data.db.UtxoCanvasDao
 import com.strhodler.utxopocket.data.db.WalletEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionInputEntity
 import com.strhodler.utxopocket.data.db.WalletTransactionOutputEntity
@@ -52,12 +51,6 @@ import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletColor
 import com.strhodler.utxopocket.domain.model.WalletCreationRequest
 import com.strhodler.utxopocket.domain.model.WalletCreationResult
-import com.strhodler.utxopocket.domain.model.WalletBackupExportRequest
-import com.strhodler.utxopocket.domain.model.WalletBackupExportResult
-import com.strhodler.utxopocket.domain.model.WalletBackupImportRequest
-import com.strhodler.utxopocket.domain.model.WalletBackupImportResult
-import com.strhodler.utxopocket.domain.model.WalletBackupPreviewRequest
-import com.strhodler.utxopocket.domain.model.WalletBackupPreviewResult
 import com.strhodler.utxopocket.domain.model.WalletDetail
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
@@ -69,10 +62,7 @@ import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.WalletAddressRepository
-import com.strhodler.utxopocket.domain.repository.WalletMaintenanceRepository
-import com.strhodler.utxopocket.domain.repository.WalletBackupRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
-import com.strhodler.utxopocket.domain.repository.WalletDetailPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
 import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
 import com.strhodler.utxopocket.domain.repository.WalletReadRepository
@@ -124,7 +114,6 @@ private const val GENERIC_DESCRIPTOR_ERROR =
 @Singleton
 class DefaultWalletRepository @Inject constructor(
     private val walletDao: WalletDao,
-    private val utxoCanvasDao: UtxoCanvasDao,
     private val torManager: TorManager,
     private val torProxyProvider: TorProxyProvider,
     private val blockchainFactory: BdkBlockchainFactory,
@@ -136,17 +125,12 @@ class DefaultWalletRepository @Inject constructor(
     private val networkStatusMonitor: NetworkStatusMonitor,
     private val networkErrorLogRepository: NetworkErrorLogRepository,
     private val walletSyncPreferencesRepository: WalletSyncPreferencesRepository,
-    private val walletDetailPreferencesRepository: WalletDetailPreferencesRepository,
     private val incomingTxCoordinator: IncomingTxCoordinator,
     @param:ApplicationContext private val applicationContext: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) :
-    WalletReadRepository,
     WalletSyncRepository,
-    WalletProvisioningRepository,
-    WalletAddressRepository,
-    WalletMaintenanceRepository,
-    WalletBackupRepository {
+    WalletProvisioningRepository {
 
     companion object {
         private const val TAG = "DefaultWalletRepository"
@@ -225,20 +209,6 @@ class DefaultWalletRepository @Inject constructor(
         ioDispatcher = ioDispatcher,
         maxFullScanStopGap = MAX_FULL_SCAN_STOP_GAP
     )
-    private val walletBackupManager = WalletBackupManager(
-        walletDao = walletDao,
-        utxoCanvasDao = utxoCanvasDao,
-        database = database,
-        appPreferencesRepository = appPreferencesRepository,
-        walletDetailPreferencesRepository = walletDetailPreferencesRepository,
-        validateDescriptor = { descriptor, changeDescriptor, network ->
-            walletProvisioningManager.validateDescriptor(descriptor, changeDescriptor, network)
-        },
-        removeWalletStorage = { walletId, network ->
-            walletFactory.removeStorage(walletId, network)
-        },
-        ioDispatcher = ioDispatcher
-    )
     private val walletMaintenanceManager = WalletMaintenanceManager(
         walletDao = walletDao,
         removeWalletStorage = { walletId, network ->
@@ -277,55 +247,6 @@ class DefaultWalletRepository @Inject constructor(
     init {
         repositoryRuntime.start()
     }
-
-    override fun observeWalletSummaries(network: BitcoinNetwork): Flow<List<WalletSummary>> =
-        walletReadManager.observeWalletSummaries(network)
-
-    override fun pageWalletTransactions(
-        id: Long,
-        sort: WalletTransactionSort,
-        showLabeled: Boolean,
-        showUnlabeled: Boolean,
-        showReceived: Boolean,
-        showSent: Boolean
-    ): Flow<PagingData<WalletTransaction>> =
-        walletReadManager.pageWalletTransactions(
-            id = id,
-            sort = sort,
-            showLabeled = showLabeled,
-            showUnlabeled = showUnlabeled,
-            showReceived = showReceived,
-            showSent = showSent
-        )
-
-    override fun pageWalletUtxos(
-        id: Long,
-        sort: WalletUtxoSort,
-        showLabeled: Boolean,
-        showUnlabeled: Boolean,
-        showSpendable: Boolean,
-        showNotSpendable: Boolean
-    ): Flow<PagingData<WalletUtxo>> =
-        walletReadManager.pageWalletUtxos(
-            id = id,
-            sort = sort,
-            showLabeled = showLabeled,
-            showUnlabeled = showUnlabeled,
-            showSpendable = showSpendable,
-            showNotSpendable = showNotSpendable
-        )
-
-    override fun observeTransactionCount(id: Long): Flow<Int> =
-        walletReadManager.observeTransactionCount(id)
-
-    override fun observeUtxoCount(id: Long): Flow<Int> =
-        walletReadManager.observeUtxoCount(id)
-
-    override fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>> =
-        walletReadManager.observeAddressReuseCounts(id)
-
-    override fun observeWalletDetail(id: Long): Flow<WalletDetail?> =
-        walletReadManager.observeWalletDetail(id)
 
     override fun observeNodeStatus(): Flow<NodeStatusSnapshot> =
         repositoryRuntime.observeNodeStatus()
@@ -387,8 +308,14 @@ class DefaultWalletRepository @Inject constructor(
     override suspend fun deleteWallet(id: Long) =
         walletMaintenanceManager.deleteWallet(id)
 
-    override suspend fun wipeAllWalletData() =
-        walletMaintenanceManager.wipeAllWalletData()
+    internal fun walletReadManagerForReadRepository(): WalletReadManager =
+        walletReadManager
+
+    internal fun walletAddressManagerForAddressRepository(): WalletAddressManager =
+        walletAddressManager
+
+    internal fun walletMaintenanceManagerForMaintenanceRepository(): WalletMaintenanceManager =
+        walletMaintenanceManager
 
     override suspend fun updateWalletColor(id: Long, color: WalletColor) =
         walletProvisioningManager.updateWalletColor(id, color)
@@ -396,48 +323,11 @@ class DefaultWalletRepository @Inject constructor(
     override suspend fun forceFullRescan(walletId: Long, stopGap: Int) =
         walletProvisioningManager.forceFullRescan(walletId, stopGap)
 
-    override suspend fun listUnusedAddresses(
-        walletId: Long,
-        type: WalletAddressType,
-        limit: Int
-    ): List<WalletAddress> = walletAddressManager.listUnusedAddresses(walletId, type, limit)
-
-    override suspend fun revealNextAddress(
-        walletId: Long,
-        type: WalletAddressType
-    ): WalletAddress? = walletAddressManager.revealNextAddress(walletId, type)
-
-    override suspend fun getAddressDetail(
-        walletId: Long,
-        type: WalletAddressType,
-        derivationIndex: Int
-    ): WalletAddressDetail? = walletAddressManager.getAddressDetail(walletId, type, derivationIndex)
-
-    override suspend fun markAddressAsUsed(
-        walletId: Long,
-        type: WalletAddressType,
-        derivationIndex: Int
-    ) = walletAddressManager.markAddressAsUsed(walletId, type, derivationIndex)
-
-    override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> =
-        walletAddressManager.highestUsedIndices(walletId)
-
     override suspend fun renameWallet(id: Long, name: String) =
         walletProvisioningManager.renameWallet(id, name)
 
-    override suspend fun exportEncryptedBackup(
-        request: WalletBackupExportRequest
-    ): WalletBackupExportResult = walletBackupManager.exportEncryptedBackup(request)
-
-    override suspend fun previewEncryptedBackup(
-        request: WalletBackupPreviewRequest
-    ): WalletBackupPreviewResult = walletBackupManager.previewEncryptedBackup(request)
-
-    override suspend fun importEncryptedBackup(
-        request: WalletBackupImportRequest
-    ): WalletBackupImportResult {
+    internal suspend fun releaseRuntimeBeforeBackupImport() {
         repositoryRuntime.releaseAllCachedWallets()
-        return walletBackupManager.importEncryptedBackup(request)
     }
 
     override fun setSyncForegroundState(isForeground: Boolean) {

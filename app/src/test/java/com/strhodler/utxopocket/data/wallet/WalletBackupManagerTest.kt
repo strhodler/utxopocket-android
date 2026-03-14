@@ -257,7 +257,7 @@ class WalletBackupManagerTest {
     }
 }
 
-private class FakeAppPreferencesRepository : AppPreferencesRepository {
+internal class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val onboardingCompletedState = MutableStateFlow(false)
     val preferredNetworkState = MutableStateFlow(BitcoinNetwork.TESTNET4)
     val pinLockEnabledState = MutableStateFlow(true)
@@ -484,7 +484,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     }
 }
 
-private class FakeWalletDetailPreferencesRepository : WalletDetailPreferencesRepository {
+internal class FakeWalletDetailPreferencesRepository : WalletDetailPreferencesRepository {
     private val stateByWalletId = mutableMapOf<Long, MutableStateFlow<WalletDetailPreferences>>()
 
     override fun observe(walletId: Long): Flow<WalletDetailPreferences> =

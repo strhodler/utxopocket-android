@@ -6,7 +6,11 @@ import com.strhodler.utxopocket.data.node.DefaultNodeConnectionTester
 import com.strhodler.utxopocket.data.preferences.DefaultAppPreferencesRepository
 import com.strhodler.utxopocket.data.tor.DefaultTorManager
 import com.strhodler.utxopocket.data.preferences.DefaultIncomingTxPreferencesRepository
+import com.strhodler.utxopocket.data.wallet.DefaultWalletAddressRepository
+import com.strhodler.utxopocket.data.wallet.DefaultWalletBackupRepository
 import com.strhodler.utxopocket.data.wallet.DefaultWalletLabelRepository
+import com.strhodler.utxopocket.data.wallet.DefaultWalletMaintenanceRepository
+import com.strhodler.utxopocket.data.wallet.DefaultWalletReadRepository
 import com.strhodler.utxopocket.data.wallet.DefaultWalletRepository
 import com.strhodler.utxopocket.data.wiki.DefaultWikiRepository
 import com.strhodler.utxopocket.data.glossary.DefaultGlossaryRepository
@@ -52,7 +56,7 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindWalletReadRepository(
-        impl: DefaultWalletRepository
+        impl: DefaultWalletReadRepository
     ): WalletReadRepository
 
     @Binds
@@ -70,7 +74,7 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindWalletAddressRepository(
-        impl: DefaultWalletRepository
+        impl: DefaultWalletAddressRepository
     ): WalletAddressRepository
 
     @Binds
@@ -82,13 +86,13 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindWalletMaintenanceRepository(
-        impl: DefaultWalletRepository
+        impl: DefaultWalletMaintenanceRepository
     ): WalletMaintenanceRepository
 
     @Binds
     @Singleton
     abstract fun bindWalletBackupRepository(
-        impl: DefaultWalletRepository
+        impl: DefaultWalletBackupRepository
     ): WalletBackupRepository
 
     @Binds
