@@ -260,6 +260,7 @@ fun SecuritySettingsRoute(
                 onDuressTapUnlock = { handleDuressTapUnlock() },
                 duressToggleVisible = duressToggleVisible,
                 onPinShuffleChanged = viewModel::onPinShuffleChanged,
+                onSnakeGateChanged = viewModel::onSnakeGateChanged,
                 onPinAutoLockTimeoutSelected = viewModel::onPinAutoLockTimeoutSelected,
                 onConnectionIdleTimeoutSelected = viewModel::onConnectionIdleTimeoutSelected,
                 onNetworkLogsToggle = viewModel::onNetworkLogsToggled,
@@ -585,6 +586,7 @@ private fun SecuritySettingsScreen(
     onDuressTapUnlock: () -> Unit,
     duressToggleVisible: Boolean,
     onPinShuffleChanged: (Boolean) -> Unit,
+    onSnakeGateChanged: (Boolean) -> Unit,
     onPinAutoLockTimeoutSelected: (Int) -> Unit,
     onConnectionIdleTimeoutSelected: (Int) -> Unit,
     onNetworkLogsToggle: (Boolean) -> Unit,
@@ -726,6 +728,28 @@ private fun SecuritySettingsScreen(
                             Switch(
                                 checked = state.pinShuffleEnabled,
                                 onCheckedChange = onPinShuffleChanged,
+                                colors = SwitchDefaults.colors()
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+                item {
+                    ListItem(
+                        headlineContent = {
+                            Text(text = stringResource(id = R.string.settings_snake_gate_title))
+                        },
+                        supportingContent = {
+                            Text(
+                                text = stringResource(id = R.string.settings_snake_gate_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = state.snakeGateEnabled,
+                                onCheckedChange = onSnakeGateChanged,
                                 colors = SwitchDefaults.colors()
                             )
                         },

@@ -407,6 +407,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val _walletBalanceRange = MutableStateFlow(BalanceRange.All)
     private val _showBalanceChart = MutableStateFlow(false)
     private val _hapticsEnabled = MutableStateFlow(false)
+    private val _snakeGateEnabled = MutableStateFlow(false)
     private val _advancedMode = MutableStateFlow(false)
     private val _pinAutoLockTimeoutMinutes =
         MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
@@ -430,6 +431,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val walletBalanceRange: Flow<BalanceRange> = _walletBalanceRange
     override val showBalanceChart: Flow<Boolean> = _showBalanceChart
     override val pinShuffleEnabled: Flow<Boolean> = MutableStateFlow(false)
+    override val snakeGateEnabled: Flow<Boolean> = _snakeGateEnabled
     override val hapticsEnabled: Flow<Boolean> = _hapticsEnabled
     override val advancedMode: Flow<Boolean> = _advancedMode
     override val pinAutoLockTimeoutMinutes: Flow<Int> = _pinAutoLockTimeoutMinutes
@@ -513,6 +515,10 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     }
 
     override suspend fun setPinShuffleEnabled(enabled: Boolean) = Unit
+
+    override suspend fun setSnakeGateEnabled(enabled: Boolean) {
+        _snakeGateEnabled.value = enabled
+    }
 
     override suspend fun setHapticsEnabled(enabled: Boolean) {
         _hapticsEnabled.value = enabled

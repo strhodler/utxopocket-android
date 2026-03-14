@@ -151,6 +151,33 @@ class DefaultAppPreferencesRepositoryTest {
         assertNull(persisted.selectedCustomNodeId)
     }
 
+    @Test
+    fun snakeGateDefaultsToFalseAndPersistsUpdates() = runTest {
+        val repository = createRepository(RecordingDispatcher())
+        repository.wipeAll()
+
+        assertEquals(false, repository.snakeGateEnabled.first())
+
+        repository.setSnakeGateEnabled(enabled = true)
+        assertEquals(true, repository.snakeGateEnabled.first())
+
+        repository.setSnakeGateEnabled(enabled = false)
+        assertEquals(false, repository.snakeGateEnabled.first())
+    }
+
+    @Test
+    fun wipeAllClearsSnakeGatePreference() = runTest {
+        val repository = createRepository(RecordingDispatcher())
+        repository.wipeAll()
+        repository.setSnakeGateEnabled(enabled = true)
+
+        assertEquals(true, repository.snakeGateEnabled.first())
+
+        repository.wipeAll()
+
+        assertEquals(false, repository.snakeGateEnabled.first())
+    }
+
     private fun createRepository(dispatcher: CoroutineDispatcher): DefaultAppPreferencesRepository {
         val context = ApplicationProvider.getApplicationContext<Context>()
         return DefaultAppPreferencesRepository(

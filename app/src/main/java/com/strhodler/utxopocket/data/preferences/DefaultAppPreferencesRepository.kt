@@ -145,6 +145,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
     override val pinShuffleEnabled: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.PIN_SHUFFLE_ENABLED] ?: false }
 
+    override val snakeGateEnabled: Flow<Boolean> =
+        dataStore.data.map { prefs -> prefs[Keys.SNAKE_GATE_ENABLED] ?: false }
+
     override val advancedMode: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.ADVANCED_MODE] ?: false }
 
@@ -429,6 +432,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
     override suspend fun setPinShuffleEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[Keys.PIN_SHUFFLE_ENABLED] = enabled }
+    }
+
+    override suspend fun setSnakeGateEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.SNAKE_GATE_ENABLED] = enabled }
     }
 
     override suspend fun setAdvancedMode(enabled: Boolean) {
@@ -939,6 +946,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val WALLET_BALANCE_RANGE = stringPreferencesKey("wallet_balance_range")
         val SHOW_BALANCE_CHART = booleanPreferencesKey("show_balance_chart")
         val PIN_SHUFFLE_ENABLED = booleanPreferencesKey("pin_shuffle_enabled")
+        val SNAKE_GATE_ENABLED = booleanPreferencesKey("snake_gate_enabled")
         val ADVANCED_MODE = booleanPreferencesKey("advanced_mode_enabled")
         val CONNECTION_IDLE_MINUTES = intPreferencesKey("connection_idle_minutes")
         val DUST_THRESHOLD = longPreferencesKey("dust_threshold_sats")

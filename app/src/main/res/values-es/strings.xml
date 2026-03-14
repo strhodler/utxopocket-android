@@ -1061,6 +1061,8 @@
     <string name="wallet_detail_hide_chart">Ocultar gráfico</string>
     <string name="settings_pin_shuffle_title">Aleatorizar teclado PIN</string>
     <string name="settings_pin_shuffle_subtitle">Desordena los dígitos cada vez que se muestra el teclado PIN.</string>
+    <string name="settings_snake_gate_title">Desafío de camuflaje</string>
+    <string name="settings_snake_gate_subtitle">Muestra un desafío breve antes de solicitar el PIN.</string>
     <string name="wallet_labels_export_title">Exportar etiquetas</string>
     <string name="wallet_labels_export_nav_title">Exportar etiquetas de la billetera</string>
     <string name="wallet_labels_export_loading">Preparando etiquetas...</string>

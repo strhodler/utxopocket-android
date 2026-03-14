@@ -387,6 +387,8 @@
     <string name="wallet_detail_hide_chart">Hide chart</string>
     <string name="settings_pin_shuffle_title">Randomize PIN keypad</string>
     <string name="settings_pin_shuffle_subtitle">Shuffle digit positions each time the PIN keypad is shown.</string>
+    <string name="settings_snake_gate_title">Camouflage challenge</string>
+    <string name="settings_snake_gate_subtitle">Show a short challenge before the PIN prompt.</string>
     <string name="wallet_detail_full_rescan_title">Full rescan</string>
     <string name="wallet_detail_full_rescan_description">Select the gap limit for this rescan. Minimum %1$d, maximum %2$d addresses. %3$s</string>
     <string name="wallet_detail_full_rescan_gap_value">Gap limit: %1$d</string>

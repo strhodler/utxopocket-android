@@ -270,6 +270,7 @@ internal class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val walletBalanceRangeState = MutableStateFlow(BalanceRange.All)
     private val showBalanceChartState = MutableStateFlow(true)
     val pinShuffleEnabledState = MutableStateFlow(true)
+    private val snakeGateEnabledState = MutableStateFlow(false)
     private val advancedModeState = MutableStateFlow(false)
     private val pinAutoLockTimeoutState = MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
     private val connectionIdleTimeoutState = MutableStateFlow(AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES)
@@ -301,6 +302,7 @@ internal class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val walletBalanceRange: Flow<BalanceRange> = walletBalanceRangeState
     override val showBalanceChart: Flow<Boolean> = showBalanceChartState
     override val pinShuffleEnabled: Flow<Boolean> = pinShuffleEnabledState
+    override val snakeGateEnabled: Flow<Boolean> = snakeGateEnabledState
     override val advancedMode: Flow<Boolean> = advancedModeState
     override val pinAutoLockTimeoutMinutes: Flow<Int> = pinAutoLockTimeoutState
     override val connectionIdleTimeoutMinutes: Flow<Int> = connectionIdleTimeoutState
@@ -383,6 +385,10 @@ internal class FakeAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun setPinShuffleEnabled(enabled: Boolean) {
         pinShuffleEnabledState.value = enabled
+    }
+
+    override suspend fun setSnakeGateEnabled(enabled: Boolean) {
+        snakeGateEnabledState.value = enabled
     }
 
     override suspend fun setAdvancedMode(enabled: Boolean) {
