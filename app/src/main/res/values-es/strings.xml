@@ -1063,6 +1063,13 @@
     <string name="settings_pin_shuffle_subtitle">Desordena los dígitos cada vez que se muestra el teclado PIN.</string>
     <string name="settings_snake_gate_title">Desafío de camuflaje</string>
     <string name="settings_snake_gate_subtitle">Muestra un desafío breve antes de solicitar el PIN.</string>
+    <string name="snake_gate_title">Desafío rápido</string>
+    <string name="snake_gate_description">Recoge 2 marcadores para continuar.</string>
+    <string name="snake_gate_progress">%1$d/%2$d</string>
+    <string name="snake_gate_move_up">Arriba</string>
+    <string name="snake_gate_move_down">Abajo</string>
+    <string name="snake_gate_move_left">Izquierda</string>
+    <string name="snake_gate_move_right">Derecha</string>
     <string name="wallet_labels_export_title">Exportar etiquetas</string>
     <string name="wallet_labels_export_nav_title">Exportar etiquetas de la billetera</string>
     <string name="wallet_labels_export_loading">Preparando etiquetas...</string>
