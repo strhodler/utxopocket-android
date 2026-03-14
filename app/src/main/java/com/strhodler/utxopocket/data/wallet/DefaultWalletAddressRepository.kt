@@ -14,9 +14,9 @@ class DefaultWalletAddressRepository internal constructor(
 
     @Inject
     constructor(
-        defaultWalletRepository: DefaultWalletRepository
+        walletRepositoryCore: WalletRepositoryCore
     ) : this(
-        walletAddressManager = defaultWalletRepository.walletAddressManagerForAddressRepository()
+        walletAddressManager = walletRepositoryCore.walletAddressManager
     )
 
     override suspend fun listUnusedAddresses(

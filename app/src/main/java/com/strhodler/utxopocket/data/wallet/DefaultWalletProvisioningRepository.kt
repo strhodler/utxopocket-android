@@ -17,12 +17,10 @@ class DefaultWalletProvisioningRepository internal constructor(
 
     @Inject
     constructor(
-        defaultWalletRepository: DefaultWalletRepository
+        walletRepositoryCore: WalletRepositoryCore
     ) : this(
-        walletProvisioningManager =
-            defaultWalletRepository.walletProvisioningManagerForProvisioningRepository(),
-        walletMaintenanceManager =
-            defaultWalletRepository.walletMaintenanceManagerForMaintenanceRepository()
+        walletProvisioningManager = walletRepositoryCore.walletProvisioningManager,
+        walletMaintenanceManager = walletRepositoryCore.walletMaintenanceManager
     )
 
     override suspend fun validateDescriptor(

@@ -20,9 +20,9 @@ class DefaultWalletReadRepository internal constructor(
 
     @Inject
     constructor(
-        defaultWalletRepository: DefaultWalletRepository
+        walletRepositoryCore: WalletRepositoryCore
     ) : this(
-        walletReadManager = defaultWalletRepository.walletReadManagerForReadRepository()
+        walletReadManager = walletRepositoryCore.walletReadManager
     )
 
     override fun observeWalletSummaries(network: BitcoinNetwork): Flow<List<WalletSummary>> =

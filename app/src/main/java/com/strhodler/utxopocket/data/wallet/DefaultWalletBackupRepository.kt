@@ -34,7 +34,7 @@ class DefaultWalletBackupRepository internal constructor(
         walletDetailPreferencesRepository: WalletDetailPreferencesRepository,
         walletProvisioningRepository: WalletProvisioningRepository,
         walletFactory: BdkWalletFactory,
-        defaultWalletRepository: DefaultWalletRepository,
+        walletRepositoryCore: WalletRepositoryCore,
         @IoDispatcher ioDispatcher: CoroutineDispatcher
     ) : this(
         walletBackupManager = WalletBackupManager(
@@ -47,7 +47,7 @@ class DefaultWalletBackupRepository internal constructor(
             removeWalletStorage = walletFactory::removeStorage,
             ioDispatcher = ioDispatcher
         ),
-        releaseRuntimeBeforeImport = defaultWalletRepository::releaseRuntimeBeforeBackupImport
+        releaseRuntimeBeforeImport = walletRepositoryCore::releaseRuntimeBeforeBackupImport
     )
 
     override suspend fun exportEncryptedBackup(

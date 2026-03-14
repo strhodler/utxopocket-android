@@ -11,10 +11,9 @@ class DefaultWalletMaintenanceRepository internal constructor(
 
     @Inject
     constructor(
-        defaultWalletRepository: DefaultWalletRepository
+        walletRepositoryCore: WalletRepositoryCore
     ) : this(
-        walletMaintenanceManager =
-            defaultWalletRepository.walletMaintenanceManagerForMaintenanceRepository()
+        walletMaintenanceManager = walletRepositoryCore.walletMaintenanceManager
     )
 
     override suspend fun wipeAllWalletData() = walletMaintenanceManager.wipeAllWalletData()

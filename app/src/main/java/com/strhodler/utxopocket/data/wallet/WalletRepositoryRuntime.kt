@@ -17,6 +17,7 @@ import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
+import com.strhodler.utxopocket.domain.model.hasActiveSelection
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
@@ -155,6 +156,9 @@ internal class WalletRepositoryRuntime(
     fun observeNodeStatus(): Flow<NodeStatusSnapshot> = nodeStatus.asStateFlow()
 
     fun observeSyncStatus(): Flow<SyncStatusSnapshot> = walletSyncOrchestrator.observeSyncStatus()
+
+    suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean =
+        nodeConfigurationRepository.nodeConfig.first().hasActiveSelection(network)
 
     suspend fun refresh(network: BitcoinNetwork) {
         walletSyncOrchestrator.refresh(network)
