@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">UtxoPocket</string>
+    <string name="app_name_calculator">Calculator</string>
     <string name="nav_wallets">Wallets</string>
     <string name="nav_settings">Settings</string>
     <string name="nav_wiki">Wiki</string>
@@ -34,23 +35,29 @@
     <string name="about_sheet_qr_caption">Buy me a coffee via Lightning</string>
     <string name="about_sheet_qr_error">Unable to generate a QR code.</string>
     <string name="about_sheet_copy_toast">Copied to clipboard</string>
-    <string name="features_screen_intro">UtxoPocket focuses on verifiable, privacy-first watch-only workflows.</string>
-    <string name="feature_watch_title">Watch-only intelligence</string>
-    <string name="feature_watch_description">Monitor balances and labeled UTXOs without exposing private keys or seeds.</string>
+    <string name="features_screen_intro">UtxoPocket focuses on private, verifiable, watch-only workflows you can inspect and control.</string>
+    <string name="feature_watch_title">Watch-only monitoring</string>
+    <string name="feature_watch_description">Track balances, transactions, and labeled UTXOs without exposing private keys or seeds.</string>
     <string name="feature_descriptors_title">Descriptor-native sync</string>
     <string name="feature_descriptors_description">Bring any descriptor set—external/change branches, multipath exports, multisig policies—and BDK keeps them in lockstep.</string>
-    <string name="feature_bip_support_title">Broad BIP coverage</string>
-    <string name="feature_bip_support_description">Understands BIP-32/39 key roots, BIP-84/86 derivations, and descriptor policies so your hardware stack plugs in directly.</string>
-    <string name="feature_bip329_title">BIP-329 label workflows</string>
-    <string name="feature_bip329_description">Import, edit, and export wallet labels with the BIP-329 JSON format to keep naming in sync across devices and signers.</string>
+    <string name="feature_canvas_title">UTXO Canvas &amp; collections</string>
+    <string name="feature_canvas_description">Organize UTXOs with drag-and-drop collections, color tags, and automatic Dust grouping.</string>
     <string name="feature_backup_title">Encrypted watch-only backups</string>
     <string name="feature_backup_description">Export and import encrypted .ubak backups to recover descriptors, labels, collections, and selected app preferences safely.</string>
     <string name="feature_security_title">Layered security controls</string>
-    <string name="feature_security_description">Use optional PIN lock with backoff, hidden duress PIN mode, panic wipe, and an optional calculator camouflage challenge before PIN entry.</string>
+    <string name="feature_security_description">Use optional PIN lock with backoff, a hidden duress PIN, panic wipe, and an optional calculator camouflage challenge before PIN entry.</string>
     <string name="feature_connectivity_title">Private connectivity</string>
     <string name="feature_connectivity_description">Use Tor by default with curated Electrum servers or custom onion endpoints, or opt into Local Direct for trusted private/local IP literal nodes.</string>
-    <string name="feature_analysis_title">Analysis visuals</string>
-    <string name="feature_analysis_description">Age donuts plus spendability and value-band breakdowns, with an interactive treemap for fast UTXO inspection.</string>
+    <string name="feature_analysis_title">Analysis views</string>
+    <string name="feature_analysis_description">Inspect age, spendability, value bands, collections, and treemap visuals for fast UTXO review.</string>
+    <string name="feature_visualizer_title">Transaction visualizer</string>
+    <string name="feature_visualizer_description">Explore inputs, outputs, change, and fee structure in a focused transaction diagram.</string>
+    <string name="feature_compatibility_title">Compatibility &amp; labels</string>
+    <string name="feature_compatibility_description">Broad descriptor support across common BDK-backed wallet setups, plus portable BIP-329 label import and export.</string>
+    <string name="feature_networks_title">Multi-network support</string>
+    <string name="feature_networks_description">Switch between Mainnet, Testnet3, Testnet4, and Signet with per-network presets.</string>
+    <string name="feature_knowledge_title">Offline wiki &amp; glossary</string>
+    <string name="feature_knowledge_description">Browse built-in guides and terms directly inside the app, even without a connection.</string>
     <string name="wiki_detail_related_glossary_label">Related glossary</string>
     <string name="glossary_detail_related_wiki_label">Related wiki</string>
     <string name="disclaimer_intro">UtxoPocket is a watch-only wallet. Please read this disclaimer:</string>
@@ -389,10 +396,14 @@
     <string name="wallet_detail_hide_chart">Hide chart</string>
     <string name="settings_pin_shuffle_title">Randomize PIN keypad</string>
     <string name="settings_pin_shuffle_subtitle">Shuffle digit positions each time the PIN keypad is shown.</string>
-    <string name="settings_calculator_gate_title">Camouflage challenge</string>
-    <string name="settings_calculator_gate_subtitle">Show an optional short challenge before the PIN prompt. PIN checks and backoff stay the same.</string>
-    <string name="settings_calculator_gate_enable_dialog_message">To unlock, enter 21000000 and tap = in the calculator.</string>
-    <string name="settings_calculator_gate_enable_dialog_confirm">Understood</string>
+    <string name="settings_calculator_gate_title">Calculator mode</string>
+    <string name="settings_calculator_gate_subtitle">Show a short calculator step before the PIN prompt. PIN checks and backoff stay the same.</string>
+    <string name="settings_calculator_gate_enable_dialog_title">Calculator mode enabled</string>
+    <string name="settings_calculator_gate_enable_dialog_message">The app will now appear as %1$s. Look for the calculator icon and open it under the name %1$s.
+
+To reach the PIN screen, enter 21000000 and then tap =.</string>
+    <string name="settings_calculator_gate_enable_dialog_confirm">Apply now</string>
+    <string name="settings_calculator_gate_enable_dialog_cancel">Cancel</string>
     <string name="calculator_key_clear">C</string>
     <string name="calculator_key_backspace">DEL</string>
     <string name="calculator_key_divide">/</string>

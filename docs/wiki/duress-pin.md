@@ -19,7 +19,7 @@ If you must unlock under pressure, revealing a believable but inert view protect
 - **Connections hidden**: Top-bar node icon is hidden. The home connections banner keeps layout but hides its icon and ignores taps. Node status routes and prompts are blocked.
 - **Networking paused**: Tor/node disconnect; sync polling and observers pause while duress is active. Incoming TX badge/sheet is suppressed.
 - **Zero tells**: No snackbars/toasts indicate duress; PIN prompts treat duress as a normal success. Fake state clears on restore or app restart; only duress config persists.
-- **Calculator camouflage compatibility**: If the optional calculator camouflage is enabled, it may appear before PIN entry, but duress unlock semantics stay the same once the PIN step is reached.
+- **Calculator camouflage compatibility**: If the optional calculator camouflage is enabled, it may appear before PIN entry and can style launcher/splash visuals, but duress unlock semantics stay the same once the PIN step is reached.
 
 ## Enabling the duress PIN
 1) Open Settings → Security (requires the normal PIN).

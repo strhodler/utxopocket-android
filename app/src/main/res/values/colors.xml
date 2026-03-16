@@ -15,4 +15,7 @@
     <color name="splash_icon_background">#E5E7EB</color>
     <color name="splash_icon_primary">#F7931A</color>
     <color name="splash_icon_tint">#1F2937</color>
+    <color name="splash_calculator_background">#EDF1F5</color>
+    <color name="splash_calculator_icon_tint">#1E293B</color>
+    <color name="splash_calculator_icon_background">#DDE4EC</color>
 </resources>

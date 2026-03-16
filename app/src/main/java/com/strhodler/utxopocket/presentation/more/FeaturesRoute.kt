@@ -43,12 +43,20 @@ private fun FeaturesScreen(onBack: () -> Unit) {
                 descriptionRes = R.string.feature_descriptors_description
             ),
             FeatureItem(
-                titleRes = R.string.feature_bip_support_title,
-                descriptionRes = R.string.feature_bip_support_description
+                titleRes = R.string.feature_canvas_title,
+                descriptionRes = R.string.feature_canvas_description
             ),
             FeatureItem(
-                titleRes = R.string.feature_bip329_title,
-                descriptionRes = R.string.feature_bip329_description
+                titleRes = R.string.feature_analysis_title,
+                descriptionRes = R.string.feature_analysis_description
+            ),
+            FeatureItem(
+                titleRes = R.string.feature_visualizer_title,
+                descriptionRes = R.string.feature_visualizer_description
+            ),
+            FeatureItem(
+                titleRes = R.string.feature_compatibility_title,
+                descriptionRes = R.string.feature_compatibility_description
             ),
             FeatureItem(
                 titleRes = R.string.feature_backup_title,
@@ -63,8 +71,12 @@ private fun FeaturesScreen(onBack: () -> Unit) {
                 descriptionRes = R.string.feature_connectivity_description
             ),
             FeatureItem(
-                titleRes = R.string.feature_analysis_title,
-                descriptionRes = R.string.feature_analysis_description
+                titleRes = R.string.feature_networks_title,
+                descriptionRes = R.string.feature_networks_description
+            ),
+            FeatureItem(
+                titleRes = R.string.feature_knowledge_title,
+                descriptionRes = R.string.feature_knowledge_description
             )
         )
     }

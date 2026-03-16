@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material3.AlertDialog
@@ -54,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -131,6 +134,7 @@ fun SecuritySettingsRoute(
     val coroutineScope = rememberCoroutineScope()
     var showNetworkLogsInfoSheet by rememberSaveable { mutableStateOf(false) }
     var showCalculatorGateEnableDialog by rememberSaveable { mutableStateOf(false) }
+    val calculatorAppName = stringResource(id = R.string.app_name_calculator)
     val networkLogsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val pinPromptFormatter = remember(resourcesState.value) {
         resourcesPinPromptFormatter(resourcesState.value)
@@ -262,9 +266,10 @@ fun SecuritySettingsRoute(
                 duressToggleVisible = duressToggleVisible,
                 onPinShuffleChanged = viewModel::onPinShuffleChanged,
                 onCalculatorGateChanged = { enabled ->
-                    viewModel.onCalculatorGateChanged(enabled)
                     if (enabled) {
                         showCalculatorGateEnableDialog = true
+                    } else {
+                        viewModel.onCalculatorGateChanged(false)
                     }
                 },
                 onPinAutoLockTimeoutSelected = viewModel::onPinAutoLockTimeoutSelected,
@@ -281,11 +286,46 @@ fun SecuritySettingsRoute(
             if (showCalculatorGateEnableDialog) {
                 AlertDialog(
                     onDismissRequest = { showCalculatorGateEnableDialog = false },
-                    title = { Text(text = stringResource(id = R.string.settings_calculator_gate_title)) },
-                    text = { Text(text = stringResource(id = R.string.settings_calculator_gate_enable_dialog_message)) },
+                    icon = {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_calculator_mode),
+                                contentDescription = null,
+                                tint = Color.Unspecified,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    },
+                    title = { Text(text = stringResource(id = R.string.settings_calculator_gate_enable_dialog_title)) },
+                    text = {
+                        Text(
+                            text = stringResource(
+                                id = R.string.settings_calculator_gate_enable_dialog_message,
+                                calculatorAppName
+                            )
+                        )
+                    },
                     confirmButton = {
-                        TextButton(onClick = { showCalculatorGateEnableDialog = false }) {
+                        TextButton(
+                            onClick = {
+                                showCalculatorGateEnableDialog = false
+                                viewModel.onCalculatorGateChanged(true)
+                            }
+                        ) {
                             Text(text = stringResource(id = R.string.settings_calculator_gate_enable_dialog_confirm))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showCalculatorGateEnableDialog = false }) {
+                            Text(text = stringResource(id = R.string.settings_calculator_gate_enable_dialog_cancel))
                         }
                     }
                 )

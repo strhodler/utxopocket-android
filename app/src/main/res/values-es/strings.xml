@@ -2,6 +2,7 @@
 <resources>
     <!-- App navigation -->
     <string name="app_name">UtxoPocket</string>
+    <string name="app_name_calculator">Calculadora</string>
     <string name="nav_wallets">Billeteras</string>
     <string name="nav_settings">Ajustes</string>
     <string name="nav_wiki">Wiki</string>
@@ -651,23 +652,29 @@
     <string name="wallet_balance_range_all">Todo</string>
     <string name="more_item_features">Funcionalidades</string>
     <string name="more_item_features_supporting">Explora todo lo que UtxoPocket puede hacer.</string>
-    <string name="features_screen_intro">UtxoPocket prioriza flujos watch-only verificables y centrados en la privacidad.</string>
-    <string name="feature_watch_title">Inteligencia watch-only</string>
-    <string name="feature_watch_description">Supervisa saldos y UTXOs etiquetados sin exponer llaves privadas ni semillas.</string>
+    <string name="features_screen_intro">UtxoPocket se centra en flujos watch-only privados y verificables que puedes inspeccionar y controlar.</string>
+    <string name="feature_watch_title">Seguimiento watch-only</string>
+    <string name="feature_watch_description">Sigue saldos, transacciones y UTXOs etiquetados sin exponer llaves privadas ni semillas.</string>
     <string name="feature_descriptors_title">Sincronización nativa de descriptores</string>
     <string name="feature_descriptors_description">Importa cualquier conjunto de descriptores —ramas externa/cambio, exportaciones multipath o políticas multisig— y BDK los mantiene sincronizados.</string>
-    <string name="feature_bip_support_title">Compatibilidad amplia con BIPs</string>
-    <string name="feature_bip_support_description">Comprende raíces BIP-32/39, derivaciones BIP-84/86 y políticas basadas en descriptores para que tu stack de hardware funcione sin ajustes.</string>
-    <string name="feature_bip329_title">Flujos de etiquetas BIP-329</string>
-    <string name="feature_bip329_description">Importa, edita y exporta etiquetas mediante el formato JSON BIP-329 para mantener la nomenclatura sincronizada entre dispositivos y firmantes.</string>
+    <string name="feature_canvas_title">UTXO Canvas y colecciones</string>
+    <string name="feature_canvas_description">Organiza UTXOs con colecciones de arrastrar y soltar, etiquetas de color y agrupado automático de polvo.</string>
     <string name="feature_backup_title">Copias de seguridad watch-only cifradas</string>
     <string name="feature_backup_description">Exporta e importa respaldos .ubak cifrados para recuperar descriptores, etiquetas, colecciones y preferencias seleccionadas de forma segura.</string>
     <string name="feature_security_title">Controles de seguridad por capas</string>
-    <string name="feature_security_description">Usa bloqueo PIN opcional con espera progresiva, modo PIN de coacción oculto, borrado de pánico y desafío de calculadora opcional antes de introducir el PIN.</string>
+    <string name="feature_security_description">Usa bloqueo PIN opcional con espera progresiva, PIN de coacción oculto, borrado de pánico y desafío de calculadora opcional antes de introducir el PIN.</string>
     <string name="feature_connectivity_title">Conectividad privada</string>
     <string name="feature_connectivity_description">Usa Tor por defecto con servidores Electrum curados o endpoints onion personalizados, o activa Local Direct para nodos con literales IP privadas/locales de confianza.</string>
-    <string name="feature_analysis_title">Visualizaciones de análisis</string>
-    <string name="feature_analysis_description">Donuts por antigüedad más desglose por gastables y bandas de valor, con treemap interactivo para inspeccionar UTXOs rápido.</string>
+    <string name="feature_analysis_title">Vistas de análisis</string>
+    <string name="feature_analysis_description">Inspecciona antigüedad, gastabilidad, bandas de valor, colecciones y treemaps para revisar UTXOs rápido.</string>
+    <string name="feature_visualizer_title">Visualizador de transacciones</string>
+    <string name="feature_visualizer_description">Explora entradas, salidas, cambio y estructura de comisiones en un diagrama centrado en la transacción.</string>
+    <string name="feature_compatibility_title">Compatibilidad y etiquetas</string>
+    <string name="feature_compatibility_description">Amplio soporte de descriptores en configuraciones comunes respaldadas por BDK, además de importación y exportación de etiquetas BIP-329.</string>
+    <string name="feature_networks_title">Soporte multi-red</string>
+    <string name="feature_networks_description">Cambia entre Mainnet, Testnet3, Testnet4 y Signet con presets por red.</string>
+    <string name="feature_knowledge_title">Wiki y glosario offline</string>
+    <string name="feature_knowledge_description">Consulta guías y términos integrados dentro de la app, incluso sin conexión.</string>
     <string name="wiki_detail_related_glossary_label">Glosario relacionado</string>
     <string name="glossary_detail_related_wiki_label">Wiki relacionada</string>
     <string name="more_item_disclaimer">Descargo de responsabilidad</string>
@@ -1063,10 +1070,14 @@
     <string name="wallet_detail_hide_chart">Ocultar gráfico</string>
     <string name="settings_pin_shuffle_title">Aleatorizar teclado PIN</string>
     <string name="settings_pin_shuffle_subtitle">Desordena los dígitos cada vez que se muestra el teclado PIN.</string>
-    <string name="settings_calculator_gate_title">Desafío de camuflaje</string>
-    <string name="settings_calculator_gate_subtitle">Muestra un desafío breve opcional antes de solicitar el PIN. La verificación y la espera del PIN siguen igual.</string>
-    <string name="settings_calculator_gate_enable_dialog_message">Para desbloquear, introduce 21000000 y pulsa = en la calculadora.</string>
-    <string name="settings_calculator_gate_enable_dialog_confirm">Entendido</string>
+    <string name="settings_calculator_gate_title">Modo calculadora</string>
+    <string name="settings_calculator_gate_subtitle">Muestra un paso breve de calculadora antes del PIN. La verificación y la espera del PIN siguen igual.</string>
+    <string name="settings_calculator_gate_enable_dialog_title">Modo calculadora activado</string>
+    <string name="settings_calculator_gate_enable_dialog_message">La aplicación ahora se mostrará como %1$s. Busca el icono de calculadora y ábrela con el nombre %1$s.
+
+Para llegar a la pantalla PIN, introduce 21000000 y luego pulsa =.</string>
+    <string name="settings_calculator_gate_enable_dialog_confirm">Aplicar ahora</string>
+    <string name="settings_calculator_gate_enable_dialog_cancel">Cancelar</string>
     <string name="calculator_key_clear">C</string>
     <string name="calculator_key_backspace">DEL</string>
     <string name="calculator_key_divide">/</string>

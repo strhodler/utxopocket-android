@@ -20,6 +20,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.presentation.appshell.MainAppShell
+import com.strhodler.utxopocket.presentation.launcher.LauncherCamouflageManager
 import com.strhodler.utxopocket.presentation.onboarding.OnboardingRoute
 import com.strhodler.utxopocket.presentation.theme.UtxoPocketTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -29,6 +30,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 class MainActivity : AppCompatActivity() {
 
     private val viewModel: MainActivityViewModel by viewModels()
+    private lateinit var launcherCamouflageManager: LauncherCamouflageManager
     private val processLifecycleObserver = object : DefaultLifecycleObserver {
         override fun onStop(owner: LifecycleOwner) {
             viewModel.onLifecycleEvent(MainActivityLifecycleEvent.SentToBackground)
@@ -39,6 +41,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+        launcherCamouflageManager = LauncherCamouflageManager(applicationContext)
         ProcessLifecycleOwner.get().lifecycle.addObserver(processLifecycleObserver)
 
         splashScreen.setKeepOnScreenCondition { !viewModel.uiState.value.isReady }
@@ -46,6 +49,12 @@ class MainActivity : AppCompatActivity() {
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             val obscure by obscureScreen.collectAsStateWithLifecycle()
+
+            LaunchedEffect(uiState.isReady, uiState.appShellState.calculatorGateEnabled) {
+                if (uiState.isReady) {
+                    launcherCamouflageManager.apply(uiState.appShellState.calculatorGateEnabled)
+                }
+            }
 
             LaunchedEffect(uiState.appLanguage) {
                 val desiredLocales = LocaleListCompat.forLanguageTags(uiState.appLanguage.languageTag)
