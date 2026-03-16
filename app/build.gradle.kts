@@ -5,6 +5,18 @@ plugins {
     alias(libs.plugins.hilt.android)
 }
 
+val runtimeDocsAssetsDir = layout.buildDirectory.dir("generated/runtime-docs-assets")
+
+val syncRuntimeDocsAssets by tasks.registering(org.gradle.api.tasks.Sync::class) {
+    from(rootProject.file("docs/wiki")) {
+        into("wiki")
+    }
+    from(rootProject.file("docs/glossary")) {
+        into("glossary")
+    }
+    into(runtimeDocsAssetsDir)
+}
+
 android {
     namespace = "com.strhodler.utxopocket"
     compileSdk = 36
@@ -61,8 +73,18 @@ android {
             useLegacyPackaging = true
         }
     }
-    sourceSets["main"].assets.srcDir(rootProject.file("docs"))
-    sourceSets["androidTest"].assets.srcDir("$projectDir/schemas")
+    sourceSets {
+        getByName("main") {
+            assets.directories.add(runtimeDocsAssetsDir.get().asFile.absolutePath)
+        }
+        getByName("androidTest") {
+            assets.directories.add("$projectDir/schemas")
+        }
+    }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(syncRuntimeDocsAssets)
 }
 
 ksp {

@@ -30,6 +30,9 @@ output-metadata.json
 *.tmp
 *.swp
 *.bak
+.project
+.classpath
+.settings/
 
 # === Keystores & credentials ===
 *.jks
