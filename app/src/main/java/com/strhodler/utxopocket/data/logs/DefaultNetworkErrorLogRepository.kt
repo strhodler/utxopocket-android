@@ -167,12 +167,7 @@ class DefaultNetworkErrorLogRepository @Inject constructor(
         return runCatching {
             val pkgInfo = context.packageManager.getPackageInfo(context.packageName, 0)
             val versionName = pkgInfo.versionName ?: "unknown"
-            val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                pkgInfo.longVersionCode
-            } else {
-                @Suppress("DEPRECATION")
-                pkgInfo.versionCode.toLong()
-            }
+            val versionCode = pkgInfo.longVersionCode
             "$versionName ($versionCode)"
         }.getOrElse {
             "unknown"

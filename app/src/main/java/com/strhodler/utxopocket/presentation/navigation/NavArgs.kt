@@ -25,16 +25,32 @@ internal inline fun <reified T : Enum<T>> parseEnumArgValue(rawValue: String?): 
 internal fun requireLongArgValue(key: String, value: Any?): Long =
     parseLongArgValue(value) ?: throw IllegalArgumentException("Missing required argument: $key")
 
-@Suppress("DEPRECATION")
-internal fun Bundle?.longArgOrNull(key: String): Long? = parseLongArgValue(this?.get(key))
+internal fun Bundle?.longArgOrNull(key: String): Long? {
+    val bundle = this ?: return null
+    if (!bundle.containsKey(key)) return null
 
-@Suppress("DEPRECATION")
-internal fun Bundle?.intArgOrNull(key: String): Int? = parseIntArgValue(this?.get(key))
+    val stringValue = bundle.getString(key)
+    if (stringValue != null) return parseLongArgValue(stringValue)
+
+    return runCatching { parseLongArgValue(bundle.getLong(key)) }.getOrNull()
+        ?: runCatching { parseLongArgValue(bundle.getInt(key)) }.getOrNull()
+}
+
+internal fun Bundle?.intArgOrNull(key: String): Int? {
+    val bundle = this ?: return null
+    if (!bundle.containsKey(key)) return null
+
+    val stringValue = bundle.getString(key)
+    if (stringValue != null) return parseIntArgValue(stringValue)
+
+    return runCatching { parseIntArgValue(bundle.getInt(key)) }.getOrNull()
+        ?: runCatching { parseIntArgValue(bundle.getLong(key)) }.getOrNull()
+}
 
 internal fun Bundle?.stringArgOrNull(key: String): String? = this?.getString(key)
 
-@Suppress("DEPRECATION")
-internal fun Bundle?.requireLongArg(key: String): Long = requireLongArgValue(key, this?.get(key))
+internal fun Bundle?.requireLongArg(key: String): Long =
+    longArgOrNull(key) ?: throw IllegalArgumentException("Missing required argument: $key")
 
 internal fun Bundle?.requireIntArg(key: String): Int =
     intArgOrNull(key) ?: throw IllegalArgumentException("Missing required argument: $key")

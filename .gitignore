@@ -5,6 +5,7 @@
 .gradle-user
 /.kotlin/
 /local.properties
+/local.properties.windows
 /.idea
 .DS_Store
 /build/

@@ -73,7 +73,6 @@ class MainActivity : AppCompatActivity() {
                 val navigationBarColor = MaterialTheme.colorScheme.surfaceContainer
                 val useDarkStatusIcons = statusBarColor.luminance() > 0.5f
                 val useDarkNavigationIcons = navigationBarColor.luminance() > 0.5f
-                @Suppress("DEPRECATION")
                 SideEffect {
                     window.statusBarColor = statusBarColor.toArgb()
                     window.navigationBarColor = navigationBarColor.toArgb()

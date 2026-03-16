@@ -260,7 +260,6 @@ fun StepLineChart(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        @Suppress("DEPRECATION")
         CartesianChartHost(
             chart = chart,
             modelProducer = modelProducer,
