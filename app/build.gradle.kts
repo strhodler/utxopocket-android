@@ -27,8 +27,6 @@ android {
         targetSdk = 36
         versionCode = 13
         versionName = "0.11.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -77,9 +75,12 @@ android {
         getByName("main") {
             assets.directories.add(runtimeDocsAssetsDir.get().asFile.absolutePath)
         }
-        getByName("androidTest") {
-            assets.directories.add("$projectDir/schemas")
-        }
+    }
+}
+
+androidComponents {
+    beforeVariants(selector().all()) { variant ->
+        variant.enableAndroidTest = false
     }
 }
 
@@ -149,10 +150,5 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.room.testing)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

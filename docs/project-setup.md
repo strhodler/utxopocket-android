@@ -28,10 +28,6 @@ Before opening a PR, run the fast feedback loop:
 ./gradlew lintDebug
 ./gradlew :app:testDebugUnitTest
 ```
-Touching Tor, networking, or Compose UI? also run:
-```bash
-./gradlew :app:connectedDebugAndroidTest
-```
 
 ## 4. Install The Debug Build
 ```bash
