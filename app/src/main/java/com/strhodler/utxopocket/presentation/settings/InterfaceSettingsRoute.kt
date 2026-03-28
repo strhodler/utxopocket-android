@@ -1,6 +1,8 @@
 package com.strhodler.utxopocket.presentation.settings
 
+import android.content.Context
 import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -585,8 +587,8 @@ private fun rememberThemePreview(
             ThemePreference.LIGHT -> colorSchemeFor(ThemeProfile.STANDARD, isDark = false)
             ThemePreference.DARK -> colorSchemeFor(ThemeProfile.STANDARD, isDark = true)
             ThemePreference.SYSTEM -> when {
-                dynamicSupported && systemIsDark -> dynamicDarkColorScheme(context)
-                dynamicSupported && !systemIsDark -> dynamicLightColorScheme(context)
+                dynamicSupported && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+                    dynamicThemePreviewColorScheme(context, systemIsDark)
                 else -> colorSchemeFor(ThemeProfile.STANDARD, isDark = systemIsDark)
             }
         }
@@ -616,6 +618,13 @@ private fun rememberThemeProfilePreview(
         )
     }
 }
+
+internal fun canUseDynamicThemePreview(dynamicSupported: Boolean, sdkInt: Int): Boolean =
+    dynamicSupported && sdkInt >= Build.VERSION_CODES.S
+
+@RequiresApi(Build.VERSION_CODES.S)
+private fun dynamicThemePreviewColorScheme(context: Context, systemIsDark: Boolean) =
+    if (systemIsDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
 
 private data class ThemePreviewColors(
     val primary: Color,

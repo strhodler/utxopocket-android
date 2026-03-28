@@ -15,7 +15,6 @@ import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.Socket
 import java.security.MessageDigest
-import java.security.SecureRandom
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutionException
@@ -26,8 +25,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
-import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -71,6 +68,9 @@ class LightElectrumClient(
     private var readerFailure: IOException? = null
 
     init {
+        if (shouldFailClosedForInsecureSsl(normalized.scheme, validateDomain)) {
+            throw IOException("SSL endpoints require certificate and domain validation")
+        }
         val proxyConfig = proxy?.let {
             Proxy(Proxy.Type.SOCKS, InetSocketAddress(it.host, it.port))
         } ?: Proxy.NO_PROXY
@@ -83,7 +83,7 @@ class LightElectrumClient(
         }
         baseSocket.connect(targetAddress, endpoint.timeoutSeconds * 1_000)
         socket = if (normalized.scheme == EndpointScheme.SSL) {
-            val sslContext = if (validateDomain) SSLContext.getDefault() else insecureContext()
+            val sslContext = SSLContext.getDefault()
             val wrapped = sslContext.socketFactory.createSocket(
                 baseSocket,
                 normalized.host,
@@ -416,19 +416,6 @@ class LightElectrumClient(
             return digest.reversedArray().toHexString()
         }
 
-        private fun insecureContext(): SSLContext {
-            val trustAll = arrayOf<TrustManager>(
-                object : X509TrustManager {
-                    override fun checkClientTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) = Unit
-                    override fun checkServerTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) = Unit
-                    override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = emptyArray()
-                }
-            )
-            return SSLContext.getInstance("TLS").apply {
-                init(null, trustAll, SecureRandom())
-            }
-        }
-
         private fun ByteArray.toHexString(): String = buildString(size) {
             for (value in this@toHexString) {
                 append(String.format("%02x", value))
@@ -436,3 +423,8 @@ class LightElectrumClient(
         }
     }
 }
+
+internal fun shouldFailClosedForInsecureSsl(
+    endpointScheme: EndpointScheme,
+    validateDomain: Boolean
+): Boolean = endpointScheme == EndpointScheme.SSL && !validateDomain

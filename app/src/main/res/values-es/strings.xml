@@ -44,10 +44,12 @@
     <string name="wallets_balance">Balance: %1$s %2$s</string>
     <plurals name="wallets_transactions">
         <item quantity="one">%d tx</item>
+        <item quantity="many">%d txs</item>
         <item quantity="other">%d txs</item>
     </plurals>
     <plurals name="wallets_utxos">
         <item quantity="one">%d utxo</item>
+        <item quantity="many">%d utxos</item>
         <item quantity="other">%d utxos</item>
     </plurals>
     <string name="wallets_status">Estado: %1$s</string>
@@ -117,7 +119,7 @@
     <string name="settings_backup_export_subtitle">Crear archivo .ubak cifrado</string>
     <string name="settings_backup_export_description">Exporta billeteras, etiquetas, colecciones y preferencias seleccionadas en formato watch-only cifrado.</string>
     <string name="settings_backup_export_action">Exportar .ubak</string>
-    <string name="settings_backup_export_loading">Preparando respaldo...</string>
+    <string name="settings_backup_export_loading">Preparando respaldo…</string>
     <string name="settings_backup_export_warning_title">Importante antes de exportar</string>
     <string name="settings_backup_export_warning_body">El PIN y el PIN de coacción no se incluyen en los respaldos. Después de importar, debes configurarlos de nuevo en este dispositivo.</string>
     <string name="settings_backup_export_warning_confirm_action">Entiendo</string>
@@ -132,7 +134,7 @@
     <string name="settings_backup_passphrase_label">Passphrase</string>
     <string name="settings_backup_passphrase_confirm_label">Confirmar passphrase</string>
     <string name="settings_backup_preview_action">Previsualizar respaldo</string>
-    <string name="settings_backup_preview_loading">Descifrando vista previa...</string>
+    <string name="settings_backup_preview_loading">Descifrando vista previa…</string>
     <string name="settings_backup_clear_selection_action">Elegir otro archivo</string>
     <string name="settings_backup_preview_title">Vista previa de importación</string>
     <string name="settings_backup_preview_subtitle">Revisa el contenido antes de aplicar</string>
@@ -395,6 +397,7 @@
     <string name="incoming_tx_placeholder_amount_pending">Importe pendiente</string>
     <plurals name="incoming_tx_sheet_count">
         <item quantity="one">%1$d transacción entrante</item>
+        <item quantity="many">%1$d transacciones entrantes</item>
         <item quantity="other">%1$d transacciones entrantes</item>
     </plurals>
     <string name="incoming_tx_sheet_subtitle">Detectadas mientras estabas fuera. Sincroniza para reconciliar placeholders con transacciones canónicas.</string>
@@ -617,13 +620,14 @@
     <string name="pin_setup_error_generic">No se pudo guardar el PIN. Inténtalo de nuevo.</string>
     <string name="pin_disable_title">Desactivar PIN</string>
     <string name="pin_disable_description">Introduce tu PIN actual para desactivar el bloqueo.</string>
-    <string name="pin_disable_verifying">Verificando PIN...</string>
+    <string name="pin_disable_verifying">Verificando PIN…</string>
     <string name="pin_disable_confirm">Desactivar PIN</string>
     <string name="pin_duress_prompt_title">Confirmar PIN</string>
     <string name="pin_duress_prompt_description">Introduce tu PIN para gestionar el PIN de coacción.</string>
-    <string name="pin_duress_verifying">Verificando PIN...</string>
+    <string name="pin_duress_verifying">Verificando PIN…</string>
     <plurals name="settings_duress_toggle_taps_left">
         <item quantity="one">Activación de coacción: queda %d toque</item>
+        <item quantity="many">Activación de coacción: quedan %d toques</item>
         <item quantity="other">Activación de coacción: quedan %d toques</item>
     </plurals>
     <string name="settings_duress_disable_error">No se pudo desactivar el PIN de coacción</string>
@@ -719,7 +723,7 @@
     <string name="tor_overview_proxy_label">Endpoint del proxy</string>
     <string name="tor_overview_proxy_value">%1$s:%2$d</string>
     <string name="tor_overview_proxy_unavailable">No disponible hasta que Tor se conecte.</string>
-    <string name="tor_overview_proxy_pending_chip">Esperando proxy...</string>
+    <string name="tor_overview_proxy_pending_chip">Esperando proxy…</string>
     <string name="tor_overview_proxy_unavailable_chip">Proxy no disponible</string>
     <string name="tor_overview_bootstrap_label">Progreso de arranque</string>
     <string name="tor_overview_bootstrap_percent_value">%1$d%%</string>
@@ -747,7 +751,7 @@
     <string name="node_overview_details_empty">Este nodo no expone información de conexión.</string>
     <string name="node_overview_fee_rate_title">Tarifa sugerida</string>
     <string name="node_overview_fee_rate_hint">Última estimación en sats/vB reportada por tu nodo.</string>
-    <string name="node_overview_tor_required_connecting">Tor es obligatorio; conectando...</string>
+    <string name="node_overview_tor_required_connecting">Tor es obligatorio; conectando…</string>
     <string name="node_overview_tor_required">Enrutada por Tor.</string>
     <string name="node_overview_tor_optional">Esta conexión puede funcionar sin Tor.</string>
     <string name="node_overview_tab_status">Detalles</string>
@@ -1099,7 +1103,7 @@ Para llegar a la pantalla PIN, introduce 21000000 y luego pulsa =.</string>
     <string name="calculator_key_9">9</string>
     <string name="wallet_labels_export_title">Exportar etiquetas</string>
     <string name="wallet_labels_export_nav_title">Exportar etiquetas de la billetera</string>
-    <string name="wallet_labels_export_loading">Preparando etiquetas...</string>
+    <string name="wallet_labels_export_loading">Preparando etiquetas…</string>
     <string name="wallet_labels_export_retry">Intentar de nuevo</string>
     <string name="wallet_labels_export_empty">Aún no hay etiquetas para exportar.</string>
     <string name="wallet_labels_export_heading">Exportando %1$s: %2$d etiquetas</string>
@@ -1284,5 +1288,68 @@ Para llegar a la pantalla PIN, introduce 21000000 y luego pulsa =.</string>
     <string name="wallet_detail_descriptor_type_segwit">SegWit</string>
     <string name="wallet_detail_descriptor_type_segwit_p2wsh">SegWit (P2WSH)</string>
     <string name="wallet_detail_descriptor_type_taproot">Taproot</string>
+
+    <string name="wallets_node_syncing_banner">Sincronizando con el nodo</string>
+    <string name="wallets_node_syncing_banner_supporting">Sincronizando tus billeteras</string>
+    <string name="wallet_utxo_histogram_toggle_count_helper">El tamaño de cada sección se basa en cuántos UTXOs hay en cada rango.</string>
+    <string name="wallet_utxo_histogram_toggle_value_helper">El tamaño de cada sección se basa en el valor total (sats) en cada rango.</string>
+    <plurals name="wallet_detail_utxo_problem_count">
+        <item quantity="one">%d problema</item>
+        <item quantity="many">%d problemas</item>
+        <item quantity="other">%d problemas</item>
+    </plurals>
+    <plurals name="wallet_address_reuse_badge">
+        <item quantity="one">Reutilizada por %d UTXO</item>
+        <item quantity="many">Reutilizada por %d UTXOs</item>
+        <item quantity="other">Reutilizada por %d UTXOs</item>
+    </plurals>
+    <string name="wallet_color_option_indigo">Índigo</string>
+    <string name="wallet_color_option_teal">Verde azulado</string>
+    <string name="wallet_color_option_brown">Marrón</string>
+    <string name="wallet_color_option_slate">Pizarra</string>
+    <string name="transaction_detail_explorer_custom_hint">Personalizado</string>
+    <string name="wallets_state_syncing_connecting">Sincronizando (conectando)</string>
+    <string name="wallets_state_sync_paused">Sincronización en pausa (sin conexión)</string>
+    <string name="node_status_no_internet_connection">Sin conexión a Internet</string>
+    <string name="settings_block_explorer_privacy_warning">Mejor privacidad: usa tu propio explorador de bloques.</string>
+    <string name="settings_block_explorer_privacy_action">Por qué importa</string>
+    <string name="settings_theme_profile_label">Modo de visión de color</string>
+    <string name="settings_theme_profile_standard">Estándar</string>
+    <string name="settings_theme_profile_deuteranopia">Seguro para deuteranopía</string>
+    <string name="settings_theme_profile_protanopia">Seguro para protanopía</string>
+    <string name="settings_theme_profile_tritanopia">Seguro para tritanopía</string>
+    <string name="node_interaction_blocked_sync">Termina la sincronización actual de la billetera antes de cambiar los ajustes del nodo.</string>
+    <string name="wiki_back">Atrás</string>
+    <string name="wiki_detail_missing_title">Tema no disponible</string>
+    <string name="wiki_detail_missing_description">No pudimos encontrar el artículo solicitado.</string>
+    <string name="wiki_detail_related_topics_label">Temas relacionados</string>
+    <string name="wiki_search_placeholder">Buscar en la wiki</string>
+    <string name="wiki_search_icon_description">Abrir búsqueda de la wiki</string>
+    <string name="wiki_search_clear_content_description">Borrar consulta de búsqueda</string>
+    <string name="wiki_search_results_title">Resultados para "%1$s"</string>
+    <plurals name="wiki_search_results_count">
+        <item quantity="one">%d artículo encontrado</item>
+        <item quantity="many">%d artículos encontrados</item>
+        <item quantity="other">%d artículos encontrados</item>
+    </plurals>
+    <string name="wiki_search_suggestions_title">Temas sugeridos</string>
+    <string name="wiki_search_empty_title">No hay resultados para "%1$s"</string>
+    <string name="wiki_search_empty_description">Prueba otras palabras o borra la búsqueda para ver todos los temas.</string>
+    <string name="wiki_search_empty_action">Borrar búsqueda</string>
+    <string name="glossary_title">Glosario</string>
+    <string name="glossary_search_placeholder">Buscar términos de Bitcoin</string>
+    <string name="glossary_search_icon_description">Buscar en el glosario</string>
+    <string name="glossary_search_clear_content_description">Borrar consulta de búsqueda</string>
+    <plurals name="glossary_search_results">
+        <item quantity="one">%1$d resultado para "%2$s"</item>
+        <item quantity="many">%1$d resultados para "%2$s"</item>
+        <item quantity="other">%1$d resultados para "%2$s"</item>
+    </plurals>
+    <string name="glossary_search_suggestions_title">Búsquedas sugeridas</string>
+    <string name="glossary_empty_title">No hay resultados para "%1$s"</string>
+    <string name="glossary_empty_description">Prueba otro término o restablece la búsqueda para ver la lista completa.</string>
+    <string name="glossary_reset_search">Restablecer búsqueda</string>
+    <string name="glossary_detail_not_found">No pudimos encontrar esa definición.</string>
+    <string name="glossary_detail_back_to_list">Volver al glosario</string>
 
 </resources>

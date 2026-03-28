@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">UtxoPocket</string>
     <string name="app_name_calculator">Calculator</string>
     <string name="nav_wallets">Wallets</string>
@@ -61,7 +61,7 @@
     <string name="wiki_detail_related_glossary_label">Related glossary</string>
     <string name="glossary_detail_related_wiki_label">Related wiki</string>
     <string name="disclaimer_intro">UtxoPocket is a watch-only wallet. Please read this disclaimer:</string>
-    <string name="disclaimer_point_watch_only">Watch-only only: no private keys or seeds are stored. You cannot sign transactions here.</string>
+    <string name="disclaimer_point_watch_only">Watch-only: no private keys or seeds are stored. You cannot sign transactions here.</string>
     <string name="disclaimer_point_no_advice">No financial advice: the app and its documentation are for educational purposes.</string>
     <string name="disclaimer_point_security_storage">Security and storage: local data is encrypted, but device compromise or misconfiguration can expose it. You are responsible for your setup, backups, and access controls.</string>
     <string name="disclaimer_point_network_trust">Network and trust model: Tor mode is the default for curated and onion endpoints, while Local Direct is optional for trusted private/local IP literal nodes only. Server responses may be malicious or inaccurate; verify with your own node when possible.</string>
@@ -121,9 +121,9 @@
     <string name="wallet_detail_utxos_filter_expand_content_description">Show filter options</string>
     <string name="wallet_detail_utxos_filter_labeled">Labeled</string>
     <string name="wallet_detail_utxos_filter_unlabeled">Unlabeled</string>
-    <string name="wallet_detail_filters_count">%1$d filters</string>
-    <string name="wallet_detail_filters_all_with_items">All (%1$d items)</string>
-    <string name="wallet_detail_filters_count_with_items">%1$d filters (%2$d items)</string>
+    <string name="wallet_detail_filters_count" tools:ignore="PluralsCandidate">%1$d filters</string>
+    <string name="wallet_detail_filters_all_with_items" tools:ignore="PluralsCandidate">All (%1$d items)</string>
+    <string name="wallet_detail_filters_count_with_items" tools:ignore="PluralsCandidate">%1$d filters (%2$d items)</string>
     <string name="wallet_detail_filters_custom">Custom</string>
     <string name="wallet_detail_pending_filter">Pending</string>
     <string name="wallet_detail_utxos_filter_spendable">Spendable</string>
@@ -227,7 +227,7 @@
     <string name="wallet_utxo_treemap_aggregate_title">Aggregated UTXOs</string>
     <string name="wallet_utxo_treemap_tile_title">UTXO</string>
     <string name="wallet_utxo_treemap_tile_count">%1$d UTXOs</string>
-    <string name="wallet_utxo_treemap_more_items">+%1$d more items</string>
+    <string name="wallet_utxo_treemap_more_items" tools:ignore="PluralsCandidate">+%1$d more items</string>
     <string name="wallet_utxo_treemap_color_label_dust">Dust profile: %1$s</string>
     <string name="wallet_utxo_treemap_color_dust_none">Not flagged as dust</string>
     <string name="wallet_utxo_treemap_color_dust_low">Low</string>
@@ -320,7 +320,7 @@
     </plurals>
     <string name="wallet_detail_pending_confirmation">Pending</string>
     <string name="wallet_detail_single_confirmation">1 conf</string>
-    <string name="wallet_detail_confirmations">%1$d confs</string>
+    <string name="wallet_detail_confirmations" tools:ignore="PluralsCandidate">%1$d confs</string>
     <string name="wallet_detail_menu_overflow">Wallet actions</string>
     <string name="wallet_detail_menu_edit">Edit wallet</string>
     <string name="wallet_detail_menu_color">Color</string>
@@ -363,10 +363,10 @@
     <string name="wallet_detail_sync_blocked_disconnecting">Node is disconnecting. Try again once it\'s ready.</string>
     <string name="wallet_labels_export_title">Export labels</string>
     <string name="wallet_labels_export_nav_title">Export wallet labels</string>
-    <string name="wallet_labels_export_loading">Preparing labels...</string>
+    <string name="wallet_labels_export_loading">Preparing labels…</string>
     <string name="wallet_labels_export_retry">Try again</string>
     <string name="wallet_labels_export_empty">No labels are available to export yet.</string>
-    <string name="wallet_labels_export_heading">Exporting %1$s: %2$d labels</string>
+    <string name="wallet_labels_export_heading" tools:ignore="PluralsCandidate">Exporting %1$s: %2$d labels</string>
     <string name="wallet_labels_export_qr_caption">Scan to import BIP-329 labels</string>
     <string name="wallet_labels_export_bbqr_caption">Scan BBQR to import BIP-329 labels</string>
     <string name="wallet_labels_export_bbqr_helper">Compressed, Sparrow-compatible export for faster multi-frame scans.</string>
@@ -374,7 +374,7 @@
     <string name="wallet_labels_export_mode_label">QR format</string>
     <string name="wallet_labels_export_mode_bbqr">BBQR (compressed)</string>
     <string name="wallet_labels_export_mode_ur">UR (animated)</string>
-    <string name="wallet_labels_export_multipart">Multi-part QR (%1$d frames)</string>
+    <string name="wallet_labels_export_multipart" tools:ignore="PluralsCandidate">Multi-part QR (%1$d frames)</string>
     <string name="wallet_labels_export_qr_error">QR unavailable (%1$s)</string>
     <string name="wallet_labels_export_download">Download file</string>
     <string name="wallet_labels_export_share">Share</string>
@@ -424,7 +424,7 @@ To reach the PIN screen, enter 21000000 and then tap =.</string>
     <string name="calculator_key_8">8</string>
     <string name="calculator_key_9">9</string>
     <string name="wallet_detail_full_rescan_title">Full rescan</string>
-    <string name="wallet_detail_full_rescan_description">Select the gap limit for this rescan. Minimum %1$d, maximum %2$d addresses. %3$s</string>
+    <string name="wallet_detail_full_rescan_description" tools:ignore="PluralsCandidate">Select the gap limit for this rescan. Minimum %1$d, maximum %2$d addresses. %3$s</string>
     <string name="wallet_detail_full_rescan_gap_value">Gap limit: %1$d</string>
     <string name="wallet_detail_full_rescan_feedback_fast">Fast scan (default window)</string>
     <string name="wallet_detail_full_rescan_feedback_balanced">Balanced depth. May take longer.</string>
@@ -452,7 +452,7 @@ To reach the PIN screen, enter 21000000 and then tap =.</string>
     <string name="wallet_sync_help_incoming">Incoming watcher monitors addresses up to this gap plus a small buffer. Larger gaps mean more subscriptions and potentially slower polling.</string>
     <string name="wallet_detail_full_rescan_enqueued">Full rescan queued.</string>
     <string name="wallet_detail_refresh_enqueued">Refresh queued. Waiting for previous syncs to finish.</string>
-    <string name="wallet_detail_sync_completed_new_txs">%1$d new transactions added to %2$s.</string>
+    <string name="wallet_detail_sync_completed_new_txs" tools:ignore="PluralsCandidate">%1$d new transactions added to %2$s.</string>
     <string name="wallet_detail_unknown_wallet_name">wallet</string>
     <string name="wallet_detail_delete_confirm_title">Delete wallet?</string>
     <string name="wallet_detail_delete_confirm_message">Do you want to remove "%1$s" from UtxoPocket?</string>
@@ -505,11 +505,11 @@ To reach the PIN screen, enter 21000000 and then tap =.</string>
     <string name="address_detail_qr_error_placeholder">QR unavailable</string>
     <string name="address_detail_change_warning">Warning: this is a change address. Avoid sharing it publicly.</string>
     <string name="address_detail_used_warning_once">Warning: this address has already been used.</string>
-    <string name="address_detail_used_warning_multiple">Warning: this address was reused %1$d times.</string>
+    <string name="address_detail_used_warning_multiple" tools:ignore="PluralsCandidate">Warning: this address was reused %1$d times.</string>
     <string name="address_detail_copy_toast">Copied to clipboard</string>
     <string name="address_detail_usage_never">Never used</string>
     <string name="address_detail_usage_once">Used once</string>
-    <string name="address_detail_usage_multiple">Reused %1$d times</string>
+    <string name="address_detail_usage_multiple" tools:ignore="PluralsCandidate">Reused %1$d times</string>
     <string name="address_detail_section_overview">Overview</string>
     <string name="address_detail_address_label">Address</string>
     <string name="address_detail_copy_address">Copy address</string>
@@ -558,7 +558,7 @@ To reach the PIN screen, enter 21000000 and then tap =.</string>
     <string name="transaction_detail_status_pending">Pending</string>
     <string name="transaction_detail_pending_confirmation">Pending</string>
     <string name="transaction_detail_single_confirmation">1 confirmation</string>
-    <string name="transaction_detail_confirmations">%1$d confirmations</string>
+    <string name="transaction_detail_confirmations" tools:ignore="PluralsCandidate">%1$d confirmations</string>
     <string name="transaction_detail_confirmations_label">Confirmations</string>
     <string name="transaction_detail_fee">Fee</string>
     <string name="transaction_detail_fee_rate">Fee rate</string>
@@ -627,7 +627,7 @@ To reach the PIN screen, enter 21000000 and then tap =.</string>
     <string name="transaction_visualizer_derivation_title">Derivation path</string>
     <string name="transaction_visualizer_wallet_owned">Own</string>
     <string name="transaction_visualizer_external_owned">External</string>
-    <string name="transaction_visualizer_group_child_count">%1$d grouped entries</string>
+    <string name="transaction_visualizer_group_child_count" tools:ignore="PluralsCandidate">%1$d grouped entries</string>
     <string name="transaction_visualizer_warning_title">Visualizer limited</string>
     <string name="transaction_visualizer_warning_message">This transaction is missing raw hex or I/O data (%1$s). Some diagram details may be unavailable.</string>
     <string name="transaction_visualizer_warning_dismiss">Got it</string>
@@ -696,14 +696,14 @@ To reach the PIN screen, enter 21000000 and then tap =.</string>
     <string name="status_tor">Tor</string>
     <string name="status_node">Node</string>
     <string name="status_node_action_description">Show node status</string>
-    <string name="status_incoming_tx_indicator_description">%1$d incoming transactions</string>
+    <string name="status_incoming_tx_indicator_description" tools:ignore="PluralsCandidate">%1$d incoming transactions</string>
     <string name="tor_overview_title">Tor status</string>
     <string name="tor_overview_details_title">Connection details</string>
     <string name="tor_overview_status_label">Status</string>
     <string name="tor_overview_proxy_label">Proxy endpoint</string>
     <string name="tor_overview_proxy_value">%1$s:%2$d</string>
     <string name="tor_overview_proxy_unavailable">Not available until Tor connects.</string>
-    <string name="tor_overview_proxy_pending_chip">Waiting for proxy...</string>
+    <string name="tor_overview_proxy_pending_chip">Waiting for proxy…</string>
     <string name="tor_overview_proxy_unavailable_chip">Proxy unavailable</string>
     <string name="tor_overview_bootstrap_label">Bootstrap progress</string>
     <string name="tor_overview_bootstrap_percent_value">%1$d%%</string>
@@ -930,7 +930,7 @@ To reach the PIN screen, enter 21000000 and then tap =.</string>
     <string name="settings_panic_cancel">Cancel</string>
     <string name="settings_panic_final_title">This cannot be undone</string>
     <string name="settings_panic_final_message">Confirm once more to wipe all wallet data. You will need to re-import descriptors to keep using the app.</string>
-    <string name="settings_panic_wiping">Erasing...</string>
+    <string name="settings_panic_wiping">Erasing…</string>
     <string name="settings_panic_success_message">All wallet data has been erased.</string>
     <string name="settings_panic_failure_message">Failed to erase wallet data. Try again.</string>
     <string name="node_not_connected_label">Not connected</string>
@@ -1005,7 +1005,7 @@ To reach the PIN screen, enter 21000000 and then tap =.</string>
     <string name="settings_backup_export_subtitle">Create an encrypted .ubak file</string>
     <string name="settings_backup_export_description">Exports wallets, labels, collections, and selected app preferences in encrypted watch-only format.</string>
     <string name="settings_backup_export_action">Export .ubak</string>
-    <string name="settings_backup_export_loading">Preparing backup...</string>
+    <string name="settings_backup_export_loading">Preparing backup…</string>
     <string name="settings_backup_export_warning_title">Important before export</string>
     <string name="settings_backup_export_warning_body">PIN and duress PIN are not included in backups. After importing, configure them again on this device.</string>
     <string name="settings_backup_export_warning_confirm_action">I understand</string>
@@ -1020,7 +1020,7 @@ To reach the PIN screen, enter 21000000 and then tap =.</string>
     <string name="settings_backup_passphrase_label">Passphrase</string>
     <string name="settings_backup_passphrase_confirm_label">Confirm passphrase</string>
     <string name="settings_backup_preview_action">Preview backup</string>
-    <string name="settings_backup_preview_loading">Decrypting preview...</string>
+    <string name="settings_backup_preview_loading">Decrypting preview…</string>
     <string name="settings_backup_clear_selection_action">Choose another file</string>
     <string name="settings_backup_preview_title">Import preview</string>
     <string name="settings_backup_preview_subtitle">Review content before applying</string>
@@ -1037,7 +1037,7 @@ To reach the PIN screen, enter 21000000 and then tap =.</string>
     <string name="settings_backup_import_confirm_body">Import will replace current wallets and related local metadata on this device.</string>
     <string name="settings_backup_import_confirm_action">Import backup</string>
     <string name="settings_backup_export_saved">Encrypted backup saved.</string>
-    <string name="settings_backup_import_success">Imported %1$d wallets and %2$d labels.</string>
+    <string name="settings_backup_import_success" tools:ignore="PluralsCandidate">Imported %1$d wallets and %2$d labels.</string>
     <string name="settings_backup_error_passphrase_required">Enter a passphrase.</string>
     <string name="settings_backup_error_passphrase_mismatch">Passphrases do not match.</string>
     <string name="settings_backup_error_select_file">Select a backup file first.</string>
@@ -1174,7 +1174,7 @@ To reach the PIN screen, enter 21000000 and then tap =.</string>
     <string name="node_overview_details_empty">This node does not expose connection details.</string>
     <string name="node_overview_fee_rate_title">Suggested fee rate</string>
     <string name="node_overview_fee_rate_hint">Latest sats/vB estimate reported by your node.</string>
-    <string name="node_overview_tor_required_connecting">Tor is required; connecting...</string>
+    <string name="node_overview_tor_required_connecting">Tor is required; connecting…</string>
     <string name="node_overview_tor_required">Routed through Tor.</string>
     <string name="node_overview_tor_optional">This connection can run without Tor.</string>
     <string name="node_section_available_title">Available nodes</string>
@@ -1235,11 +1235,11 @@ To reach the PIN screen, enter 21000000 and then tap =.</string>
     <string name="pin_setup_error_generic">Could not save PIN. Please try again.</string>
     <string name="pin_disable_title">Disable PIN lock</string>
     <string name="pin_disable_description">Enter your current PIN to disable the lock.</string>
-    <string name="pin_disable_verifying">Verifying PIN...</string>
+    <string name="pin_disable_verifying">Verifying PIN…</string>
     <string name="pin_disable_confirm">Disable PIN</string>
     <string name="pin_duress_prompt_title">Confirm PIN</string>
     <string name="pin_duress_prompt_description">Enter your PIN to manage the duress PIN.</string>
-    <string name="pin_duress_verifying">Verifying PIN...</string>
+    <string name="pin_duress_verifying">Verifying PIN…</string>
     <plurals name="settings_duress_toggle_taps_left">
         <item quantity="one">Duress toggle: %d tap left</item>
         <item quantity="other">Duress toggle: %d taps left</item>
