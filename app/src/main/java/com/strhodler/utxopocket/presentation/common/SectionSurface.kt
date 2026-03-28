@@ -31,8 +31,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SectionHeader(
     title: String,
-    subtitle: String? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    subtitle: String? = null
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -63,6 +63,7 @@ class SectionCardScope internal constructor(
 
 @Composable
 fun SectionCard(
+    modifier: Modifier = Modifier,
     title: String? = null,
     subtitle: String? = null,
     headerActionIcon: ImageVector? = null,
@@ -77,7 +78,6 @@ fun SectionCard(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onSurface
     ),
-    modifier: Modifier = Modifier,
     content: SectionCardScope.() -> Unit
 ) {
     val items = remember { mutableStateListOf<@Composable ColumnScope.() -> Unit>() }
@@ -173,8 +173,8 @@ private fun RowWithAction(
 @Composable
 fun ContentSection(
     title: String,
-    subtitle: String? = null,
     modifier: Modifier = Modifier,
+    subtitle: String? = null,
     contentPadding: PaddingValues = PaddingValues(vertical = 8.dp),
     content: SectionCardScope.() -> Unit
 ) {
@@ -193,8 +193,8 @@ fun ContentSection(
 @Composable
 fun ListSection(
     title: String,
-    subtitle: String? = null,
     modifier: Modifier = Modifier,
+    subtitle: String? = null,
     content: SectionCardScope.() -> Unit
 ) {
     SectionCard(

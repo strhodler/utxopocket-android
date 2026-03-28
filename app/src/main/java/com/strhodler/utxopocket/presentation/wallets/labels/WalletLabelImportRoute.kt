@@ -155,6 +155,10 @@ fun WalletLabelImportRoute(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val screenWalletName = viewModel.walletName.ifBlank { stringResource(id = R.string.wallet_detail_title) }
+    val scanErrorMessage = stringResource(id = R.string.wallet_labels_import_scan_error)
+    val importErrorMessage = stringResource(id = R.string.wallet_detail_import_error)
+    val permissionDeniedMessage = stringResource(id = R.string.wallet_labels_import_permission_denied)
+    val importFileErrorMessage = stringResource(id = R.string.wallet_detail_import_file_error)
 
     var decoder by remember { mutableStateOf(URDecoder()) }
     var scanProgress by remember { mutableStateOf<Double?>(null) }
@@ -165,7 +169,7 @@ fun WalletLabelImportRoute(
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         val contents = result.contents
         if (contents.isNullOrBlank()) {
-            scanError = context.getString(R.string.wallet_labels_import_scan_error)
+            scanError = scanErrorMessage
             return@rememberLauncherForActivityResult
         }
 
@@ -175,7 +179,7 @@ fun WalletLabelImportRoute(
             awaitingNextPart = decoder.result == null
             scanProgress = decoder.estimatedPercentComplete
             if (!accepted) {
-                scanError = context.getString(R.string.wallet_labels_import_scan_error)
+                scanError = scanErrorMessage
                 return@rememberLauncherForActivityResult
             }
             val resultState = decoder.result
@@ -184,7 +188,7 @@ fun WalletLabelImportRoute(
                     ResultType.SUCCESS -> {
                         val payload = runCatching { resultState.ur.toBytes() }
                             .getOrElse {
-                                scanError = context.getString(R.string.wallet_detail_import_error)
+                                scanError = importErrorMessage
                                 decoder = URDecoder()
                                 return@rememberLauncherForActivityResult
                             }
@@ -203,7 +207,7 @@ fun WalletLabelImportRoute(
                     }
 
                     ResultType.FAILURE -> {
-                        scanError = resultState.error ?: context.getString(R.string.wallet_labels_import_scan_error)
+                        scanError = resultState.error ?: scanErrorMessage
                         decoder = URDecoder()
                         scanProgress = null
                         awaitingNextPart = false
@@ -250,7 +254,7 @@ fun WalletLabelImportRoute(
         if (granted) {
             launchScan()
         } else {
-            scanError = context.getString(R.string.wallet_labels_import_permission_denied)
+            scanError = permissionDeniedMessage
         }
     }
 
@@ -280,7 +284,7 @@ fun WalletLabelImportRoute(
             }.getOrNull()
             if (payload == null) {
                 snackbarHostState.showSnackbar(
-                    message = context.getString(R.string.wallet_detail_import_file_error),
+                    message = importFileErrorMessage,
                     duration = SnackbarDuration.Short,
                     withDismissAction = true
                 )

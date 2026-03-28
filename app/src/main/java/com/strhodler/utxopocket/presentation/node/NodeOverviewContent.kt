@@ -1,6 +1,5 @@
 package com.strhodler.utxopocket.presentation.node
 
-import android.content.res.Resources
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,7 +30,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -56,12 +54,10 @@ fun NodeOverviewContent(
     onRenewTorIdentity: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val resources = LocalContext.current.resources
     val isConnected = status.nodeStatus == NodeStatus.Synced ||
         status.nodeStatus == NodeStatus.Disconnecting
     val nodeDetails = if (isConnected) {
         buildNodeDetails(
-            resources = resources,
             blockHeight = status.nodeBlockHeight,
             feeRate = status.nodeFeeRateSatPerVb,
             serverInfo = status.nodeServerInfo
@@ -123,26 +119,21 @@ fun NodeTorStatusSection(
     onRenewIdentity: () -> Unit,
     modifier: Modifier = Modifier
     ) {
-    val resources = LocalContext.current.resources
     val latestLog = remember(status.torLog) { latestSafeTorLogEntry(status.torLog) }
     val displayTorStatus = if (!status.isNetworkOnline) TorStatus.Stopped else status.torStatus
-    val proxyValue = remember(displayTorStatus) {
-        (displayTorStatus as? TorStatus.Running)?.let {
-            resources.getString(R.string.tor_overview_proxy_value, it.proxy.host, it.proxy.port)
-        } ?: resources.getString(R.string.tor_overview_proxy_unavailable)
-    }
-    val bootstrapValue = remember(displayTorStatus) {
-        when (displayTorStatus) {
-            is TorStatus.Connecting -> resources.getString(
-                R.string.tor_overview_bootstrap_percent_value,
-                displayTorStatus.progress.coerceIn(0, 100)
-            )
-            is TorStatus.Running -> resources.getString(
-                R.string.tor_overview_bootstrap_percent_value,
-                100
-            )
-            else -> resources.getString(R.string.tor_overview_bootstrap_pending)
-        }
+    val proxyValue = (displayTorStatus as? TorStatus.Running)?.let {
+        stringResource(id = R.string.tor_overview_proxy_value, it.proxy.host, it.proxy.port)
+    } ?: stringResource(id = R.string.tor_overview_proxy_unavailable)
+    val bootstrapValue = when (displayTorStatus) {
+        is TorStatus.Connecting -> stringResource(
+            id = R.string.tor_overview_bootstrap_percent_value,
+            displayTorStatus.progress.coerceIn(0, 100)
+        )
+        is TorStatus.Running -> stringResource(
+            id = R.string.tor_overview_bootstrap_percent_value,
+            100
+        )
+        else -> stringResource(id = R.string.tor_overview_bootstrap_pending)
     }
     val statusLabel = when (displayTorStatus) {
         is TorStatus.Running -> stringResource(id = R.string.tor_overview_status_connected)
@@ -397,9 +388,9 @@ private fun NodeDetailsList(
 private fun NodeDetailListItem(
     label: String,
     value: String,
-    supportingText: String? = null,
-    modifier: Modifier = Modifier
-    ) {
+    modifier: Modifier = Modifier,
+    supportingText: String? = null
+) {
         ListItem(
             modifier = modifier.fillMaxWidth(),
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -438,23 +429,23 @@ internal fun latestSafeTorLogEntry(log: String): String? =
         .lastOrNull()
         ?.let(TorTextSanitizer::sanitizeForPublicDisplay)
 
+@Composable
 private fun buildNodeDetails(
-    resources: Resources,
     blockHeight: Long?,
     feeRate: Double?,
     serverInfo: ElectrumServerInfo?
 ): List<Pair<String, String>> {
-    val unknown = resources.getString(R.string.status_node_unknown_value)
+    val unknown = stringResource(id = R.string.status_node_unknown_value)
     return buildList {
         blockHeight?.let {
             add(
-                resources.getString(R.string.status_node_block_height_label) to
+                stringResource(id = R.string.status_node_block_height_label) to
                     buildBlockHeightValue(it, feeRate)
             )
         }
         serverInfo?.let { info ->
             add(
-                resources.getString(R.string.status_node_server_version_label) to
+                stringResource(id = R.string.status_node_server_version_label) to
                     (info.serverVersion.takeUnless { it.isNullOrBlank() } ?: unknown)
             )
             val protocolValue = when {
@@ -462,28 +453,28 @@ private fun buildNodeDetails(
                 info.protocolMin.isNullOrBlank() -> info.protocolMax ?: unknown
                 info.protocolMax.isNullOrBlank() -> info.protocolMin
                 info.protocolMin == info.protocolMax -> info.protocolMin
-                else -> resources.getString(
-                    R.string.status_node_protocol_range_value,
+                else -> stringResource(
+                    id = R.string.status_node_protocol_range_value,
                     info.protocolMin,
                     info.protocolMax
                 )
             }
-            add(resources.getString(R.string.status_node_protocol_label) to protocolValue)
+            add(stringResource(id = R.string.status_node_protocol_label) to protocolValue)
             add(
-                resources.getString(R.string.status_node_hash_function_label) to
+                stringResource(id = R.string.status_node_hash_function_label) to
                     (info.hashFunction.takeUnless { it.isNullOrBlank() } ?: unknown)
             )
             add(
-                resources.getString(R.string.status_node_genesis_hash_label) to
+                stringResource(id = R.string.status_node_genesis_hash_label) to
                     (info.genesisHash.takeUnless { it.isNullOrBlank() } ?: unknown)
             )
             val pruningValue = info.pruningHeight?.let { height ->
-                resources.getString(
-                    R.string.status_node_pruning_value,
+                stringResource(
+                    id = R.string.status_node_pruning_value,
                     NumberFormat.getIntegerInstance(Locale.getDefault()).format(height)
                 )
-            } ?: resources.getString(R.string.status_node_pruning_unknown)
-            add(resources.getString(R.string.status_node_pruning_label) to pruningValue)
+            } ?: stringResource(id = R.string.status_node_pruning_unknown)
+            add(stringResource(id = R.string.status_node_pruning_label) to pruningValue)
         }
     }
 }

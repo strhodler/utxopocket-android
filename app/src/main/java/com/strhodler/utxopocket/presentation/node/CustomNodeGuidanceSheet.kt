@@ -16,10 +16,10 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.presentation.common.window.windowContainerHeightDp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,9 +27,9 @@ fun CustomNodeGuidanceBottomSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val configuration = LocalConfiguration.current
-    val maxSheetHeight = remember(configuration.screenHeightDp) {
-        configuration.screenHeightDp.dp * 0.9f
+    val containerHeight = windowContainerHeightDp()
+    val maxSheetHeight = remember(containerHeight) {
+        containerHeight * 0.9f
     }
     ModalBottomSheet(
         onDismissRequest = onDismiss,

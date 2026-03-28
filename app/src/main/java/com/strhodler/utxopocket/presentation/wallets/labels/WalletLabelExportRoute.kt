@@ -63,6 +63,9 @@ fun WalletLabelExportRoute(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val screenWalletName = viewModel.walletName.ifBlank { stringResource(id = R.string.wallet_detail_title) }
+    val exportSavedMessageTemplate = stringResource(id = R.string.wallet_labels_export_saved)
+    val exportErrorMessage = stringResource(id = R.string.wallet_detail_export_error)
+    val exportReadyMessage = stringResource(id = R.string.wallet_detail_export_ready)
 
     val downloadLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         val export = (exportState as? LabelExportState.Ready)?.export ?: return@rememberLauncherForActivityResult
@@ -71,9 +74,9 @@ fun WalletLabelExportRoute(
         coroutineScope.launch {
             snackbarHostState.showSnackbar(
                 message = if (success) {
-                    context.getString(R.string.wallet_labels_export_saved, export.fileName)
+                    String.format(exportSavedMessageTemplate, export.fileName)
                 } else {
-                    context.getString(R.string.wallet_detail_export_error)
+                    exportErrorMessage
                 },
                 duration = SnackbarDuration.Short,
                 withDismissAction = true
@@ -254,7 +257,7 @@ fun WalletLabelExportRoute(
                                 shareBip329Labels(context, export)
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
-                                        message = context.getString(R.string.wallet_detail_export_ready),
+                                        message = exportReadyMessage,
                                         duration = SnackbarDuration.Short,
                                         withDismissAction = true
                                     )

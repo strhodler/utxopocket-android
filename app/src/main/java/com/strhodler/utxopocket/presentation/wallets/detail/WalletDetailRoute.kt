@@ -53,7 +53,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
@@ -95,7 +94,7 @@ import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
 import com.strhodler.utxopocket.presentation.pin.PinPromptState
 import com.strhodler.utxopocket.presentation.pin.advancePinPromptStateCountdown
 import com.strhodler.utxopocket.presentation.pin.mapPinVerificationResultToPromptState
-import com.strhodler.utxopocket.presentation.pin.resourcesPinPromptFormatter
+import com.strhodler.utxopocket.presentation.pin.rememberPinPromptFormatter
 import kotlinx.coroutines.delay
 
 private const val WALLET_NAME_MAX_LENGTH = 64
@@ -139,8 +138,8 @@ fun WalletDetailRoute(
     val snackbarHostState = remember { SnackbarHostState() }
     val hapticFeedback = LocalHapticFeedback.current
     val view = LocalView.current
+    val resources = view.resources
     val coroutineScope = rememberCoroutineScope()
-    val resourcesState = rememberUpdatedState(context.resources)
     val showSnackbar = remember(coroutineScope, snackbarHostState) {
         { message: String, duration: SnackbarDuration ->
             coroutineScope.launch {
@@ -157,31 +156,31 @@ fun WalletDetailRoute(
         viewModel.events.collectLatest { event ->
             when (event) {
                 WalletDetailEvent.RefreshQueued -> {
-                    showSnackbar(context.getString(R.string.wallet_detail_refresh_enqueued), SnackbarDuration.Short)
+                    showSnackbar(resources.getString(R.string.wallet_detail_refresh_enqueued), SnackbarDuration.Short)
                 }
                 WalletDetailEvent.FullRescanQueued -> {
-                    showSnackbar(context.getString(R.string.wallet_detail_full_rescan_enqueued), SnackbarDuration.Short)
+                    showSnackbar(resources.getString(R.string.wallet_detail_full_rescan_enqueued), SnackbarDuration.Short)
                 }
                 is WalletDetailEvent.SyncCompleted -> {
                     val name = event.walletName.ifBlank { resolvedName.orEmpty() }
-                    val message = context.getString(
+                    val message = resources.getString(
                         R.string.wallet_detail_sync_completed_new_txs,
                         event.newTransactions,
-                        name.ifBlank { context.getString(R.string.wallet_detail_unknown_wallet_name) }
+                        name.ifBlank { resources.getString(R.string.wallet_detail_unknown_wallet_name) }
                     )
                     showSnackbar(message, SnackbarDuration.Short)
                 }
                 is WalletDetailEvent.SyncBlocked -> {
-                    showSnackbar(context.getString(event.messageRes), SnackbarDuration.Short)
+                    showSnackbar(resources.getString(event.messageRes), SnackbarDuration.Short)
                 }
             }
         }
     }
     val deleteSuccessMessage = stringResource(id = R.string.wallet_detail_delete_success)
     val renameSuccessMessage = stringResource(id = R.string.wallet_detail_rename_success)
-    val renameBlankErrorText = context.getString(R.string.wallet_detail_rename_error_blank)
-    val renameExistsErrorText = context.getString(R.string.wallet_detail_rename_error_exists)
-    val renameGenericErrorText = context.getString(R.string.wallet_detail_rename_error_generic)
+    val renameBlankErrorText = resources.getString(R.string.wallet_detail_rename_error_blank)
+    val renameExistsErrorText = resources.getString(R.string.wallet_detail_rename_error_exists)
+    val renameGenericErrorText = resources.getString(R.string.wallet_detail_rename_error_generic)
     val forceRescanErrorMessage = stringResource(id = R.string.wallet_detail_force_rescan_failed)
     val incorrectPinMessage = stringResource(id = R.string.pin_error_incorrect)
     val outerListState = rememberLazyListState()
@@ -225,9 +224,7 @@ fun WalletDetailRoute(
         }
     }
 
-    val pinPromptFormatter = remember(resourcesState.value) {
-        resourcesPinPromptFormatter(resourcesState.value)
-    }
+    val pinPromptFormatter = rememberPinPromptFormatter()
     LaunchedEffect(descriptorPinPromptState.lockout) {
         descriptorPinPromptState.lockout ?: return@LaunchedEffect
         while (true) {
@@ -422,7 +419,7 @@ fun WalletDetailRoute(
                             menuExpanded = false
                             if (state.transactionsCount == 0) {
                                 showSnackbar(
-                                    context.getString(R.string.wallet_detail_import_no_transactions),
+                                    resources.getString(R.string.wallet_detail_import_no_transactions),
                                     SnackbarDuration.Short
                                 )
                                 return@DropdownMenuItem
@@ -471,7 +468,7 @@ fun WalletDetailRoute(
                                     queued ->
                                     if (!queued) {
                                         coroutineScope.launch {
-                                            val successMessage = context.getString(
+                                            val successMessage = resources.getString(
                                                 R.string.wallet_detail_force_rescan_started,
                                                 gapForRescan
                                             )
@@ -714,7 +711,7 @@ fun WalletDetailRoute(
                                         onWalletDeleted(deleteSuccessMessage)
                                     }
                                 } else {
-                                    deleteError = context.getString(R.string.wallet_detail_delete_error)
+                                    deleteError = resources.getString(R.string.wallet_detail_delete_error)
                                 }
                             }
                         }

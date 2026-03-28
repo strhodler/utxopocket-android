@@ -2,8 +2,8 @@ package com.strhodler.utxopocket.presentation.pin
 
 import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,12 +24,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.presentation.common.window.windowContainerHeightDp
 import com.strhodler.utxopocket.presentation.components.DigitKey
 import com.strhodler.utxopocket.presentation.components.VirtualDigitKeyboard
 import com.strhodler.utxopocket.presentation.components.defaultDigitKeyboardLayout
@@ -286,7 +286,7 @@ private fun PinScreenScaffold(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+        val containerHeight = windowContainerHeightDp()
         val keyboardLayout = remember(shuffleDigits) {
             keyboardLayoutForPromptSession(
                 existingLayout = null,
@@ -334,14 +334,14 @@ private fun PinScreenScaffold(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            BoxWithConstraints(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .widthIn(max = 420.dp),
                 contentAlignment = Alignment.BottomCenter
             ) {
                 VirtualDigitKeyboard(
-                    modifier = Modifier.heightIn(max = screenHeight * 0.5f),
+                    modifier = Modifier.heightIn(max = containerHeight * 0.5f),
                     onKeyPress = onKeyPress,
                     layout = keyboardLayout,
                     hapticsEnabled = hapticsEnabled,

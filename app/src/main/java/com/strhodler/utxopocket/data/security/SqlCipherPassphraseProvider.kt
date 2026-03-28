@@ -3,6 +3,7 @@ package com.strhodler.utxopocket.data.security
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Base64
+import androidx.core.content.edit
 import com.strhodler.utxopocket.common.logging.SecureLog
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -71,11 +72,15 @@ class SqlCipherPassphraseProvider @Inject constructor(
             throw IllegalStateException("Unable to encrypt SQLCipher passphrase with strict Tink store", cause)
         }
         val encoded = Base64.encodeToString(ciphertext, Base64.NO_WRAP)
-        val result = tinkPreferences().edit().putString(TINK_KEY_PASSPHRASE, encoded).commit()
-        if (!result) {
+        val prefs = tinkPreferences()
+        prefs.edit(commit = true) {
+            putString(TINK_KEY_PASSPHRASE, encoded)
+        }
+        val persisted = prefs.getString(TINK_KEY_PASSPHRASE, null) == encoded
+        if (!persisted) {
             throw IllegalStateException("Unable to persist SQLCipher passphrase in strict Tink store")
         }
-        SecureLog.d(TAG) { "Persisted SQLCipher passphrase with Tink (success=$result)" }
+        SecureLog.d(TAG) { "Persisted SQLCipher passphrase with Tink (success=$persisted)" }
     }
 
     private fun tinkPreferences(): SharedPreferences =
@@ -87,7 +92,10 @@ class SqlCipherPassphraseProvider @Inject constructor(
 
     private fun wipeSharedPreferencesFile(name: String) {
         val prefs = context.getSharedPreferences(name, Context.MODE_PRIVATE)
-        if (!prefs.edit().clear().commit()) {
+        prefs.edit(commit = true) {
+            clear()
+        }
+        if (prefs.all.isNotEmpty()) {
             throw IllegalStateException("Unable to clear shared preferences for $name")
         }
         val deleted = deleteSharedPreferencesCompat(name)
@@ -111,7 +119,13 @@ class SqlCipherPassphraseProvider @Inject constructor(
         File(File(context.applicationInfo.dataDir, SHARED_PREFS_DIR), "$name.xml")
 
     private fun clearTinkPassphrase() {
-        tinkPreferences().edit().remove(TINK_KEY_PASSPHRASE).commit()
+        val prefs = tinkPreferences()
+        prefs.edit(commit = true) {
+            remove(TINK_KEY_PASSPHRASE)
+        }
+        if (prefs.contains(TINK_KEY_PASSPHRASE)) {
+            throw IllegalStateException("Unable to clear SQLCipher passphrase in strict Tink store")
+        }
     }
 
     companion object {

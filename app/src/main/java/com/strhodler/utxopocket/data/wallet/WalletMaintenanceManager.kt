@@ -1,6 +1,7 @@
 package com.strhodler.utxopocket.data.wallet
 
 import android.content.Context
+import androidx.core.content.edit
 import androidx.room.withTransaction
 import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.data.db.UtxoPocketDatabase
@@ -140,7 +141,10 @@ internal class WalletMaintenanceManager(
 
     private fun wipeSharedPreferencesFile(prefName: String) {
         val prefs = applicationContext.getSharedPreferences(prefName, Context.MODE_PRIVATE)
-        if (!prefs.edit().clear().commit()) {
+        prefs.edit(commit = true) {
+            clear()
+        }
+        if (prefs.all.isNotEmpty()) {
             throw IllegalStateException("Unable to clear shared preferences for $prefName")
         }
         val deleted = deleteSharedPreferencesCompat(prefName)

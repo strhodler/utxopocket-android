@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -70,6 +71,7 @@ fun BackupSettingsRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val resources = LocalView.current.resources
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -132,9 +134,9 @@ fun BackupSettingsRoute(
 
                 is BackupEvent.ShowSnackbar -> {
                     val message = if (event.formatArgs.isEmpty()) {
-                        context.getString(event.messageRes)
+                        resources.getString(event.messageRes)
                     } else {
-                        context.getString(event.messageRes, *event.formatArgs.toTypedArray())
+                        resources.getString(event.messageRes, *event.formatArgs.toTypedArray())
                     }
                     snackbarHostState.showSnackbar(
                         message = message,

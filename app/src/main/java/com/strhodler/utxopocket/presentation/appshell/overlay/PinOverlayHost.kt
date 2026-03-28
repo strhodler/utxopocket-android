@@ -10,10 +10,8 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
@@ -26,7 +24,7 @@ import com.strhodler.utxopocket.presentation.pin.PinPromptState
 import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
 import com.strhodler.utxopocket.presentation.pin.advancePinPromptStateCountdown
 import com.strhodler.utxopocket.presentation.pin.mapPinVerificationResultToPromptState
-import com.strhodler.utxopocket.presentation.pin.resourcesPinPromptFormatter
+import com.strhodler.utxopocket.presentation.pin.rememberPinPromptFormatter
 import kotlinx.coroutines.delay
 
 @Composable
@@ -57,10 +55,7 @@ fun PinOverlayHost(
     if (!visible && pinPromptState != PinPromptState.idle()) {
         pinPromptState = pinPromptState.clear()
     }
-    val resourcesState = rememberUpdatedState(LocalContext.current.resources)
-    val pinPromptFormatter = remember(resourcesState.value) {
-        resourcesPinPromptFormatter(resourcesState.value)
-    }
+    val pinPromptFormatter = rememberPinPromptFormatter()
 
     LaunchedEffect(pinPromptState.lockout) {
         pinPromptState.lockout ?: return@LaunchedEffect

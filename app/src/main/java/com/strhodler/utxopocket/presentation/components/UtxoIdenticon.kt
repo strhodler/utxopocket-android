@@ -12,19 +12,20 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.createBitmap
 import io.github.thibseisel.identikon.Identicon
 import io.github.thibseisel.identikon.drawToBitmap
 
 @Composable
 fun UtxoIdenticon(
     seed: String,
-    size: Dp = 72.dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    size: Dp = 72.dp
 ) {
     val iconSizePx = with(LocalDensity.current) { size.roundToPx().coerceAtLeast(1) }
     val bitmap = remember(seed, iconSizePx) {
         val icon = Identicon.fromValue(seed, iconSizePx)
-        Bitmap.createBitmap(iconSizePx, iconSizePx, Bitmap.Config.ARGB_8888).apply {
+        createBitmap(iconSizePx, iconSizePx, Bitmap.Config.ARGB_8888).apply {
             icon.drawToBitmap(this)
         }
     }

@@ -367,12 +367,13 @@ private fun SpendabilityPage(
     distribution: UtxoBucketDistribution<UtxoSpendabilityBucket>,
     balanceUnit: BalanceUnit
 ) {
-    val context = LocalContext.current
-    val uiDistribution = remember(distribution) {
+    val spendableLabel = stringResource(id = R.string.wallet_utxo_spendability_label_spendable)
+    val lockedLabel = stringResource(id = R.string.wallet_utxo_spendability_label_locked)
+    val uiDistribution = remember(distribution, spendableLabel, lockedLabel) {
         distribution.toUiDistribution { bucket ->
             when (bucket) {
-                UtxoSpendabilityBucket.Spendable -> context.getString(R.string.wallet_utxo_spendability_label_spendable)
-                UtxoSpendabilityBucket.NotSpendable -> context.getString(R.string.wallet_utxo_spendability_label_locked)
+                UtxoSpendabilityBucket.Spendable -> spendableLabel
+                UtxoSpendabilityBucket.NotSpendable -> lockedLabel
             }
         }
     }
@@ -977,11 +978,9 @@ private fun TreemapTileSheet(
     val colorBadge = remember(tile, colorScheme, ageColorPalette) {
         treemapColorFor(tile, colorScheme, ageColorPalette)
     }
-    val ageBucketLabel = remember(tile.colorBucket, context) {
-        when (val bucket = tile.colorBucket) {
-            is UtxoTreemapColor.Age -> context.getString(bucketLabelRes(bucket.bucket))
-            is UtxoTreemapColor.Dust -> null
-        }
+    val ageBucketLabel = when (val bucket = tile.colorBucket) {
+        is UtxoTreemapColor.Age -> stringResource(id = bucketLabelRes(bucket.bucket))
+        is UtxoTreemapColor.Dust -> null
     }
     val detailEntry = remember(tile) {
         tile.entries.singleOrNull()
@@ -1367,7 +1366,6 @@ private fun HistogramLegend(
     val totalBalance = remember(histogram.totalValueSats, balanceUnit) {
         balanceText(histogram.totalValueSats, balanceUnit)
     }
-    val context = LocalContext.current
     Text(
         text = stringResource(
             id = R.string.wallet_utxo_histogram_total,
@@ -1388,7 +1386,7 @@ private fun HistogramLegend(
             items = histogram.slices,
             key = { _, slice -> slice.bucket.id }
         ) { index, slice ->
-            val label = context.getString(bucketLabelRes(slice.bucket))
+            val label = stringResource(id = bucketLabelRes(slice.bucket))
             val countLabel = numberFormatter.format(slice.count)
             val balanceLabel = balanceText(slice.valueSats, balanceUnit)
             val valuePercent = slice.valueSats.toDouble() / histogram.totalValueSats.toDouble()

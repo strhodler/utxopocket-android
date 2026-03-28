@@ -48,7 +48,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -83,7 +82,7 @@ import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
 import com.strhodler.utxopocket.presentation.pin.PinPromptState
 import com.strhodler.utxopocket.presentation.pin.advancePinPromptStateCountdown
 import com.strhodler.utxopocket.presentation.pin.mapPinVerificationResultToPromptState
-import com.strhodler.utxopocket.presentation.pin.resourcesPinPromptFormatter
+import com.strhodler.utxopocket.presentation.pin.rememberPinPromptFormatter
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
@@ -116,7 +115,6 @@ fun SecuritySettingsRoute(
     val duressEnabledMessage = stringResource(id = R.string.settings_duress_enabled_message)
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val resourcesState = rememberUpdatedState(context.resources)
     val panicSuccessMessage = stringResource(id = R.string.settings_panic_success_message)
     val panicFailureMessage = stringResource(id = R.string.settings_panic_failure_message)
     val panicInProgressLabel = stringResource(id = R.string.settings_panic_wiping)
@@ -136,9 +134,7 @@ fun SecuritySettingsRoute(
     var showCalculatorGateEnableDialog by rememberSaveable { mutableStateOf(false) }
     val calculatorAppName = stringResource(id = R.string.app_name_calculator)
     val networkLogsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val pinPromptFormatter = remember(resourcesState.value) {
-        resourcesPinPromptFormatter(resourcesState.value)
-    }
+    val pinPromptFormatter = rememberPinPromptFormatter()
 
     LaunchedEffect(pinDisablePromptState.lockout) {
         pinDisablePromptState.lockout ?: return@LaunchedEffect

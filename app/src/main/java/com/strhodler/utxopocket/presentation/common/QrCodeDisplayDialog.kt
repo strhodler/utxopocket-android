@@ -51,9 +51,9 @@ fun QrCodeDisplayDialog(
     errorText: String,
     copyActionLabel: String,
     closeActionLabel: String,
-    onCopy: (() -> Unit)? = null,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCopy: (() -> Unit)? = null
 ) {
     val qrImage by rememberQrCodeImage(value)
     val scrollState = rememberScrollState()

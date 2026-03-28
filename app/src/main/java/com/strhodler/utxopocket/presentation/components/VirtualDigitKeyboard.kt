@@ -178,8 +178,8 @@ private fun DigitKeyboardButton(
     enabled: Boolean,
     hapticsEnabled: Boolean,
     onClick: () -> Unit,
-    onLongPress: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onLongPress: (() -> Unit)? = null
 ) {
     if (key == DigitKey.Placeholder) {
         Spacer(modifier = modifier.aspectRatio(1f))

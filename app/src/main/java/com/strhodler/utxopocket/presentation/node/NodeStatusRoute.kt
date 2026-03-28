@@ -19,8 +19,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -48,7 +48,7 @@ fun NodeStatusRoute(
     val torActionsState by torViewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val haptics = LocalHapticFeedback.current
-    val context = LocalContext.current
+    val resources = LocalView.current.resources
     val reducedMotion = rememberReducedMotionEnabled()
     val qrEditorState = rememberNodeCustomNodeEditorState(
         isEditorVisible = state.isCustomNodeEditorVisible,
@@ -67,7 +67,7 @@ fun NodeStatusRoute(
 
     LaunchedEffect(state.selectionNotice) {
         val notice = state.selectionNotice ?: return@LaunchedEffect
-        val message = context.getString(notice.messageRes, notice.argument)
+        val message = resources.getString(notice.messageRes, notice.argument)
         snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short)
         viewModel.onSelectionNoticeConsumed()
     }
@@ -75,14 +75,14 @@ fun NodeStatusRoute(
     LaunchedEffect(state.customNodeSuccessMessage, state.customNodes.size) {
         val messageRes = state.customNodeSuccessMessage ?: return@LaunchedEffect
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-        snackbarHostState.showSnackbar(context.getString(messageRes))
+        snackbarHostState.showSnackbar(resources.getString(messageRes))
     }
 
     LaunchedEffect(Unit) {
         viewModel.events.collectLatest { event ->
             if (event is NodeStatusEvent.Info) {
                 snackbarHostState.currentSnackbarData?.dismiss()
-                val text = context.getString(event.message)
+                val text = resources.getString(event.message)
                 snackbarHostState.showSnackbar(text, duration = SnackbarDuration.Short)
             }
         }

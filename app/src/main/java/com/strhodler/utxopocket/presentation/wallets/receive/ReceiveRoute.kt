@@ -120,12 +120,17 @@ fun ReceiveRoute(
         successMessage = stringResource(id = R.string.receive_copy_success),
         onShowMessage = { message -> showSnackbar(message, SnackbarDuration.Short) }
     )
+    val nextAddressReadyMessage = stringResource(id = R.string.receive_next_address_ready)
+    val checkAddressDetectedMessage = stringResource(id = R.string.receive_check_address_detected)
+    val checkAddressNoActivityMessage = stringResource(id = R.string.receive_check_address_no_activity)
+    val checkAddressNoAddressMessage = stringResource(id = R.string.receive_error_no_address)
+    val checkAddressErrorMessage = stringResource(id = R.string.receive_check_address_error)
     LaunchedEffect(state.address?.value) {
         val current = state.address?.value ?: return@LaunchedEffect
         val previous = lastAddressValue
         lastAddressValue = current
         if (previous != null && previous != current) {
-            showSnackbar(context.getString(R.string.receive_next_address_ready), SnackbarDuration.Short)
+            showSnackbar(nextAddressReadyMessage, SnackbarDuration.Short)
         }
     }
 
@@ -152,22 +157,21 @@ fun ReceiveRoute(
             },
             onCheckAddress = {
                 coroutineScope.launch {
-                    val resources = context.resources
                     when (viewModel.checkAddress()) {
                         ReceiveCheckResult.Detected -> showSnackbar(
-                            resources.getString(R.string.receive_check_address_detected),
+                            checkAddressDetectedMessage,
                             SnackbarDuration.Short
                         )
                         ReceiveCheckResult.NoActivity -> showSnackbar(
-                            resources.getString(R.string.receive_check_address_no_activity),
+                            checkAddressNoActivityMessage,
                             SnackbarDuration.Short
                         )
                         ReceiveCheckResult.NoAddress -> showSnackbar(
-                            resources.getString(R.string.receive_error_no_address),
+                            checkAddressNoAddressMessage,
                             SnackbarDuration.Short
                         )
                         ReceiveCheckResult.Error -> showSnackbar(
-                            resources.getString(R.string.receive_check_address_error),
+                            checkAddressErrorMessage,
                             SnackbarDuration.Short
                         )
                     }

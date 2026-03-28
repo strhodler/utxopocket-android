@@ -82,7 +82,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -123,6 +122,7 @@ import com.strhodler.utxopocket.presentation.common.QrCodeDisplayDialog
 import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.common.transactionAmount
+import com.strhodler.utxopocket.presentation.common.window.windowContainerHeightDp
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.theme.rememberWalletColorTheme
 import com.strhodler.utxopocket.presentation.theme.WalletColorTheme
@@ -296,14 +296,13 @@ private fun WalletDetailContent(
         label = "walletTabsTopPadding"
     )
 
-    val configuration = LocalConfiguration.current
     val pagerBottomPadding = contentPadding.calculateBottomPadding()
     val outerContentPadding = remember(contentPadding.calculateTopPadding()) {
         PaddingValues(top = contentPadding.calculateTopPadding())
     }
-    val screenHeight = configuration.screenHeightDp.dp
-    val pagerHeight = remember(screenHeight, topContentPadding) {
-        (screenHeight - topContentPadding - TabsHeight)
+    val containerHeight = windowContainerHeightDp()
+    val pagerHeight = remember(containerHeight, topContentPadding) {
+        (containerHeight - topContentPadding - TabsHeight)
             .coerceAtLeast(200.dp)
     }
     val reusedAddressCount = state.reusedAddressCount

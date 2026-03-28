@@ -173,7 +173,7 @@ private fun AboutDeveloperContent(
 private fun DeveloperQrPreview(
     qrBitmap: ImageBitmap?,
     contentDescription: String,
-    modifier: Modifier = Modifier.fillMaxWidth()
+    modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier.aspectRatio(1f),

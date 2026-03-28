@@ -152,16 +152,20 @@ private fun BlockExplorerSettingsScreen(
     var explorerScanError by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val scanPermissionDeniedError = stringResource(id = R.string.node_scan_error_permission)
+    val scanInvalidError = stringResource(id = R.string.add_wallet_scan_invalid)
+    val explorerRequiredError = stringResource(id = R.string.settings_block_explorer_error_required)
+    val explorerSchemeError = stringResource(id = R.string.settings_block_explorer_error_scheme)
     val startExplorerScan = rememberExplorerQrScanner(
         onParsed = { content ->
             explorerInput = content
             explorerScanError = null
         },
         onPermissionDenied = {
-            explorerScanError = context.getString(R.string.node_scan_error_permission)
+            explorerScanError = scanPermissionDeniedError
         },
         onInvalid = {
-            explorerScanError = context.getString(R.string.add_wallet_scan_invalid)
+            explorerScanError = scanInvalidError
         }
     )
 
@@ -639,10 +643,8 @@ private fun BlockExplorerSettingsScreen(
                             val trimmed = explorerInput.trim()
                             val trimmedName = explorerNameInput.trim()
                             val validationError = when {
-                                trimmed.isBlank() -> context.getString(R.string.settings_block_explorer_error_required)
-                                !(trimmed.startsWith("http://") || trimmed.startsWith("https://")) -> context.getString(
-                                    R.string.settings_block_explorer_error_scheme
-                                )
+                                trimmed.isBlank() -> explorerRequiredError
+                                !(trimmed.startsWith("http://") || trimmed.startsWith("https://")) -> explorerSchemeError
                                 else -> null
                             }
                             if (validationError != null) {

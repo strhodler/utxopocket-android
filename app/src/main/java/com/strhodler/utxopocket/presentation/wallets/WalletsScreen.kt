@@ -199,12 +199,12 @@ fun WalletsScreen(
     onSelectNode: () -> Unit,
     onConnectTor: () -> Unit,
     onWalletSelected: (Long, String) -> Unit,
-    snackbarMessage: String? = null,
-    onSnackbarConsumed: () -> Unit = {},
     isNetworkOnline: Boolean,
     onCycleBalanceDisplay: () -> Unit,
     duressActive: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    snackbarMessage: String? = null,
+    onSnackbarConsumed: () -> Unit = {}
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(snackbarMessage) {
@@ -429,13 +429,13 @@ private fun WalletsList(
     canAddWallet: Boolean,
     showAddWalletDisabledHint: Boolean,
     showNodePrompt: Boolean,
-    walletSyncStates: Map<Long, WalletSyncState> = emptyMap(),
     nodeStatus: NodeStatus,
-    banner: (@Composable () -> Unit)? = null,
-    modifier: Modifier = Modifier,
     onCycleBalanceDisplay: () -> Unit,
     blockHeight: Long?,
-    selectedNetwork: BitcoinNetwork
+    selectedNetwork: BitcoinNetwork,
+    modifier: Modifier = Modifier,
+    walletSyncStates: Map<Long, WalletSyncState> = emptyMap(),
+    banner: (@Composable () -> Unit)? = null
 ) {
     if (wallets.isEmpty()) {
         Box(
@@ -546,14 +546,17 @@ private val AddDescriptorBottomSpacing = 24.dp
 private fun PrimaryCtaButton(
     text: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    modifier: Modifier = Modifier.fillMaxWidth(),
     leadingIcon: ImageVector? = null
 ) {
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.heightIn(min = AddDescriptorCtaMinHeight),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(modifier)
+            .heightIn(min = AddDescriptorCtaMinHeight),
         contentPadding = AddDescriptorCtaContentPadding,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,
@@ -579,13 +582,13 @@ private fun PrimaryCtaButton(
 private fun AddDescriptorCtaButton(
     enabled: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier.fillMaxWidth()
+    modifier: Modifier = Modifier
 ) {
     PrimaryCtaButton(
         text = stringResource(id = R.string.wallets_add_wallet_action),
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier,
+        modifier = Modifier.fillMaxWidth().then(modifier),
         leadingIcon = Icons.Outlined.Add
     )
 }
