@@ -484,6 +484,28 @@ class NodeStatusViewModelTest {
     }
 
     @Test
+    fun customNodeFailureRedactsEndpointFromDisplayedError() = runTest {
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionMode = ConnectionMode.LOCAL_DIRECT)
+        }
+        nodeConnectionTester.nextResult = NodeConnectionTestResult.Failure(
+            "Failed to connect to tcp://192.168.1.77:50001"
+        )
+        advanceUntilIdle()
+
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onNewCustomOnionChanged("192.168.1.77")
+        viewModel.onNewCustomPortChanged("50001")
+        viewModel.onTestAndAddCustomNode()
+        advanceUntilIdle()
+
+        val error = viewModel.uiState.value.customNodeError.orEmpty()
+        assertFalse(error.contains("192.168.1.77"))
+        assertFalse(error.contains("50001"))
+        assertTrue(error.contains("[redacted]"))
+    }
+
+    @Test
     fun onionEndpointsUpdatePortFromInlineValue() = runTest {
         viewModel.onAddCustomNodeClicked()
         viewModel.onNewCustomOnionChanged("abc123def.onion:60002")

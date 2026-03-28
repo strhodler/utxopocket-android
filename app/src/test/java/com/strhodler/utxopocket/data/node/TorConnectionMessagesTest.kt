@@ -42,4 +42,30 @@ class TorConnectionMessagesTest {
 
         assertEquals("Unable to reach node", message)
     }
+
+    @Test
+    fun defaultMessageRedactsIpv4HostPort() {
+        val message = IllegalStateException("Connection failed").toTorAwareMessage(
+            defaultMessage = "Failed to connect to tcp://192.168.1.50:50001",
+            endpoint = "tcp://192.168.1.50:50001",
+            usedTor = false
+        )
+
+        assertFalse(message.contains("192.168.1.50"))
+        assertFalse(message.contains("50001"))
+        assertTrue(message.contains("local endpoint"))
+    }
+
+    @Test
+    fun defaultMessageRedactsIpv6HostPort() {
+        val message = IllegalStateException("Connection failed").toTorAwareMessage(
+            defaultMessage = "Failed to connect to tcp://[fd00::1]:50001",
+            endpoint = "tcp://[fd00::1]:50001",
+            usedTor = false
+        )
+
+        assertFalse(message.contains("fd00::1"))
+        assertFalse(message.contains("50001"))
+        assertTrue(message.contains("local endpoint"))
+    }
 }

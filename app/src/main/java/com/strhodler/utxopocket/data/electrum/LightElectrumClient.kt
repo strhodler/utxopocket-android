@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.data.electrum
 
 import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.data.bdk.ElectrumEndpoint
+import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.node.EndpointScheme
 import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
@@ -70,6 +71,9 @@ class LightElectrumClient(
     init {
         if (shouldFailClosedForInsecureSsl(normalized.scheme, validateDomain)) {
             throw IOException("SSL endpoints require certificate and domain validation")
+        }
+        if (shouldFailClosedForMissingTorProxy(endpoint.transport, proxy)) {
+            throw IOException("Tor endpoints require an active Tor proxy")
         }
         val proxyConfig = proxy?.let {
             Proxy(Proxy.Type.SOCKS, InetSocketAddress(it.host, it.port))
@@ -428,3 +432,8 @@ internal fun shouldFailClosedForInsecureSsl(
     endpointScheme: EndpointScheme,
     validateDomain: Boolean
 ): Boolean = endpointScheme == EndpointScheme.SSL && !validateDomain
+
+internal fun shouldFailClosedForMissingTorProxy(
+    endpointTransport: NodeTransport,
+    proxy: SocksProxyConfig?
+): Boolean = endpointTransport == NodeTransport.TOR && proxy == null

@@ -32,6 +32,7 @@ import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepositor
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.domain.service.IncomingTxWatcher
 import com.strhodler.utxopocket.domain.service.TorManager
+import com.strhodler.utxopocket.tor.sanitization.TorTextSanitizer
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -187,7 +188,9 @@ class DefaultIncomingTxWatcher @Inject constructor(
                 endpointProvider.endpointFor(network)
             } catch (t: Throwable) {
                 if (t is CancellationException) throw t
-                SecureLog.w(TAG) { "IncomingTx endpoint resolve failed for $walletAlias: ${t.message}" }
+                SecureLog.w(TAG) {
+                    "IncomingTx endpoint resolve failed for $walletAlias: ${t.redactedReason()}"
+                }
                 delay(watcherPolicy.nextDelayMillis(currentIntervalSeconds, success = false))
                 continue
             }
@@ -196,7 +199,9 @@ class DefaultIncomingTxWatcher @Inject constructor(
             val cachedCapability = capabilityCache[capabilityKey] ?: SubscriptionCapability.UNKNOWN
             val addresses = runCatching { loadWatchedAddresses(wallet.id, watcherWindow) }.getOrElse { error ->
                 if (error is CancellationException) throw error
-                SecureLog.w(TAG) { "IncomingTx address load failed for $walletAlias: ${error.message}" }
+                SecureLog.w(TAG) {
+                    "IncomingTx address load failed for $walletAlias: ${error.redactedReason()}"
+                }
                 emptyList()
             }
             if (addresses.isEmpty()) {
@@ -233,7 +238,9 @@ class DefaultIncomingTxWatcher @Inject constructor(
                             pollWalletOnce(wallet, network, lastSeen)
                         }.onFailure { error ->
                             if (error is CancellationException) throw error
-                            SecureLog.w(TAG) { "IncomingTx poll fallback failed for $walletAlias: ${error.message}" }
+                            SecureLog.w(TAG) {
+                                "IncomingTx poll fallback failed for $walletAlias: ${error.redactedReason()}"
+                            }
                         }
                         currentIntervalSeconds = watcherPolicy.baseIntervalSeconds
                         return@use
@@ -243,7 +250,9 @@ class DefaultIncomingTxWatcher @Inject constructor(
                         pollWalletOnce(wallet, network, lastSeen)
                     }.onFailure { error ->
                         if (error is CancellationException) throw error
-                        SecureLog.w(TAG) { "IncomingTx initial poll failed for $walletAlias: ${error.message}" }
+                        SecureLog.w(TAG) {
+                            "IncomingTx initial poll failed for $walletAlias: ${error.redactedReason()}"
+                        }
                     }
                     while (isActive) {
                         val waitMillis =
@@ -284,7 +293,9 @@ class DefaultIncomingTxWatcher @Inject constructor(
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (t: Throwable) {
-                SecureLog.w(TAG) { "IncomingTx subscription loop error for $walletAlias: ${t.message}" }
+                SecureLog.w(TAG) {
+                    "IncomingTx subscription loop error for $walletAlias: ${t.redactedReason()}"
+                }
                 reconnect = true
             }
             if (reconnect && isActive) {
@@ -598,9 +609,18 @@ class DefaultIncomingTxWatcher @Inject constructor(
         return runCatching { torManager.awaitProxy() }
             .onFailure { error ->
                 if (error is CancellationException) throw error
-                SecureLog.w(TAG) { "$logPrefix for $walletAlias: ${error.message}" }
+                SecureLog.w(TAG) {
+                    "$logPrefix for $walletAlias: ${error.redactedReason()}"
+                }
             }
             .getOrNull()
+    }
+
+    private fun Throwable.redactedReason(): String {
+        val sanitized = TorTextSanitizer.sanitizeNullableForPublicDisplay(message)
+            ?.trim()
+            .orEmpty()
+        return sanitized.ifBlank { javaClass.simpleName }
     }
 
     internal data class IncomingTxLightSnapshot(

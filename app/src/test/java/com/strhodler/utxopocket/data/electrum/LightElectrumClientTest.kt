@@ -1,6 +1,7 @@
 package com.strhodler.utxopocket.data.electrum
 
 import com.strhodler.utxopocket.data.bdk.ElectrumEndpoint
+import com.strhodler.utxopocket.domain.model.NodeTransport
 import java.io.BufferedReader
 import java.io.BufferedWriter
 import java.io.IOException
@@ -36,7 +37,7 @@ class LightElectrumClientTest {
         )
 
         server.start()
-        val endpoint = ElectrumEndpoint(url = "tcp://127.0.0.1:${server.port}", validateDomain = false, timeoutSeconds = 2)
+        val endpoint = localDirectEndpoint(server.port)
 
         LightElectrumClient(endpoint = endpoint, proxy = null, validateDomain = false).use { client ->
             client.openSession()
@@ -63,7 +64,7 @@ class LightElectrumClientTest {
         )
 
         server.start()
-        val endpoint = ElectrumEndpoint(url = "tcp://127.0.0.1:${server.port}", validateDomain = false, timeoutSeconds = 2)
+        val endpoint = localDirectEndpoint(server.port)
 
         assertFailsWith<IOException> {
             LightElectrumClient(endpoint = endpoint, proxy = null, validateDomain = false).use { client ->
@@ -89,7 +90,7 @@ class LightElectrumClientTest {
         )
 
         server.start()
-        val endpoint = ElectrumEndpoint(url = "tcp://127.0.0.1:${server.port}", validateDomain = false, timeoutSeconds = 2)
+        val endpoint = localDirectEndpoint(server.port)
 
         val history = LightElectrumClient(endpoint = endpoint, proxy = null, validateDomain = false).use { client ->
             client.openSession()
@@ -137,11 +138,7 @@ class LightElectrumClientTest {
         }
 
         server.start()
-        val endpoint = ElectrumEndpoint(
-            url = "tcp://127.0.0.1:${server.port}",
-            validateDomain = false,
-            timeoutSeconds = 1
-        )
+        val endpoint = localDirectEndpoint(server.port, timeoutSeconds = 1)
 
         val (unspent, notifications) = LightElectrumClient(
             endpoint = endpoint,
@@ -178,11 +175,7 @@ class LightElectrumClientTest {
         }
 
         server.start()
-        val endpoint = ElectrumEndpoint(
-            url = "tcp://127.0.0.1:${server.port}",
-            validateDomain = false,
-            timeoutSeconds = 1
-        )
+        val endpoint = localDirectEndpoint(server.port, timeoutSeconds = 1)
 
         val error = assertFailsWith<IOException> {
             LightElectrumClient(endpoint = endpoint, proxy = null, validateDomain = false).use { client ->
@@ -246,11 +239,7 @@ class LightElectrumClientTest {
         }
 
         server.start()
-        val endpoint = ElectrumEndpoint(
-            url = "tcp://127.0.0.1:${server.port}",
-            validateDomain = false,
-            timeoutSeconds = 1
-        )
+        val endpoint = localDirectEndpoint(server.port, timeoutSeconds = 1)
         val executor = Executors.newFixedThreadPool(2)
         try {
             val (unspent, history, notifications) = LightElectrumClient(
@@ -314,11 +303,7 @@ class LightElectrumClientTest {
         }
 
         server.start()
-        val endpoint = ElectrumEndpoint(
-            url = "tcp://127.0.0.1:${server.port}",
-            validateDomain = false,
-            timeoutSeconds = 1
-        )
+        val endpoint = localDirectEndpoint(server.port, timeoutSeconds = 1)
 
         val (subscribed, notifications) = LightElectrumClient(
             endpoint = endpoint,
@@ -382,11 +367,7 @@ class LightElectrumClientTest {
         }
 
         server.start()
-        val endpoint = ElectrumEndpoint(
-            url = "tcp://127.0.0.1:${server.port}",
-            validateDomain = false,
-            timeoutSeconds = 1
-        )
+        val endpoint = localDirectEndpoint(server.port, timeoutSeconds = 1)
 
         val (subscribed, notifications) = LightElectrumClient(
             endpoint = endpoint,
@@ -433,11 +414,7 @@ class LightElectrumClientTest {
         }
 
         server.start()
-        val endpoint = ElectrumEndpoint(
-            url = "tcp://127.0.0.1:${server.port}",
-            validateDomain = false,
-            timeoutSeconds = 1
-        )
+        val endpoint = localDirectEndpoint(server.port, timeoutSeconds = 1)
 
         val unspent = LightElectrumClient(
             endpoint = endpoint,
@@ -467,11 +444,7 @@ class LightElectrumClientTest {
         }
 
         server.start()
-        val endpoint = ElectrumEndpoint(
-            url = "tcp://127.0.0.1:${server.port}",
-            validateDomain = false,
-            timeoutSeconds = 1
-        )
+        val endpoint = localDirectEndpoint(server.port, timeoutSeconds = 1)
         val executor = Executors.newFixedThreadPool(2)
         try {
             LightElectrumClient(endpoint = endpoint, proxy = null, validateDomain = false).use { client ->
@@ -504,6 +477,13 @@ private fun assertFutureIOException(future: Future<*>): IOException {
     assertTrue(cause is IOException, "Expected IOException, was ${cause?.javaClass?.name}")
     return cause
 }
+
+private fun localDirectEndpoint(port: Int, timeoutSeconds: Int = 2): ElectrumEndpoint = ElectrumEndpoint(
+    url = "tcp://127.0.0.1:$port",
+    validateDomain = false,
+    timeoutSeconds = timeoutSeconds,
+    transport = NodeTransport.VPN_DIRECT
+)
 
 private fun readRequest(reader: BufferedReader, expectedMethod: String? = null): JSONObject {
     val line = reader.readLine() ?: throw AssertionError("Expected RPC request but client disconnected")

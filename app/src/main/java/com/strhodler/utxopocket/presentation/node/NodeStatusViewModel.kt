@@ -30,6 +30,7 @@ import com.strhodler.utxopocket.presentation.connection.canRetryConnection
 import com.strhodler.utxopocket.presentation.connection.isSyncBusyForNetwork
 import com.strhodler.utxopocket.presentation.connection.reconcileConnectionIntentForNodeConfigChange
 import com.strhodler.utxopocket.presentation.node.NodeQrParseResult
+import com.strhodler.utxopocket.tor.sanitization.TorTextSanitizer
 import com.strhodler.utxopocket.common.logging.SecureLog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
@@ -942,7 +943,7 @@ class NodeStatusViewModel @Inject constructor(
             ConnectionModeErrorKeys.NO_FALLBACK_APPLIED ->
                 "No compatible node selected"
 
-            else -> reason
+            else -> TorTextSanitizer.sanitizeForPublicDisplay(reason)
         }
 
     private fun networkMismatchMessage(

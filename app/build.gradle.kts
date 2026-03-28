@@ -6,6 +6,7 @@ plugins {
 }
 
 val runtimeDocsAssetsDir = layout.buildDirectory.dir("generated/runtime-docs-assets")
+val runtimeDocsAssetsPath = "${project.projectDir}/build/generated/runtime-docs-assets"
 
 val syncRuntimeDocsAssets by tasks.registering(org.gradle.api.tasks.Sync::class) {
     from(rootProject.file("docs/wiki")) {
@@ -73,7 +74,7 @@ android {
     }
     sourceSets {
         getByName("main") {
-            assets.directories.add(runtimeDocsAssetsDir.get().asFile.absolutePath)
+            assets.directories.add(runtimeDocsAssetsPath)
         }
     }
 }
@@ -84,7 +85,9 @@ androidComponents {
     }
 }
 
-tasks.named("preBuild").configure {
+tasks.matching { task ->
+    task.name.startsWith("merge") && task.name.endsWith("Assets")
+}.configureEach {
     dependsOn(syncRuntimeDocsAssets)
 }
 

@@ -327,8 +327,9 @@ internal class NodeSyncRunner(
                     val metadata = try {
                         blockchain.fetchMetadata()
                     } catch (metadataError: Exception) {
-                        SecureLog.w(logTag, metadataError) {
-                            "Unable to fetch electrum metadata from $endpoint"
+                        val endpointFingerprint = SecureLog.fingerprint(endpoint)
+                        SecureLog.w(logTag) {
+                            "Unable to fetch electrum metadata from endpoint=$endpointFingerprint error=${metadataError.javaClass.simpleName}"
                         }
                         val reason = metadataError.toTorAwareMessage(
                             defaultMessage = metadataError.message.orEmpty().ifBlank { "Electrum connection failed" },
@@ -754,7 +755,9 @@ internal class NodeSyncRunner(
                             if (lastWalletError == null) {
                                 lastWalletError = reason
                             }
-                            SecureLog.e(logTag, syncError) { "Sync failed for wallet ${entity.name} ($walletAlias)" }
+                            SecureLog.e(logTag) {
+                                "Sync failed for wallet $walletAlias error=${syncError.javaClass.simpleName}"
+                            }
                             val failure = entity.withSyncFailure(
                                 status = NodeStatus.Error(reason),
                                 timestamp = System.currentTimeMillis()
