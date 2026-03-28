@@ -210,7 +210,12 @@
     <string name="wallet_detail_action_sync">Sync now</string>
     <string name="wallet_detail_action_analysis">Analysis</string>
     <string name="wallet_detail_action_receive">Receive</string>
+    <string name="wallet_detail_action_show_chart">Show chart</string>
+    <string name="wallet_detail_action_hide_chart">Hide chart</string>
 <string name="wallet_balance_range_all">All</string>
+    <string name="wallet_balance_range_week_short">1W</string>
+    <string name="wallet_balance_range_month_short">1M</string>
+    <string name="wallet_balance_range_year_short">1Y</string>
     <string name="receive_title">Receive</string>
     <string name="receive_copy_label">Copy</string>
     <string name="receive_share_label">Share</string>

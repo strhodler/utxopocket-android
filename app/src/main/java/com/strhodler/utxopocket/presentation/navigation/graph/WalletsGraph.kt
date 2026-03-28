@@ -13,7 +13,6 @@ import androidx.navigation.navArgument
 import com.strhodler.utxopocket.domain.model.DuressSessionState
 import com.strhodler.utxopocket.domain.model.WikiTopicIds
 import com.strhodler.utxopocket.presentation.StatusBarUiState
-import com.strhodler.utxopocket.presentation.glossary.GlossaryNavigation
 import com.strhodler.utxopocket.presentation.navigation.MainDestination
 import com.strhodler.utxopocket.presentation.navigation.enumArgOrNull
 import com.strhodler.utxopocket.presentation.navigation.longArgOrNull
@@ -191,12 +190,6 @@ internal fun NavGraphBuilder.walletsGraph(
                     navController.navigate(WalletsNavigation.utxoCollectionRoute(walletIdArg, collectionId))
                 },
                 onOpenReceive = { navController.navigate(WalletsNavigation.receiveRoute(walletIdArg)) },
-                onOpenWikiTopic = { topicId ->
-                    navController.navigateTopLevel(WikiNavigation.detailRoute(topicId))
-                },
-                onOpenGlossaryEntry = { entryId ->
-                    navController.navigateSingleTop(GlossaryNavigation.detailRoute(entryId))
-                },
                 onOpenDescriptors = { targetWalletId, walletName ->
                     navController.navigate(
                         WalletsNavigation.descriptorDetailRoute(targetWalletId, walletName)

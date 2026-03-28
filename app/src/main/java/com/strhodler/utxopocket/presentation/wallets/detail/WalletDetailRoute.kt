@@ -107,8 +107,6 @@ fun WalletDetailRoute(
     onUtxoSelected: (String, Int) -> Unit,
     onOpenCollection: (Long) -> Unit,
     onOpenReceive: (Long) -> Unit,
-    onOpenWikiTopic: (String) -> Unit,
-    onOpenGlossaryEntry: (String) -> Unit,
     walletId: Long,
     onOpenDescriptors: (Long, String) -> Unit,
     onOpenExportLabels: (Long, String) -> Unit,
@@ -554,7 +552,6 @@ fun WalletDetailRoute(
                         ?: summary.name
                     onOpenUtxoCanvas(summary.id, walletNameArg)
                 },
-                onOpenWikiTopic = onOpenWikiTopic,
                 onTogglePending = viewModel::setShowPending,
                 outerListState = outerListState,
                 selectedTab = selectedTab,
@@ -928,9 +925,9 @@ private fun WalletDetailBottomBar(
             label = {
                 Text(
                     text = if (showBalanceChart) {
-                        "Hide chart"
+                        stringResource(id = R.string.wallet_detail_action_hide_chart)
                     } else {
-                        "Show chart"
+                        stringResource(id = R.string.wallet_detail_action_show_chart)
                     },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

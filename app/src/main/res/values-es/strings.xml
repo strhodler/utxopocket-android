@@ -537,9 +537,14 @@
     <string name="pin_error_incorrect_backoff">PIN incorrecto. Espera %1$s antes de volver a intentarlo.</string>
     <string name="pin_error_locked">Demasiados intentos fallidos. Intenta de nuevo en %1$s.</string>
     <string name="pin_error_not_configured">No hay un PIN configurado.</string>
-<string name="pin_unlock_title">Desbloquear UtxoPocket</string>
+    <string name="pin_unlock_title">Desbloquear UtxoPocket</string>
     <string name="pin_unlock_description">Introduce tu PIN de 6 dígitos para continuar.</string>
+    <string name="wallet_detail_action_show_chart">Mostrar gráfico</string>
+    <string name="wallet_detail_action_hide_chart">Ocultar gráfico</string>
 <string name="wallet_balance_range_all">Todo</string>
+    <string name="wallet_balance_range_week_short">1W</string>
+    <string name="wallet_balance_range_month_short">1M</string>
+    <string name="wallet_balance_range_year_short">1Y</string>
     <string name="more_item_features">Funcionalidades</string>
     <string name="more_item_features_supporting">Explora todo lo que UtxoPocket puede hacer.</string>
     <string name="features_screen_intro">UtxoPocket se centra en flujos watch-only privados y verificables que puedes inspeccionar y controlar.</string>
