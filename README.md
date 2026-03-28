@@ -11,7 +11,7 @@ Privacy-first, open-source Android watch-only wallet for monitoring Bitcoin desc
 - Analysis views for age, spendability, value bands, collections, and treemap inspection
 - Transaction visualizer for inputs, outputs, change, and fee structure
 - Encrypted watch-only `.ubak` backups with passphrase preview before restore
-- Tor by default for bundled Electrum presets and custom onion endpoints
+- Tor by default for bundled Electrum presets and custom onion endpoints (app-owned embedded runtime)
 - Optional `Local Direct` mode for custom private/local IP literal Electrum endpoints
 - Multi-network support for Mainnet, Testnet3, Testnet4, and Signet
 - Early incoming detection while BDK sync remains the canonical wallet state
@@ -33,7 +33,7 @@ Privacy-first, open-source Android watch-only wallet for monitoring Bitcoin desc
 
 ## Built with
 - [BDK / Bitcoin Dev Kit](https://github.com/bitcoindevkit)
-- [Tor Project](https://www.torproject.org/)
+- [Tor Project](https://www.torproject.org/) via Guardian Project `tor-android` + pinned `jtorctl`
 - [Hummingbird UR Toolkit](https://github.com/sparrowwallet/hummingbird)
 
 ## Inspired by

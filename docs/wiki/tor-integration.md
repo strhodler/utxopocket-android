@@ -17,7 +17,9 @@ Tor helps hide source network metadata from wallet infrastructure and observers.
 For strong privacy guarantees, Tor-dependent modes should stop syncing when Tor is unavailable instead of quietly switching to clearnet.
 
 ## UtxoPocket behavior
-UtxoPocket defaults to Tor mode and aborts sync if Tor proxying is not available. Local Direct is a separate, explicit mode for private/local IP literal custom endpoints only, with no automatic switching between modes.
+UtxoPocket defaults to Tor mode and aborts sync if Tor proxying is not available. Tor transport is provided by the app-owned embedded runtime (`tor-android` + pinned `jtorctl`) through a foreground service lifecycle.
+
+Local Direct is a separate, explicit mode for private/local IP literal custom endpoints only. Local Direct does not implicitly start Tor, and there is no automatic switching or clearnet fallback between modes.
 
 ## Action checklist
 - [ ] Verify Tor state before expecting sync.

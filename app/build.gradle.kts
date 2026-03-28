@@ -102,8 +102,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.reactivex.rxjava)
-    implementation(libs.reactivex.rxandroid)
 
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
@@ -135,9 +133,8 @@ dependencies {
 
     implementation(libs.bdk.android)
     implementation(libs.sparrow.hummingbird)
-    implementation(libs.tor.android) {
-        exclude(group = "info.guardianproject", module = "jtorctl")
-    }
+    implementation(libs.tor.android)
+    implementation(libs.jtorctl)
     implementation(libs.jbox2d.library)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.zxing.android.embedded)

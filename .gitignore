@@ -1,6 +1,7 @@
 # === Android Studio & Gradle ===
 *.iml
 .gradle
+.gradle-local
 .gradle-cache
 .gradle-user
 /.kotlin/

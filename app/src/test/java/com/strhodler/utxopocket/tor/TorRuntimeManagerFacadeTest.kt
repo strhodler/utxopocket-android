@@ -7,8 +7,10 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -134,6 +136,49 @@ class TorRuntimeManagerFacadeTest {
             runCurrent()
 
             assertEquals(listOf(true, false), fakeFacade.networkEnableRequests)
+
+            manager.stop()
+        }
+    }
+
+    @Test
+    fun renewIdentityReturnsFalseWhenRuntimeIsNotRunning() = runTest {
+        val onlineFlow = MutableStateFlow(true)
+        val fakeFacade = FakeTorControlFacade(startResult = true)
+        val manager = createManager(
+            fakeFacade = fakeFacade,
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+            networkOnlineFlow = onlineFlow
+        )
+
+        val renewed = manager.renewIdentity()
+
+        assertFalse(renewed)
+        assertEquals(0, fakeFacade.newIdentityCalls)
+    }
+
+    @Test
+    fun renewIdentityDelegatesToFacadeWhenRuntimeIsRunning() = runTest {
+        ServerSocket(0).use { socksSocket ->
+            val onlineFlow = MutableStateFlow(true)
+            val fakeFacade = FakeTorControlFacade(
+                startResult = true,
+                runningAfterStart = true,
+                socksPort = socksSocket.localPort
+            )
+            val manager = createManager(
+                fakeFacade = fakeFacade,
+                ioDispatcher = StandardTestDispatcher(testScheduler),
+                networkOnlineFlow = onlineFlow
+            )
+
+            manager.start()
+            runCurrent()
+
+            val renewed = manager.renewIdentity()
+
+            assertTrue(renewed)
+            assertEquals(1, fakeFacade.newIdentityCalls)
 
             manager.stop()
         }

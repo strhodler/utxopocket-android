@@ -42,15 +42,11 @@ class TorForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            TorServiceActions.ACTION_START, TorServiceActions.ACTION_INIT -> startTor()
-            TorServiceActions.ACTION_STOP -> stopTor()
-            TorServiceActions.ACTION_RENEW -> renewIdentity()
-            else -> {
-                if (!torRuntimeManager.isProcessRunning()) {
-                    startTor()
-                }
-            }
+        when (resolveTorServiceCommand(intent?.action)) {
+            TorServiceCommand.START -> startTor()
+            TorServiceCommand.STOP -> stopTor()
+            TorServiceCommand.RENEW -> renewIdentity()
+            TorServiceCommand.IGNORE -> Unit
         }
         return START_STICKY
     }
@@ -110,3 +106,20 @@ class TorForegroundService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 }
+
+internal enum class TorServiceCommand {
+    START,
+    STOP,
+    RENEW,
+    IGNORE
+}
+
+internal fun resolveTorServiceCommand(action: String?): TorServiceCommand =
+    when (action) {
+        TorServiceActions.ACTION_START,
+        TorServiceActions.ACTION_INIT -> TorServiceCommand.START
+
+        TorServiceActions.ACTION_STOP -> TorServiceCommand.STOP
+        TorServiceActions.ACTION_RENEW -> TorServiceCommand.RENEW
+        else -> TorServiceCommand.IGNORE
+    }

@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.data.tor
 
 import com.strhodler.utxopocket.tor.TorRuntimeManager
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -30,5 +31,22 @@ class DefaultTorManagerStartActionPolicyTest {
     @Test
     fun doNotSendStartAction_whenRuntimeIsConnected() {
         assertFalse(shouldSendTorStartAction(TorRuntimeManager.ConnectionState.CONNECTED))
+    }
+
+    @Test
+    fun startActionPolicyMatchesExpectedStateMatrix() {
+        val expectedStartStates = setOf(
+            TorRuntimeManager.ConnectionState.IDLE,
+            TorRuntimeManager.ConnectionState.DISCONNECTED,
+            TorRuntimeManager.ConnectionState.ERROR
+        )
+
+        TorRuntimeManager.ConnectionState.entries.forEach { state ->
+            assertEquals(
+                expected = state in expectedStartStates,
+                actual = shouldSendTorStartAction(state),
+                message = "Unexpected start action policy for state=$state"
+            )
+        }
     }
 }
