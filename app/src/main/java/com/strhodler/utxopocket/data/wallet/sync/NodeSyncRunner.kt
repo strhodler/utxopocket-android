@@ -6,7 +6,6 @@ import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.common.logging.WalletLogAliasProvider
 import com.strhodler.utxopocket.data.bdk.BdkBlockchainFactory
 import com.strhodler.utxopocket.data.bdk.ElectrumEndpoint
-import com.strhodler.utxopocket.data.bdk.ElectrumEndpointSource
 import com.strhodler.utxopocket.data.bdk.WalletMaterializationSource
 import com.strhodler.utxopocket.data.bdk.TorProxyUnavailableException
 import com.strhodler.utxopocket.data.bdk.SyncCancellationSignal
@@ -23,7 +22,6 @@ import com.strhodler.utxopocket.data.db.withSyncFailure
 import com.strhodler.utxopocket.data.db.withSyncResult
 import com.strhodler.utxopocket.data.node.toTorAwareMessage
 import com.strhodler.utxopocket.data.network.NetworkStatusMonitor
-import com.strhodler.utxopocket.domain.connection.ConnectionModeErrorKeys
 import com.strhodler.utxopocket.domain.connection.TransportPolicy
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ConnectionMode
@@ -39,11 +37,6 @@ import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
-import com.strhodler.utxopocket.domain.model.NetworkEndpointType
-import com.strhodler.utxopocket.domain.model.NetworkLogOperation
-import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
-import com.strhodler.utxopocket.domain.model.NetworkNodeSource
-import com.strhodler.utxopocket.domain.model.NetworkTransport
 import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
 import com.strhodler.utxopocket.domain.model.hasActiveSelection
 import com.strhodler.utxopocket.domain.service.TorManager
@@ -89,8 +82,13 @@ internal class NodeSyncRunner(
     private val logTag: String
 ) {
     private val multipathSegmentRegex = Regex("/<[^>]+>/")
-    private var lastEndpointMetadata: EndpointAttemptMetadata? = null
     private val syncAttemptByNetwork = ConcurrentHashMap<BitcoinNetwork, Long>()
+    private val attemptContextByNetwork = ConcurrentHashMap<BitcoinNetwork, NodeSyncAttemptContext>()
+    private val statusPublisher = NodeStatusPublisher(nodeStatus)
+    private val networkFailureRecorder = NetworkFailureRecorder(
+        networkErrorLogRepository = networkErrorLogRepository,
+        torManager = torManager
+    )
 
     private fun WalletEntity.hasChangeBranch(): Boolean =
         !changeDescriptor.isNullOrBlank() || (!viewOnly && multipathSegmentRegex.containsMatchIn(descriptor))
@@ -107,15 +105,9 @@ internal class NodeSyncRunner(
         val previousSnapshot = nodeStatus.value
         if (!config.hasActiveSelection(network)) {
             SecureLog.i(logTag) { "Skipping wallet refresh for $network: no active node selection" }
-            val snapshotMatchesNetwork = previousSnapshot.network == network
-            nodeStatus.value = NodeStatusSnapshot(
-                status = NodeStatus.Idle,
-                blockHeight = previousSnapshot.blockHeight.takeIf { snapshotMatchesNetwork },
-                serverInfo = previousSnapshot.serverInfo.takeIf { snapshotMatchesNetwork },
-                endpoint = null,
-                lastSyncCompletedAt = previousSnapshot.lastSyncCompletedAt.takeIf { snapshotMatchesNetwork },
+            statusPublisher.publishIdleForNoSelection(
                 network = network,
-                feeRateSatPerVb = previousSnapshot.feeRateSatPerVb.takeIf { snapshotMatchesNetwork }
+                previousSnapshot = previousSnapshot
             )
             return@withContext NodeRefreshResult(NodeRefreshOutcome.SkippedNoActiveNodeSelection)
         }
@@ -128,6 +120,11 @@ internal class NodeSyncRunner(
             return@withContext NodeRefreshResult(NodeRefreshOutcome.Incomplete)
         }
         val attemptStarted = SystemClock.elapsedRealtime()
+        beginAttemptContext(
+            network = network,
+            attemptId = attemptId,
+            startedElapsedRealtimeMs = attemptStarted
+        )
         try {
             performRefreshAttempt(
                 network = network,
@@ -146,13 +143,16 @@ internal class NodeSyncRunner(
             }
             SecureLog.w(logTag, error) { "Node refresh attempt failed for $network" }
             runCatching {
-                recordNetworkFailure(
+                networkFailureRecorder.record(
                     error = error,
                     durationMs = SystemClock.elapsedRealtime() - attemptStarted,
-                    attemptIndex = 1
+                    attemptIndex = 1,
+                    attemptContext = currentAttemptContext(network, attemptId)
                 )
             }
             return@withContext NodeRefreshResult(NodeRefreshOutcome.Incomplete)
+        } finally {
+            clearAttemptContext(network, attemptId)
         }
         val latestSnapshot = nodeStatus.value
         val hasActiveSelection = nodeConfigurationRepository.nodeConfig.first().hasActiveSelection(network)
@@ -167,6 +167,45 @@ internal class NodeSyncRunner(
 
     private fun beginSyncAttempt(network: BitcoinNetwork): Long =
         syncAttemptByNetwork.merge(network, 1L, Long::plus) ?: 1L
+
+    private fun beginAttemptContext(
+        network: BitcoinNetwork,
+        attemptId: Long,
+        startedElapsedRealtimeMs: Long
+    ) {
+        attemptContextByNetwork[network] = NodeSyncAttemptContext(
+            attemptId = attemptId,
+            network = network,
+            startedElapsedRealtimeMs = startedElapsedRealtimeMs
+        )
+    }
+
+    private fun currentAttemptContext(network: BitcoinNetwork, attemptId: Long): NodeSyncAttemptContext? =
+        resolveAttemptContext(
+            context = attemptContextByNetwork[network],
+            network = network,
+            attemptId = attemptId
+        )
+
+    private fun trackAttemptEndpoint(
+        network: BitcoinNetwork,
+        attemptId: Long,
+        endpoint: ElectrumEndpoint
+    ) {
+        val updated = withEndpointForAttempt(
+            context = attemptContextByNetwork[network],
+            network = network,
+            attemptId = attemptId,
+            endpoint = endpoint
+        ) ?: return
+        attemptContextByNetwork[network] = updated
+    }
+
+    private fun clearAttemptContext(network: BitcoinNetwork, attemptId: Long) {
+        attemptContextByNetwork.compute(network) { _, current ->
+            if (current?.attemptId == attemptId) null else current
+        }
+    }
 
     private fun isCurrentSyncAttempt(network: BitcoinNetwork, attemptId: Long): Boolean =
         syncAttemptByNetwork[network] == attemptId
@@ -192,52 +231,42 @@ internal class NodeSyncRunner(
                 throw CancellationException("Sync cancelled for $network")
             }
         }
-        suspend fun canPublishTerminalStatus(): Boolean {
+        suspend fun publishTerminalStatus(snapshot: NodeStatusSnapshot): Boolean {
             val hasActiveSelection = nodeConfigurationRepository.nodeConfig.first().hasActiveSelection(network)
             val attemptStillActive = isCurrentSyncAttempt(network, attemptId)
-            val canPublish = shouldPublishTerminalNodeStatus(
+            return statusPublisher.publishTerminalIfAllowed(
+                snapshot = snapshot,
                 attemptStillActive = attemptStillActive,
-                hasActiveSelection = hasActiveSelection
-            )
-            if (!canPublish) {
-                SecureLog.i(logTag) {
-                    "Dropping terminal node status update for $network: " +
-                        "attemptStillActive=$attemptStillActive hasActiveSelection=$hasActiveSelection"
+                hasActiveSelection = hasActiveSelection,
+                onDropped = {
+                    SecureLog.i(logTag) {
+                        "Dropping terminal node status update for $network: " +
+                            "attemptStillActive=$attemptStillActive hasActiveSelection=$hasActiveSelection"
+                    }
                 }
-            }
-            return canPublish
+            )
         }
-        suspend fun publishTerminalStatus(snapshot: NodeStatusSnapshot): Boolean {
-            if (!canPublishTerminalStatus()) return false
-            nodeStatus.value = snapshot
-            return true
-        }
+
         fun signalWaitingForTor(endpointLabel: String?, torStatus: TorStatus? = null) {
-            val snapshotStatus = when (torStatus) {
-                is TorStatus.Error -> NodeStatus.Error(
-                    torStatus.message
-                )
-                else -> NodeStatus.WaitingForTor
-            }
-            nodeStatus.value = NodeStatusSnapshot(
-                status = snapshotStatus,
+            statusPublisher.publishWaitingForTor(
+                network = network,
                 blockHeight = previousSnapshot.blockHeight.takeIf { previousSnapshot.network == network },
                 serverInfo = previousSnapshot.serverInfo.takeIf { previousSnapshot.network == network },
                 endpoint = endpointLabel ?: previousEndpoint,
                 lastSyncCompletedAt = lastSyncForNetwork,
-                network = network,
-                feeRateSatPerVb = previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network }
+                feeRateSatPerVb = previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network },
+                torStatus = torStatus
             )
         }
 
         if (shouldSignalConnecting) {
-            nodeStatus.value = NodeStatusSnapshot(
+            statusPublisher.publish(
                 status = NodeStatus.Connecting,
+                network = network,
                 blockHeight = previousSnapshot.blockHeight.takeIf { previousSnapshot.network == network },
                 serverInfo = previousSnapshot.serverInfo.takeIf { previousSnapshot.network == network },
                 endpoint = previousSnapshot.endpoint.takeIf { previousSnapshot.network == network },
                 lastSyncCompletedAt = lastSyncForNetwork,
-                network = network,
                 feeRateSatPerVb = previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network }
             )
             SecureLog.d(logTag) { "Node status -> Connecting network=$network endpoint=$previousEndpoint lastSync=$lastSyncForNetwork" }
@@ -254,13 +283,22 @@ internal class NodeSyncRunner(
         try {
             ensureForeground()
             val electrumEndpoint = blockchainFactory.endpointFor(network)
-            lastEndpointMetadata = EndpointAttemptMetadata(network, electrumEndpoint)
+            trackAttemptEndpoint(
+                network = network,
+                attemptId = attemptId,
+                endpoint = electrumEndpoint
+            )
             activeTransport = electrumEndpoint.transport
             val pendingEndpointUrl = electrumEndpoint.url
             val policy = TransportPolicy.forConnectionMode(connectionMode)
             val requiredTransport = policy.resolveTransportOrNull()
             if (!isTransportAllowedByPolicy(transport = activeTransport, policy = policy)) {
-                val reason = ConnectionModeErrorKeys.INCOMPATIBLE_ENDPOINT
+                val reason = checkNotNull(
+                    resolveTransportPolicyViolationReason(
+                        transport = activeTransport,
+                        policy = policy
+                    )
+                )
                 publishTerminalStatus(
                     NodeStatusSnapshot(
                         status = NodeStatus.Error(reason),
@@ -283,13 +321,13 @@ internal class NodeSyncRunner(
             }
             if (shouldSignalConnecting) {
                 endpoint = pendingEndpointUrl
-                nodeStatus.value = NodeStatusSnapshot(
+                statusPublisher.publish(
                     status = NodeStatus.Connecting,
+                    network = network,
                     blockHeight = blockHeight,
                     serverInfo = serverInfo,
                     endpoint = endpoint,
                     lastSyncCompletedAt = lastSyncForNetwork,
-                    network = network,
                     feeRateSatPerVb = estimatedFeeRateSatPerVb
                 )
                 SecureLog.d(logTag) { "Node status -> Connecting network=$network endpoint=$endpoint" }
@@ -302,13 +340,13 @@ internal class NodeSyncRunner(
                             shouldSignalConnecting = true
                         }
                         if (shouldSignalConnecting) {
-                            nodeStatus.value = NodeStatusSnapshot(
+                            statusPublisher.publish(
                                 status = NodeStatus.Connecting,
+                                network = network,
                                 blockHeight = blockHeight,
                                 serverInfo = serverInfo,
                                 endpoint = endpoint,
                                 lastSyncCompletedAt = lastSyncForNetwork,
-                                network = network,
                                 feeRateSatPerVb = estimatedFeeRateSatPerVb
                             )
                             SecureLog.d(logTag) { "Node status -> Connecting network=$network endpoint=$endpoint" }
@@ -353,13 +391,13 @@ internal class NodeSyncRunner(
                     blockHeight = metadata?.blockHeight ?: blockHeight
                     estimatedFeeRateSatPerVb = metadata?.feeRateSatPerVb ?: estimatedFeeRateSatPerVb
                     if (shouldSignalConnecting) {
-                        nodeStatus.value = NodeStatusSnapshot(
+                        statusPublisher.publish(
                             status = NodeStatus.Syncing,
+                            network = network,
                             blockHeight = blockHeight,
                             serverInfo = serverInfo,
                             endpoint = endpoint,
                             lastSyncCompletedAt = lastSyncForNetwork,
-                            network = network,
                             feeRateSatPerVb = estimatedFeeRateSatPerVb
                         )
                         SecureLog.d(logTag) { "Node status -> Syncing network=$network endpoint=$endpoint" }
@@ -410,7 +448,10 @@ internal class NodeSyncRunner(
                         }
                         val metricsEnabled = BuildConfig.DEBUG
                         val walletSyncStart = if (metricsEnabled) SystemClock.elapsedRealtime() else 0L
-                        val endpointLabelForMetrics = lastEndpointMetadata?.endpoint?.displayName
+                        val endpointLabelForMetrics = currentAttemptContext(
+                            network = network,
+                            attemptId = attemptId
+                        )?.endpoint?.displayName
                             ?: endpoint
                         var metrics: WalletSyncMetrics? = null
                         var metricsError: Throwable? = null
@@ -431,13 +472,13 @@ internal class NodeSyncRunner(
                     SecureLog.w(logTag, error) { "Unable to record sync session start for $walletAlias" }
                 }
                 if (shouldSignalConnecting) {
-                    nodeStatus.value = NodeStatusSnapshot(
+                    statusPublisher.publish(
                         status = NodeStatus.Syncing,
+                        network = network,
                         blockHeight = blockHeight,
                         serverInfo = serverInfo,
                         endpoint = endpoint,
                         lastSyncCompletedAt = lastSyncForNetwork,
-                        network = network,
                         feeRateSatPerVb = estimatedFeeRateSatPerVb
                     )
                 }
@@ -485,10 +526,11 @@ internal class NodeSyncRunner(
                                     )
                                 } catch (syncError: Exception) {
                                     runCatching {
-                                        recordNetworkFailure(
+                                        networkFailureRecorder.record(
                                             error = syncError,
                                             durationMs = null,
-                                            attemptIndex = 0
+                                            attemptIndex = 0,
+                                            attemptContext = currentAttemptContext(network, attemptId)
                                         )
                                     }
                                     throw syncError
@@ -672,11 +714,14 @@ internal class NodeSyncRunner(
                                             transactionUpdates = transactionUpdates,
                                             utxoUpdates = utxoUpdates
                                         )
-                                        val txMismatch =
-                                            updateResult.updatedTransactions != transactionUpdates.size
-                                        val utxoMismatch =
-                                            updateResult.updatedUtxos != utxoUpdates.size
-                                        if (txMismatch || utxoMismatch) {
+                                        if (
+                                            shouldFallbackToFullRefreshAfterChainMetadataUpdate(
+                                                expectedTransactionUpdates = transactionUpdates.size,
+                                                expectedUtxoUpdates = utxoUpdates.size,
+                                                updatedTransactions = updateResult.updatedTransactions,
+                                                updatedUtxos = updateResult.updatedUtxos
+                                            )
+                                        ) {
                                             SecureLog.w(logTag) {
                                                 "Wallet $walletAlias chain-only update mismatch " +
                                                     "tx=${updateResult.updatedTransactions}/${transactionUpdates.size} " +
@@ -820,7 +865,6 @@ internal class NodeSyncRunner(
                             "Node status -> $finalStatus network=$network endpoint=$endpoint height=$blockHeight lastSync=$syncCompletedAt"
                         }
                     }
-                    lastEndpointMetadata = null
                     if (hadWalletErrors) {
                         SecureLog.w(logTag) { "Wallet sync completed with errors. Check individual wallets for details." }
                     }
@@ -891,32 +935,12 @@ internal class NodeSyncRunner(
         attemptIndex: Int,
         networkType: String? = null
     ) {
-        val endpoint = lastEndpointMetadata?.endpoint
-        val usedTor = endpoint?.transport == NodeTransport.TOR
-        val nodeSource = endpoint?.source?.toNodeSource() ?: NetworkNodeSource.Unknown
-        networkErrorLogRepository.record(
-            NetworkErrorLogEvent(
-                operation = NetworkLogOperation.NodeSync,
-                endpoint = endpoint?.url,
-                usedTor = usedTor,
-                error = error,
-                durationMs = durationMs,
-                retryCount = attemptIndex,
-                torStatus = torManager.status.value,
-                nodeSource = nodeSource,
-                endpointTypeHint = endpoint?.let {
-                    when (it.transport) {
-                        NodeTransport.TOR -> NetworkEndpointType.Onion
-                        NodeTransport.VPN_DIRECT -> NetworkEndpointType.Clearnet
-                    }
-                },
-                transport = when {
-                    endpoint == null -> NetworkTransport.Unknown
-                    endpoint.url.startsWith("ssl://") -> NetworkTransport.SSL
-                    else -> NetworkTransport.TCP
-                },
-                networkType = networkType
-            )
+        networkFailureRecorder.record(
+            error = error,
+            durationMs = durationMs,
+            attemptIndex = attemptIndex,
+            attemptContext = null,
+            networkType = networkType
         )
     }
 
@@ -1230,11 +1254,6 @@ internal class NodeSyncRunner(
         }
     }
 
-    internal data class EndpointAttemptMetadata(
-        val network: BitcoinNetwork,
-        val endpoint: ElectrumEndpoint
-    )
-
     private data class WalletSyncMetrics(
         val walletId: Long,
         val network: BitcoinNetwork,
@@ -1475,12 +1494,6 @@ internal class NodeSyncRunner(
                     throwable.message?.contains("ECONNREFUSED", ignoreCase = true) == true)
         }
 
-    private fun ElectrumEndpointSource.toNodeSource(): NetworkNodeSource =
-        when (this) {
-            ElectrumEndpointSource.PUBLIC -> NetworkNodeSource.Public
-            ElectrumEndpointSource.CUSTOM -> NetworkNodeSource.Custom
-        }
-
     private fun ServerFeaturesRes.toDomain(): ElectrumServerInfo = ElectrumServerInfo(
         serverVersion = serverVersion,
         genesisHash = genesisHash.toString(),
@@ -1495,88 +1508,4 @@ internal class NodeSyncRunner(
             append((value.toInt() and 0xFF).toString(16).padStart(2, '0'))
         }
     }
-}
-
-internal enum class NodeRefreshOutcome {
-    Synced,
-    SkippedNoActiveNodeSelection,
-    Incomplete
-}
-
-internal data class NodeRefreshResult(
-    val outcome: NodeRefreshOutcome
-) {
-    val completed: Boolean
-        get() = when (outcome) {
-            NodeRefreshOutcome.Synced,
-            NodeRefreshOutcome.SkippedNoActiveNodeSelection -> true
-
-            NodeRefreshOutcome.Incomplete -> false
-        }
-}
-
-internal fun shouldPublishTerminalNodeStatus(
-    attemptStillActive: Boolean,
-    hasActiveSelection: Boolean
-): Boolean = attemptStillActive && hasActiveSelection
-
-internal fun resolveRefreshOutcome(
-    network: BitcoinNetwork,
-    snapshot: NodeStatusSnapshot,
-    attemptStillActive: Boolean = true,
-    hasActiveSelection: Boolean = true
-): NodeRefreshOutcome {
-    if (!shouldPublishTerminalNodeStatus(attemptStillActive, hasActiveSelection)) {
-        return NodeRefreshOutcome.Incomplete
-    }
-    return if (snapshot.network == network && snapshot.status is NodeStatus.Synced) {
-        NodeRefreshOutcome.Synced
-    } else {
-        NodeRefreshOutcome.Incomplete
-    }
-}
-
-internal enum class SyncPersistenceMode {
-    FULL_REFRESH,
-    PARTIAL_CHAIN_UPDATE,
-    NO_DATA_REFRESH
-}
-
-internal data class SyncDeltaFlags(
-    val hasGraphChanges: Boolean,
-    val hasChainChanges: Boolean,
-    val hasIndexerChanges: Boolean
-)
-
-internal fun resolvePersistenceMode(
-    delta: SyncDeltaFlags,
-    shouldRunFullScan: Boolean,
-    didPersist: Boolean
-): SyncPersistenceMode {
-    if (shouldRunFullScan) {
-        return SyncPersistenceMode.FULL_REFRESH
-    }
-    if (delta.hasGraphChanges || delta.hasIndexerChanges) {
-        return SyncPersistenceMode.FULL_REFRESH
-    }
-    if (delta.hasChainChanges) {
-        return SyncPersistenceMode.PARTIAL_CHAIN_UPDATE
-    }
-    if (didPersist) {
-        return SyncPersistenceMode.FULL_REFRESH
-    }
-    return SyncPersistenceMode.NO_DATA_REFRESH
-}
-
-internal fun shouldRetryAttempt(attempt: Int, maxAttempts: Int): Boolean {
-    require(maxAttempts > 0) { "maxAttempts must be positive" }
-    return attempt < maxAttempts - 1
-}
-
-internal fun isTransportAllowedByPolicy(
-    transport: NodeTransport,
-    policy: TransportPolicy = TransportPolicy.default()
-): Boolean {
-    val allowedTransport = policy.resolveTransportOrNull()
-    return transport == allowedTransport
 }

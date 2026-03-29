@@ -1,7 +1,9 @@
 package com.strhodler.utxopocket.data.wallet.sync
 
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class NodeSyncRunnerPersistenceModeTest {
 
@@ -93,5 +95,37 @@ class NodeSyncRunnerPersistenceModeTest {
         )
 
         assertEquals(SyncPersistenceMode.FULL_REFRESH, mode)
+    }
+
+    @Test
+    fun fallbackToFullRefreshWhenChainMetadataUpdateCountsMismatch() {
+        assertTrue(
+            shouldFallbackToFullRefreshAfterChainMetadataUpdate(
+                expectedTransactionUpdates = 5,
+                expectedUtxoUpdates = 3,
+                updatedTransactions = 4,
+                updatedUtxos = 3
+            )
+        )
+        assertTrue(
+            shouldFallbackToFullRefreshAfterChainMetadataUpdate(
+                expectedTransactionUpdates = 5,
+                expectedUtxoUpdates = 3,
+                updatedTransactions = 5,
+                updatedUtxos = 2
+            )
+        )
+    }
+
+    @Test
+    fun noFallbackWhenAllChainMetadataUpdatesAreApplied() {
+        assertFalse(
+            shouldFallbackToFullRefreshAfterChainMetadataUpdate(
+                expectedTransactionUpdates = 5,
+                expectedUtxoUpdates = 3,
+                updatedTransactions = 5,
+                updatedUtxos = 3
+            )
+        )
     }
 }
