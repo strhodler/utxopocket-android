@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.presentation
 
 import android.os.Build
 import android.os.Bundle
+import android.view.Window
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -74,8 +75,11 @@ class MainActivity : AppCompatActivity() {
                 val useDarkStatusIcons = statusBarColor.luminance() > 0.5f
                 val useDarkNavigationIcons = navigationBarColor.luminance() > 0.5f
                 SideEffect {
-                    window.statusBarColor = statusBarColor.toArgb()
-                    window.navigationBarColor = navigationBarColor.toArgb()
+                    applySystemBarColors(
+                        window = window,
+                        statusBarColor = statusBarColor.toArgb(),
+                        navigationBarColor = navigationBarColor.toArgb()
+                    )
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         window.isNavigationBarContrastEnforced = false
                     }
@@ -130,5 +134,16 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         ProcessLifecycleOwner.get().lifecycle.removeObserver(processLifecycleObserver)
         super.onDestroy()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun applySystemBarColors(
+        window: Window,
+        statusBarColor: Int,
+        navigationBarColor: Int
+    ) {
+        // TODO: Replace with the recommended Activity edge-to-edge API once runtime color updates are supported.
+        window.statusBarColor = statusBarColor
+        window.navigationBarColor = navigationBarColor
     }
 }

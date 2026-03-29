@@ -260,6 +260,8 @@ fun StepLineChart(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
+        // TODO: Move consumeMoveEvents handling to CartesianMarkerController when migrating to newer Vico marker APIs.
+        @Suppress("DEPRECATION")
         CartesianChartHost(
             chart = chart,
             modelProducer = modelProducer,
