@@ -1,7 +1,6 @@
 package com.strhodler.utxopocket.data.wallet.sync
 
 import android.os.SystemClock
-import com.strhodler.utxopocket.BuildConfig
 import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.common.logging.WalletLogAliasProvider
 import com.strhodler.utxopocket.data.bdk.BdkBlockchainFactory
@@ -328,6 +327,12 @@ internal class NodeSyncRunner(
         var shouldSignalConnecting =
             previousSnapshot.network != network || previousSnapshot.status !is NodeStatus.Synced
         val previousEndpoint = previousSnapshot.endpoint.takeIf { previousSnapshot.network == network }
+        var serverInfo = previousSnapshot.serverInfo.takeIf { previousSnapshot.network == network }
+        var blockHeight = previousSnapshot.blockHeight.takeIf { previousSnapshot.network == network }
+        var endpoint: String? = previousEndpoint
+        var estimatedFeeRateSatPerVb =
+            previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network }
+        var activeTransport: NodeTransport = NodeTransport.TOR
         val cancellationSignal = SyncCancellationSignal {
             !isSyncAllowed(network) || !networkStatusMonitor.isOnline.value
         }
@@ -352,6 +357,46 @@ internal class NodeSyncRunner(
             )
         }
 
+        fun buildSnapshot(
+            status: NodeStatus,
+            endpointValue: String?,
+            lastSyncCompletedAt: Long?
+        ): NodeStatusSnapshot = NodeStatusSnapshot(
+            status = status,
+            blockHeight = blockHeight,
+            serverInfo = serverInfo,
+            endpoint = endpointValue,
+            lastSyncCompletedAt = lastSyncCompletedAt,
+            network = network,
+            feeRateSatPerVb = estimatedFeeRateSatPerVb
+        )
+
+        fun publishConnectingStatus(endpointValue: String?) {
+            statusPublisher.publish(
+                status = NodeStatus.Connecting,
+                network = network,
+                blockHeight = blockHeight,
+                serverInfo = serverInfo,
+                endpoint = endpointValue,
+                lastSyncCompletedAt = lastSyncForNetwork,
+                feeRateSatPerVb = estimatedFeeRateSatPerVb
+            )
+            SecureLog.d(logTag) { "Node status -> Connecting network=$network endpoint=$endpointValue" }
+        }
+
+        fun publishSyncingStatus(endpointValue: String?) {
+            statusPublisher.publish(
+                status = NodeStatus.Syncing,
+                network = network,
+                blockHeight = blockHeight,
+                serverInfo = serverInfo,
+                endpoint = endpointValue,
+                lastSyncCompletedAt = lastSyncForNetwork,
+                feeRateSatPerVb = estimatedFeeRateSatPerVb
+            )
+            SecureLog.d(logTag) { "Node status -> Syncing network=$network endpoint=$endpointValue" }
+        }
+
         fun signalWaitingForTor(endpointLabel: String?, torStatus: TorStatus? = null) {
             statusPublisher.publishWaitingForTor(
                 network = network,
@@ -365,26 +410,9 @@ internal class NodeSyncRunner(
         }
 
         if (shouldSignalConnecting) {
-            statusPublisher.publish(
-                status = NodeStatus.Connecting,
-                network = network,
-                blockHeight = previousSnapshot.blockHeight.takeIf { previousSnapshot.network == network },
-                serverInfo = previousSnapshot.serverInfo.takeIf { previousSnapshot.network == network },
-                endpoint = previousSnapshot.endpoint.takeIf { previousSnapshot.network == network },
-                lastSyncCompletedAt = lastSyncForNetwork,
-                feeRateSatPerVb = previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network }
-            )
-            SecureLog.d(logTag) { "Node status -> Connecting network=$network endpoint=$previousEndpoint lastSync=$lastSyncForNetwork" }
+            publishConnectingStatus(endpointValue = previousEndpoint)
         }
         ensureForeground()
-
-        var serverInfo = previousSnapshot.serverInfo.takeIf { previousSnapshot.network == network }
-        var blockHeight = previousSnapshot.blockHeight.takeIf { previousSnapshot.network == network }
-        var endpoint: String? = previousEndpoint
-        var estimatedFeeRateSatPerVb =
-            previousSnapshot.feeRateSatPerVb.takeIf { previousSnapshot.network == network }
-        var lastWalletError: String? = null
-        var activeTransport: NodeTransport = NodeTransport.TOR
         try {
             ensureForeground()
             val endpointResolution = electrumSessionCoordinator.resolveEndpoint(
@@ -400,14 +428,10 @@ internal class NodeSyncRunner(
                 is ElectrumEndpointResolution.Ready -> endpointResolution
                 is ElectrumEndpointResolution.PolicyMismatch -> {
                     publishTerminalStatus(
-                        NodeStatusSnapshot(
+                        buildSnapshot(
                             status = NodeStatus.Error(endpointResolution.reason),
-                            blockHeight = blockHeight,
-                            serverInfo = serverInfo,
-                            endpoint = endpointResolution.endpoint.url,
-                            lastSyncCompletedAt = lastSyncForNetwork,
-                            network = network,
-                            feeRateSatPerVb = estimatedFeeRateSatPerVb
+                            endpointValue = endpointResolution.endpoint.url,
+                            lastSyncCompletedAt = lastSyncForNetwork
                         )
                     )
                     SecureLog.w(logTag) {
@@ -426,16 +450,7 @@ internal class NodeSyncRunner(
             }
             if (shouldSignalConnecting) {
                 endpoint = pendingEndpointUrl
-                statusPublisher.publish(
-                    status = NodeStatus.Connecting,
-                    network = network,
-                    blockHeight = blockHeight,
-                    serverInfo = serverInfo,
-                    endpoint = endpoint,
-                    lastSyncCompletedAt = lastSyncForNetwork,
-                    feeRateSatPerVb = estimatedFeeRateSatPerVb
-                )
-                SecureLog.d(logTag) { "Node status -> Connecting network=$network endpoint=$endpoint" }
+                publishConnectingStatus(endpointValue = endpoint)
             }
             suspend fun runSyncSession(session: ElectrumSession, proxy: SocksProxyConfig?) {
                 ensureForeground()
@@ -444,16 +459,7 @@ internal class NodeSyncRunner(
                     shouldSignalConnecting = true
                 }
                 if (shouldSignalConnecting) {
-                    statusPublisher.publish(
-                        status = NodeStatus.Connecting,
-                        network = network,
-                        blockHeight = blockHeight,
-                        serverInfo = serverInfo,
-                        endpoint = endpoint,
-                        lastSyncCompletedAt = lastSyncForNetwork,
-                        feeRateSatPerVb = estimatedFeeRateSatPerVb
-                    )
-                    SecureLog.d(logTag) { "Node status -> Connecting network=$network endpoint=$endpoint" }
+                    publishConnectingStatus(endpointValue = endpoint)
                 }
                 SecureLog.d(logTag) {
                     if (activeTransport == NodeTransport.TOR && proxy != null) {
@@ -479,14 +485,10 @@ internal class NodeSyncRunner(
                             usedTor = activeTransport == NodeTransport.TOR
                         )
                         publishTerminalStatus(
-                            NodeStatusSnapshot(
+                            buildSnapshot(
                                 status = NodeStatus.Error(reason),
-                                blockHeight = blockHeight,
-                                serverInfo = serverInfo,
-                                endpoint = endpoint,
-                                lastSyncCompletedAt = lastSyncForNetwork,
-                                network = network,
-                                feeRateSatPerVb = estimatedFeeRateSatPerVb
+                                endpointValue = endpoint,
+                                lastSyncCompletedAt = lastSyncForNetwork
                             )
                         )
                         throw metadataError
@@ -495,27 +497,14 @@ internal class NodeSyncRunner(
                     blockHeight = metadata?.blockHeight ?: blockHeight
                     estimatedFeeRateSatPerVb = metadata?.feeRateSatPerVb ?: estimatedFeeRateSatPerVb
                     if (shouldSignalConnecting) {
-                        statusPublisher.publish(
-                            status = NodeStatus.Syncing,
-                            network = network,
-                            blockHeight = blockHeight,
-                            serverInfo = serverInfo,
-                            endpoint = endpoint,
-                            lastSyncCompletedAt = lastSyncForNetwork,
-                            feeRateSatPerVb = estimatedFeeRateSatPerVb
-                        )
-                        SecureLog.d(logTag) { "Node status -> Syncing network=$network endpoint=$endpoint" }
+                        publishSyncingStatus(endpointValue = endpoint)
                     }
                     ensureForeground()
                     if (!syncWallets) {
-                        val metadataOnlySnapshot = NodeStatusSnapshot(
+                        val metadataOnlySnapshot = buildSnapshot(
                             status = NodeStatus.Synced,
-                            blockHeight = blockHeight,
-                            serverInfo = serverInfo,
-                            endpoint = endpoint,
-                            lastSyncCompletedAt = lastSyncForNetwork,
-                            network = network,
-                            feeRateSatPerVb = estimatedFeeRateSatPerVb
+                            endpointValue = endpoint,
+                            lastSyncCompletedAt = lastSyncForNetwork
                         )
                         if (!publishTerminalStatus(metadataOnlySnapshot)) {
                             return
@@ -561,15 +550,7 @@ internal class NodeSyncRunner(
                         },
                         onBeforeWalletSync = {
                             if (shouldSignalConnecting) {
-                                statusPublisher.publish(
-                                    status = NodeStatus.Syncing,
-                                    network = network,
-                                    blockHeight = blockHeight,
-                                    serverInfo = serverInfo,
-                                    endpoint = endpoint,
-                                    lastSyncCompletedAt = lastSyncForNetwork,
-                                    feeRateSatPerVb = estimatedFeeRateSatPerVb
-                                )
+                                publishSyncingStatus(endpointValue = endpoint)
                             }
                         },
                         syncWallet = { wallet, shouldRunFullScan, fullScanStopGap, hasChangeKeychain, walletCancellationSignal ->
@@ -591,14 +572,10 @@ internal class NodeSyncRunner(
                         NodeStatus.Synced
                     }
                     val syncCompletedAt = System.currentTimeMillis()
-                    val finalSnapshot = NodeStatusSnapshot(
+                    val finalSnapshot = buildSnapshot(
                         status = finalStatus,
-                        blockHeight = blockHeight,
-                        serverInfo = serverInfo,
-                        endpoint = endpoint,
-                        lastSyncCompletedAt = syncCompletedAt,
-                        network = network,
-                        feeRateSatPerVb = estimatedFeeRateSatPerVb
+                        endpointValue = endpoint,
+                        lastSyncCompletedAt = syncCompletedAt
                     )
                     if (publishTerminalStatus(finalSnapshot)) {
                         SecureLog.d(logTag) {
@@ -649,14 +626,10 @@ internal class NodeSyncRunner(
                 }
             }
             publishTerminalStatus(
-                NodeStatusSnapshot(
+                buildSnapshot(
                     status = NodeStatus.Error(reason),
-                    blockHeight = blockHeight,
-                    serverInfo = serverInfo,
-                    endpoint = endpoint,
-                    lastSyncCompletedAt = lastSyncForNetwork,
-                    network = network,
-                    feeRateSatPerVb = estimatedFeeRateSatPerVb
+                    endpointValue = endpoint,
+                    lastSyncCompletedAt = lastSyncForNetwork
                 )
             )
             throw e
