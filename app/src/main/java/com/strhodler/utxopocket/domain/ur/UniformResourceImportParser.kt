@@ -222,7 +222,6 @@ object UniformResourceImportParser {
             ScriptExpression.SORTED_MULTISIG -> throw IllegalArgumentException(
                 "Multisig expressions must be handled with the multi-key payload."
             )
-            else -> expression.expression
         }
         return "$function($body)"
     }

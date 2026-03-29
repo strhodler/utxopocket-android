@@ -51,7 +51,7 @@ internal class WalletChainSnapshotMapper {
                 val totalSizeBytes = runCatching { transaction.totalSize() }.getOrNull()?.toLong()
                 val virtualSizeBytes = runCatching { transaction.vsize() }.getOrNull()?.toLong()
                 val weightUnits = runCatching { transaction.weight() }.getOrNull()?.toLong()
-                val version = runCatching { transaction.version() }.getOrNull()?.toInt()
+                val version = runCatching { transaction.version() }.getOrNull()
                 val structure = determineTransactionStructure(transaction)
                 val rawHex = runCatching { transaction.serialize().toHexString() }.getOrNull()
                 val feeSats = runCatching {
@@ -288,7 +288,7 @@ internal class WalletChainSnapshotMapper {
             }
         }
         return mapped.sortedWith(
-            compareByDescending<WalletUtxoEntity> { it.confirmations ?: 0 }
+            compareByDescending<WalletUtxoEntity> { it.confirmations }
                 .thenByDescending { it.valueSats }
                 .thenBy { it.txid }
                 .thenBy { it.vout }

@@ -146,8 +146,9 @@ class WalletDetailSyncActionsTest {
         }
         advanceUntilIdle()
 
-        assertTrue(forceResult?.isSuccess == true)
-        assertEquals(true, forceResult?.getOrNull())
+        val result = requireNotNull(forceResult)
+        assertTrue(result.isSuccess)
+        assertEquals(true, result.getOrNull())
         assertEquals(
             listOf(ForceFullRescanCall(walletId = TEST_WALLET_ID, stopGap = 40)),
             harness.walletRepository.forceFullRescanCalls

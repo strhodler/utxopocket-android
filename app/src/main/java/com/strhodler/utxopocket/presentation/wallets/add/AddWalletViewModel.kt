@@ -272,7 +272,7 @@ class AddWalletViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, formError = null) }
-            val validation = currentState.validation as DescriptorValidationResult.Valid
+            val validation = currentState.validation
             val result = walletProvisioningRepository.addWallet(
                 WalletCreationRequest(
                     name = currentState.walletName.trim(),

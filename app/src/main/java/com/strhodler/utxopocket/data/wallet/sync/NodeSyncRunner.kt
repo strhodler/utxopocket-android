@@ -493,9 +493,9 @@ internal class NodeSyncRunner(
                         )
                         throw metadataError
                     }
-                    serverInfo = metadata?.serverInfo?.toDomain() ?: serverInfo
-                    blockHeight = metadata?.blockHeight ?: blockHeight
-                    estimatedFeeRateSatPerVb = metadata?.feeRateSatPerVb ?: estimatedFeeRateSatPerVb
+                    serverInfo = metadata.serverInfo?.toDomain() ?: serverInfo
+                    blockHeight = metadata.blockHeight ?: blockHeight
+                    estimatedFeeRateSatPerVb = metadata.feeRateSatPerVb ?: estimatedFeeRateSatPerVb
                     if (shouldSignalConnecting) {
                         publishSyncingStatus(endpointValue = endpoint)
                     }

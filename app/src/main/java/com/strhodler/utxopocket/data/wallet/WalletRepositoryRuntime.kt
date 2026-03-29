@@ -88,7 +88,26 @@ internal class WalletRepositoryRuntime(
     @Volatile
     private var backgroundIdleJob: Job? = null
 
-    private lateinit var nodeSyncRunner: NodeSyncRunner
+    private val nodeSyncRunner = NodeSyncRunner(
+        blockchainFactory = blockchainFactory,
+        torManager = torManager,
+        torProxyProvider = torProxyProvider,
+        nodeConfigurationRepository = nodeConfigurationRepository,
+        networkStatusMonitor = networkStatusMonitor,
+        walletSyncPreferencesRepository = walletSyncPreferencesRepository,
+        walletDao = walletDao,
+        networkErrorLogRepository = networkErrorLogRepository,
+        nodeStatus = nodeStatus,
+        sanitizeLabel = sanitizeLabel,
+        applyPendingLabels = applyPendingLabels,
+        invalidateWalletCache = ::invalidateWalletCache,
+        withWallet = ::withWallet,
+        isWalletDeletionPending = ::isWalletDeletionPending,
+        isSyncAllowed = ::isSyncAllowed,
+        maxFullScanStopGap = maxFullScanStopGap,
+        ioDispatcher = ioDispatcher,
+        logTag = logTag
+    )
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val walletSyncOrchestrator = WalletSyncOrchestrator(
         walletDao = walletDao,
@@ -110,29 +129,6 @@ internal class WalletRepositoryRuntime(
     private val walletCacheMutex = Mutex()
     private val walletCache = mutableMapOf<Long, CachedWallet>()
     private val deletingWallets = ConcurrentHashMap<Long, Boolean>()
-
-    init {
-        nodeSyncRunner = NodeSyncRunner(
-            blockchainFactory = blockchainFactory,
-            torManager = torManager,
-            torProxyProvider = torProxyProvider,
-            nodeConfigurationRepository = nodeConfigurationRepository,
-            networkStatusMonitor = networkStatusMonitor,
-            walletSyncPreferencesRepository = walletSyncPreferencesRepository,
-            walletDao = walletDao,
-            networkErrorLogRepository = networkErrorLogRepository,
-            nodeStatus = nodeStatus,
-            sanitizeLabel = sanitizeLabel,
-            applyPendingLabels = applyPendingLabels,
-            invalidateWalletCache = ::invalidateWalletCache,
-            withWallet = ::withWallet,
-            isWalletDeletionPending = ::isWalletDeletionPending,
-            isSyncAllowed = ::isSyncAllowed,
-            maxFullScanStopGap = maxFullScanStopGap,
-            ioDispatcher = ioDispatcher,
-            logTag = logTag
-        )
-    }
 
     fun start() {
         walletSyncOrchestrator.start()

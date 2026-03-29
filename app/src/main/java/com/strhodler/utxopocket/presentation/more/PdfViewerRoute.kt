@@ -82,7 +82,7 @@ private fun PdfViewerScreen(onBack: () -> Unit) {
         actions = {
             if (cacheFile != null) {
                 IconButton(onClick = {
-                    cacheFile?.let { file ->
+                    cacheFile.let { file ->
                         shareOrDownloadPdf(context, file)?.let { message ->
                             showSnackbar(message.text, message.duration)
                         }
