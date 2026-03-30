@@ -28,6 +28,18 @@ internal fun resolvePrivacyFindingUiText(finding: PrivacyFinding): PrivacyFindin
         PrivacyFindingIds.WALLET_LOW_REUSE -> stringResource(R.string.privacy_finding_wallet_low_reuse_title)
         PrivacyFindingIds.WALLET_ORGANIZED_LABELS -> stringResource(R.string.privacy_finding_wallet_organized_labels_title)
         PrivacyFindingIds.WALLET_LOW_DUST -> stringResource(R.string.privacy_finding_wallet_low_dust_title)
+        PrivacyFindingIds.TRANSACTION_MULTI_INPUT_OWNERSHIP -> stringResource(R.string.privacy_finding_transaction_multi_input_ownership_title)
+        PrivacyFindingIds.TRANSACTION_CONSOLIDATION_FAN_IN -> stringResource(R.string.privacy_finding_transaction_consolidation_fan_in_title)
+        PrivacyFindingIds.TRANSACTION_PROBABLE_CHANGE -> stringResource(R.string.privacy_finding_transaction_probable_change_title)
+        PrivacyFindingIds.TRANSACTION_CHANGELESS_SPEND -> stringResource(R.string.privacy_finding_transaction_changeless_spend_title)
+        PrivacyFindingIds.TRANSACTION_SELF_TRANSFER -> stringResource(R.string.privacy_finding_transaction_self_transfer_title)
+        PrivacyFindingIds.TRANSACTION_ADDRESS_LINKABILITY -> stringResource(R.string.privacy_finding_transaction_address_linkability_title)
+        PrivacyFindingIds.TRANSACTION_COINJOIN_PATTERN -> stringResource(R.string.privacy_finding_transaction_coinjoin_pattern_title)
+        PrivacyFindingIds.UTXO_DUST_WARNING -> stringResource(R.string.privacy_finding_utxo_dust_warning_title)
+        PrivacyFindingIds.UTXO_ADDRESS_REUSE -> stringResource(R.string.privacy_finding_utxo_address_reuse_title)
+        PrivacyFindingIds.UTXO_CHANGE_ORIGIN -> stringResource(R.string.privacy_finding_utxo_change_origin_title)
+        PrivacyFindingIds.UTXO_ORGANIZATION_GAP -> stringResource(R.string.privacy_finding_utxo_organization_gap_title)
+        PrivacyFindingIds.UTXO_SPENDABILITY_CONTEXT -> stringResource(R.string.privacy_finding_utxo_spendability_context_title)
         else -> stringResource(R.string.privacy_finding_unknown_title)
     }
 
@@ -86,6 +98,69 @@ internal fun resolvePrivacyFindingUiText(finding: PrivacyFinding): PrivacyFindin
         PrivacyFindingIds.WALLET_LOW_DUST -> stringResource(
             R.string.privacy_finding_wallet_low_dust_description,
             finding.intValue("checked_utxo_count")
+        )
+
+        PrivacyFindingIds.TRANSACTION_MULTI_INPUT_OWNERSHIP -> stringResource(
+            R.string.privacy_finding_transaction_multi_input_ownership_description,
+            finding.intValue("owned_input_count"),
+            finding.intValue("total_input_count")
+        )
+
+        PrivacyFindingIds.TRANSACTION_CONSOLIDATION_FAN_IN -> stringResource(
+            R.string.privacy_finding_transaction_consolidation_fan_in_description,
+            finding.intValue("owned_input_count"),
+            finding.intValue("owned_output_count")
+        )
+
+        PrivacyFindingIds.TRANSACTION_PROBABLE_CHANGE -> stringResource(
+            R.string.privacy_finding_transaction_probable_change_description,
+            finding.intValue("owned_output_index"),
+            finding.intValue("external_output_count")
+        )
+
+        PrivacyFindingIds.TRANSACTION_CHANGELESS_SPEND -> stringResource(
+            R.string.privacy_finding_transaction_changeless_spend_description,
+            finding.intValue("external_output_count")
+        )
+
+        PrivacyFindingIds.TRANSACTION_SELF_TRANSFER -> stringResource(
+            R.string.privacy_finding_transaction_self_transfer_description,
+            finding.intValue("owned_output_count")
+        )
+
+        PrivacyFindingIds.TRANSACTION_ADDRESS_LINKABILITY -> stringResource(
+            R.string.privacy_finding_transaction_address_linkability_description,
+            finding.stringValue("address_families")
+        )
+
+        PrivacyFindingIds.TRANSACTION_COINJOIN_PATTERN -> stringResource(
+            R.string.privacy_finding_transaction_coinjoin_pattern_description,
+            finding.intValue("equal_output_count"),
+            finding.intValue("output_count")
+        )
+
+        PrivacyFindingIds.UTXO_DUST_WARNING -> stringResource(
+            R.string.privacy_finding_utxo_dust_warning_description,
+            finding.longValue("value_sats"),
+            finding.longValue("dust_threshold_sats")
+        )
+
+        PrivacyFindingIds.UTXO_ADDRESS_REUSE -> stringResource(
+            R.string.privacy_finding_utxo_address_reuse_description,
+            finding.intValue("address_reuse_count")
+        )
+
+        PrivacyFindingIds.UTXO_CHANGE_ORIGIN -> stringResource(
+            R.string.privacy_finding_utxo_change_origin_description
+        )
+
+        PrivacyFindingIds.UTXO_ORGANIZATION_GAP -> stringResource(
+            R.string.privacy_finding_utxo_organization_gap_description
+        )
+
+        PrivacyFindingIds.UTXO_SPENDABILITY_CONTEXT -> stringResource(
+            R.string.privacy_finding_utxo_spendability_context_description,
+            finding.stringValue("context_detail")
         )
 
         else -> stringResource(R.string.privacy_finding_unknown_description, finding.id)

@@ -399,6 +399,13 @@ private fun TransactionDetailContent(
                     )
                 }
             }
+
+            TransactionPrivacySection(
+                summary = state.privacySummary,
+                findings = state.privacyFindings,
+                modifier = Modifier.fillMaxWidth()
+            )
+
             ListSection(
                 title = stringResource(id = R.string.transaction_detail_section_size)
             ) {

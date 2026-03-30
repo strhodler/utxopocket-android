@@ -8,6 +8,8 @@ import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.UtxoCanvasSnapshot
 import com.strhodler.utxopocket.domain.model.UtxoCollection
 import com.strhodler.utxopocket.domain.model.UtxoRef
+import com.strhodler.utxopocket.domain.privacy.PrivacySummary
+import com.strhodler.utxopocket.domain.privacy.UtxoPrivacyAnalyzer
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
 import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
@@ -27,7 +29,8 @@ class UtxoDetailViewModel @Inject constructor(
     private val walletReadRepository: WalletReadRepository,
     private val walletLabelRepository: WalletLabelRepository,
     private val appPreferencesRepository: AppPreferencesRepository,
-    private val canvasRepository: UtxoCanvasRepository
+    private val canvasRepository: UtxoCanvasRepository,
+    private val utxoPrivacyAnalyzer: UtxoPrivacyAnalyzer
 ) : ViewModel() {
 
     private val walletId: Long = savedStateHandle.get<Long>(WalletsNavigation.WalletIdArg)
@@ -63,11 +66,12 @@ class UtxoDetailViewModel @Inject constructor(
         preferenceInputs
     ) { detail, canvasSnapshot, preferences ->
         val utxo = detail?.utxos?.firstOrNull { it.txid == txId && it.vout == vout }
-        val depositTimestamp = utxo?.let { candidate ->
-            detail.transactions
-                .firstOrNull { transaction -> transaction.id == candidate.txid }
-                ?.timestamp
+        val relatedTransaction = if (detail == null || utxo == null) {
+            null
+        } else {
+            detail.transactions.firstOrNull { transaction -> transaction.id == utxo.txid }
         }
+        val depositTimestamp = relatedTransaction?.timestamp
         val collections = canvasSnapshot.collections.sortedBy { it.name }
         val assignedCollection = findAssignedCollection(canvasSnapshot, collections)
         when {
@@ -75,6 +79,8 @@ class UtxoDetailViewModel @Inject constructor(
                 isLoading = false,
                 walletSummary = null,
                 utxo = null,
+                privacySummary = PrivacySummary.Empty,
+                privacyFindings = emptyList(),
                 balanceUnit = preferences.balanceUnit,
                 balancesHidden = preferences.balancesHidden,
                 hapticsEnabled = preferences.hapticsEnabled,
@@ -89,6 +95,8 @@ class UtxoDetailViewModel @Inject constructor(
                 isLoading = false,
                 walletSummary = detail.summary,
                 utxo = null,
+                privacySummary = PrivacySummary.Empty,
+                privacyFindings = emptyList(),
                 balanceUnit = preferences.balanceUnit,
                 balancesHidden = preferences.balancesHidden,
                 hapticsEnabled = preferences.hapticsEnabled,
@@ -99,24 +107,33 @@ class UtxoDetailViewModel @Inject constructor(
                 blockExplorerOptions = emptyList()
             )
 
-            else -> UtxoDetailUiState(
-                isLoading = false,
-                walletSummary = detail.summary,
-                utxo = utxo,
-                balanceUnit = preferences.balanceUnit,
-                balancesHidden = preferences.balancesHidden,
-                hapticsEnabled = preferences.hapticsEnabled,
-                advancedMode = preferences.advancedMode,
-                collections = collections,
-                assignedCollection = assignedCollection,
-                error = null,
-                depositTimestamp = depositTimestamp,
-                blockExplorerOptions = resolveBlockExplorerOptions(
-                    detail.summary.network,
-                    utxo.txid,
-                    preferences.blockExplorerPrefs
+            else -> {
+                val findings = utxoPrivacyAnalyzer.analyze(
+                    utxo = utxo,
+                    relatedTransactionLabel = relatedTransaction?.label,
+                    assignedCollection = assignedCollection
                 )
-            )
+                UtxoDetailUiState(
+                    isLoading = false,
+                    walletSummary = detail.summary,
+                    utxo = utxo,
+                    privacySummary = PrivacySummary.from(findings),
+                    privacyFindings = findings,
+                    balanceUnit = preferences.balanceUnit,
+                    balancesHidden = preferences.balancesHidden,
+                    hapticsEnabled = preferences.hapticsEnabled,
+                    advancedMode = preferences.advancedMode,
+                    collections = collections,
+                    assignedCollection = assignedCollection,
+                    error = null,
+                    depositTimestamp = depositTimestamp,
+                    blockExplorerOptions = resolveBlockExplorerOptions(
+                        detail.summary.network,
+                        utxo.txid,
+                        preferences.blockExplorerPrefs
+                    )
+                )
+            }
         }
     }.stateIn(
         scope = viewModelScope,

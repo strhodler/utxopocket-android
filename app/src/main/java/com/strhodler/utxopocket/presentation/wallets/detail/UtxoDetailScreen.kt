@@ -186,6 +186,11 @@ private fun UtxoDetailContent(
                 updating = spendableUpdating,
                 onToggle = onToggleSpendable
             )
+            UtxoPrivacySection(
+                summary = state.privacySummary,
+                findings = state.privacyFindings,
+                modifier = Modifier.fillMaxWidth()
+            )
             ListSection(
                 title = stringResource(id = R.string.utxo_detail_section_overview)
             ) {

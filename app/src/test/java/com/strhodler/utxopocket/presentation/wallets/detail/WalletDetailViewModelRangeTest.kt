@@ -48,6 +48,8 @@ import com.strhodler.utxopocket.domain.model.UtxoCollection
 import com.strhodler.utxopocket.domain.model.UtxoCollectionColor
 import com.strhodler.utxopocket.domain.model.UtxoRef
 import com.strhodler.utxopocket.domain.privacy.CrossHeuristicRules
+import com.strhodler.utxopocket.domain.privacy.TransactionPrivacyAnalyzer
+import com.strhodler.utxopocket.domain.privacy.UtxoPrivacyAnalyzer
 import com.strhodler.utxopocket.domain.privacy.WalletPrivacyAnalyzer
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
@@ -337,7 +339,8 @@ class WalletDetailViewModelRangeTest {
                 savedStateHandle = savedStateHandle,
                 walletReadRepository = walletRepository,
                 walletLabelRepository = walletRepository,
-                appPreferencesRepository = preferences
+                appPreferencesRepository = preferences,
+                transactionPrivacyAnalyzer = TransactionPrivacyAnalyzer(CrossHeuristicRules())
             )
         }
 
@@ -358,7 +361,8 @@ class WalletDetailViewModelRangeTest {
                 walletReadRepository = walletRepository,
                 walletLabelRepository = walletRepository,
                 appPreferencesRepository = preferences,
-                canvasRepository = canvasRepository
+                canvasRepository = canvasRepository,
+                utxoPrivacyAnalyzer = UtxoPrivacyAnalyzer(CrossHeuristicRules())
             )
         }
 

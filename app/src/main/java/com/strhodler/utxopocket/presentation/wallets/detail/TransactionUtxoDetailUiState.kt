@@ -6,11 +6,15 @@ import com.strhodler.utxopocket.domain.model.UtxoCollection
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletUtxo
+import com.strhodler.utxopocket.domain.privacy.PrivacyFinding
+import com.strhodler.utxopocket.domain.privacy.PrivacySummary
 
 data class TransactionDetailUiState(
     val isLoading: Boolean = true,
     val walletSummary: WalletSummary? = null,
     val transaction: WalletTransaction? = null,
+    val privacySummary: PrivacySummary = PrivacySummary.Empty,
+    val privacyFindings: List<PrivacyFinding> = emptyList(),
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
     val balancesHidden: Boolean = false,
     val hapticsEnabled: Boolean = true,
@@ -27,6 +31,8 @@ data class UtxoDetailUiState(
     val isLoading: Boolean = true,
     val walletSummary: WalletSummary? = null,
     val utxo: WalletUtxo? = null,
+    val privacySummary: PrivacySummary = PrivacySummary.Empty,
+    val privacyFindings: List<PrivacyFinding> = emptyList(),
     val balanceUnit: BalanceUnit = BalanceUnit.DEFAULT,
     val balancesHidden: Boolean = false,
     val hapticsEnabled: Boolean = true,

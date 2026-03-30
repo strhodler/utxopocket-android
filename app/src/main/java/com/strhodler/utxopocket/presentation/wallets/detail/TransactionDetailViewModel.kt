@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
+import com.strhodler.utxopocket.domain.privacy.PrivacySummary
+import com.strhodler.utxopocket.domain.privacy.TransactionPrivacyAnalyzer
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
 import com.strhodler.utxopocket.domain.repository.WalletReadRepository
@@ -22,7 +24,8 @@ class TransactionDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val walletReadRepository: WalletReadRepository,
     private val walletLabelRepository: WalletLabelRepository,
-    private val appPreferencesRepository: AppPreferencesRepository
+    private val appPreferencesRepository: AppPreferencesRepository,
+    private val transactionPrivacyAnalyzer: TransactionPrivacyAnalyzer
 ) : ViewModel() {
 
     private val walletId: Long = savedStateHandle.get<Long>(WalletsNavigation.WalletIdArg)
@@ -59,6 +62,8 @@ class TransactionDetailViewModel @Inject constructor(
                 isLoading = false,
                 walletSummary = null,
                 transaction = null,
+                privacySummary = PrivacySummary.Empty,
+                privacyFindings = emptyList(),
                 balanceUnit = preferences.balanceUnit,
                 balancesHidden = preferences.balancesHidden,
                 hapticsEnabled = preferences.hapticsEnabled,
@@ -71,6 +76,8 @@ class TransactionDetailViewModel @Inject constructor(
                 isLoading = false,
                 walletSummary = detail.summary,
                 transaction = null,
+                privacySummary = PrivacySummary.Empty,
+                privacyFindings = emptyList(),
                 balanceUnit = preferences.balanceUnit,
                 balancesHidden = preferences.balancesHidden,
                 hapticsEnabled = preferences.hapticsEnabled,
@@ -80,6 +87,7 @@ class TransactionDetailViewModel @Inject constructor(
             )
 
             else -> {
+                val findings = transactionPrivacyAnalyzer.analyze(transaction)
                 val explorerOptions =
                     resolveBlockExplorerOptions(
                         detail.summary.network,
@@ -90,6 +98,8 @@ class TransactionDetailViewModel @Inject constructor(
                     isLoading = false,
                     walletSummary = detail.summary,
                     transaction = transaction,
+                    privacySummary = PrivacySummary.from(findings),
+                    privacyFindings = findings,
                     balanceUnit = preferences.balanceUnit,
                     balancesHidden = preferences.balancesHidden,
                     advancedMode = preferences.advancedMode,
