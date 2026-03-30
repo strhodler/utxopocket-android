@@ -11,6 +11,7 @@ import com.strhodler.utxopocket.domain.privacy.PrivacySeverity
 internal data class PrivacyFindingUiText(
     val title: String,
     val description: String,
+    val nextAction: String,
     val severityLabel: String,
     val confidenceLabel: String
 )
@@ -33,6 +34,7 @@ internal fun resolvePrivacyFindingUiText(finding: PrivacyFinding): PrivacyFindin
         PrivacyFindingIds.TRANSACTION_PROBABLE_CHANGE -> stringResource(R.string.privacy_finding_transaction_probable_change_title)
         PrivacyFindingIds.TRANSACTION_CHANGELESS_SPEND -> stringResource(R.string.privacy_finding_transaction_changeless_spend_title)
         PrivacyFindingIds.TRANSACTION_SELF_TRANSFER -> stringResource(R.string.privacy_finding_transaction_self_transfer_title)
+        PrivacyFindingIds.TRANSACTION_CHANGE_DETECTED -> stringResource(R.string.privacy_finding_transaction_change_detected_title)
         PrivacyFindingIds.TRANSACTION_ADDRESS_LINKABILITY -> stringResource(R.string.privacy_finding_transaction_address_linkability_title)
         PrivacyFindingIds.TRANSACTION_COINJOIN_PATTERN -> stringResource(R.string.privacy_finding_transaction_coinjoin_pattern_title)
         PrivacyFindingIds.UTXO_DUST_WARNING -> stringResource(R.string.privacy_finding_utxo_dust_warning_title)
@@ -128,6 +130,10 @@ internal fun resolvePrivacyFindingUiText(finding: PrivacyFinding): PrivacyFindin
             finding.intValue("owned_output_count")
         )
 
+        PrivacyFindingIds.TRANSACTION_CHANGE_DETECTED -> stringResource(
+            R.string.privacy_finding_transaction_change_detected_description
+        )
+
         PrivacyFindingIds.TRANSACTION_ADDRESS_LINKABILITY -> stringResource(
             R.string.privacy_finding_transaction_address_linkability_description,
             finding.stringValue("address_families")
@@ -166,9 +172,37 @@ internal fun resolvePrivacyFindingUiText(finding: PrivacyFinding): PrivacyFindin
         else -> stringResource(R.string.privacy_finding_unknown_description, finding.id)
     }
 
+    val nextAction = when (finding.id) {
+        PrivacyFindingIds.WALLET_ADDRESS_REUSE -> stringResource(R.string.privacy_finding_wallet_address_reuse_next_action)
+        PrivacyFindingIds.WALLET_DUST_PRESSURE -> stringResource(R.string.privacy_finding_wallet_dust_pressure_next_action)
+        PrivacyFindingIds.WALLET_FRAGMENTATION_PRESSURE -> stringResource(R.string.privacy_finding_wallet_fragmentation_pressure_next_action)
+        PrivacyFindingIds.WALLET_TOXIC_CHANGE_RISK -> stringResource(R.string.privacy_finding_wallet_toxic_change_risk_next_action)
+        PrivacyFindingIds.WALLET_LABEL_HYGIENE_GAP -> stringResource(R.string.privacy_finding_wallet_label_hygiene_gap_next_action)
+        PrivacyFindingIds.WALLET_MIXED_SCRIPT_FAMILIES -> stringResource(R.string.privacy_finding_wallet_mixed_script_families_next_action)
+        PrivacyFindingIds.WALLET_MIXED_ADDRESS_FAMILIES -> stringResource(R.string.privacy_finding_wallet_mixed_address_families_next_action)
+        PrivacyFindingIds.WALLET_LOW_REUSE -> stringResource(R.string.privacy_finding_wallet_low_reuse_next_action)
+        PrivacyFindingIds.WALLET_ORGANIZED_LABELS -> stringResource(R.string.privacy_finding_wallet_organized_labels_next_action)
+        PrivacyFindingIds.WALLET_LOW_DUST -> stringResource(R.string.privacy_finding_wallet_low_dust_next_action)
+        PrivacyFindingIds.TRANSACTION_MULTI_INPUT_OWNERSHIP -> stringResource(R.string.privacy_finding_transaction_multi_input_ownership_next_action)
+        PrivacyFindingIds.TRANSACTION_CONSOLIDATION_FAN_IN -> stringResource(R.string.privacy_finding_transaction_consolidation_fan_in_next_action)
+        PrivacyFindingIds.TRANSACTION_PROBABLE_CHANGE -> stringResource(R.string.privacy_finding_transaction_probable_change_next_action)
+        PrivacyFindingIds.TRANSACTION_CHANGELESS_SPEND -> stringResource(R.string.privacy_finding_transaction_changeless_spend_next_action)
+        PrivacyFindingIds.TRANSACTION_SELF_TRANSFER -> stringResource(R.string.privacy_finding_transaction_self_transfer_next_action)
+        PrivacyFindingIds.TRANSACTION_CHANGE_DETECTED -> stringResource(R.string.privacy_finding_transaction_change_detected_next_action)
+        PrivacyFindingIds.TRANSACTION_ADDRESS_LINKABILITY -> stringResource(R.string.privacy_finding_transaction_address_linkability_next_action)
+        PrivacyFindingIds.TRANSACTION_COINJOIN_PATTERN -> stringResource(R.string.privacy_finding_transaction_coinjoin_pattern_next_action)
+        PrivacyFindingIds.UTXO_DUST_WARNING -> stringResource(R.string.privacy_finding_utxo_dust_warning_next_action)
+        PrivacyFindingIds.UTXO_ADDRESS_REUSE -> stringResource(R.string.privacy_finding_utxo_address_reuse_next_action)
+        PrivacyFindingIds.UTXO_CHANGE_ORIGIN -> stringResource(R.string.privacy_finding_utxo_change_origin_next_action)
+        PrivacyFindingIds.UTXO_ORGANIZATION_GAP -> stringResource(R.string.privacy_finding_utxo_organization_gap_next_action)
+        PrivacyFindingIds.UTXO_SPENDABILITY_CONTEXT -> stringResource(R.string.privacy_finding_utxo_spendability_context_next_action)
+        else -> stringResource(R.string.privacy_finding_unknown_next_action)
+    }
+
     return PrivacyFindingUiText(
         title = title,
         description = description,
+        nextAction = nextAction,
         severityLabel = finding.severity.toUiLabel(),
         confidenceLabel = finding.confidence.toUiLabel()
     )
