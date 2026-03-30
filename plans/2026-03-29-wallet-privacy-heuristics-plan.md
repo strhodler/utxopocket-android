@@ -460,35 +460,37 @@ git commit -m "feat(skills): add bitcoin privacy heuristics specialist skill"
 **Files:**
 - Modify: plan checkboxes only if keeping execution notes in this file
 
-- [ ] **Step 1: Run targeted unit tests for the new privacy domain package**
+- [x] **Step 1: Run targeted unit tests for the new privacy domain package**
 
 Run: `bash ./gradlew :app:testDebugUnitTest --tests "com.strhodler.utxopocket.domain.privacy.*"`
 
 Expected: all privacy domain tests pass.
 
-- [ ] **Step 2: Run targeted presentation tests for wallet, transaction, and UTXO detail surfaces**
+- [x] **Step 2: Run targeted presentation tests for wallet, transaction, and UTXO detail surfaces**
 
 Run: `bash ./gradlew :app:testDebugUnitTest --tests "com.strhodler.utxopocket.presentation.wallets.detail.*Privacy*"`
 
 Expected: privacy-related ViewModel/reducer tests pass.
 
-- [ ] **Step 3: Run required repository verification**
+- [x] **Step 3: Run required repository verification**
 
 Run: `bash ./gradlew lintDebug`
 
 Expected: `BUILD SUCCESSFUL` with no new lint regressions.
 
-- [ ] **Step 4: Run required unit suite**
+Execution note: `lintDebug` still fails on preexisting repository issues (manifest orientation, dependency/alignment, launcher/camera policy, and one legacy unused string) with no new regressions introduced by Chunk 4 files.
+
+- [x] **Step 4: Run required unit suite**
 
 Run: `bash ./gradlew :app:testDebugUnitTest`
 
 Expected: `BUILD SUCCESSFUL` with no failing unit tests.
 
-- [ ] **Step 5: Review docs parity before calling the work complete**
+- [x] **Step 5: Review docs parity before calling the work complete**
   - user-visible copy updated
   - wiki/docs updated
   - skill routing updated
-- [ ] **Step 6: Capture residual risks in the final report**
+- [x] **Step 6: Capture residual risks in the final report**
   - heuristic false positives/false negatives
   - local-only blind spots
   - deep-analysis still intentionally absent
