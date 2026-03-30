@@ -384,17 +384,17 @@ git commit -m "feat(utxos): show privacy findings in utxo detail"
 - Modify: `app/src/main/res/values-es/strings.xml`
 - Modify: `app/src/main/java/com/strhodler/utxopocket/presentation/wallets/detail/PrivacyFindingUiText.kt`
 
-- [ ] **Step 1: Define a stable naming scheme for privacy strings**
+- [x] **Step 1: Define a stable naming scheme for privacy strings**
   - section titles
   - summary labels
   - finding titles
   - finding explanations
   - next-action strings
-- [ ] **Step 2: Map each finding id to resource ids in `PrivacyFindingUiText.kt`**
-- [ ] **Step 3: Keep wording precise and non-sensational**
-- [ ] **Step 4: Mirror English entries into `values-es/strings.xml` preserving placeholders**
-- [ ] **Step 5: Spot-check the new copy against `README.md` and `SECURITY.md` guarantees**
-- [ ] **Step 6: Commit**
+- [x] **Step 2: Map each finding id to resource ids in `PrivacyFindingUiText.kt`**
+- [x] **Step 3: Keep wording precise and non-sensational**
+- [x] **Step 4: Mirror English entries into `values-es/strings.xml` preserving placeholders**
+- [x] **Step 5: Spot-check the new copy against `README.md` and `SECURITY.md` guarantees**
+- [x] **Step 6: Commit**
 
 ```bash
 git add app/src/main/res/values/strings.xml app/src/main/res/values-es/strings.xml app/src/main/java/com/strhodler/utxopocket/presentation/wallets/detail/PrivacyFindingUiText.kt
@@ -409,12 +409,12 @@ git commit -m "feat(copy): add privacy findings strings"
 - Modify: `docs/wiki/bitcoin-privacy.md`
 - Create: `knowledge/features/privacy-heuristics.md`
 
-- [ ] **Step 1: Update `README.md` feature bullets to mention wallet privacy heuristics if the shipped UI now exposes them**
-- [ ] **Step 2: Update `docs/wiki/wallet-analysis.md` to explain the new privacy findings section and its local-only behavior**
-- [ ] **Step 3: Update `docs/wiki/bitcoin-privacy.md` to frame these findings as review aids, not ground truth**
-- [ ] **Step 4: Write `knowledge/features/privacy-heuristics.md` with architecture, supported heuristics, and out-of-scope deep-analysis notes**
-- [ ] **Step 5: Explicitly document future deep-analysis seam and opt-in requirement without exposing it as a current feature**
-- [ ] **Step 6: Commit**
+- [x] **Step 1: Update `README.md` feature bullets to mention wallet privacy heuristics if the shipped UI now exposes them**
+- [x] **Step 2: Update `docs/wiki/wallet-analysis.md` to explain the new privacy findings section and its local-only behavior**
+- [x] **Step 3: Update `docs/wiki/bitcoin-privacy.md` to frame these findings as review aids, not ground truth**
+- [x] **Step 4: Write `knowledge/features/privacy-heuristics.md` with architecture, supported heuristics, and out-of-scope deep-analysis notes**
+- [x] **Step 5: Explicitly document future deep-analysis seam and opt-in requirement without exposing it as a current feature**
+- [x] **Step 6: Commit**
 
 ```bash
 git add README.md docs/wiki/wallet-analysis.md docs/wiki/bitcoin-privacy.md knowledge/features/privacy-heuristics.md
@@ -432,19 +432,19 @@ git commit -m "docs(analysis): document local-first privacy heuristics"
 
 This task stays in the plan because the feature will benefit from a reusable privacy-review workflow, but it is intentionally non-blocking for shipping the Android app feature itself.
 
-- [ ] **Step 1: Follow `writing-skills` discipline before authoring the skill**
+- [x] **Step 1: Follow `writing-skills` discipline before authoring the skill**
   - run baseline scenarios where an agent overstates ownership/change certainty
   - record failures before writing the skill
-- [ ] **Step 2: Write the skill around the actual failure modes**
+- [x] **Step 2: Write the skill around the actual failure modes**
   - deterministic vs heuristic claims
   - CoinJoin/PayJoin/multisig exceptions
   - local-first boundary in v1
   - no new network assumptions
   - docs/tests required for each heuristic addition
-- [ ] **Step 3: Add a compact heuristic catalog in the references folder**
-- [ ] **Step 4: Add routing hints in `.opencode/skills/README.md` and project-level guidance in `AGENTS.md`**
-- [ ] **Step 5: Re-test the skill against the same scenarios and tighten loopholes**
-- [ ] **Step 6: Commit**
+- [x] **Step 3: Add a compact heuristic catalog in the references folder**
+- [x] **Step 4: Add routing hints in `.opencode/skills/README.md` and project-level guidance in `AGENTS.md`**
+- [x] **Step 5: Re-test the skill against the same scenarios and tighten loopholes**
+- [x] **Step 6: Commit**
 
 ```bash
 git add .opencode/skills/bitcoin-privacy-heuristics .opencode/skills/README.md AGENTS.md
