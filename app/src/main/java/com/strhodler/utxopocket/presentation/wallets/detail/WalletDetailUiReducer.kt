@@ -22,6 +22,8 @@ import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.domain.model.displayLabel
+import com.strhodler.utxopocket.domain.privacy.PrivacyFinding
+import com.strhodler.utxopocket.domain.privacy.PrivacySummary
 import com.strhodler.utxopocket.domain.service.UtxoTreemapCalculator
 import com.strhodler.utxopocket.domain.service.UtxoVisualizationCalculator
 import com.strhodler.utxopocket.presentation.components.BalancePoint
@@ -56,7 +58,9 @@ internal data class WalletDetailUiReducerInput(
     val utxoHistogramMode: UtxoHistogramMode,
     val utxoTreemapColorMode: UtxoTreemapColorMode,
     val utxoTreemapRange: LongRange?,
-    val utxoTreemapRequested: Boolean
+    val utxoTreemapRequested: Boolean,
+    val walletPrivacySummary: PrivacySummary = PrivacySummary.Empty,
+    val walletPrivacyFindings: List<PrivacyFinding> = emptyList()
 )
 
 internal class WalletDetailUiReducer(
@@ -108,7 +112,9 @@ internal class WalletDetailUiReducer(
                 utxoHistogramMode = input.utxoHistogramMode,
                 utxoHoldWaves = EMPTY_UTXO_HOLD_WAVES,
                 utxoTotalValueSats = 0L,
-                collections = emptyList()
+                collections = emptyList(),
+                walletPrivacySummary = PrivacySummary.Empty,
+                walletPrivacyFindings = emptyList()
             )
         }
 
@@ -229,7 +235,9 @@ internal class WalletDetailUiReducer(
             utxoSizeDistribution = sizeDistribution,
             utxoTreemap = treemapData,
             utxoTreemapColorMode = input.utxoTreemapColorMode,
-            collections = collectionItems
+            collections = collectionItems,
+            walletPrivacySummary = input.walletPrivacySummary,
+            walletPrivacyFindings = input.walletPrivacyFindings
         )
     }
 

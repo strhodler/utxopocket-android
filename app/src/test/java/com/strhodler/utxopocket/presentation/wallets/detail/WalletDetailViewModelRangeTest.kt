@@ -47,6 +47,8 @@ import com.strhodler.utxopocket.domain.model.UtxoCanvasSnapshot
 import com.strhodler.utxopocket.domain.model.UtxoCollection
 import com.strhodler.utxopocket.domain.model.UtxoCollectionColor
 import com.strhodler.utxopocket.domain.model.UtxoRef
+import com.strhodler.utxopocket.domain.privacy.CrossHeuristicRules
+import com.strhodler.utxopocket.domain.privacy.WalletPrivacyAnalyzer
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
 import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
@@ -315,6 +317,7 @@ class WalletDetailViewModelRangeTest {
                 incomingTxCoordinator = incomingTxCoordinator,
                 utxoVisualizationCalculator = utxoVisualizationCalculator,
                 utxoTreemapCalculator = utxoTreemapCalculator,
+                walletPrivacyAnalyzer = WalletPrivacyAnalyzer(CrossHeuristicRules()),
                 walletDetailPreferencesRepository = walletDetailPreferencesRepository,
                 walletSyncPreferencesRepository = walletSyncPreferencesRepository
             )

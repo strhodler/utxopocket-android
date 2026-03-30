@@ -72,8 +72,20 @@ fun UtxoVisualizerRoute(
                         .fillMaxSize()
                         .applyScreenPadding(contentPadding)
                         .padding(bottom = 16.dp),
-                    verticalArrangement = Arrangement.Top
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    WalletPrivacySummarySection(
+                        summary = state.walletPrivacySummary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    )
+
+                    WalletPrivacyFindingsSection(
+                        findings = state.walletPrivacyFindings,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
                     UtxoAnalysisSection(
                         histogram = state.utxoAgeHistogram,
                         spendabilityDistribution = state.utxoSpendabilityDistribution,
@@ -86,7 +98,9 @@ fun UtxoVisualizerRoute(
                         onTreemapRequested = viewModel::requestUtxoTreemap,
                         onOpenUtxo = onOpenUtxo,
                         balanceUnit = state.balanceUnit,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
                     )
                 }
             }

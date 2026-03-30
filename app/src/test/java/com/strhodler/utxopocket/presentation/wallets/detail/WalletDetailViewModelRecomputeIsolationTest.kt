@@ -27,6 +27,8 @@ import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.domain.model.WalletAddressType
+import com.strhodler.utxopocket.domain.privacy.CrossHeuristicRules
+import com.strhodler.utxopocket.domain.privacy.WalletPrivacyAnalyzer
 import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
 import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
 import com.strhodler.utxopocket.domain.repository.WalletReadRepository
@@ -197,6 +199,7 @@ class WalletDetailViewModelRecomputeIsolationTest {
                 incomingTxCoordinator = incomingTxCoordinator,
                 utxoVisualizationCalculator = UtxoVisualizationCalculator(),
                 utxoTreemapCalculator = UtxoTreemapCalculator(),
+                walletPrivacyAnalyzer = WalletPrivacyAnalyzer(CrossHeuristicRules()),
                 walletDetailPreferencesRepository = walletDetailPreferencesRepository,
                 walletSyncPreferencesRepository = walletSyncPreferencesRepository
             )

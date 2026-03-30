@@ -42,6 +42,9 @@ import com.strhodler.utxopocket.domain.model.UtxoCollectionColor
 import com.strhodler.utxopocket.domain.model.UtxoTreemapColorMode
 import com.strhodler.utxopocket.domain.model.UtxoTreemapData
 import com.strhodler.utxopocket.domain.model.DuressSessionState
+import com.strhodler.utxopocket.domain.privacy.PrivacyFinding
+import com.strhodler.utxopocket.domain.privacy.PrivacySummary
+import com.strhodler.utxopocket.domain.privacy.WalletPrivacyAnalyzer
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
 import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
@@ -92,6 +95,7 @@ class WalletDetailViewModel @Inject constructor(
     private val incomingTxCoordinator: IncomingTxCoordinator,
     private val utxoVisualizationCalculator: UtxoVisualizationCalculator,
     private val utxoTreemapCalculator: UtxoTreemapCalculator,
+    private val walletPrivacyAnalyzer: WalletPrivacyAnalyzer,
     private val walletDetailPreferencesRepository: WalletDetailPreferencesRepository,
     private val walletSyncPreferencesRepository: WalletSyncPreferencesRepository
 ) : ViewModel() {
@@ -102,6 +106,13 @@ class WalletDetailViewModel @Inject constructor(
     private val walletId: Long = savedStateHandle.get<Long>(WalletsNavigation.WalletIdArg)
         ?: savedStateHandle.get<String>(WalletsNavigation.WalletIdArg)?.toLongOrNull()
         ?: error("Wallet id is required")
+
+    private val walletDetailFlow = walletReadRepository.observeWalletDetail(walletId)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = null
+        )
 
     private val transactionSortState = MutableStateFlow(WalletTransactionSort.NEWEST_FIRST)
     private val showPendingState = MutableStateFlow(false)
@@ -157,7 +168,7 @@ class WalletDetailViewModel @Inject constructor(
         .cachedIn(viewModelScope)
 
     private val baseStateCoreInputs = combine(
-        walletReadRepository.observeWalletDetail(walletId),
+        walletDetailFlow,
         canvasRepository.observeCanvasSnapshot(walletId),
         walletSyncRepository.observeSyncStatus(),
         connectionOrchestrator.snapshot
@@ -239,6 +250,24 @@ class WalletDetailViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = null
+        )
+
+    private val walletPrivacyProjection = walletDetailFlow
+        .map { detail ->
+            if (detail == null) {
+                WalletPrivacyProjection.Empty
+            } else {
+                val findings = walletPrivacyAnalyzer.analyze(detail)
+                WalletPrivacyProjection(
+                    summary = PrivacySummary.from(findings),
+                    findings = findings
+                )
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = WalletPrivacyProjection.Empty
         )
 
     private val lightProjection = combine(
@@ -353,12 +382,15 @@ class WalletDetailViewModel @Inject constructor(
 
     val uiState: StateFlow<WalletDetailUiState> = combine(
         expensiveProjection,
-        lightProjection
-    ) { expensive, light ->
+        lightProjection,
+        walletPrivacyProjection
+    ) { expensive, light, privacyProjection ->
         expensive.copy(
             showBalanceChart = light.showBalanceChart,
             incomingPlaceholders = light.incomingPlaceholders,
-            syncGap = light.syncGap ?: expensive.summary?.fullScanStopGap
+            syncGap = light.syncGap ?: expensive.summary?.fullScanStopGap,
+            walletPrivacySummary = privacyProjection.summary,
+            walletPrivacyFindings = privacyProjection.findings
         )
     }.stateIn(
         scope = viewModelScope,
@@ -843,6 +875,18 @@ class WalletDetailViewModel @Inject constructor(
         val utxoTreemapRequested: Boolean
     )
 
+    private data class WalletPrivacyProjection(
+        val summary: PrivacySummary,
+        val findings: List<PrivacyFinding>
+    ) {
+        companion object {
+            val Empty: WalletPrivacyProjection = WalletPrivacyProjection(
+                summary = PrivacySummary.Empty,
+                findings = emptyList()
+            )
+        }
+    }
+
     private data class LightProjection(
         val showBalanceChart: Boolean,
         val incomingPlaceholders: List<IncomingTxPlaceholder>,
@@ -933,7 +977,9 @@ data class WalletDetailUiState(
     val utxoSizeDistribution: UtxoBucketDistribution<UtxoSizeBucket> = EMPTY_UTXO_SIZE_DISTRIBUTION,
     val utxoTreemap: UtxoTreemapData = UtxoTreemapData.Empty,
     val utxoTreemapColorMode: UtxoTreemapColorMode = UtxoTreemapColorMode.DustRisk,
-    val collections: List<WalletCollectionItem> = emptyList()
+    val collections: List<WalletCollectionItem> = emptyList(),
+    val walletPrivacySummary: PrivacySummary = PrivacySummary.Empty,
+    val walletPrivacyFindings: List<PrivacyFinding> = emptyList()
 )
 
 data class WalletCollectionItem(
