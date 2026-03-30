@@ -9,6 +9,7 @@ Privacy-first, open-source Android watch-only wallet for monitoring Bitcoin desc
 - BIP-329 label import/export workflows
 - UTXO Canvas with collections, color tags, and automatic Dust grouping
 - Analysis views for age, spendability, value bands, collections, and treemap inspection
+- Local-first privacy findings for wallet, transaction, and UTXO detail views using already-synced data only
 - Transaction visualizer for inputs, outputs, change, and fee structure
 - Encrypted watch-only `.ubak` backups with passphrase preview before restore
 - Tor by default for bundled Electrum presets and custom onion endpoints (app-owned embedded runtime)
