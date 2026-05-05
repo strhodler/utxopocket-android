@@ -34,6 +34,7 @@ jbox2d = "2.2.1.1"
 identikon = "1.0.0"
 tink = "1.21.0"
 robolectric = "4.16.1"
+androidPdfViewer = "3.2.0-beta.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -86,6 +87,7 @@ identikon = { group = "io.github.thibseisel.identikon", name = "identikon", vers
 google-tink-android = { group = "com.google.crypto.tink", name = "tink-android", version.ref = "tink" }
 koalaplot-core = { group = "io.github.koalaplot", name = "koalaplot-core", version.ref = "koalaplot" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+android-pdf-viewer = { group = "com.github.mhiew", name = "android-pdf-viewer", version.ref = "androidPdfViewer" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

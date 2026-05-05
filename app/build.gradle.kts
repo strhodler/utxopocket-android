@@ -26,8 +26,8 @@ android {
         applicationId = "com.strhodler.utxopocket"
         minSdk = 28
         targetSdk = 36
-        versionCode = 13
-        versionName = "0.11.0"
+        versionCode = 14
+        versionName = "0.12.0"
     }
 
     buildTypes {
@@ -56,6 +56,7 @@ android {
         buildConfig = true
     }
     lint {
+        baseline = file("lint-baseline.xml")
         checkReleaseBuilds = true
         warningsAsErrors = true
         abortOnError = true
@@ -143,7 +144,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.zxing.android.embedded)
     implementation(libs.identikon)
-    implementation("com.github.mhiew:android-pdf-viewer:3.2.0-beta.1") {
+    implementation(libs.android.pdf.viewer) {
         exclude(group = "com.android.support")
     }
 

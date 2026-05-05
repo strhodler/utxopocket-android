@@ -43,7 +43,7 @@ Privacy-first, open-source Android watch-only wallet for monitoring Bitcoin desc
 
 ## Build from source
 
-Requirements: Java 21, Android SDK 36, and an ARM64 Android device or emulator.
+Requirements: Java 21, Android SDK 37 (targetSdk 36), and an ARM64 Android device or emulator.
 
 ```bash
 git clone https://github.com/strhodler/utxopocket-android.git

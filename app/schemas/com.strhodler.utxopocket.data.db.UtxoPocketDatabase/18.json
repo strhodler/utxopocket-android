@@ -1,0 +1,715 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 18,
+    "identityHash": "bb2950107818cd88972691b8f6d63e37",
+    "entities": [
+      {
+        "tableName": "wallets",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `descriptor` TEXT NOT NULL, `change_descriptor` TEXT, `network` TEXT NOT NULL, `balance_sats` INTEGER NOT NULL, `tx_count` INTEGER NOT NULL, `last_sync_status` TEXT NOT NULL, `last_sync_error` TEXT, `last_sync_time` INTEGER, `requires_full_scan` INTEGER NOT NULL, `shared_descriptors` INTEGER NOT NULL, `full_scan_stop_gap` INTEGER, `last_full_scan_time` INTEGER, `view_only` INTEGER NOT NULL, `color` TEXT NOT NULL, `sort_order` INTEGER NOT NULL, `sync_session_id` TEXT, `sync_tip_height` INTEGER, `sync_tip_hash` TEXT, `sync_applied` INTEGER NOT NULL, `sync_started_at` INTEGER, `sync_completed_at` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "descriptor",
+            "columnName": "descriptor",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "changeDescriptor",
+            "columnName": "change_descriptor",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "network",
+            "columnName": "network",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "balanceSats",
+            "columnName": "balance_sats",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transactionCount",
+            "columnName": "tx_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSyncStatus",
+            "columnName": "last_sync_status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSyncError",
+            "columnName": "last_sync_error",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastSyncTime",
+            "columnName": "last_sync_time",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "requiresFullScan",
+            "columnName": "requires_full_scan",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sharedDescriptors",
+            "columnName": "shared_descriptors",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fullScanStopGap",
+            "columnName": "full_scan_stop_gap",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastFullScanTime",
+            "columnName": "last_full_scan_time",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "viewOnly",
+            "columnName": "view_only",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "color",
+            "columnName": "color",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sort_order",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncSessionId",
+            "columnName": "sync_session_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "syncTipHeight",
+            "columnName": "sync_tip_height",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "syncTipHash",
+            "columnName": "sync_tip_hash",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "syncApplied",
+            "columnName": "sync_applied",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncStartedAt",
+            "columnName": "sync_started_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "syncCompletedAt",
+            "columnName": "sync_completed_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "wallet_transactions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`wallet_id` INTEGER NOT NULL, `txid` TEXT NOT NULL, `amount_sats` INTEGER NOT NULL, `timestamp` INTEGER, `type` TEXT NOT NULL, `confirmations` INTEGER NOT NULL, `label` TEXT, `block_height` INTEGER, `block_hash` TEXT, `size_bytes` INTEGER, `virtual_size` INTEGER, `weight_units` INTEGER, `fee_sats` INTEGER, `fee_rate_sat_per_vb` REAL, `version` INTEGER, `structure` TEXT, `raw_hex` TEXT, PRIMARY KEY(`wallet_id`, `txid`))",
+        "fields": [
+          {
+            "fieldPath": "walletId",
+            "columnName": "wallet_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "txid",
+            "columnName": "txid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amountSats",
+            "columnName": "amount_sats",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "confirmations",
+            "columnName": "confirmations",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "label",
+            "columnName": "label",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "blockHeight",
+            "columnName": "block_height",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "blockHash",
+            "columnName": "block_hash",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sizeBytes",
+            "columnName": "size_bytes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "virtualSize",
+            "columnName": "virtual_size",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "weightUnits",
+            "columnName": "weight_units",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "feeSats",
+            "columnName": "fee_sats",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "feeRateSatPerVb",
+            "columnName": "fee_rate_sat_per_vb",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "structure",
+            "columnName": "structure",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "rawHex",
+            "columnName": "raw_hex",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "wallet_id",
+            "txid"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_wallet_transactions_wallet_id",
+            "unique": false,
+            "columnNames": [
+              "wallet_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_wallet_transactions_wallet_id` ON `${TABLE_NAME}` (`wallet_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "wallet_transaction_inputs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`wallet_id` INTEGER NOT NULL, `txid` TEXT NOT NULL, `index` INTEGER NOT NULL, `prev_txid` TEXT NOT NULL, `prev_vout` INTEGER NOT NULL, `value_sats` INTEGER, `address` TEXT, `is_mine` INTEGER NOT NULL, `address_type` TEXT, `derivation_path` TEXT, PRIMARY KEY(`wallet_id`, `txid`, `index`))",
+        "fields": [
+          {
+            "fieldPath": "walletId",
+            "columnName": "wallet_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "txid",
+            "columnName": "txid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "index",
+            "columnName": "index",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "prevTxid",
+            "columnName": "prev_txid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "prevVout",
+            "columnName": "prev_vout",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "valueSats",
+            "columnName": "value_sats",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isMine",
+            "columnName": "is_mine",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "addressType",
+            "columnName": "address_type",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "derivationPath",
+            "columnName": "derivation_path",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "wallet_id",
+            "txid",
+            "index"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_wallet_transaction_inputs_wallet_id",
+            "unique": false,
+            "columnNames": [
+              "wallet_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_wallet_transaction_inputs_wallet_id` ON `${TABLE_NAME}` (`wallet_id`)"
+          },
+          {
+            "name": "index_wallet_transaction_inputs_txid",
+            "unique": false,
+            "columnNames": [
+              "txid"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_wallet_transaction_inputs_txid` ON `${TABLE_NAME}` (`txid`)"
+          }
+        ]
+      },
+      {
+        "tableName": "wallet_transaction_outputs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`wallet_id` INTEGER NOT NULL, `txid` TEXT NOT NULL, `index` INTEGER NOT NULL, `value_sats` INTEGER NOT NULL, `address` TEXT, `is_mine` INTEGER NOT NULL, `address_type` TEXT, `derivation_path` TEXT, PRIMARY KEY(`wallet_id`, `txid`, `index`))",
+        "fields": [
+          {
+            "fieldPath": "walletId",
+            "columnName": "wallet_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "txid",
+            "columnName": "txid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "index",
+            "columnName": "index",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "valueSats",
+            "columnName": "value_sats",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isMine",
+            "columnName": "is_mine",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "addressType",
+            "columnName": "address_type",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "derivationPath",
+            "columnName": "derivation_path",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "wallet_id",
+            "txid",
+            "index"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_wallet_transaction_outputs_wallet_id",
+            "unique": false,
+            "columnNames": [
+              "wallet_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_wallet_transaction_outputs_wallet_id` ON `${TABLE_NAME}` (`wallet_id`)"
+          },
+          {
+            "name": "index_wallet_transaction_outputs_txid",
+            "unique": false,
+            "columnNames": [
+              "txid"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_wallet_transaction_outputs_txid` ON `${TABLE_NAME}` (`txid`)"
+          }
+        ]
+      },
+      {
+        "tableName": "wallet_utxos",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`wallet_id` INTEGER NOT NULL, `txid` TEXT NOT NULL, `vout` INTEGER NOT NULL, `value_sats` INTEGER NOT NULL, `confirmations` INTEGER NOT NULL, `status` TEXT NOT NULL, `label` TEXT, `spendable` INTEGER, `address` TEXT, `keychain` TEXT, `derivation_index` INTEGER, PRIMARY KEY(`wallet_id`, `txid`, `vout`))",
+        "fields": [
+          {
+            "fieldPath": "walletId",
+            "columnName": "wallet_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "txid",
+            "columnName": "txid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vout",
+            "columnName": "vout",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "valueSats",
+            "columnName": "value_sats",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "confirmations",
+            "columnName": "confirmations",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "label",
+            "columnName": "label",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "spendable",
+            "columnName": "spendable",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "keychain",
+            "columnName": "keychain",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "derivationIndex",
+            "columnName": "derivation_index",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "wallet_id",
+            "txid",
+            "vout"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_wallet_utxos_wallet_id",
+            "unique": false,
+            "columnNames": [
+              "wallet_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_wallet_utxos_wallet_id` ON `${TABLE_NAME}` (`wallet_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "transaction_health",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`wallet_id` INTEGER NOT NULL, `txid` TEXT NOT NULL, `final_score` INTEGER NOT NULL, `indicators_json` TEXT NOT NULL, `badges_json` TEXT NOT NULL, `pillar_scores_json` TEXT NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`wallet_id`, `txid`))",
+        "fields": [
+          {
+            "fieldPath": "walletId",
+            "columnName": "wallet_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "txid",
+            "columnName": "txid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "finalScore",
+            "columnName": "final_score",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "indicatorsJson",
+            "columnName": "indicators_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "badgesJson",
+            "columnName": "badges_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pillarScoresJson",
+            "columnName": "pillar_scores_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "wallet_id",
+            "txid"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_transaction_health_wallet_id",
+            "unique": false,
+            "columnNames": [
+              "wallet_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_transaction_health_wallet_id` ON `${TABLE_NAME}` (`wallet_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "utxo_health",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`wallet_id` INTEGER NOT NULL, `txid` TEXT NOT NULL, `vout` INTEGER NOT NULL, `final_score` INTEGER NOT NULL, `indicators_json` TEXT NOT NULL, `badges_json` TEXT NOT NULL, `pillar_scores_json` TEXT NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`wallet_id`, `txid`, `vout`))",
+        "fields": [
+          {
+            "fieldPath": "walletId",
+            "columnName": "wallet_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "txid",
+            "columnName": "txid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vout",
+            "columnName": "vout",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "finalScore",
+            "columnName": "final_score",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "indicatorsJson",
+            "columnName": "indicators_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "badgesJson",
+            "columnName": "badges_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pillarScoresJson",
+            "columnName": "pillar_scores_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "wallet_id",
+            "txid",
+            "vout"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_utxo_health_wallet_id",
+            "unique": false,
+            "columnNames": [
+              "wallet_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_utxo_health_wallet_id` ON `${TABLE_NAME}` (`wallet_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "wallet_health",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`wallet_id` INTEGER NOT NULL, `final_score` INTEGER NOT NULL, `pillar_scores_json` TEXT NOT NULL, `badges_json` TEXT NOT NULL, `indicators_json` TEXT NOT NULL, `computed_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`wallet_id`))",
+        "fields": [
+          {
+            "fieldPath": "walletId",
+            "columnName": "wallet_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "finalScore",
+            "columnName": "final_score",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pillarScoresJson",
+            "columnName": "pillar_scores_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "badgesJson",
+            "columnName": "badges_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "indicatorsJson",
+            "columnName": "indicators_json",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "computedAt",
+            "columnName": "computed_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "wallet_id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'bb2950107818cd88972691b8f6d63e37')"
+    ]
+  }
+}
