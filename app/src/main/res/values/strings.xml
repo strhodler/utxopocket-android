@@ -46,6 +46,8 @@
     <string name="feature_connectivity_description">Use Tor by default with curated Electrum servers or custom onion endpoints, or opt into Local Direct for trusted private/local IP literal nodes.</string>
     <string name="feature_analysis_title">Analysis views</string>
     <string name="feature_analysis_description">Inspect age, spendability, value bands, collections, and treemap visuals for fast UTXO review.</string>
+    <string name="feature_privacy_analysis_title">Privacy analysis across wallet, transactions, and UTXOs</string>
+    <string name="feature_privacy_analysis_description">Review local privacy findings at wallet, transaction, and UTXO level with severity and confidence context.</string>
     <string name="feature_visualizer_title">Transaction visualizer</string>
     <string name="feature_visualizer_description">Explore inputs, outputs, change, and fee structure in a focused transaction diagram.</string>
     <string name="feature_compatibility_title">Compatibility &amp; labels</string>
@@ -166,6 +168,7 @@
     <string name="wallet_detail_open_utxo_canvas">Collections manager</string>
     <string name="wallet_detail_utxo_canvas_content_description">Open Collections manager</string>
     <string name="wallet_detail_collections_manager_supporting">Visual workspace to manage and rearrange collections.</string>
+    <string name="wallet_utxo_visualization_tab_privacy">Privacy</string>
     <string name="wallet_utxo_visualization_tab_histogram">Age distribution</string>
     <string name="wallet_utxo_visualization_tab_spendability">Spendability</string>
     <string name="wallet_utxo_visualization_tab_size">Value buckets</string>
@@ -175,11 +178,10 @@
     <string name="wallet_privacy_summary_total">Findings: %1$s</string>
     <string name="wallet_privacy_summary_empty">No privacy findings for this wallet snapshot.</string>
     <string name="wallet_privacy_summary_entry">%1$s: %2$s</string>
-    <string name="wallet_privacy_findings_title">Wallet privacy findings</string>
+    <string name="wallet_privacy_wiki_link_title">How privacy analysis works</string>
+    <string name="wallet_privacy_wiki_link_supporting">Open the wiki guide for wallet, transaction, and UTXO privacy findings.</string>
     <string name="wallet_privacy_findings_empty">No findings to review right now.</string>
-    <string name="transaction_privacy_section_title">Transaction privacy findings</string>
     <string name="transaction_privacy_section_empty">No transaction-specific privacy findings for this snapshot.</string>
-    <string name="utxo_privacy_section_title">UTXO privacy findings</string>
     <string name="utxo_privacy_section_empty">No UTXO-specific privacy findings for this output.</string>
     <string name="privacy_severity_critical">Critical</string>
     <string name="privacy_severity_warning">Warning</string>
@@ -253,9 +255,9 @@
     <string name="privacy_finding_utxo_change_origin_title">Change-origin context</string>
     <string name="privacy_finding_utxo_change_origin_description">This output appears on the change branch; avoid merging it with unrelated history when possible.</string>
     <string name="privacy_finding_utxo_change_origin_next_action">Keep this change output grouped with its source history when selecting inputs.</string>
-    <string name="privacy_finding_utxo_organization_gap_title">Missing label or collection</string>
-    <string name="privacy_finding_utxo_organization_gap_description">This UTXO has no direct label and no assigned collection in the current snapshot.</string>
-    <string name="privacy_finding_utxo_organization_gap_next_action">Assign a label or collection now to preserve intent for later coin control.</string>
+    <string name="privacy_finding_utxo_organization_gap_title">Missing label</string>
+    <string name="privacy_finding_utxo_organization_gap_description">This UTXO has no direct label in the current snapshot.</string>
+    <string name="privacy_finding_utxo_organization_gap_next_action">Assign a label now to preserve intent for later coin control.</string>
     <string name="privacy_finding_utxo_spendability_context_title">Spendability or maturity context</string>
     <string name="privacy_finding_utxo_spendability_context_description">Current spendability context: %1$s.</string>
     <string name="privacy_finding_utxo_spendability_context_next_action">Re-check this context before spend planning, especially after sync updates.</string>
@@ -530,6 +532,9 @@ To reach the PIN screen, enter 21000000 and then tap =.</string>
     <string name="wallet_detail_descriptor_qr_error">Could not generate QR code for this descriptor.</string>
 
     <string name="transaction_detail_title">Transaction details</string>
+    <string name="detail_tab_details">Details</string>
+    <string name="detail_tab_analysis">Analysis</string>
+    <string name="detail_tab_analysis_with_count">Analysis (%1$d)</string>
     <string name="transaction_detail_label_add_title">Add label</string>
     <string name="transaction_detail_label_edit_title">Edit label</string>
     <string name="transaction_detail_label_field_label">Transaction label</string>

@@ -11,10 +11,10 @@ keywords: [analysis, privacy findings, distributions, donut, treemap, collection
 ---
 
 ## What the Analysis section shows
-Each wallet has an **Analysis** area that combines local charts with privacy review hints from the same wallet snapshot. Every tab supports both **Count** and **Value** modes so you can see whether volume or balance is concentrated in a bucket.
+Each wallet has an **Analysis** area with dedicated tabs that combine local charts and privacy review hints from the same wallet snapshot. Every distribution tab supports both **Count** and **Value** modes so you can see whether volume or balance is concentrated in a bucket.
 
-- **Privacy snapshot** — Summary counts by severity plus wallet-level privacy findings. These findings are review aids, not proof of ownership intent.
-- **Transaction and UTXO privacy sections** — Matching finding cards also appear in transaction detail and UTXO detail for context-specific review.
+- **Privacy tab** — The first tab starts with a shortcut to this wiki guide and then shows wallet-level privacy finding cards in a vertical list. These findings are review aids, not proof of ownership intent.
+- **Transaction and UTXO Analysis tabs** — Matching finding cards also appear in each detail view under the local **Analysis** tab for context-specific review.
 
 - **Age distribution** — Donut that groups UTXOs by confirmation age buckets (`<1 day` to `>2 years`).
 - **Spendability split** — Donut separating spendable vs. non‑spendable (locked) UTXOs.

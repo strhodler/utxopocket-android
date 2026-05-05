@@ -1,6 +1,11 @@
 package com.strhodler.utxopocket.presentation.wallets.detail
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +15,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -34,13 +40,16 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +62,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -71,13 +81,22 @@ import com.strhodler.utxopocket.presentation.common.balanceText
 import com.strhodler.utxopocket.presentation.common.balanceValue
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.common.transactionAmount
+import com.strhodler.utxopocket.presentation.common.window.windowContainerHeightDp
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.format.confirmationLabel
-import com.strhodler.utxopocket.presentation.motion.rememberScrollHeaderFadeAlpha
+import com.strhodler.utxopocket.presentation.motion.rememberLazyHeaderFadeAlpha
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.launch
+
+private enum class TransactionDetailTab {
+    Details,
+    Analysis
+}
+
+private val DetailTabsHeight = 48.dp
+private val DetailListContentSpacing = 12.dp
 
 @Composable
 internal fun TransactionDetailScreen(
@@ -119,7 +138,7 @@ internal fun TransactionDetailScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun TransactionDetailContent(
     state: TransactionDetailUiState,
@@ -192,24 +211,93 @@ private fun TransactionDetailContent(
             showExplorerSheet = true
         }
     }
-    val scrollState = rememberScrollState()
-    val headerAlpha = rememberScrollHeaderFadeAlpha(scrollState)
+    val tabs = remember { TransactionDetailTab.entries.toTypedArray() }
+    val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
+    val tabScope = rememberCoroutineScope()
+    val detailsScrollState = rememberScrollState()
+    val analysisScrollState = rememberScrollState()
+    val outerListState = rememberLazyListState()
+    val density = LocalDensity.current
+    val stickyHeaderHeightPx = remember(density) {
+        with(density) { DetailTabsHeight.roundToPx() }
+    }
+    val tabsPinned by remember(outerListState, stickyHeaderHeightPx) {
+        derivedStateOf {
+            val pagerItem = outerListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "pager" }
+            val pagerOffset = pagerItem?.offset ?: Int.MAX_VALUE
+            pagerOffset <= stickyHeaderHeightPx
+        }
+    }
+    val containerHeight = windowContainerHeightDp()
+    val pagerHeight = remember(containerHeight) {
+        (containerHeight - DetailTabsHeight).coerceAtLeast(200.dp)
+    }
+    val headerAlpha = rememberLazyHeaderFadeAlpha(outerListState)
 
-    Column(
-        modifier = modifier.verticalScroll(scrollState)
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        state = outerListState,
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        TransactionDetailHeader(
-            broadcastInfo = broadcastInfoText,
-            amountText = amountText,
-            onCycleBalanceDisplay = onCycleBalanceDisplay,
-            onOpenVisualizer = visualizerAction,
-            onOpenExplorer = openExplorerOrSettings,
-            explorerEnabled = explorerButtonEnabled,
-            modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer(alpha = headerAlpha)
-        )
-        Spacer(modifier = Modifier.height(16.dp))
+        item(key = "header") {
+            TransactionDetailHeader(
+                broadcastInfo = broadcastInfoText,
+                amountText = amountText,
+                onCycleBalanceDisplay = onCycleBalanceDisplay,
+                onOpenVisualizer = visualizerAction,
+                onOpenExplorer = openExplorerOrSettings,
+                explorerEnabled = explorerButtonEnabled,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer(alpha = headerAlpha)
+            )
+        }
+        stickyHeader {
+            PrimaryTabRow(
+                selectedTabIndex = pagerState.currentPage,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ) {
+                tabs.forEach { tab ->
+                    Tab(
+                        selected = pagerState.currentPage == tab.ordinal,
+                        onClick = {
+                            tabScope.launch {
+                                pagerState.animateScrollToPage(tab.ordinal)
+                            }
+                        },
+                        text = {
+                            Text(
+                                text = when (tab) {
+                                    TransactionDetailTab.Details -> stringResource(id = R.string.detail_tab_details)
+                                    TransactionDetailTab.Analysis -> stringResource(
+                                        id = R.string.detail_tab_analysis_with_count,
+                                        state.privacyFindings.size
+                                    )
+                                },
+                                maxLines = 1
+                            )
+                        }
+                    )
+                }
+            }
+        }
+        item(key = "pager_spacing") {
+            Spacer(modifier = Modifier.height(DetailListContentSpacing))
+        }
+        item(key = "pager") {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(pagerHeight),
+                verticalAlignment = Alignment.Top
+            ) { pageIndex ->
+            when (tabs[pageIndex]) {
+                TransactionDetailTab.Details -> Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(detailsScrollState, enabled = tabsPinned)
+                ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -399,13 +487,6 @@ private fun TransactionDetailContent(
                     )
                 }
             }
-
-            TransactionPrivacySection(
-                summary = state.privacySummary,
-                findings = state.privacyFindings,
-                modifier = Modifier.fillMaxWidth()
-            )
-
             ListSection(
                 title = stringResource(id = R.string.transaction_detail_section_size)
             ) {
@@ -625,7 +706,25 @@ private fun TransactionDetailContent(
                     }
                 }
             }
+                }
+                }
+
+                TransactionDetailTab.Analysis -> Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(analysisScrollState, enabled = tabsPinned)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    TransactionPrivacySection(
+                        findings = state.privacyFindings,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
+        }
+    }
         if (showExplorerSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showExplorerSheet = false },
@@ -745,8 +844,6 @@ private fun TransactionDetailContent(
             }
         }
     }
-}
-
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
 private fun TransactionDetailHeader(

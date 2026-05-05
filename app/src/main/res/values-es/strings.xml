@@ -276,6 +276,7 @@
     <string name="wallet_detail_open_utxo_canvas">Gestor de colecciones</string>
     <string name="wallet_detail_utxo_canvas_content_description">Abrir gestor de colecciones</string>
     <string name="wallet_detail_collections_manager_supporting">Espacio visual para gestionar y reordenar colecciones.</string>
+    <string name="wallet_utxo_visualization_tab_privacy">Privacidad</string>
     <string name="wallet_utxo_visualization_tab_histogram">Distribución por antigüedad</string>
     <string name="wallet_utxo_visualization_tab_spendability">Gastables</string>
     <string name="wallet_utxo_visualization_tab_size">Bandas de valor</string>
@@ -285,11 +286,10 @@
     <string name="wallet_privacy_summary_total">Hallazgos: %1$s</string>
     <string name="wallet_privacy_summary_empty">No hay hallazgos de privacidad para este estado de la billetera.</string>
     <string name="wallet_privacy_summary_entry">%1$s: %2$s</string>
-    <string name="wallet_privacy_findings_title">Hallazgos de privacidad</string>
+    <string name="wallet_privacy_wiki_link_title">Cómo funciona el análisis de privacidad</string>
+    <string name="wallet_privacy_wiki_link_supporting">Abre la guía wiki sobre hallazgos de privacidad en wallet, transacciones y UTXOs.</string>
     <string name="wallet_privacy_findings_empty">No hay hallazgos para revisar ahora.</string>
-    <string name="transaction_privacy_section_title">Hallazgos de privacidad de la transacción</string>
     <string name="transaction_privacy_section_empty">No hay hallazgos de privacidad específicos de esta transacción en este estado.</string>
-    <string name="utxo_privacy_section_title">Hallazgos de privacidad del UTXO</string>
     <string name="utxo_privacy_section_empty">No hay hallazgos de privacidad específicos para este UTXO.</string>
     <string name="privacy_severity_critical">Crítico</string>
     <string name="privacy_severity_warning">Advertencia</string>
@@ -363,9 +363,9 @@
     <string name="privacy_finding_utxo_change_origin_title">Contexto de origen de cambio</string>
     <string name="privacy_finding_utxo_change_origin_description">Esta salida parece provenir de la rama de cambio; evita mezclarla con historial no relacionado cuando sea posible.</string>
     <string name="privacy_finding_utxo_change_origin_next_action">Mantén este cambio agrupado con su historial de origen al seleccionar entradas.</string>
-    <string name="privacy_finding_utxo_organization_gap_title">Sin etiqueta o colección</string>
-    <string name="privacy_finding_utxo_organization_gap_description">Este UTXO no tiene etiqueta directa ni colección asignada en el estado actual.</string>
-    <string name="privacy_finding_utxo_organization_gap_next_action">Asigna ahora una etiqueta o colección para preservar intención en coin control.</string>
+    <string name="privacy_finding_utxo_organization_gap_title">Sin etiqueta</string>
+    <string name="privacy_finding_utxo_organization_gap_description">Este UTXO no tiene etiqueta directa en el estado actual.</string>
+    <string name="privacy_finding_utxo_organization_gap_next_action">Asigna ahora una etiqueta para preservar intención en coin control.</string>
     <string name="privacy_finding_utxo_spendability_context_title">Contexto de gasto o madurez</string>
     <string name="privacy_finding_utxo_spendability_context_description">Contexto actual de gasto: %1$s.</string>
     <string name="privacy_finding_utxo_spendability_context_next_action">Vuelve a revisar este contexto antes de planificar gasto, especialmente tras sincronizar.</string>
@@ -477,6 +477,9 @@
 
     <!-- Transaction detail -->
     <string name="transaction_detail_title">Detalles de la transacción</string>
+    <string name="detail_tab_details">Detalles</string>
+    <string name="detail_tab_analysis">Análisis</string>
+    <string name="detail_tab_analysis_with_count">Análisis (%1$d)</string>
     <string name="transaction_detail_label_add_title">Añadir etiqueta</string>
     <string name="transaction_detail_label_edit_title">Editar etiqueta</string>
     <string name="transaction_detail_label_field_label">Etiqueta de transacción</string>
@@ -653,6 +656,8 @@
     <string name="feature_connectivity_description">Usa Tor por defecto con servidores Electrum curados o endpoints onion personalizados, o activa Local Direct para nodos con literales IP privadas/locales de confianza.</string>
     <string name="feature_analysis_title">Vistas de análisis</string>
     <string name="feature_analysis_description">Inspecciona antigüedad, gastabilidad, bandas de valor, colecciones y treemaps para revisar UTXOs rápido.</string>
+    <string name="feature_privacy_analysis_title">Análisis de privacidad en wallet, transacciones y UTXOs</string>
+    <string name="feature_privacy_analysis_description">Revisa hallazgos de privacidad locales a nivel de wallet, transacción y UTXO con contexto de severidad y confianza.</string>
     <string name="feature_visualizer_title">Visualizador de transacciones</string>
     <string name="feature_visualizer_description">Explora entradas, salidas, cambio y estructura de comisiones en un diagrama centrado en la transacción.</string>
     <string name="feature_compatibility_title">Compatibilidad y etiquetas</string>

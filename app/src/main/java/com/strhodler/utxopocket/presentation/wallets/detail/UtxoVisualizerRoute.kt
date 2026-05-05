@@ -25,6 +25,7 @@ import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 fun UtxoVisualizerRoute(
     onBack: () -> Unit,
     onOpenUtxo: (String, Int) -> Unit,
+    onOpenWikiTopic: (String) -> Unit,
     viewModel: WalletDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -74,19 +75,8 @@ fun UtxoVisualizerRoute(
                         .padding(bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    WalletPrivacySummarySection(
-                        summary = state.walletPrivacySummary,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    )
-
-                    WalletPrivacyFindingsSection(
-                        findings = state.walletPrivacyFindings,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
                     UtxoAnalysisSection(
+                        walletPrivacyFindings = state.walletPrivacyFindings,
                         histogram = state.utxoAgeHistogram,
                         spendabilityDistribution = state.utxoSpendabilityDistribution,
                         sizeDistribution = state.utxoSizeDistribution,
@@ -97,6 +87,7 @@ fun UtxoVisualizerRoute(
                         onTreemapRangeChange = viewModel::setUtxoTreemapRange,
                         onTreemapRequested = viewModel::requestUtxoTreemap,
                         onOpenUtxo = onOpenUtxo,
+                        onOpenWikiTopic = onOpenWikiTopic,
                         balanceUnit = state.balanceUnit,
                         modifier = Modifier
                             .fillMaxWidth()

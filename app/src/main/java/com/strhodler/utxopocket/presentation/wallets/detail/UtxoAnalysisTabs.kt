@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -36,9 +37,12 @@ import com.strhodler.utxopocket.domain.model.UtxoBucketDistribution
 import com.strhodler.utxopocket.domain.model.UtxoSizeBucket
 import com.strhodler.utxopocket.domain.model.UtxoSpendabilityBucket
 import com.strhodler.utxopocket.domain.model.UtxoTreemapData
+import com.strhodler.utxopocket.domain.model.WikiTopicIds
+import com.strhodler.utxopocket.domain.privacy.PrivacyFinding
 import kotlinx.coroutines.launch
 
 private enum class UtxoAgeDistributionTab {
+    Privacy,
     Histogram,
     Spendability,
     Size,
@@ -49,6 +53,7 @@ private enum class UtxoAgeDistributionTab {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun UtxoAgeDistributionCard(
+    walletPrivacyFindings: List<PrivacyFinding>,
     histogram: UtxoAgeHistogram,
     spendabilityDistribution: UtxoBucketDistribution<UtxoSpendabilityBucket>,
     sizeDistribution: UtxoBucketDistribution<UtxoSizeBucket>,
@@ -59,6 +64,7 @@ internal fun UtxoAgeDistributionCard(
     onTreemapRangeChange: (LongRange) -> Unit,
     onTreemapRequested: () -> Unit,
     onOpenUtxo: (String, Int) -> Unit,
+    onOpenWikiTopic: (String) -> Unit,
     balanceUnit: BalanceUnit,
     modifier: Modifier = Modifier
 ) {
@@ -73,8 +79,7 @@ internal fun UtxoAgeDistributionCard(
         colors = CardDefaults.cardColors(containerColor = tabContainerColor)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxSize()
         ) {
             PrimaryScrollableTabRow(
                 selectedTabIndex = pagerState.currentPage,
@@ -86,6 +91,7 @@ internal fun UtxoAgeDistributionCard(
                 tabs.forEach { tab ->
                     val selected = pagerState.currentPage == tab.ordinal
                     val label = when (tab) {
+                        UtxoAgeDistributionTab.Privacy -> stringResource(id = R.string.wallet_utxo_visualization_tab_privacy)
                         UtxoAgeDistributionTab.Histogram -> stringResource(id = R.string.wallet_utxo_visualization_tab_histogram)
                         UtxoAgeDistributionTab.Spendability -> stringResource(id = R.string.wallet_utxo_visualization_tab_spendability)
                         UtxoAgeDistributionTab.Size -> stringResource(id = R.string.wallet_utxo_visualization_tab_size)
@@ -121,10 +127,27 @@ internal fun UtxoAgeDistributionCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
+                verticalAlignment = Alignment.Top,
                 userScrollEnabled = !isTreemapSliderDragging
             ) { pageIndex ->
                 val pageScroll = rememberScrollState()
                 when (tabs[pageIndex]) {
+                    UtxoAgeDistributionTab.Privacy -> Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .verticalScroll(pageScroll),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        WalletPrivacyFindingsSection(
+                            findings = walletPrivacyFindings,
+                            onOpenWikiTopic = {
+                                onOpenWikiTopic(WikiTopicIds.WalletAnalysis)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
                     UtxoAgeDistributionTab.Histogram -> Column(
                         modifier = Modifier
                             .fillMaxWidth()

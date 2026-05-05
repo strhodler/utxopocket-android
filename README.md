@@ -41,6 +41,7 @@ Privacy-first, open-source Android watch-only wallet for monitoring Bitcoin desc
 - [Sparrow Wallet](https://github.com/sparrowwallet/sparrow)
 - [Sentinel](https://code.samourai.io/wallet/sentinel-android)
 - [Ashigaru Wallet](https://ashigaru.rs/)
+- [am-i-exposed](https://github.com/Copexit/am-i-exposed)
 
 ## Build from source
 

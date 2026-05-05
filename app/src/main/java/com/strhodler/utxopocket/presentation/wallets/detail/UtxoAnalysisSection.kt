@@ -28,11 +28,13 @@ import com.strhodler.utxopocket.domain.model.UtxoBucketDistribution
 import com.strhodler.utxopocket.domain.model.UtxoSizeBucket
 import com.strhodler.utxopocket.domain.model.UtxoSpendabilityBucket
 import com.strhodler.utxopocket.domain.model.UtxoTreemapData
+import com.strhodler.utxopocket.domain.privacy.PrivacyFinding
 import com.strhodler.utxopocket.presentation.common.balanceText
 import kotlinx.coroutines.launch
 
 @Composable
 fun UtxoAnalysisSection(
+    walletPrivacyFindings: List<PrivacyFinding>,
     histogram: UtxoAgeHistogram,
     spendabilityDistribution: UtxoBucketDistribution<UtxoSpendabilityBucket>,
     sizeDistribution: UtxoBucketDistribution<UtxoSizeBucket>,
@@ -43,10 +45,12 @@ fun UtxoAnalysisSection(
     onTreemapRangeChange: (LongRange) -> Unit,
     onTreemapRequested: () -> Unit,
     onOpenUtxo: (String, Int) -> Unit,
+    onOpenWikiTopic: (String) -> Unit,
     balanceUnit: BalanceUnit,
     modifier: Modifier = Modifier
 ) {
     UtxoAgeDistributionCard(
+        walletPrivacyFindings = walletPrivacyFindings,
         histogram = histogram,
         spendabilityDistribution = spendabilityDistribution,
         sizeDistribution = sizeDistribution,
@@ -57,6 +61,7 @@ fun UtxoAnalysisSection(
         onTreemapRangeChange = onTreemapRangeChange,
         onTreemapRequested = onTreemapRequested,
         onOpenUtxo = onOpenUtxo,
+        onOpenWikiTopic = onOpenWikiTopic,
         balanceUnit = balanceUnit,
         modifier = modifier
     )

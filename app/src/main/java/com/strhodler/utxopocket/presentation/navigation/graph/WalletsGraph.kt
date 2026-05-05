@@ -353,6 +353,9 @@ internal fun NavGraphBuilder.walletsGraph(
                 onBack = { navController.popBackStack() },
                 onOpenUtxo = { txId, vout ->
                     navController.navigate(WalletsNavigation.utxoDetailRoute(walletId, txId, vout))
+                },
+                onOpenWikiTopic = { topicId ->
+                    navController.navigateTopLevel(WikiNavigation.detailRoute(topicId))
                 }
             )
         }
