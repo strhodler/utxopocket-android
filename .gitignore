@@ -47,8 +47,10 @@ AGENTS.md
 /local.properties.wsl
 context/
 .opencode/
+.agents/
 opencode.json
 /plans/
 /.worktrees/
 /worktrees/
 knowledge/
+skills-lock.json
