@@ -6,7 +6,7 @@ Follow these steps to run UtxoPocket from source, reproduce the CI checks, and i
 - Linux, macOS, or Windows Subsystem for Linux.
 - Git, `adb`, and Java **21** (Temurin/OpenJDK). `java -version` should report 21.x.
 - Android Studio Koala (or newer) with:
-  - Android SDK Platform **36** + build tools (matches `compileSdk/targetSdk = 36`)
+  - Android SDK Platform **37** + build tools (matches `compileSdk`; `targetSdk` remains 36)
   - Android NDK **26+**
   - HAXM/ARM64 image support if you rely on emulators
 - Physical ARM64 device (Android 10+) or an ARM64 emulator (Tor binary does not include x86 builds).

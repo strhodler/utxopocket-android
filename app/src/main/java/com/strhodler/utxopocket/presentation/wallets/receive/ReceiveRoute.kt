@@ -265,19 +265,22 @@ class ReceiveViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             internalState.update { it.copy(isLoading = true, isAdvancing = false, error = null) }
-            loadAddress(fetchAddress = ::fetchUnusedAddress)
+            loadAddress { fetchUnusedAddress() }
         }
     }
 
     fun nextAddress() {
         if (internalState.value.isAdvancing) return
+        val currentAddress = internalState.value.address?.value
         viewModelScope.launch {
             internalState.update { it.copy(isAdvancing = true, error = null) }
-            loadAddress {
-                walletAddressRepository.revealNextAddress(
-                    walletId = walletId,
-                    type = WalletAddressType.EXTERNAL
+            val advanced = loadAddress {
+                fetchUnusedAddress(
+                    extraExcludedAddresses = setOfNotNull(currentAddress)
                 )
+            }
+            if (advanced && currentAddress != null) {
+                reserveAddress(currentAddress)
             }
         }
     }
@@ -322,12 +325,12 @@ class ReceiveViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadAddress(fetchAddress: suspend () -> WalletAddress?) {
+    private suspend fun loadAddress(fetchAddress: suspend () -> WalletAddress?): Boolean {
         val addressResult = runCatching { fetchAddress() }
         val address = addressResult.getOrNull()
         if (address == null) {
             setError(addressResult.exceptionOrNull())
-            return
+            return false
         }
         val detailResult = runCatching {
             walletAddressRepository.getAddressDetail(
@@ -339,6 +342,7 @@ class ReceiveViewModel @Inject constructor(
         val detail = detailResult.getOrNull()
         if (detail == null) {
             setError(detailResult.exceptionOrNull())
+            return false
         } else {
             internalState.update {
                 it.copy(
@@ -348,12 +352,15 @@ class ReceiveViewModel @Inject constructor(
                     error = null
                 )
             }
+            return true
         }
     }
 
-    private suspend fun fetchUnusedAddress(): WalletAddress? =
+    private suspend fun fetchUnusedAddress(
+        extraExcludedAddresses: Set<String> = emptySet()
+    ): WalletAddress? =
         runCatching {
-            val excludedAddresses = excludedReceiveAddresses()
+            val excludedAddresses = excludedReceiveAddresses() + extraExcludedAddresses
             val dynamicLimit = (excludedAddresses.size + 2).coerceAtLeast(1)
             val unused = walletAddressRepository.listUnusedAddresses(
                 walletId = walletId,

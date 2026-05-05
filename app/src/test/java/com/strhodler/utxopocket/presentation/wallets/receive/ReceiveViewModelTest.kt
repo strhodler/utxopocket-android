@@ -93,13 +93,12 @@ class ReceiveViewModelTest {
     fun nextAddressAdvances() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
-        repository.unusedAddresses = listOf(primaryAddress)
+        repository.unusedAddresses = listOf(primaryAddress, secondaryAddress)
         repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
         val viewModel = createViewModel()
         val observer = observeUiState(viewModel)
         advanceUntilIdle()
 
-        repository.nextAddress = secondaryAddress
         repository.addressDetails[secondaryAddress.derivationIndex] = secondaryDetail
 
         viewModel.nextAddress()
@@ -108,6 +107,28 @@ class ReceiveViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(secondaryDetail, state.address)
         assertFalse(state.isAdvancing)
+        observer.cancel()
+    }
+
+    @Test
+    fun nextAddressPrefersSequentialUnusedAddressBeforeRevealingPastWindow() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        repository.unusedAddresses = listOf(primaryAddress, secondaryAddress)
+        repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
+        repository.addressDetails[secondaryAddress.derivationIndex] = secondaryDetail
+        repository.addressDetails[farAddress.derivationIndex] = farDetail
+        repository.nextAddress = farAddress
+        val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
+        advanceUntilIdle()
+
+        viewModel.nextAddress()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(secondaryDetail, state.address)
+        assertEquals(0, repository.revealNextAddressCalls)
         observer.cancel()
     }
 
@@ -161,13 +182,12 @@ class ReceiveViewModelTest {
     fun detectionAdvancesToNextAddress() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
-        repository.unusedAddresses = listOf(primaryAddress)
+        repository.unusedAddresses = listOf(primaryAddress, secondaryAddress)
         repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
         val viewModel = createViewModel()
         val observer = observeUiState(viewModel)
         advanceUntilIdle()
 
-        repository.nextAddress = secondaryAddress
         repository.addressDetails[secondaryAddress.derivationIndex] = secondaryDetail
 
         incomingCoordinator.onDetection(
@@ -198,8 +218,6 @@ class ReceiveViewModelTest {
         val viewModel = createViewModel()
         val observer = observeUiState(viewModel)
         advanceUntilIdle()
-
-        repository.nextAddress = secondaryAddress
 
         incomingCoordinator.onDetection(
             IncomingTxDetection(
@@ -270,6 +288,12 @@ class ReceiveViewModelTest {
             derivationPath = "m/84h/0h/0h/0/2",
             derivationIndex = 2
         )
+        private val farAddress = WalletAddress(
+            value = "bc1qfar",
+            type = WalletAddressType.EXTERNAL,
+            derivationPath = "m/84h/0h/0h/0/77",
+            derivationIndex = 77
+        )
         private val primaryDetail = WalletAddressDetail(
             value = primaryAddress.value,
             type = WalletAddressType.EXTERNAL,
@@ -300,12 +324,23 @@ class ReceiveViewModelTest {
             usage = AddressUsage.NEVER,
             usageCount = 0
         )
+        private val farDetail = WalletAddressDetail(
+            value = farAddress.value,
+            type = WalletAddressType.EXTERNAL,
+            derivationPath = farAddress.derivationPath,
+            derivationIndex = farAddress.derivationIndex,
+            scriptPubKey = "778899",
+            descriptor = "wpkh(...)",
+            usage = AddressUsage.NEVER,
+            usageCount = 0
+        )
     }
 }
 
 private class FakeWalletRepository : WalletReadRepository, WalletAddressRepository {
     var unusedAddresses: List<WalletAddress> = emptyList()
     var nextAddress: WalletAddress? = null
+    var revealNextAddressCalls = 0
     val addressDetails = mutableMapOf<Int, WalletAddressDetail>()
     val markedAsUsed = mutableListOf<Int>()
     private val walletDetail = MutableStateFlow(
@@ -359,7 +394,10 @@ private class FakeWalletRepository : WalletReadRepository, WalletAddressReposito
         limit: Int
     ): List<WalletAddress> = unusedAddresses
 
-    override suspend fun revealNextAddress(walletId: Long, type: WalletAddressType): WalletAddress? = nextAddress
+    override suspend fun revealNextAddress(walletId: Long, type: WalletAddressType): WalletAddress? {
+        revealNextAddressCalls++
+        return nextAddress
+    }
 
     override suspend fun getAddressDetail(
         walletId: Long,

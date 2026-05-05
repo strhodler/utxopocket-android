@@ -6,7 +6,7 @@ plugins {
 }
 
 val runtimeDocsAssetsDir = layout.buildDirectory.dir("generated/runtime-docs-assets")
-val runtimeDocsAssetsPath = "${project.projectDir}/build/generated/runtime-docs-assets"
+val runtimeDocsAssetsPath = runtimeDocsAssetsDir.get().asFile.absolutePath
 
 val syncRuntimeDocsAssets by tasks.registering(org.gradle.api.tasks.Sync::class) {
     from(rootProject.file("docs/wiki")) {
@@ -20,7 +20,7 @@ val syncRuntimeDocsAssets by tasks.registering(org.gradle.api.tasks.Sync::class)
 
 android {
     namespace = "com.strhodler.utxopocket"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.strhodler.utxopocket"

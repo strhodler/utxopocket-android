@@ -5,7 +5,7 @@ Thanks for helping keep this privacy-first watch-only wallet moving. This docume
 ## 1. Before You Start
 - **Discuss first**: open a GitHub issue (English only) or comment on an existing one before writing code. Use the issue to capture acceptance criteria, UX copy, and any design references.
 - **Stay watch-only**: never introduce private key handling. All descriptors must remain public (receive + change branches).
-- **Tooling**: install JDK 21, Android Studio (SDK 36 + NDK), and clone the repo following `docs/project-setup.md`.
+- **Tooling**: install JDK 21, Android Studio (SDK 37 + NDK), and clone the repo following `docs/project-setup.md`.
 
 ## 2. Branch & Commit Style
 - Branch from `main` using `feature/<descriptor>` (e.g., `feature/tor-bootstrap-toast`).
