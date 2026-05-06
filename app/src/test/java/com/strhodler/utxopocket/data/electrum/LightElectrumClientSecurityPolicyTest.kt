@@ -3,7 +3,9 @@ package com.strhodler.utxopocket.data.electrum
 import com.strhodler.utxopocket.domain.model.NodeTransport
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.domain.node.EndpointScheme
+import javax.net.ssl.SSLParameters
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -37,6 +39,15 @@ class LightElectrumClientSecurityPolicyTest {
                 validateDomain = false
             )
         )
+    }
+
+    @Test
+    fun configureSslHostnameVerificationEnablesHttpsEndpointIdentification() {
+        val parameters = SSLParameters()
+
+        configureSslHostnameVerification(parameters)
+
+        assertEquals("HTTPS", parameters.endpointIdentificationAlgorithm)
     }
 
     @Test

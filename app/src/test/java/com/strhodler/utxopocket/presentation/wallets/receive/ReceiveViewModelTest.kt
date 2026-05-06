@@ -150,6 +150,35 @@ class ReceiveViewModelTest {
     }
 
     @Test
+    fun initialAddressListCancellationDoesNotBecomeError() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        repository.listUnusedThrowable = CancellationException("cancelled")
+
+        val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.error)
+        observer.cancel()
+    }
+
+    @Test
+    fun addressDetailCancellationDoesNotBecomeError() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        repository.unusedAddresses = listOf(primaryAddress)
+        repository.addressDetailThrowable = CancellationException("cancelled")
+
+        val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.error)
+        observer.cancel()
+    }
+
+    @Test
     fun skipsPlaceholderAddressesOnInit() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
@@ -340,6 +369,8 @@ class ReceiveViewModelTest {
 private class FakeWalletRepository : WalletReadRepository, WalletAddressRepository {
     var unusedAddresses: List<WalletAddress> = emptyList()
     var nextAddress: WalletAddress? = null
+    var listUnusedThrowable: Throwable? = null
+    var addressDetailThrowable: Throwable? = null
     var revealNextAddressCalls = 0
     val addressDetails = mutableMapOf<Int, WalletAddressDetail>()
     val markedAsUsed = mutableListOf<Int>()
@@ -392,7 +423,10 @@ private class FakeWalletRepository : WalletReadRepository, WalletAddressReposito
         walletId: Long,
         type: WalletAddressType,
         limit: Int
-    ): List<WalletAddress> = unusedAddresses
+    ): List<WalletAddress> {
+        listUnusedThrowable?.let { throw it }
+        return unusedAddresses
+    }
 
     override suspend fun revealNextAddress(walletId: Long, type: WalletAddressType): WalletAddress? {
         revealNextAddressCalls++
@@ -403,7 +437,10 @@ private class FakeWalletRepository : WalletReadRepository, WalletAddressReposito
         walletId: Long,
         type: WalletAddressType,
         derivationIndex: Int
-    ): WalletAddressDetail? = addressDetails[derivationIndex]
+    ): WalletAddressDetail? {
+        addressDetailThrowable?.let { throw it }
+        return addressDetails[derivationIndex]
+    }
 
     override suspend fun markAddressAsUsed(walletId: Long, type: WalletAddressType, derivationIndex: Int) {
         markedAsUsed += derivationIndex

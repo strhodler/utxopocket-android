@@ -3,6 +3,7 @@ package com.strhodler.utxopocket.presentation.wallets.detail
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.strhodler.utxopocket.common.coroutines.runSuspendCatching
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.UtxoCanvasSnapshot
@@ -135,7 +136,7 @@ class UtxoDetailViewModel @Inject constructor(
     fun updateLabel(label: String?, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             val result =
-                runCatching { walletLabelRepository.updateUtxoLabel(walletId, txId, vout, label) }
+                runSuspendCatching { walletLabelRepository.updateUtxoLabel(walletId, txId, vout, label) }
             onResult(result)
         }
     }
@@ -143,14 +144,14 @@ class UtxoDetailViewModel @Inject constructor(
     fun updateSpendable(spendable: Boolean, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             val result =
-                runCatching { walletLabelRepository.updateUtxoSpendable(walletId, txId, vout, spendable) }
+                runSuspendCatching { walletLabelRepository.updateUtxoSpendable(walletId, txId, vout, spendable) }
             onResult(result)
         }
     }
 
     fun updateCollection(collectionId: Long?, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
-            val result = runCatching {
+            val result = runSuspendCatching {
                 val utxoRef = UtxoRef(txId, vout)
                 if (collectionId == null) {
                     canvasRepository.removeUtxoFromCollection(walletId, utxoRef)

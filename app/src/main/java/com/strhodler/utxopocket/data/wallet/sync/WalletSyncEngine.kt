@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.data.wallet.sync
 
 import android.os.SystemClock
 import com.strhodler.utxopocket.BuildConfig
+import com.strhodler.utxopocket.common.coroutines.runSuspendCatching
 import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.common.logging.WalletLogAliasProvider
 import com.strhodler.utxopocket.data.bdk.WalletMaterializationSource
@@ -113,7 +114,7 @@ internal class WalletSyncEngine(
 
             val metricsEnabled = BuildConfig.DEBUG
             val walletSyncStart = if (metricsEnabled) elapsedRealtime() else 0L
-            val endpointLabelForMetrics = attemptContextProvider()?.endpoint?.displayName ?: endpoint
+            val endpointLabelForMetrics = SecureLog.fingerprint(attemptContextProvider()?.endpoint?.url ?: endpoint)
             var metrics: WalletSyncMetrics? = null
             var metricsError: Throwable? = null
             val sessionId = UUID.randomUUID().toString()
@@ -122,7 +123,7 @@ internal class WalletSyncEngine(
             var utxoBeforeForMetrics: Int? = null
             var utxoAfterForMetrics: Int? = null
 
-            runCatching {
+            runSuspendCatching {
                 store.startSyncSession(
                     id = entity.id,
                     sessionId = sessionId,
@@ -135,7 +136,7 @@ internal class WalletSyncEngine(
 
             onBeforeWalletSync()
 
-            val syncResult = runCatching {
+            val syncResult = runSuspendCatching {
                 withWallet(entity, true) { wallet, persister, materializationSource ->
                     ensureForeground()
                     val isFreshMaterialization = materializationSource == WalletMaterializationSource.EMPTY
@@ -152,7 +153,7 @@ internal class WalletSyncEngine(
                             "Wallet ${entity.id} sync mode=${if (shouldRunFullScan) "full" else "incremental"} reasons=$reasonLabel"
                         }
                     }
-                    val configuredStopGap = runCatching {
+                    val configuredStopGap = runSuspendCatching {
                         walletSyncPreferencesRepository.getGap(entity.id)
                     }.getOrNull()
                     val fullScanStopGap = (entity.fullScanStopGap ?: configuredStopGap)
@@ -171,7 +172,10 @@ internal class WalletSyncEngine(
                             walletCancellationSignal
                         )
                     } catch (syncError: Exception) {
-                        runCatching {
+                        if (syncError is CancellationException) {
+                            throw syncError
+                        }
+                        runSuspendCatching {
                             recordNetworkFailure(syncError, attemptContextProvider())
                         }
                         throw syncError
@@ -214,7 +218,7 @@ internal class WalletSyncEngine(
                     utxoBeforeForMetrics = persistResult.utxoBefore
                     utxoAfterForMetrics = persistResult.utxoAfter
 
-                    runCatching {
+                    runSuspendCatching {
                         store.markSyncSessionApplied(
                             id = entity.id,
                             completedAt = syncTimestamp
@@ -246,6 +250,9 @@ internal class WalletSyncEngine(
 
             val syncError = syncResult.exceptionOrNull()
             if (syncError != null) {
+                if (syncError is CancellationException) {
+                    throw syncError
+                }
                 if (!isNetworkOnline()) {
                     throw CancellationException("Sync cancelled for $network because network is offline")
                 }
@@ -256,11 +263,8 @@ internal class WalletSyncEngine(
                     SecureLog.d(logTag) { "Wallet $walletAlias sync aborted because it is being deleted." }
                     continue
                 }
-                if (syncError is CancellationException) {
-                    throw syncError
-                }
                 hadWalletErrors = true
-                runCatching { invalidateWalletCache(entity.id) }
+                runSuspendCatching { invalidateWalletCache(entity.id) }
                     .onFailure { cleanupError ->
                         syncError.addSuppressed(cleanupError)
                         SecureLog.w(logTag, cleanupError) {
@@ -283,7 +287,7 @@ internal class WalletSyncEngine(
                     timestamp = System.currentTimeMillis()
                 )
                 store.updateSyncFailure(failure, System.currentTimeMillis())
-                runCatching { store.resetSyncSessionAndForceFullScan(entity.id) }
+                runSuspendCatching { store.resetSyncSessionAndForceFullScan(entity.id) }
                     .onFailure { resetError ->
                         SecureLog.w(logTag, resetError) {
                             "Unable to reset sync session after failure for wallet ${entity.id}"

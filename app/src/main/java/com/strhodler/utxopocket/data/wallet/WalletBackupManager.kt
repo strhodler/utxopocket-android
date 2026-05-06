@@ -225,11 +225,6 @@ internal class WalletBackupManager(
                 }
 
                 val existingWallets = walletDao.getAllWallets()
-                existingWallets.forEach { wallet ->
-                    val network = runCatching { BitcoinNetwork.valueOf(wallet.network) }.getOrNull() ?: return@forEach
-                    removeWalletStorage(wallet.id, network)
-                }
-
                 val walletRefMap = mutableMapOf<String, Long>()
                 database.withTransaction {
                     walletDao.clearAllTransactionOutputs()
@@ -259,6 +254,11 @@ internal class WalletBackupManager(
                             canvasItems = wallet.canvasItems
                         )
                     }
+                }
+
+                existingWallets.forEach { wallet ->
+                    val network = runCatching { BitcoinNetwork.valueOf(wallet.network) }.getOrNull() ?: return@forEach
+                    removeWalletStorage(wallet.id, network)
                 }
 
                 applyAppPreferences(payload.appPreferences)?.let { failure ->

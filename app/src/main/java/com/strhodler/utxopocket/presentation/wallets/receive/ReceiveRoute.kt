@@ -64,6 +64,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.common.coroutines.runSuspendCatching
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.AddressUsage
@@ -326,13 +327,13 @@ class ReceiveViewModel @Inject constructor(
     }
 
     private suspend fun loadAddress(fetchAddress: suspend () -> WalletAddress?): Boolean {
-        val addressResult = runCatching { fetchAddress() }
+        val addressResult = runSuspendCatching { fetchAddress() }
         val address = addressResult.getOrNull()
         if (address == null) {
             setError(addressResult.exceptionOrNull())
             return false
         }
-        val detailResult = runCatching {
+        val detailResult = runSuspendCatching {
             walletAddressRepository.getAddressDetail(
                 walletId = walletId,
                 type = WalletAddressType.EXTERNAL,
@@ -359,7 +360,7 @@ class ReceiveViewModel @Inject constructor(
     private suspend fun fetchUnusedAddress(
         extraExcludedAddresses: Set<String> = emptySet()
     ): WalletAddress? =
-        runCatching {
+        runSuspendCatching {
             val excludedAddresses = excludedReceiveAddresses() + extraExcludedAddresses
             val dynamicLimit = (excludedAddresses.size + 2).coerceAtLeast(1)
             val unused = walletAddressRepository.listUnusedAddresses(

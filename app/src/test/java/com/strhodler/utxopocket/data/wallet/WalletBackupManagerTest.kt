@@ -9,8 +9,11 @@ import com.strhodler.utxopocket.data.db.WalletDao
 import com.strhodler.utxopocket.data.db.WalletEntity
 import com.strhodler.utxopocket.data.wallet.backup.MAX_BACKUP_FILE_BYTES
 import com.strhodler.utxopocket.data.wallet.backup.WalletBackupDecodeResult
+import com.strhodler.utxopocket.data.wallet.backup.WalletBackupCollectionMembership
 import com.strhodler.utxopocket.data.wallet.backup.WalletBackupJsonCodec
 import com.strhodler.utxopocket.data.wallet.backup.WalletBackupPayload
+import com.strhodler.utxopocket.data.wallet.backup.WalletBackupWallet
+import com.strhodler.utxopocket.data.wallet.backup.WalletBackupWalletMeta
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
@@ -30,6 +33,7 @@ import com.strhodler.utxopocket.domain.model.WalletBackupImportRequest
 import com.strhodler.utxopocket.domain.model.WalletBackupImportResult
 import com.strhodler.utxopocket.domain.model.WalletBackupPreviewRequest
 import com.strhodler.utxopocket.domain.model.WalletBackupPreviewResult
+import com.strhodler.utxopocket.domain.model.WalletColor
 import com.strhodler.utxopocket.domain.model.WalletDetailPreferences
 import com.strhodler.utxopocket.domain.model.WalletDetailTransactionFilter
 import com.strhodler.utxopocket.domain.model.WalletDetailUtxoFilter
@@ -185,6 +189,46 @@ class WalletBackupManagerTest {
     }
 
     @Test
+    fun importFailureInsideTransactionDoesNotRemoveExistingWalletStorage() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val removedWalletIds = mutableListOf<Long>()
+        val manager = createManager(dispatcher = dispatcher, removedWalletIds = removedWalletIds)
+        val existingWalletId = insertWallet(name = "Existing wallet")
+
+        val import = manager.importEncryptedBackup(
+            request = WalletBackupImportRequest(
+                payload = decodableBackupThatFailsDuringDatabaseImport(),
+                passphrase = BACKUP_PASSPHRASE.copyOf()
+            )
+        )
+
+        assertIs<WalletBackupImportResult.Failure>(import)
+        assertEquals(existingWalletId, walletDao.getAllWallets().single().id)
+        assertEquals(emptyList<Long>(), removedWalletIds)
+    }
+
+    @Test
+    fun importStorageRemovalFailureSurfacesIoFailureAfterDatabaseImport() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val manager = createManager(
+            dispatcher = dispatcher,
+            removeWalletStorage = { _, _ -> error("storage removal failed") }
+        )
+        insertWallet(name = "Existing wallet")
+
+        val import = manager.importEncryptedBackup(
+            request = WalletBackupImportRequest(
+                payload = encodedBackupPayload(backupWallet(name = "Imported wallet")),
+                passphrase = BACKUP_PASSPHRASE.copyOf()
+            )
+        )
+
+        val failure = assertIs<WalletBackupImportResult.Failure>(import).failure
+        assertIs<WalletBackupFailure.IoFailure>(failure)
+        assertEquals("Imported wallet", walletDao.getAllWallets().single().name)
+    }
+
+    @Test
     fun previewRejectsWrongPassphraseWithoutLeakingDetails() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val manager = createManager(dispatcher = dispatcher)
@@ -207,7 +251,8 @@ class WalletBackupManagerTest {
 
     private fun createManager(
         dispatcher: CoroutineDispatcher,
-        removedWalletIds: MutableList<Long> = mutableListOf()
+        removedWalletIds: MutableList<Long> = mutableListOf(),
+        removeWalletStorage: ((Long, BitcoinNetwork) -> Unit)? = null
     ): WalletBackupManager {
         return WalletBackupManager(
             walletDao = walletDao,
@@ -228,12 +273,54 @@ class WalletBackupManagerTest {
                     )
                 }
             },
-            removeWalletStorage = { walletId, _ ->
-                removedWalletIds += walletId
-            },
+            removeWalletStorage = removeWalletStorage ?: { walletId, _ -> removedWalletIds += walletId },
             ioDispatcher = dispatcher
         )
     }
+
+    private fun decodableBackupThatFailsDuringDatabaseImport(): ByteArray =
+        encodedBackupPayload(
+            backupWallet(
+                name = "Imported wallet",
+                memberships = listOf(
+                    WalletBackupCollectionMembership(
+                        txid = "0123456789abcdef",
+                        vout = 0,
+                        collectionName = "Missing collection"
+                    )
+                )
+            )
+        )
+
+    private fun encodedBackupPayload(wallet: WalletBackupWallet): ByteArray =
+        WalletBackupJsonCodec.encode(
+            payload = WalletBackupPayload(
+                wallets = listOf(wallet),
+                appPreferences = null,
+                walletDetailPreferences = emptyList()
+            ),
+            passphrase = BACKUP_PASSPHRASE.copyOf(),
+            iterations = 150_000,
+            createdAtMillis = 1_770_000_000_000L
+        )
+
+    private fun backupWallet(
+        name: String,
+        memberships: List<WalletBackupCollectionMembership> = emptyList()
+    ): WalletBackupWallet = WalletBackupWallet(
+        walletRef = "wallet-1",
+        meta = WalletBackupWalletMeta(
+            name = name,
+            network = BitcoinNetwork.TESTNET4.name,
+            descriptor = "wpkh(tpubD6NzVbkrYhZ4Yexample/0/*)",
+            changeDescriptor = "wpkh(tpubD6NzVbkrYhZ4Yexample/1/*)",
+            sharedDescriptors = false,
+            viewOnly = true,
+            color = WalletColor.DEFAULT.storageKey,
+            sortOrder = 0
+        ),
+        collectionMemberships = memberships
+    )
 
     private suspend fun insertWallet(name: String): Long {
         return walletDao.insert(

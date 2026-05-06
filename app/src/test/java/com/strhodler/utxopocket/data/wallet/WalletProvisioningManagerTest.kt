@@ -64,6 +64,32 @@ class WalletProvisioningManagerTest {
     }
 
     @Test
+    fun validateDescriptorRejectsWifPrivateKeyMaterial() = runTest {
+        val manager = createManager(StandardTestDispatcher(testScheduler))
+        val privateKeys = listOf(
+            "5HueCGU8rMjxEXxiPuD5BDuRaYw2dS32v8SEHFG5mR9oxG9B4X4",
+            "KwdMAjHnkSg9Yg6VJw4T6wXJrTQG3xJ7KQntQ7VsS5nQ5rNqDLm",
+            "L1aW4aubDFB7yfras2S1mMEG2L4X7tY5V9yP1kS1b8H3Gk7uJdNz",
+            "92Pg46rUhgTTNeqLkXhN2ixbP7JgDg9v6QxX8ZpFv3QWbZ6ZV1N",
+            "cTpB4Suo8QDXMB8sCxGYVYRE3Q4x8h4c8fPGFQ3xQBDhG6dkdC9Q"
+        )
+
+        privateKeys.forEach { privateKey ->
+            val result = manager.validateDescriptor(
+                descriptor = "wpkh($privateKey)",
+                changeDescriptor = WATCH_ONLY_CHANGE_DESCRIPTOR,
+                network = BitcoinNetwork.TESTNET4
+            )
+
+            val invalid = assertIs<DescriptorValidationResult.Invalid>(result)
+            assertEquals(
+                "Descriptor contains private key material. Only watch-only descriptors are supported.",
+                invalid.reason
+            )
+        }
+    }
+
+    @Test
     fun addWalletRejectsPrivateDescriptorWithoutPersisting() = runTest {
         val manager = createManager(StandardTestDispatcher(testScheduler))
 

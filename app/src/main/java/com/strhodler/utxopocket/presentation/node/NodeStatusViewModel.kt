@@ -97,7 +97,7 @@ class NodeStatusViewModel @Inject constructor(
                 SecureLog.d(TAG) {
                     "NodeStatusViewModel snapshot status=${nodeSnapshot.status} network=${nodeSnapshot.network} " +
                         "connected=$isConnected connecting=$isConnecting syncBusy=$syncBusy " +
-                        "endpoint=${nodeSnapshot.endpoint} lastSync=${nodeSnapshot.lastSyncCompletedAt}"
+                        "endpointHash=${SecureLog.fingerprint(nodeSnapshot.endpoint)} lastSync=${nodeSnapshot.lastSyncCompletedAt}"
                 }
                 NodeConfigSnapshot(
                     networkLabel = network,

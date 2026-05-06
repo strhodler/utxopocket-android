@@ -272,7 +272,7 @@ internal class WalletProvisioningManager(
         private val EXTENDED_PRIVATE_KEY_REGEX =
             Regex("\\b[acdfklmnstuvxyz]prv[0-9a-z]+", RegexOption.IGNORE_CASE)
         private val WIF_PRIVATE_KEY_REGEX =
-            Regex("\\b[KL][1-9A-HJ-NP-Za-km-z]{50,51}\\b")
+            Regex("\\b(?:[59][1-9A-HJ-NP-Za-km-z]{50}|[KLc][1-9A-HJ-NP-Za-km-z]{50,51})\\b")
         private val EXTERNAL_PATH_REGEX = Regex("/0+/?\\*")
         private val CHANGE_PATH_REGEX = Regex("/1+/?\\*")
     }

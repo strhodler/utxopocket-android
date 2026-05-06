@@ -3,6 +3,7 @@ package com.strhodler.utxopocket.presentation.wallets.detail
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.strhodler.utxopocket.common.coroutines.runSuspendCatching
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
@@ -116,7 +117,7 @@ class TransactionDetailViewModel @Inject constructor(
     fun updateLabel(label: String?, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             val result =
-                runCatching { walletLabelRepository.updateTransactionLabel(walletId, transactionId, label) }
+                runSuspendCatching { walletLabelRepository.updateTransactionLabel(walletId, transactionId, label) }
             onResult(result)
         }
     }

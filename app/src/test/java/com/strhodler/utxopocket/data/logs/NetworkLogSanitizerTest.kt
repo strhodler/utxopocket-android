@@ -1,6 +1,7 @@
 package com.strhodler.utxopocket.data.logs
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
@@ -38,5 +39,37 @@ class NetworkLogSanitizerTest {
         assert(!lower.contains("192.168.1.10"))
         assert(!lower.contains("50001"))
         assert(lower.contains("[endpoint]"))
+    }
+
+    @Test
+    fun `sanitizeMessage removes onion endpoint and proxy values`() {
+        val onionHost = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijk.onion"
+        val error = IllegalStateException(
+            "Failed $onionHost:50001 via 127.0.0.1:9050"
+        )
+
+        val sanitized = NetworkLogSanitizer.sanitizeMessage(
+            error = error,
+            host = onionHost,
+            endpoint = "tcp://$onionHost:50001"
+        )
+
+        assertFalse(sanitized.contains(".onion"))
+        assertFalse(sanitized.contains("127.0.0.1"))
+        assertFalse(sanitized.contains("9050"))
+    }
+
+    @Test
+    fun `sanitizeMessage removes local endpoint values`() {
+        val error = IllegalStateException("Failed 192.168.1.10:50001")
+
+        val sanitized = NetworkLogSanitizer.sanitizeMessage(
+            error = error,
+            host = "192.168.1.10",
+            endpoint = "tcp://192.168.1.10:50001"
+        )
+
+        assertFalse(sanitized.contains("192.168.1.10"))
+        assertFalse(sanitized.contains("50001"))
     }
 }

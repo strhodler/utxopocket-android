@@ -371,6 +371,9 @@ internal class NodeSyncRunner(
             feeRateSatPerVb = estimatedFeeRateSatPerVb
         )
 
+        fun endpointLogLabel(endpointValue: String?): String =
+            "endpointHash=${SecureLog.fingerprint(endpointValue)}"
+
         fun publishConnectingStatus(endpointValue: String?) {
             statusPublisher.publish(
                 status = NodeStatus.Connecting,
@@ -381,7 +384,7 @@ internal class NodeSyncRunner(
                 lastSyncCompletedAt = lastSyncForNetwork,
                 feeRateSatPerVb = estimatedFeeRateSatPerVb
             )
-            SecureLog.d(logTag) { "Node status -> Connecting network=$network endpoint=$endpointValue" }
+            SecureLog.d(logTag) { "Node status -> Connecting network=$network ${endpointLogLabel(endpointValue)}" }
         }
 
         fun publishSyncingStatus(endpointValue: String?) {
@@ -394,7 +397,7 @@ internal class NodeSyncRunner(
                 lastSyncCompletedAt = lastSyncForNetwork,
                 feeRateSatPerVb = estimatedFeeRateSatPerVb
             )
-            SecureLog.d(logTag) { "Node status -> Syncing network=$network endpoint=$endpointValue" }
+            SecureLog.d(logTag) { "Node status -> Syncing network=$network ${endpointLogLabel(endpointValue)}" }
         }
 
         fun signalWaitingForTor(endpointLabel: String?, torStatus: TorStatus? = null) {
@@ -463,11 +466,11 @@ internal class NodeSyncRunner(
                 }
                 SecureLog.d(logTag) {
                     if (activeTransport == NodeTransport.TOR && proxy != null) {
-                        "Starting electrum sync via $endpoint using proxy ${proxy.host}:${proxy.port}"
+                        "Starting electrum sync via ${endpointLogLabel(endpoint)} using Tor proxy"
                     } else if (activeTransport == NodeTransport.TOR) {
-                        "Starting electrum sync via Tor proxy"
+                        "Starting electrum sync via ${endpointLogLabel(endpoint)} using Tor proxy"
                     } else {
-                        "Starting electrum sync without Tor proxy"
+                        "Starting electrum sync via ${endpointLogLabel(endpoint)} without Tor proxy"
                     }
                 }
                 session.blockchain.use { blockchain ->
@@ -477,7 +480,7 @@ internal class NodeSyncRunner(
                     } catch (metadataError: Exception) {
                         val endpointFingerprint = SecureLog.fingerprint(endpoint)
                         SecureLog.w(logTag) {
-                            "Unable to fetch electrum metadata from endpoint=$endpointFingerprint error=${metadataError.javaClass.simpleName}"
+                            "Unable to fetch electrum metadata from endpointHash=$endpointFingerprint error=${metadataError.javaClass.simpleName}"
                         }
                         val reason = metadataError.toTorAwareMessage(
                             defaultMessage = metadataError.message.orEmpty().ifBlank { "Electrum connection failed" },
@@ -510,7 +513,7 @@ internal class NodeSyncRunner(
                             return
                         }
                         SecureLog.d(logTag) {
-                            "Node status -> Synced (metadata-only) network=$network endpoint=$endpoint height=$blockHeight"
+                            "Node status -> Synced (metadata-only) network=$network ${endpointLogLabel(endpoint)} height=$blockHeight"
                         }
                         return
                     }
@@ -579,7 +582,7 @@ internal class NodeSyncRunner(
                     )
                     if (publishTerminalStatus(finalSnapshot)) {
                         SecureLog.d(logTag) {
-                            "Node status -> $finalStatus network=$network endpoint=$endpoint height=$blockHeight lastSync=$syncCompletedAt"
+                            "Node status -> $finalStatus network=$network ${endpointLogLabel(endpoint)} height=$blockHeight lastSync=$syncCompletedAt"
                         }
                     }
                     if (walletSyncResult.hadWalletErrors) {

@@ -25,6 +25,7 @@ import javax.inject.Singleton
 
 interface WalletStorage {
     fun connectionPath(walletId: Long, network: BitcoinNetwork): String
+    fun storagePath(walletId: Long, network: BitcoinNetwork): String
     fun seal(connectionPath: String)
     fun remove(walletId: Long, network: BitcoinNetwork)
     fun materializationState(connectionPath: String): WalletMaterializationState?
@@ -49,29 +50,43 @@ class DefaultWalletStorage @Inject constructor(
 ) : WalletStorage {
 
     private val sessions = ConcurrentHashMap<String, WalletSession>()
+    private val sessionsLock = Any()
 
     override fun connectionPath(walletId: Long, network: BitcoinNetwork): String {
-        val key = sessionKey(walletId, network)
-        val session = sessions[key] ?: createSession(walletId, network).also { sessions[key] = it }
-        session.openCount.incrementAndGet()
+        val session = getOrCreateSession(walletId, network)
         synchronized(session.lock) {
-            if (!session.materialized.get()) {
-                materializeSession(session)
-                session.materialized.set(true)
+            session.openCount.incrementAndGet()
+            try {
+                if (!session.materialized.get()) {
+                    materializeSession(session)
+                    session.materialized.set(true)
+                }
+                return session.databaseFile.absolutePath
+            } catch (error: Throwable) {
+                if (session.openCount.decrementAndGet() <= 0) {
+                    sessions.remove(session.databaseFile.absolutePath, session)
+                }
+                throw error
             }
         }
-        return session.databaseFile.absolutePath
     }
+
+    override fun storagePath(walletId: Long, network: BitcoinNetwork): String =
+        sessionKey(walletId, network)
 
     override fun seal(connectionPath: String) {
         val session = sessions[connectionPath] ?: return
-        if (session.openCount.decrementAndGet() > 0) {
-            return
-        }
         synchronized(session.lock) {
-            persistSession(session)
-            session.materialized.set(false)
-            sessions.remove(connectionPath)
+            val remaining = session.openCount.decrementAndGet()
+            if (remaining > 0) return
+            try {
+                persistSession(session)
+                session.materialized.set(false)
+                sessions.remove(connectionPath, session)
+            } catch (error: Throwable) {
+                session.openCount.incrementAndGet()
+                throw error
+            }
         }
     }
 
@@ -108,6 +123,13 @@ class DefaultWalletStorage @Inject constructor(
             }
         }
         session.materializationState = WalletMaterializationState(source)
+    }
+
+    private fun getOrCreateSession(walletId: Long, network: BitcoinNetwork): WalletSession {
+        val key = sessionKey(walletId, network)
+        return synchronized(sessionsLock) {
+            sessions[key] ?: createSession(walletId, network).also { session -> sessions[key] = session }
+        }
     }
 
     private fun persistSession(session: WalletSession) {

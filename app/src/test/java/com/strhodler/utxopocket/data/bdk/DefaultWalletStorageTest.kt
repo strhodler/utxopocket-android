@@ -20,6 +20,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.test.runTest
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
@@ -47,6 +52,8 @@ class DefaultWalletStorageTest {
         cleanupWalletArtifacts(walletId = LEGACY_ARTIFACTS_WALLET_ID, network = NETWORK)
         cleanupWalletArtifacts(walletId = CORRUPT_BUNDLE_WALLET_ID, network = NETWORK)
         cleanupWalletArtifacts(walletId = STRICT_FAILURE_WALLET_ID, network = NETWORK)
+        cleanupWalletArtifacts(walletId = CONCURRENT_SESSION_WALLET_ID, network = NETWORK)
+        cleanupWalletArtifacts(walletId = CORRUPT_REMOVE_WALLET_ID, network = NETWORK)
     }
 
     @Test
@@ -136,6 +143,43 @@ class DefaultWalletStorageTest {
 
         assertTrue(error.message?.contains("Unable to decrypt wallet bundle") == true)
         assertFalse(workingDir(CORRUPT_BUNDLE_WALLET_ID, NETWORK).exists())
+    }
+
+    @Test
+    fun concurrentConnectionPathUsesSinglePathAndSealsCleanly() = runTest {
+        cleanupWalletArtifacts(walletId = CONCURRENT_SESSION_WALLET_ID, network = NETWORK)
+
+        val paths = coroutineScope {
+            (1..32).map {
+                async(Dispatchers.Default) {
+                    storage.connectionPath(CONCURRENT_SESSION_WALLET_ID, NETWORK)
+                }
+            }.awaitAll()
+        }
+
+        assertEquals(1, paths.distinct().size)
+        File(paths.distinct().single()).writeBytes(DB_BYTES)
+        paths.forEach { path -> storage.seal(path) }
+
+        assertTrue(encryptedBundleFile(CONCURRENT_SESSION_WALLET_ID, NETWORK).exists())
+        assertFalse(workingDir(CONCURRENT_SESSION_WALLET_ID, NETWORK).exists())
+    }
+
+    @Test
+    fun factoryRemoveStorageDoesNotMaterializeCorruptEncryptedBundle() {
+        cleanupWalletArtifacts(walletId = CORRUPT_REMOVE_WALLET_ID, network = NETWORK)
+        val encryptedBundle = encryptedBundleFile(CORRUPT_REMOVE_WALLET_ID, NETWORK)
+        encryptedBundle.parentFile?.mkdirs()
+        encryptedBundle.writeBytes("corrupt-bundle".toByteArray())
+        val factory = BdkWalletFactory(
+            walletStorage = storage,
+            persisterRegistry = BdkPersisterRegistry()
+        )
+
+        factory.removeStorage(walletId = CORRUPT_REMOVE_WALLET_ID, network = NETWORK)
+
+        assertFalse(encryptedBundle.exists())
+        assertFalse(workingDir(CORRUPT_REMOVE_WALLET_ID, NETWORK).exists())
     }
 
     @Test
@@ -231,6 +275,8 @@ class DefaultWalletStorageTest {
         private const val LEGACY_ARTIFACTS_WALLET_ID = 705L
         private const val CORRUPT_BUNDLE_WALLET_ID = 707L
         private const val STRICT_FAILURE_WALLET_ID = 706L
+        private const val CONCURRENT_SESSION_WALLET_ID = 708L
+        private const val CORRUPT_REMOVE_WALLET_ID = 709L
         private val DB_BYTES = "wallet-db-content".toByteArray()
         private val WAL_BYTES = "wallet-wal-content".toByteArray()
         private val SHM_BYTES = "wallet-shm-content".toByteArray()

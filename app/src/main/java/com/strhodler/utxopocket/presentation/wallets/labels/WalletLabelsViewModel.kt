@@ -3,6 +3,7 @@ package com.strhodler.utxopocket.presentation.wallets.labels
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.strhodler.utxopocket.common.coroutines.runSuspendCatching
 import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.WalletLabelExport
 import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
@@ -45,7 +46,7 @@ class WalletLabelsViewModel @Inject constructor(
         if (_exportState.value is LabelExportState.Loading) return
         viewModelScope.launch {
             _exportState.value = LabelExportState.Loading
-            val result = runCatching { walletLabelRepository.exportWalletLabels(walletId) }
+            val result = runSuspendCatching { walletLabelRepository.exportWalletLabels(walletId) }
             _exportState.value = result.fold(
                 onSuccess = { export ->
                     if (export.entries.isEmpty()) LabelExportState.Empty else LabelExportState.Ready(export)
@@ -62,7 +63,7 @@ class WalletLabelsViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             _importState.value = LabelImportState(inProgress = true)
-            val result = runCatching {
+            val result = runSuspendCatching {
                 walletLabelRepository.importWalletLabels(
                     walletId = walletId,
                     payload = payload,

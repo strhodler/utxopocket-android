@@ -2,6 +2,7 @@ package com.strhodler.utxopocket.domain.node
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -53,5 +54,31 @@ class NodeEndpointClassifierTest {
         assertTrue(NodeEndpointClassifier.isLocalIpLiteral("fd12:3456::1"))
         assertFalse(NodeEndpointClassifier.isLocalIpLiteral("localhost"))
         assertFalse(NodeEndpointClassifier.isLocalIpLiteral("mynode.local"))
+    }
+
+    @Test
+    fun rejectsMalformedPorts() {
+        assertFailsWith<IllegalArgumentException> {
+            NodeEndpointClassifier.normalize("ssl://example.com:notaport")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            NodeEndpointClassifier.normalize("ssl://example.com:50002:extra")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            NodeEndpointClassifier.normalize("ssl://[fd12::1]junk")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            NodeEndpointClassifier.normalize("ssl://[fd12::1]:notaport")
+        }
+    }
+
+    @Test
+    fun rejectsOutOfRangeIpv4Literals() {
+        assertFailsWith<IllegalArgumentException> {
+            NodeEndpointClassifier.normalize("ssl://192.168.1.999:50002")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            NodeEndpointClassifier.normalize("ssl://999.168.1.1:50002")
+        }
     }
 }

@@ -48,6 +48,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.common.coroutines.runSuspendCatching
 import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
 import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
@@ -274,7 +275,7 @@ class WalletSyncSettingsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val summary = walletReadRepository.observeWalletDetail(walletId).firstOrNull()?.summary
-            val stored = runCatching { walletSyncPreferencesRepository.getGap(walletId) }.getOrNull()
+            val stored = runSuspendCatching { walletSyncPreferencesRepository.getGap(walletId) }.getOrNull()
             val resolved = resolveSyncGap(stored, summary)
             _uiState.value = _uiState.value.copy(gap = resolved, savedGap = resolved)
             walletSyncPreferencesRepository.observeGap(walletId).collect { storedGap ->
@@ -300,7 +301,7 @@ class WalletSyncSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true)
             val gap = _uiState.value.gap
-            val result = runCatching { walletSyncPreferencesRepository.setGap(walletId, gap) }
+            val result = runSuspendCatching { walletSyncPreferencesRepository.setGap(walletId, gap) }
             _uiState.value = _uiState.value.copy(
                 isSaving = false,
                 savedGap = if (result.isSuccess) gap else _uiState.value.savedGap,
@@ -314,8 +315,8 @@ class WalletSyncSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val gap = _uiState.value.gap
             _uiState.value = _uiState.value.copy(isRescanning = true, message = null)
-            val saveResult = runCatching { walletSyncPreferencesRepository.setGap(walletId, gap) }
-            val rescanResult = saveResult.mapCatching {
+            val rescanResult = runSuspendCatching {
+                walletSyncPreferencesRepository.setGap(walletId, gap)
                 walletProvisioningRepository.forceFullRescan(walletId, gap)
             }
             _uiState.value = _uiState.value.copy(

@@ -1,7 +1,6 @@
 package com.strhodler.utxopocket.domain.node
 
 import java.util.Locale
-import kotlin.math.min
 
 enum class EndpointScheme(val protocol: String) {
     SSL("ssl"),
@@ -56,6 +55,7 @@ object NodeEndpointClassifier {
         require(hostValue.isNotEmpty()) { "Host cannot be blank" }
 
         val normalizedHost = hostValue.lowercase(Locale.US)
+        requireValidIpv4IfDottedQuad(normalizedHost)
         val normalizedPort = portValue?.also { port ->
             require(port in 1..65535) { "Port $port out of range" }
         }
@@ -130,15 +130,26 @@ object NodeEndpointClassifier {
             val closing = trimmed.indexOf(']')
             require(closing > 0) { "Invalid IPv6 literal: $value" }
             val host = trimmed.substring(1, closing)
-            val remainder = trimmed.substring(min(closing + 1, trimmed.length))
-            val port = remainder.removePrefix(":").takeIf { it.isNotBlank() }?.toIntOrNull()
+            val remainder = trimmed.substring(closing + 1)
+            require(remainder.isEmpty() || remainder.startsWith(":")) { "Invalid IPv6 literal: $value" }
+            val port = remainder.removePrefix(":").takeIf { it.isNotBlank() }?.toStrictPort()
             return host to port
         }
 
-        val parts = trimmed.split(':', limit = 2)
+        val parts = trimmed.split(':')
+        require(parts.size <= 2) { "Invalid endpoint: $value" }
         val host = parts[0]
-        val port = parts.getOrNull(1)?.toIntOrNull()
+        val port = parts.getOrNull(1)?.toStrictPort()
         return host to port
+    }
+
+    private fun String.toStrictPort(): Int =
+        toIntOrNull() ?: throw IllegalArgumentException("Invalid port: $this")
+
+    private fun requireValidIpv4IfDottedQuad(host: String) {
+        val parts = host.split('.')
+        if (parts.size != 4 || parts.any { part -> part.isEmpty() || part.any { !it.isDigit() } }) return
+        require(parts.all { part -> part.toIntOrNull() in 0..255 }) { "Invalid IPv4 literal: $host" }
     }
 
     private fun isLocalAddress(host: String): Boolean {

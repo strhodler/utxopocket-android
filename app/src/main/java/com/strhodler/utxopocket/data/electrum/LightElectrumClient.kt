@@ -25,6 +25,7 @@ import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLParameters
 import javax.net.ssl.SSLSocket
 import org.json.JSONArray
 import org.json.JSONObject
@@ -94,6 +95,7 @@ class LightElectrumClient(
                 port,
                 true
             ) as SSLSocket
+            wrapped.sslParameters = configureSslHostnameVerification(wrapped.sslParameters)
             wrapped.startHandshake()
             wrapped
         } else {
@@ -441,3 +443,8 @@ internal fun shouldFailClosedForMissingTorProxy(
     endpointTransport: NodeTransport,
     proxy: SocksProxyConfig?
 ): Boolean = endpointTransport == NodeTransport.TOR && proxy == null
+
+internal fun configureSslHostnameVerification(parameters: SSLParameters): SSLParameters =
+    parameters.apply {
+        endpointIdentificationAlgorithm = "HTTPS"
+    }
