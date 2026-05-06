@@ -70,8 +70,8 @@ fun WalletLabelExportRoute(
     val downloadLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         val export = (exportState as? LabelExportState.Ready)?.export ?: return@rememberLauncherForActivityResult
         if (uri == null) return@rememberLauncherForActivityResult
-        val success = writeBip329Labels(context, uri, export)
         coroutineScope.launch {
+            val success = writeBip329Labels(context, uri, export)
             snackbarHostState.showSnackbar(
                 message = if (success) {
                     String.format(exportSavedMessageTemplate, export.fileName)
@@ -254,10 +254,10 @@ fun WalletLabelExportRoute(
                     ) {
                         TextButton(
                             onClick = {
-                                shareBip329Labels(context, export)
                                 coroutineScope.launch {
+                                    val success = shareBip329Labels(context, export)
                                     snackbarHostState.showSnackbar(
-                                        message = exportReadyMessage,
+                                        message = if (success) exportReadyMessage else exportErrorMessage,
                                         duration = SnackbarDuration.Short,
                                         withDismissAction = true
                                     )
