@@ -23,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.presentation.appshell.MainAppShell
 import com.strhodler.utxopocket.presentation.launcher.LauncherCamouflageManager
 import com.strhodler.utxopocket.presentation.onboarding.OnboardingRoute
+import com.strhodler.utxopocket.presentation.theme.ThemeNightModeBootstrap
 import com.strhodler.utxopocket.presentation.theme.UtxoPocketTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +51,12 @@ class MainActivity : AppCompatActivity() {
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             val obscure by obscureScreen.collectAsStateWithLifecycle()
+
+            LaunchedEffect(uiState.isReady, uiState.themePreference) {
+                if (uiState.isReady) {
+                    ThemeNightModeBootstrap.apply(uiState.themePreference)
+                }
+            }
 
             LaunchedEffect(uiState.isReady, uiState.appShellState.calculatorGateEnabled) {
                 if (uiState.isReady) {

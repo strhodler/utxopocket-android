@@ -2,19 +2,18 @@ package com.strhodler.utxopocket.presentation.theme
 
 import androidx.appcompat.app.AppCompatDelegate
 import com.strhodler.utxopocket.domain.model.ThemePreference
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class ThemeNightModeBootstrapTest {
 
-    @Test
-    fun `parseThemePreference returns system for null`() {
-        assertEquals(ThemePreference.SYSTEM, ThemeNightModeBootstrap.parseThemePreference(null))
-    }
-
-    @Test
-    fun `parseThemePreference returns system for unknown value`() {
-        assertEquals(ThemePreference.SYSTEM, ThemeNightModeBootstrap.parseThemePreference("UNKNOWN"))
+    @After
+    fun resetNightMode() {
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_UNSPECIFIED)
     }
 
     @Test
@@ -30,6 +29,16 @@ class ThemeNightModeBootstrapTest {
         assertEquals(
             AppCompatDelegate.MODE_NIGHT_YES,
             ThemeNightModeBootstrap.toNightMode(ThemePreference.DARK)
+        )
+    }
+
+    @Test
+    fun `apply sets default night mode`() {
+        ThemeNightModeBootstrap.apply(ThemePreference.DARK)
+
+        assertEquals(
+            AppCompatDelegate.MODE_NIGHT_YES,
+            AppCompatDelegate.getDefaultNightMode()
         )
     }
 }

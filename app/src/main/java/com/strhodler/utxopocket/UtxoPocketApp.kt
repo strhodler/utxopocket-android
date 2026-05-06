@@ -4,7 +4,6 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
-import com.strhodler.utxopocket.presentation.theme.ThemeNightModeBootstrap
 import com.strhodler.utxopocket.tor.TorServiceActions
 import dagger.hilt.android.HiltAndroidApp
 
@@ -13,7 +12,6 @@ class UtxoPocketApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        ThemeNightModeBootstrap.apply(applicationContext)
         createNotificationChannels()
     }
 
