@@ -8,6 +8,7 @@
 /local.properties
 /local.properties.windows
 /.idea
+/.vscode/
 .DS_Store
 /build/
 app/build/
