@@ -43,7 +43,6 @@ output-metadata.json
 *.gpg
 
 # === Misc ===
-AGENTS.md
 /local.properties.wsl
 context/
 .opencode/
