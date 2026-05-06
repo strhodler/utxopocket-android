@@ -1,88 +1,107 @@
-# UtxoPocket
+<div align="center">
+  <img src="app/src/main/ic_launcher-playstore.png" width="96" alt="UtxoPocket logo" />
 
-Privacy-first, open-source Android watch-only wallet for monitoring Bitcoin descriptors, analyzing UTXOs, and inspecting transaction flows.
+  # UtxoPocket
+
+  Privacy-first Android watch-only wallet for Bitcoin descriptors, UTXOs, labels, and transaction flow inspection.
+
+  [![Android Checks](https://img.shields.io/github/actions/workflow/status/strhodler/utxopocket-android/android-checks.yml?style=flat-square&label=Android%20checks)](https://github.com/strhodler/utxopocket-android/actions/workflows/android-checks.yml)
+  [![Latest Release](https://img.shields.io/github/v/release/strhodler/utxopocket-android?style=flat-square&label=Release)](https://github.com/strhodler/utxopocket-android/releases)
+  ![Kotlin](https://img.shields.io/badge/Kotlin-2.3-7f52ff?style=flat-square&logo=kotlin&logoColor=white)
+  ![JDK](https://img.shields.io/badge/JDK-21-437291?style=flat-square)
+  ![minSdk](https://img.shields.io/badge/minSdk-28-3ddc84?style=flat-square&logo=android&logoColor=white)
+  [![MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+
+  [Install](#install) • [Features](#features) • [Security Model](#security-model) • [Build](#build-from-source) • [Documentation](#documentation)
+</div>
+
+UtxoPocket helps you monitor Bitcoin wallets from public descriptors without turning your phone into a signer. It focuses on wallet visibility, UTXO review, private Electrum connectivity, and local-first education for users who want to inspect their wallet state without exposing signing material.
+
+> [!IMPORTANT]
+> UtxoPocket is watch-only by design. It never handles seeds, private keys, WIFs, `xprv`/`tprv` values, PSBT signing, transaction construction, or transaction finalization.
+
+> [!NOTE]
+> Tor is the default privacy boundary for bundled public Electrum presets and custom onion endpoints. `Local Direct` is an explicit opt-in mode for trusted private/local IP literal Electrum nodes only.
 
 ## Features
-- Watch-only monitoring for multiple wallets, balances, transactions, UTXOs, and labels
-- Public descriptor import by paste or QR, including receive/change branches and multipath setups
-- Broad watch-only compatibility across common BDK-supported singlesig, Taproot, Miniscript, multisig, and `addr(...)` exports
-- BIP-329 label import/export workflows
-- UTXO Canvas with collections, color tags, and automatic Dust grouping
-- Analysis views for age, spendability, value bands, collections, and treemap inspection
-- Transaction visualizer for inputs, outputs, change, and fee structure
-- Encrypted watch-only `.ubak` backups with passphrase preview before restore
-- Tor by default for bundled Electrum presets and custom onion endpoints (app-owned embedded runtime)
-- Optional `Local Direct` mode for custom private/local IP literal Electrum endpoints
-- Multi-network support for Mainnet, Testnet3, Testnet4, and Signet
-- Early incoming detection while BDK sync remains the canonical wallet state
-- Searchable offline wiki and glossary inside the app
-- Optional PIN with backoff, duress PIN support, and calculator camouflage before PIN entry
-- Panic wipe and encrypted local storage
 
-## Values
-- Privacy first: Tor is the default mode and the app ships with no analytics, crash reporting, or ad SDKs
-- Watch-only by design: no seeds, no private keys, and no transaction signing on device
-- Fail-closed networking: no silent fallback between Tor and `Local Direct`
-- Open source and auditable: public codebase, transparent dependencies, and documented security posture
-- Local security matters: encrypted storage, optional PIN protection, duress-aware access controls, and panic wipe support
+- Import public Bitcoin descriptors by paste or QR, including receive/change pairs and BIP-389 multipath exports.
+- Monitor multiple wallets across Mainnet, Testnet3, Testnet4, and Signet.
+- Inspect balances, transactions, UTXOs, labels, value bands, age, spendability, collections, and transaction flows.
+- Organize coins with UTXO Canvas collections, color tags, automatic Dust grouping, histograms, and treemap views.
+- Import and export BIP-329 labels, including QR-friendly workflows for portable wallet metadata.
+- Export encrypted watch-only `.ubak` backups for descriptors, labels, collections, and selected local preferences.
+- Use Tor-by-default Electrum sync, custom onion endpoints, or explicit `Local Direct` mode for trusted private/local infrastructure.
+- Keep wallet data local with SQLCipher/Tink-backed storage, optional PIN, duress PIN, calculator camouflage, and panic wipe.
+- Browse an offline Bitcoin wiki and glossary bundled into the app.
+- Run without analytics, crash reporters, ad SDKs, explorer lookups, or remote attribution services.
 
-## Get the app
-- Install via [Obtainium](https://github.com/ImranR98/Obtainium) to track tagged GitHub releases
-- Or download the latest APK, checksums, and release notes from [GitHub Releases](https://github.com/strhodler/utxopocket-android/releases)
-- Release artifacts publish checksums and signing certificate fingerprints so you can verify what you install
+## Install
 
-## Built with
-- [BDK / Bitcoin Dev Kit](https://github.com/bitcoindevkit)
-- [Tor Project](https://www.torproject.org/) via Guardian Project `tor-android` + pinned `jtorctl`
-- [Hummingbird UR Toolkit](https://github.com/sparrowwallet/hummingbird)
+- Download the latest APK, checksums, and release notes from [GitHub Releases](https://github.com/strhodler/utxopocket-android/releases).
+- Or add this repository to [Obtainium](https://github.com/ImranR98/Obtainium) to follow tagged GitHub releases.
+- Verify release artifacts with the published checksums and signing certificate fingerprints before installing.
 
-## Inspired by
-- [Sparrow Wallet](https://github.com/sparrowwallet/sparrow)
-- [Sentinel](https://code.samourai.io/wallet/sentinel-android)
-- [Ashigaru Wallet](https://ashigaru.rs/)
+Start with the [getting started guide](docs/getting-started.md) if this is your first descriptor-based watch-only wallet.
 
-## Build from source
+## Security Model
 
-Requirements: Java 21, Android SDK 37 (targetSdk 36), and an ARM64 Android device or emulator.
+UtxoPocket treats privacy as a functional requirement:
+
+- Private material is rejected even if a parser accepts the descriptor format.
+- Tor mode fails closed if the Tor proxy is unavailable; there is no clearnet fallback while Tor mode is active.
+- `Local Direct` rejects DNS names, `.local`, public IPs, onion endpoints, and public presets.
+- Local data is encrypted, backups are passphrase protected, and panic wipe removes wallet, database, preference, Tor, cache, and key material artifacts.
+- Network/Tor diagnostics are local, optional, and sanitized.
+
+See [SECURITY.md](SECURITY.md) for the full threat model, storage design, permissions, backup semantics, and disclosure process.
+
+## Build From Source
+
+Requirements: JDK 21, Android SDK Platform 37, Android NDK 26+, and an ARM64 Android device or emulator for runtime testing.
 
 ```bash
 git clone https://github.com/strhodler/utxopocket-android.git
 cd utxopocket-android
 ```
 
-Create `local.properties`:
+Create an untracked `local.properties` file pointing to your Android SDK:
 
 ```text
 sdk.dir=/absolute/path/to/Android/Sdk
 ```
 
-Install the debug build:
+Build the debug APK and run the fast contributor checks:
 
 ```bash
-./gradlew :app:installDebug
+./gradlew :app:assembleDebug
+./gradlew lintDebug :app:testDebugUnitTest
 ```
 
-Run the main contributor checks:
+On Windows PowerShell, use `./gradlew.bat` or `.\gradlew.bat`. For device install flows, WSL notes, dependency verification, and troubleshooting, see [Project Setup For Contributors](docs/project-setup.md).
 
-```bash
-./gradlew lintDebug
-./gradlew :app:testDebugUnitTest
-```
+## Documentation
 
-If dependency verification fails after updating dependency versions, regenerate the trusted hashes and commit `gradle/verification-metadata.xml` with the version catalog change:
+| Topic | Link |
+| --- | --- |
+| User onboarding | [Getting Started With UtxoPocket](docs/getting-started.md) |
+| Contributor setup | [Project Setup For Contributors](docs/project-setup.md) |
+| Testing guide | [How to Test UtxoPocket](docs/guides/how-to-test.md) |
+| Connection reports | [Connection Troubleshooting & Reporting](docs/guides/connection-troubleshooting-reporting.md) |
+| Security posture | [SECURITY.md](SECURITY.md) |
+| Project docs index | [docs/README.md](docs/README.md) |
 
-```bash
-./gradlew --write-verification-metadata sha256 :app:assembleDebug :app:testDebugUnitTest
-```
+The in-app wiki and glossary are generated from Markdown under [`docs/wiki`](docs/wiki) and [`docs/glossary`](docs/glossary), then bundled as offline runtime assets.
 
-For full setup, WSL notes, connected-device flows, and troubleshooting, see [`docs/project-setup.md`](docs/project-setup.md).
+## Built With
 
-## Security and documentation
-- Privacy and security posture: [`SECURITY.md`](SECURITY.md)
-- Contributor workflow: [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- Setup and troubleshooting: [`docs/project-setup.md`](docs/project-setup.md)
-- User onboarding guide: [`docs/getting-started.md`](docs/getting-started.md)
+- [Kotlin](https://kotlinlang.org/), Gradle Kotlin DSL, Java 21, and a single Android `:app` module.
+- Jetpack Compose, Material 3, Navigation Compose, Lifecycle ViewModel, Hilt, Coroutines, and Flow.
+- Room, SQLCipher, Preferences DataStore, and Google Tink for local persistence and encryption.
+- [BDK Android](https://bitcoindevkit.org/) for descriptor parsing, watch-only wallet state, persistence, and Electrum sync.
+- Guardian Project `tor-android` plus pinned `jtorctl` for the embedded Tor runtime.
+- [Hummingbird UR Toolkit](https://github.com/sparrowwallet/hummingbird) for descriptor and label QR workflows.
 
-## License
+## Acknowledgements
 
-UtxoPocket is released under the [MIT License](LICENSE). Bundled third-party components keep their original licenses; see [`NOTICE`](NOTICE).
+UtxoPocket is inspired by the privacy, descriptor, and watch-only workflows in [Sparrow Wallet](https://github.com/sparrowwallet/sparrow), [Sentinel](https://code.samourai.io/wallet/sentinel-android), and [Ashigaru Wallet](https://ashigaru.rs/).
