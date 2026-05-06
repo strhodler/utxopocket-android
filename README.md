@@ -69,6 +69,12 @@ Run the main contributor checks:
 ./gradlew :app:testDebugUnitTest
 ```
 
+If dependency verification fails after updating dependency versions, regenerate the trusted hashes and commit `gradle/verification-metadata.xml` with the version catalog change:
+
+```bash
+./gradlew --write-verification-metadata sha256 :app:assembleDebug :app:testDebugUnitTest
+```
+
 For full setup, WSL notes, connected-device flows, and troubleshooting, see [`docs/project-setup.md`](docs/project-setup.md).
 
 ## Security and documentation

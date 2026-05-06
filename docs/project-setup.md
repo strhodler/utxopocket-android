@@ -29,6 +29,17 @@ Before opening a PR, run the fast feedback loop:
 ./gradlew :app:testDebugUnitTest
 ```
 
+### 3.1 Dependency Verification Metadata
+This project uses Gradle dependency verification. When dependency versions change in `gradle/libs.versions.toml`, Gradle may fail with `Dependency verification failed` until `gradle/verification-metadata.xml` is updated.
+
+If the new artifacts are expected and trustworthy, regenerate the SHA-256 metadata:
+
+```bash
+./gradlew --write-verification-metadata sha256 :app:assembleDebug :app:testDebugUnitTest
+```
+
+On Windows PowerShell, use `./gradlew.bat` or `.\gradlew.bat` for the same command. Commit `gradle/verification-metadata.xml` together with the dependency version change.
+
 ## 4. Install The Debug Build
 ```bash
 adb devices             # ensure your target shows “device”
@@ -55,6 +66,7 @@ If your Android SDK lives in another Windows profile, replace `<windows-user>` i
 
 ## 6. IDE Tips
 - After dependency updates (`gradle/libs.versions.toml`), run “Sync Project with Gradle Files” inside Android Studio.
+- After dependency version updates, refresh `gradle/verification-metadata.xml` with the command in section **3.1 Dependency Verification Metadata** before syncing or building from a clean checkout.
 - Enable Kotlin official code style: `Settings → Editor → Code Style → Kotlin → Set from Predefined Style`.
 - Useful plugins: Kotlin, Compose Multiplatform, and Room/SQL helpers.
 
@@ -62,6 +74,7 @@ If your Android SDK lives in another Windows profile, replace `<windows-user>` i
 - **Tor stuck** → ensure you are using an ARM64 image and that host firewalls allow outbound Tor connections. Inspect `adb logcat | grep TorRuntimeManager`.
 - **Local Direct endpoint rejected** → use only private/local IP literals (IPv4/IPv6), avoid DNS/`.local`/hostnames, and confirm the node network matches the selected app network.
 - **Descriptor rejected** → confirm it is public (tpub/zpub, no `xprv`) and includes `*` or BIP-389 multipath notation.
+- **Dependency verification failed** → if dependencies were intentionally updated, run `./gradlew --write-verification-metadata sha256 :app:assembleDebug :app:testDebugUnitTest` and commit the updated `gradle/verification-metadata.xml`. If no dependency update was intended, inspect the generated verification report before trusting new artifacts.
 - **Gradle cache issues** → run `./gradlew --stop && ./gradlew clean` or nuke `.gradle`/`.idea` directories when IDE sync drifts.
 - **No connected devices (WSL)** → if Linux `adb devices` is empty but `adb.exe devices` shows your phone, use the fallback commands from section **4.1 WSL + USB Devices**.
 - **Toolchain mismatch** → this project requires Java 21. If `java -version` is not 21.x, set `JAVA_HOME` to a JDK 21 installation.
