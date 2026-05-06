@@ -31,58 +31,52 @@ class BdkWalletFactory @Inject constructor(
         val connectionPath = walletStorage.connectionPath(entity.id, network)
         val materializationState = walletStorage.materializationState(connectionPath)
 
-        var handle = persisterRegistry.acquire(connectionPath)
-        var persister = handle.persister
+        val handle = persisterRegistry.acquire(connectionPath)
+        val persister = handle.persister
 
-        while (true) {
-            try {
-                val wallet = Wallet(
-                    descriptor = externalDescriptor,
-                    changeDescriptor = changeDescriptor,
-                    network = bdkNetwork,
-                    persister = persister
-                )
-                return BdkManagedWallet(
-                    wallet = wallet,
-                    persister = persister,
-                    release = {
-                        handle.close()
-                        walletStorage.seal(connectionPath)
-                    },
-                    materializationSource = materializationState?.source
-                )
-            } catch (error: CreateWithPersistException) {
-                if (error is CreateWithPersistException.DataAlreadyExists) {
-                    try {
-                        val wallet = Wallet.load(
-                            descriptor = externalDescriptor,
-                            changeDescriptor = changeDescriptor,
-                            persister = persister
-                        )
-                        return BdkManagedWallet(
-                            wallet = wallet,
-                            persister = persister,
-                            release = {
-                                handle.close()
-                                walletStorage.seal(connectionPath)
-                            },
-                            materializationSource = materializationState?.source
-                        )
-                    } catch (loadError: LoadWithPersistException) {
-                        handle.close()
-                        walletStorage.remove(entity.id, network)
-                        persisterRegistry.evict(connectionPath)
-                        handle = persisterRegistry.acquire(connectionPath)
-                        persister = handle.persister
-                        continue
+        try {
+            val wallet = Wallet(
+                descriptor = externalDescriptor,
+                changeDescriptor = changeDescriptor,
+                network = bdkNetwork,
+                persister = persister
+            )
+            return BdkManagedWallet(
+                wallet = wallet,
+                persister = persister,
+                release = { releasePersisterAndSeal(handle, connectionPath) },
+                materializationSource = materializationState?.source
+            )
+        } catch (error: CreateWithPersistException) {
+            if (error is CreateWithPersistException.DataAlreadyExists) {
+                try {
+                    val wallet = Wallet.load(
+                        descriptor = externalDescriptor,
+                        changeDescriptor = changeDescriptor,
+                        persister = persister
+                    )
+                    return BdkManagedWallet(
+                        wallet = wallet,
+                        persister = persister,
+                        release = { releasePersisterAndSeal(handle, connectionPath) },
+                        materializationSource = materializationState?.source
+                    )
+                } catch (loadError: LoadWithPersistException) {
+                    throwWithCleanup(loadError) {
+                        releasePersisterAndSeal(handle, connectionPath)
+                    }
+                } catch (loadThrowable: Throwable) {
+                    throwWithCleanup(loadThrowable) {
+                        releasePersisterAndSeal(handle, connectionPath)
                     }
                 }
-                handle.close()
-                throw error
-            } catch (throwable: Throwable) {
-                handle.close()
-                walletStorage.seal(connectionPath)
-                throw throwable
+            }
+            throwWithCleanup(error) {
+                releasePersisterAndSeal(handle, connectionPath)
+            }
+        } catch (throwable: Throwable) {
+            throwWithCleanup(throwable) {
+                releasePersisterAndSeal(handle, connectionPath)
             }
         }
     }
@@ -126,5 +120,26 @@ class BdkWalletFactory @Inject constructor(
         }
         return external to change
     }
+
+    private fun releasePersisterAndSeal(
+        handle: BdkPersisterRegistry.ManagedPersister,
+        connectionPath: String
+    ) {
+        var failure: Throwable? = null
+        runCatching { handle.close() }
+            .onFailure { error -> failure = failure.addOrUse(error) }
+        runCatching { walletStorage.seal(connectionPath) }
+            .onFailure { error -> failure = failure.addOrUse(error) }
+        failure?.let { throw it }
+    }
+
+    private fun throwWithCleanup(primary: Throwable, cleanup: () -> Unit): Nothing {
+        runCatching { cleanup() }
+            .onFailure { cleanupError -> primary.addSuppressed(cleanupError) }
+        throw primary
+    }
+
+    private fun Throwable?.addOrUse(error: Throwable): Throwable =
+        this?.also { it.addSuppressed(error) } ?: error
 
 }

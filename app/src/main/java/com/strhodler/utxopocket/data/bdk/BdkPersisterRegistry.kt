@@ -28,7 +28,7 @@ class BdkPersisterRegistry @Inject constructor() {
         val entry = synchronized(persisters) {
             persisters.remove(path)
         } ?: return
-        runCatching { entry.persister.destroy() }
+        entry.persister.destroy()
     }
 
     private fun release(path: String) {
@@ -42,7 +42,7 @@ class BdkPersisterRegistry @Inject constructor() {
                 null
             }
         }
-        toDestroy?.let { runCatching { it.persister.destroy() } }
+        toDestroy?.persister?.destroy()
     }
 
     private data class Entry(

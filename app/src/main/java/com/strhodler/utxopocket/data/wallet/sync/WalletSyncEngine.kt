@@ -260,7 +260,13 @@ internal class WalletSyncEngine(
                     throw syncError
                 }
                 hadWalletErrors = true
-                invalidateWalletCache(entity.id)
+                runCatching { invalidateWalletCache(entity.id) }
+                    .onFailure { cleanupError ->
+                        syncError.addSuppressed(cleanupError)
+                        SecureLog.w(logTag, cleanupError) {
+                            "Unable to invalidate wallet cache after sync failure for $walletAlias"
+                        }
+                    }
                 val reason = syncError.toTorAwareMessage(
                     defaultMessage = syncError.message.orEmpty().ifBlank { "Wallet sync failed" },
                     endpoint = endpoint,

@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.strhodler.utxopocket.data.db.EncryptedSupportFactoryProvider
 import com.strhodler.utxopocket.data.logs.NetworkErrorLogDao
 import com.strhodler.utxopocket.data.logs.NetworkErrorLogDatabase
+import com.strhodler.utxopocket.data.logs.NetworkErrorLogMigrations
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -28,6 +29,7 @@ object LoggingModule {
             NetworkErrorLogDatabase.NAME
         )
             .openHelperFactory(encryptedSupportFactoryProvider.create())
+            .addMigrations(NetworkErrorLogMigrations.MIGRATION_1_2)
             .fallbackToDestructiveMigration(false)
             .build()
 

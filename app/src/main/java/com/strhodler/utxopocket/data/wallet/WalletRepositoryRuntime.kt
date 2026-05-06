@@ -177,11 +177,11 @@ internal class WalletRepositoryRuntime(
         seedSyncGapIfMissing(entity, walletSyncPreferencesRepository)
         if (sealAfterUse) {
             val managed = walletFactory.create(entity)
-            return try {
+            return runClosingWalletSession(
+                destroyWallet = { managed.wallet.destroy() },
+                releaseManaged = { managed.release() }
+            ) {
                 block(managed.wallet, managed.persister, managed.materializationSource)
-            } finally {
-                runCatching { managed.wallet.destroy() }
-                runCatching { managed.release() }
             }
         }
         val cached = cachedWalletFor(entity)
@@ -195,21 +195,31 @@ internal class WalletRepositoryRuntime(
             walletCache.remove(id)
         } ?: return
         cached.lock.withLock {
-            runCatching { cached.managed.wallet.destroy() }
-            runCatching { cached.managed.release() }
+            closeWalletSessionResources(
+                destroyWallet = { cached.managed.wallet.destroy() },
+                releaseManaged = { cached.managed.release() }
+            )
         }
     }
 
     suspend fun releaseAllCachedWallets() {
-        walletCacheMutex.withLock {
-            walletCache.values.forEach { cached ->
-                cached.lock.withLock {
-                    runCatching { cached.managed.wallet.destroy() }
-                    runCatching { cached.managed.release() }
-                }
-            }
-            walletCache.clear()
+        val cachedWallets = walletCacheMutex.withLock {
+            walletCache.values.toList().also { walletCache.clear() }
         }
+        var failure: Throwable? = null
+        cachedWallets.forEach { cached ->
+            runCatching {
+                cached.lock.withLock {
+                    closeWalletSessionResources(
+                        destroyWallet = { cached.managed.wallet.destroy() },
+                        releaseManaged = { cached.managed.release() }
+                    )
+                }
+            }.onFailure { error ->
+                failure = failure.addOrUse(error)
+            }
+        }
+        failure?.let { throw it }
     }
 
     fun markWalletDeletionPending(id: Long) {
@@ -295,3 +305,47 @@ internal fun isSyncAllowedByForegroundState(
 }
 
 private const val MILLIS_PER_MINUTE = 60_000L
+
+internal suspend fun <T> runClosingWalletSession(
+    destroyWallet: () -> Unit,
+    releaseManaged: () -> Unit,
+    block: suspend () -> T
+): T {
+    var primaryFailure: Throwable? = null
+    var completed = false
+    var value: Any? = null
+    try {
+        value = block()
+        completed = true
+    } catch (error: Throwable) {
+        primaryFailure = error
+    }
+
+    val cleanupFailure = runCatching {
+        closeWalletSessionResources(destroyWallet, releaseManaged)
+    }.exceptionOrNull()
+
+    primaryFailure?.let { primary ->
+        cleanupFailure?.let(primary::addSuppressed)
+        throw primary
+    }
+    cleanupFailure?.let { throw it }
+
+    @Suppress("UNCHECKED_CAST")
+    return if (completed) value as T else error("Wallet session did not complete")
+}
+
+internal fun closeWalletSessionResources(
+    destroyWallet: () -> Unit,
+    releaseManaged: () -> Unit
+) {
+    var failure: Throwable? = null
+    runCatching { destroyWallet() }
+        .onFailure { error -> failure = failure.addOrUse(error) }
+    runCatching { releaseManaged() }
+        .onFailure { error -> failure = failure.addOrUse(error) }
+    failure?.let { throw it }
+}
+
+private fun Throwable?.addOrUse(error: Throwable): Throwable =
+    this?.also { it.addSuppressed(error) } ?: error
