@@ -25,7 +25,7 @@ class FakeTorControlFacade(
 
     private var running: Boolean = false
 
-    override fun startWithRepeat(totalSecondsPerTorStartup: Int, totalTriesPerTorStartup: Int): Boolean {
+    override suspend fun startWithRepeat(totalSecondsPerTorStartup: Int, totalTriesPerTorStartup: Int): Boolean {
         startWithRepeatCalls += 1
         if (startResult) {
             running = runningAfterStart
@@ -33,9 +33,9 @@ class FakeTorControlFacade(
         return startResult
     }
 
-    override fun isRunning(): Boolean = running
+    override suspend fun isRunning(): Boolean = running
 
-    override fun setNetworkEnabled(enable: Boolean) {
+    override suspend fun setNetworkEnabled(enable: Boolean) {
         networkEnableRequests += enable
     }
 
@@ -46,12 +46,12 @@ class FakeTorControlFacade(
         return latestLog
     }
 
-    override fun stop() {
+    override suspend fun stop() {
         stopCalls += 1
         running = false
     }
 
-    override fun newIdentity(): Boolean {
+    override suspend fun newIdentity(): Boolean {
         newIdentityCalls += 1
         return running
     }

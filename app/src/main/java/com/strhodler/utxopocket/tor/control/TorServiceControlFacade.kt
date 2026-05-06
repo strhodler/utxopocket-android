@@ -11,7 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 @Singleton
@@ -46,13 +46,13 @@ class TorServiceControlFacade @Inject constructor(
         }
     }
 
-    override fun startWithRepeat(totalSecondsPerTorStartup: Int, totalTriesPerTorStartup: Int): Boolean {
+    override suspend fun startWithRepeat(totalSecondsPerTorStartup: Int, totalTriesPerTorStartup: Int): Boolean {
         val startupTimeoutMs = totalSecondsPerTorStartup
             .coerceAtLeast(1)
             .toLong() * 1_000L
         val tries = totalTriesPerTorStartup.coerceAtLeast(1)
 
-        return runBlocking(ioDispatcher) {
+        return withContext(ioDispatcher) {
             repeat(tries) {
                 if (!backend.start()) {
                     return@repeat
@@ -65,7 +65,7 @@ class TorServiceControlFacade @Inject constructor(
                 val ready = awaitSocksReady(startupTimeoutMs)
                 if (ready) {
                     processRunning.set(true)
-                    return@runBlocking true
+                    return@withContext true
                 }
                 backend.stop()
                 processRunning.set(false)
@@ -74,14 +74,14 @@ class TorServiceControlFacade @Inject constructor(
         }
     }
 
-    override fun isRunning(): Boolean {
+    override suspend fun isRunning(): Boolean {
         if (!processRunning.get()) return false
         val port = backend.currentSocksPort() ?: return false
         val state = latestStatus.get().state
         if (state == TorServiceRuntimeState.ERROR || state == TorServiceRuntimeState.STOPPED) {
             return false
         }
-        return runBlocking(ioDispatcher) {
+        return withContext(ioDispatcher) {
             socksProbe.awaitReady(
                 host = TOR_LOCALHOST,
                 port = port,
@@ -92,8 +92,10 @@ class TorServiceControlFacade @Inject constructor(
         }
     }
 
-    override fun setNetworkEnabled(enable: Boolean) {
-        val applied = backend.setNetworkEnabled(enable)
+    override suspend fun setNetworkEnabled(enable: Boolean) {
+        val applied = withContext(ioDispatcher) {
+            backend.setNetworkEnabled(enable)
+        }
         if (!applied) {
             throw IllegalStateException("Tor control connection unavailable for DisableNetwork")
         }
@@ -103,14 +105,16 @@ class TorServiceControlFacade @Inject constructor(
 
     override fun getLastLog(): String = latestStatus.get().message
 
-    override fun stop() {
-        runBlocking(ioDispatcher) {
+    override suspend fun stop() {
+        withContext(ioDispatcher) {
             backend.stop()
         }
         processRunning.set(false)
     }
 
-    override fun newIdentity(): Boolean = backend.requestNewIdentity()
+    override suspend fun newIdentity(): Boolean = withContext(ioDispatcher) {
+        backend.requestNewIdentity()
+    }
 
     private suspend fun awaitSocksReady(timeoutMs: Long): Boolean {
         return withTimeoutOrNull(timeoutMs) {

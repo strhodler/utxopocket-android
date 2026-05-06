@@ -12,12 +12,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 
 class TorServiceControlFacadeTest {
 
     @Test
-    fun startWithRepeat_returnsTrueWhenBackendStartsAndSocksProbeSucceeds() {
+    fun startWithRepeat_returnsTrueWhenBackendStartsAndSocksProbeSucceeds() = runTest {
         ServerSocket(0).use { socksSocket ->
             val backend = FakeTorServiceBackend(
                 startResults = ArrayDeque(listOf(true)),
@@ -42,7 +42,7 @@ class TorServiceControlFacadeTest {
     }
 
     @Test
-    fun startWithRepeat_retriesWhenFirstAttemptFails() {
+    fun startWithRepeat_retriesWhenFirstAttemptFails() = runTest {
         ServerSocket(0).use { socksSocket ->
             val backend = FakeTorServiceBackend(
                 startResults = ArrayDeque(listOf(false, true)),
@@ -65,7 +65,7 @@ class TorServiceControlFacadeTest {
     }
 
     @Test
-    fun stop_marksFacadeAsStoppedAndDelegatesToBackend() {
+    fun stop_marksFacadeAsStoppedAndDelegatesToBackend() = runTest {
         val backend = FakeTorServiceBackend(
             startResults = ArrayDeque(listOf(true)),
             bindResults = ArrayDeque(listOf(true)),
@@ -85,7 +85,7 @@ class TorServiceControlFacadeTest {
     }
 
     @Test
-    fun setNetworkEnabled_delegatesToBackendAndThrowsOnFailure() {
+    fun setNetworkEnabled_delegatesToBackendAndThrowsOnFailure() = runTest {
         val backend = FakeTorServiceBackend(
             startResults = ArrayDeque(listOf(true)),
             bindResults = ArrayDeque(listOf(true)),
@@ -112,7 +112,7 @@ class TorServiceControlFacadeTest {
     }
 
     @Test
-    fun newIdentity_returnsBackendResult() {
+    fun newIdentity_returnsBackendResult() = runTest {
         val backend = FakeTorServiceBackend(
             startResults = ArrayDeque(listOf(true)),
             bindResults = ArrayDeque(listOf(true)),

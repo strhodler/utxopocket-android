@@ -199,7 +199,7 @@ private class RecordingTorControlFacade(
     private var running: Boolean = false
     private var remainingNotReadyChecks: Int = 0
 
-    override fun startWithRepeat(totalSecondsPerTorStartup: Int, totalTriesPerTorStartup: Int): Boolean {
+    override suspend fun startWithRepeat(totalSecondsPerTorStartup: Int, totalTriesPerTorStartup: Int): Boolean {
         startAttempts += StartAttempt(totalSecondsPerTorStartup, totalTriesPerTorStartup)
         if (startResult) {
             running = true
@@ -208,7 +208,7 @@ private class RecordingTorControlFacade(
         return startResult
     }
 
-    override fun isRunning(): Boolean {
+    override suspend fun isRunning(): Boolean {
         isRunningCalls += 1
         if (!running) return false
         if (remainingNotReadyChecks > 0) {
@@ -218,7 +218,7 @@ private class RecordingTorControlFacade(
         return true
     }
 
-    override fun setNetworkEnabled(enable: Boolean) {
+    override suspend fun setNetworkEnabled(enable: Boolean) {
         networkEnableRequests += enable
         if (throwOnSetNetworkEnabled) {
             throw IllegalStateException("setNetworkEnabled not supported")
@@ -235,12 +235,12 @@ private class RecordingTorControlFacade(
         return latestLog
     }
 
-    override fun stop() {
+    override suspend fun stop() {
         stopCalls += 1
         running = false
     }
 
-    override fun newIdentity(): Boolean {
+    override suspend fun newIdentity(): Boolean {
         newIdentityCalls += 1
         return running && newIdentityResult
     }

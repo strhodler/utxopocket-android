@@ -1,11 +1,11 @@
 package com.strhodler.utxopocket.tor.control
 
 interface TorControlFacade {
-    fun startWithRepeat(totalSecondsPerTorStartup: Int, totalTriesPerTorStartup: Int): Boolean
-    fun isRunning(): Boolean
-    fun setNetworkEnabled(enable: Boolean)
+    suspend fun startWithRepeat(totalSecondsPerTorStartup: Int, totalTriesPerTorStartup: Int): Boolean
+    suspend fun isRunning(): Boolean
+    suspend fun setNetworkEnabled(enable: Boolean)
     fun getIpv4LocalHostSocksPort(): Int
     fun getLastLog(): String
-    fun stop()
-    fun newIdentity(): Boolean
+    suspend fun stop()
+    suspend fun newIdentity(): Boolean
 }
