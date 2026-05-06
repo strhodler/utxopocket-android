@@ -1,9 +1,9 @@
 package com.strhodler.utxopocket.presentation.navigation.graph
 
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -63,8 +63,8 @@ internal fun NavGraphBuilder.walletsGraph(
                     null as String?
                 )
             }
-            val deletedMessage by deletedMessageFlow.collectAsState()
-            val createdMessage by createdMessageFlow.collectAsState()
+            val deletedMessage by deletedMessageFlow.collectAsStateWithLifecycle()
+            val createdMessage by createdMessageFlow.collectAsStateWithLifecycle()
             val snackbarMessage = createdMessage ?: deletedMessage
             WalletsRoute(
                 duressState = duressState,
