@@ -28,6 +28,44 @@ import org.robolectric.RobolectricTestRunner
 class LightElectrumClientTest {
 
     @Test
+    fun computeScriptHashUsesElectrumScriptHashEncoding() {
+        val scriptPubKey = "76a91462e907b15cbf27d5425399ebf6f0fb50ebb88f1888ac"
+
+        val scripthash = LightElectrumClient.computeScriptHash(scriptPubKey)
+
+        assertEquals(
+            "8b01df4e368ea28f8dc0423bcf7a4923e3a12d307c875e47a0cfbf90b5c39161",
+            scripthash
+        )
+    }
+
+    @Test
+    fun computeScriptHashAcceptsUppercaseHex() {
+        val scriptPubKey = "76A91462E907B15CBF27D5425399EBF6F0FB50EBB88F1888AC"
+
+        val scripthash = LightElectrumClient.computeScriptHash(scriptPubKey)
+
+        assertEquals(
+            "8b01df4e368ea28f8dc0423bcf7a4923e3a12d307c875e47a0cfbf90b5c39161",
+            scripthash
+        )
+    }
+
+    @Test
+    fun computeScriptHashRejectsOddLengthHex() {
+        assertFailsWith<IllegalArgumentException> {
+            LightElectrumClient.computeScriptHash("001")
+        }
+    }
+
+    @Test
+    fun computeScriptHashRejectsMalformedHex() {
+        assertFailsWith<IllegalArgumentException> {
+            LightElectrumClient.computeScriptHash("00zz11")
+        }
+    }
+
+    @Test
     fun openSessionSendsServerVersionBeforeOtherCalls() {
         val server = ScriptedElectrumServer(
             scripts = listOf(

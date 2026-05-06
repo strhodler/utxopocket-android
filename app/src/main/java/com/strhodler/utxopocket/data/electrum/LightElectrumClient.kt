@@ -413,12 +413,16 @@ class LightElectrumClient(
 
         fun computeScriptHash(scriptHex: String): String {
             val sanitized = scriptHex.trim().lowercase()
+            require(sanitized.length % 2 == 0) { "ScriptPubKey hex must have an even length" }
+            require(sanitized.all { it.isHexDigit() }) { "ScriptPubKey must be valid hex" }
             val bytes = sanitized.chunked(2)
-                .mapNotNull { part -> part.toIntOrNull(16)?.toByte() }
+                .map { part -> part.toInt(16).toByte() }
                 .toByteArray()
             val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
             return digest.reversedArray().toHexString()
         }
+
+        private fun Char.isHexDigit(): Boolean = this in '0'..'9' || this in 'a'..'f'
 
         private fun ByteArray.toHexString(): String = buildString(size) {
             for (value in this@toHexString) {
