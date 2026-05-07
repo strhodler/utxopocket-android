@@ -5,17 +5,22 @@ plugins {
     alias(libs.plugins.hilt.android)
 }
 
-val runtimeDocsAssetsDir = layout.buildDirectory.dir("generated/runtime-docs-assets")
-val runtimeDocsAssetsPath = runtimeDocsAssetsDir.get().asFile.absolutePath
+abstract class RuntimeDocsAssetsSync : org.gradle.api.tasks.Sync() {
+    @get:org.gradle.api.tasks.OutputDirectory
+    abstract val outputDirectory: org.gradle.api.file.DirectoryProperty
+}
 
-val syncRuntimeDocsAssets by tasks.registering(org.gradle.api.tasks.Sync::class) {
+val runtimeDocsAssetsDir = layout.buildDirectory.dir("generated/runtime-docs-assets")
+
+val syncRuntimeDocsAssets by tasks.registering(RuntimeDocsAssetsSync::class) {
     from(rootProject.file("docs/wiki")) {
         into("wiki")
     }
     from(rootProject.file("docs/glossary")) {
         into("glossary")
     }
-    into(runtimeDocsAssetsDir)
+    outputDirectory.set(runtimeDocsAssetsDir)
+    into(outputDirectory)
 }
 
 android {
@@ -73,23 +78,18 @@ android {
             useLegacyPackaging = true
         }
     }
-    sourceSets {
-        getByName("main") {
-            assets.directories.add(runtimeDocsAssetsPath)
-        }
-    }
 }
 
 androidComponents {
     beforeVariants(selector().all()) { variant ->
         variant.enableAndroidTest = false
     }
-}
-
-tasks.matching { task ->
-    task.name.startsWith("merge") && task.name.endsWith("Assets")
-}.configureEach {
-    dependsOn(syncRuntimeDocsAssets)
+    onVariants(selector().all()) { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            syncRuntimeDocsAssets,
+            RuntimeDocsAssetsSync::outputDirectory
+        )
+    }
 }
 
 ksp {
