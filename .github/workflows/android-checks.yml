@@ -34,7 +34,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Android platform
-        run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
+        run: sdkmanager "platforms;android-37.0" "build-tools;37.0.0"
 
       - name: Run lint and unit tests
         run: ./gradlew lintDebug :app:testDebugUnitTest
