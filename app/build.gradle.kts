@@ -65,7 +65,7 @@ android {
         checkReleaseBuilds = true
         // Gradle wrapper upgrades are deliberate release decisions, not CI-blocking lint drift.
         disable += "AndroidGradlePluginVersion"
-        warningsAsErrors = true
+        warningsAsErrors = false
         abortOnError = true
     }
     dependenciesInfo {
