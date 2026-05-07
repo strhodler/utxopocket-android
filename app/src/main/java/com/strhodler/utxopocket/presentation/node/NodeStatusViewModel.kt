@@ -539,21 +539,11 @@ class NodeStatusViewModel @Inject constructor(
         when (result) {
             is NodeQrParseResult.HostPort -> {
                 if (mode == ConnectionMode.TOR_DEFAULT) {
-                    _uiState.update {
-                        it.copy(
-                            customNodeError = connectionModeErrorMessage(ConnectionMode.TOR_DEFAULT),
-                            customNodeSuccessMessage = null
-                        )
-                    }
+                    showCustomNodeError(connectionModeErrorMessage(ConnectionMode.TOR_DEFAULT))
                 } else {
                     val host = result.host.trim().removePrefix("[").removeSuffix("]")
                     if (!NodeEndpointClassifier.isLocalIpLiteral(host)) {
-                        _uiState.update {
-                            it.copy(
-                                customNodeError = connectionModeErrorMessage(ConnectionMode.LOCAL_DIRECT),
-                                customNodeSuccessMessage = null
-                            )
-                        }
+                        showCustomNodeError(connectionModeErrorMessage(ConnectionMode.LOCAL_DIRECT))
                     } else {
                         applyEndpointInput(
                             raw = result.host,
@@ -565,12 +555,7 @@ class NodeStatusViewModel @Inject constructor(
 
             is NodeQrParseResult.Onion -> {
                 if (mode == ConnectionMode.LOCAL_DIRECT) {
-                    _uiState.update {
-                        it.copy(
-                            customNodeError = connectionModeErrorMessage(ConnectionMode.LOCAL_DIRECT),
-                            customNodeSuccessMessage = null
-                        )
-                    }
+                    showCustomNodeError(connectionModeErrorMessage(ConnectionMode.LOCAL_DIRECT))
                 } else {
                     applyEndpointInput(
                         raw = result.host,
@@ -579,12 +564,7 @@ class NodeStatusViewModel @Inject constructor(
                 }
             }
 
-            is NodeQrParseResult.Error -> _uiState.update {
-                it.copy(
-                    customNodeError = resolveErrorMessage(result.reason),
-                    customNodeSuccessMessage = null
-                )
-            }
+            is NodeQrParseResult.Error -> showCustomNodeError(resolveErrorMessage(result.reason))
         }
     }
 
@@ -594,12 +574,7 @@ class NodeStatusViewModel @Inject constructor(
 
         val (validationError, candidateNode) = currentState.buildCustomNodeCandidate(existingId = null)
         if (validationError != null || candidateNode == null) {
-            _uiState.update {
-                it.copy(
-                    customNodeError = validationError,
-                    customNodeSuccessMessage = null
-                )
-            }
+            showCustomNodeError(validationError)
             return
         }
 
@@ -608,12 +583,7 @@ class NodeStatusViewModel @Inject constructor(
             existing.endpointLabel().equals(duplicateKey, ignoreCase = true)
         }
         if (duplicate) {
-            _uiState.update {
-                it.copy(
-                    customNodeError = "Node already added",
-                    customNodeSuccessMessage = null
-                )
-            }
+            showCustomNodeError("Node already added")
             return
         }
 
@@ -663,26 +633,17 @@ class NodeStatusViewModel @Inject constructor(
                 }
 
                 is NodeConnectionTestResult.Failure -> {
-                    _uiState.update {
-                        it.copy(
-                            isTestingCustomNode = false,
-                            customNodeError = resolveErrorMessage(result.reason),
-                            customNodeSuccessMessage = null
-                        )
-                    }
+                    _uiState.update { it.copy(isTestingCustomNode = false) }
+                    showCustomNodeError(resolveErrorMessage(result.reason))
                 }
 
                 is NodeConnectionTestResult.NetworkMismatch -> {
-                    _uiState.update {
-                        it.copy(
-                            isTestingCustomNode = false,
-                            customNodeError = networkMismatchMessage(
-                                expected = result.expectedNetwork,
-                                detected = result.detectedNetwork
-                            ),
-                            customNodeSuccessMessage = null
-                        )
-                    }
+                    val message = networkMismatchMessage(
+                        expected = result.expectedNetwork,
+                        detected = result.detectedNetwork
+                    )
+                    _uiState.update { it.copy(isTestingCustomNode = false) }
+                    showCustomNodeError(message)
                 }
             }
         }
@@ -693,12 +654,7 @@ class NodeStatusViewModel @Inject constructor(
         val editingId = currentState.editingCustomNodeId ?: return
         val (validationError, candidateNode) = currentState.buildCustomNodeCandidate(existingId = editingId)
         if (validationError != null || candidateNode == null) {
-            _uiState.update {
-                it.copy(
-                    customNodeError = validationError,
-                    customNodeSuccessMessage = null
-                )
-            }
+            showCustomNodeError(validationError)
             return
         }
         val duplicateKey = candidateNode.endpointLabel().lowercase()
@@ -706,12 +662,7 @@ class NodeStatusViewModel @Inject constructor(
             existing.id != editingId && existing.endpointLabel().equals(duplicateKey, ignoreCase = true)
         }
         if (duplicate) {
-            _uiState.update {
-                it.copy(
-                    customNodeError = "Node already added",
-                    customNodeSuccessMessage = null
-                )
-            }
+            showCustomNodeError("Node already added")
             return
         }
 
@@ -773,6 +724,19 @@ class NodeStatusViewModel @Inject constructor(
                 customNodeHasChanges = editorState.hasChanges,
                 customNodeFormValid = editorState.formValid
             )
+        }
+    }
+
+    private fun showCustomNodeError(message: String?) {
+        if (message.isNullOrBlank()) return
+        _uiState.update {
+            it.copy(
+                customNodeError = message,
+                customNodeSuccessMessage = null
+            )
+        }
+        viewModelScope.launch {
+            _events.emit(NodeStatusEvent.Message(message))
         }
     }
 
@@ -1002,5 +966,6 @@ private data class NodeConfigSnapshot(
 
 sealed class NodeStatusEvent {
     data class Info(@param:StringRes val message: Int) : NodeStatusEvent()
+    data class Message(val message: String) : NodeStatusEvent()
 }
 }

@@ -15,6 +15,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -58,6 +59,11 @@ fun NodeStatusRoute(
     )
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showCustomNodeInfoSheet by remember { mutableStateOf(false) }
+    var activeTabIndex by remember { mutableIntStateOf(initialTabIndex) }
+
+    LaunchedEffect(initialTabIndex) {
+        activeTabIndex = initialTabIndex
+    }
 
     LaunchedEffect(state.isCustomNodeEditorVisible) {
         if (!state.isCustomNodeEditorVisible) {
@@ -74,17 +80,23 @@ fun NodeStatusRoute(
 
     LaunchedEffect(state.customNodeSuccessMessage, state.customNodes.size) {
         val messageRes = state.customNodeSuccessMessage ?: return@LaunchedEffect
+        activeTabIndex = nodeStatusTabAfterCustomNodeSuccess(
+            messageRes = messageRes,
+            currentTabIndex = activeTabIndex
+        )
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        snackbarHostState.currentSnackbarData?.dismiss()
         snackbarHostState.showSnackbar(resources.getString(messageRes))
     }
 
     LaunchedEffect(Unit) {
         viewModel.events.collectLatest { event ->
-            if (event is NodeStatusEvent.Info) {
-                snackbarHostState.currentSnackbarData?.dismiss()
-                val text = resources.getString(event.message)
-                snackbarHostState.showSnackbar(text, duration = SnackbarDuration.Short)
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val text = when (event) {
+                is NodeStatusEvent.Info -> resources.getString(event.message)
+                is NodeStatusEvent.Message -> event.message
             }
+            snackbarHostState.showSnackbar(text, duration = SnackbarDuration.Short)
         }
     }
 
@@ -143,19 +155,20 @@ fun NodeStatusRoute(
             } else {
                 stringResource(id = R.string.node_custom_add_button)
             }
-            val isPrimaryActionEnabled = if (isEditing) {
-                state.customNodeHasChanges
-            } else {
-                state.customNodeFormValid
-            }
+            val isPrimaryActionEnabled = customNodePrimaryActionEnabled(
+                isEditing = isEditing,
+                hasChanges = state.customNodeHasChanges,
+                formValid = state.customNodeFormValid,
+                isTesting = state.isTestingCustomNode
+            )
             CustomNodeEditorScreen(
                 connectionMode = state.connectionMode,
                 activeNetwork = state.preferredNetwork,
+                snackbarHostState = snackbarHostState,
                 nameValue = state.newCustomName,
                 onionValue = state.newCustomOnion,
                 portValue = state.newCustomPort,
                 isTesting = state.isTestingCustomNode,
-                errorMessage = state.customNodeError,
                 qrErrorMessage = qrEditorState.qrErrorMessage,
                 isPrimaryActionEnabled = isPrimaryActionEnabled,
                 primaryActionLabel = primaryLabel,
@@ -246,7 +259,7 @@ fun NodeStatusRoute(
                 onCustomNodeDetails = viewModel::onEditCustomNode,
                 onRemoveCustomNode = viewModel::onDeleteCustomNode,
                 onAddCustomNodeClick = viewModel::onAddCustomNodeClicked,
-                initialTabIndex = initialTabIndex,
+                initialTabIndex = activeTabIndex,
                 onDisconnect = viewModel::disconnectNode,
                 onRenewTorIdentity = torViewModel::onRenewIdentity
             )
@@ -278,6 +291,25 @@ fun NodeStatusRoute(
             }
         )
     }
+}
+
+internal fun customNodePrimaryActionEnabled(
+    isEditing: Boolean,
+    hasChanges: Boolean,
+    formValid: Boolean,
+    isTesting: Boolean
+): Boolean {
+    if (isTesting) return false
+    return if (isEditing) hasChanges else formValid
+}
+
+internal fun nodeStatusTabAfterCustomNodeSuccess(
+    messageRes: Int,
+    currentTabIndex: Int
+): Int = if (messageRes == R.string.node_custom_success) {
+    NodeStatusTab.Nodes.ordinal
+} else {
+    currentTabIndex
 }
 
 private fun buildCustomNodeLabel(

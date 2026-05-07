@@ -20,6 +20,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.ConnectionMode
+import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.network.networkLabel
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 
@@ -41,11 +43,11 @@ import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 fun CustomNodeEditorScreen(
     connectionMode: ConnectionMode,
     activeNetwork: BitcoinNetwork,
+    snackbarHostState: SnackbarHostState,
     nameValue: String,
     onionValue: String,
     portValue: String,
     isTesting: Boolean,
-    errorMessage: String?,
     qrErrorMessage: String?,
     isPrimaryActionEnabled: Boolean,
     primaryActionLabel: String,
@@ -60,6 +62,7 @@ fun CustomNodeEditorScreen(
     BackHandler(onBack = onDismiss)
     val scrollState = rememberScrollState()
     Scaffold(
+        snackbarHost = { DismissibleSnackbarHost(hostState = snackbarHostState) },
         contentWindowInsets = WindowInsets(
             left = 0.dp,
             top = 0.dp,
@@ -114,21 +117,7 @@ fun CustomNodeEditorScreen(
 
                 TransportModeBadge(connectionMode = connectionMode)
 
-                Text(
-                    text = stringResource(
-                        id = R.string.node_custom_network_hint,
-                        networkLabel(activeNetwork)
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            errorMessage?.let { error ->
-                Text(
-                    text = error,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
+                CurrentNetworkBadge(activeNetwork = activeNetwork)
             }
             Row(
                 modifier = Modifier
@@ -149,7 +138,7 @@ fun CustomNodeEditorScreen(
                             onPrimaryAction()
                         }
                     },
-                    enabled = isPrimaryActionEnabled,
+                    enabled = isPrimaryActionEnabled && !isTesting,
                     modifier = Modifier.weight(1f)
                 ) {
                     if (isTesting) {
@@ -222,6 +211,36 @@ private fun EndpointField(
 
 @Composable
 private fun TransportModeBadge(connectionMode: ConnectionMode) {
+    InfoBadge(
+        title = when (connectionMode) {
+            ConnectionMode.TOR_DEFAULT -> stringResource(id = R.string.node_custom_transport_tor_label)
+            ConnectionMode.LOCAL_DIRECT -> stringResource(id = R.string.node_custom_transport_local_label)
+        },
+        supporting = when (connectionMode) {
+            ConnectionMode.TOR_DEFAULT -> stringResource(id = R.string.node_custom_transport_tor_supporting)
+            ConnectionMode.LOCAL_DIRECT -> stringResource(id = R.string.node_custom_transport_local_supporting)
+        }
+    )
+}
+
+@Composable
+private fun CurrentNetworkBadge(activeNetwork: BitcoinNetwork) {
+    InfoBadge(
+        title = stringResource(
+            id = R.string.node_custom_network_title,
+            networkLabel(activeNetwork)
+        ),
+        supporting = stringResource(
+            id = R.string.node_custom_network_hint
+        )
+    )
+}
+
+@Composable
+private fun InfoBadge(
+    title: String,
+    supporting: String
+) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
         shape = MaterialTheme.shapes.medium,
@@ -234,18 +253,12 @@ private fun TransportModeBadge(connectionMode: ConnectionMode) {
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = when (connectionMode) {
-                    ConnectionMode.TOR_DEFAULT -> stringResource(id = R.string.node_custom_transport_tor_label)
-                    ConnectionMode.LOCAL_DIRECT -> stringResource(id = R.string.node_custom_transport_local_label)
-                },
+                text = title,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = when (connectionMode) {
-                    ConnectionMode.TOR_DEFAULT -> stringResource(id = R.string.node_custom_transport_tor_supporting)
-                    ConnectionMode.LOCAL_DIRECT -> stringResource(id = R.string.node_custom_transport_local_supporting)
-                },
+                text = supporting,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

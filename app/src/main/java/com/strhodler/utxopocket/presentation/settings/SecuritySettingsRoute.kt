@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.background
@@ -25,8 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -950,29 +948,54 @@ private fun SecuritySettingsScreen(
             }
         }
 
-        Button(
-            onClick = onTriggerPanicWipe,
-            enabled = panicEnabled,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.error,
-                contentColor = MaterialTheme.colorScheme.onError
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = PanicCtaMinHeight)
+        SectionCard(
+            title = stringResource(id = R.string.settings_danger_zone_title),
+            divider = false,
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.48f),
+                contentColor = MaterialTheme.colorScheme.onErrorContainer
+            )
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.DeleteForever,
-                    contentDescription = null
-                )
-                Text(
-                    text = stringResource(id = R.string.settings_panic_action),
-                    style = MaterialTheme.typography.titleMedium
-                )
+            item {
+                val panicActionColor = if (panicEnabled) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.38f)
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            enabled = panicEnabled,
+                            onClick = onTriggerPanicWipe
+                        )
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.settings_panic_action),
+                            color = panicActionColor,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = stringResource(id = R.string.settings_panic_confirm_message),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Outlined.DeleteForever,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = panicActionColor
+                    )
+                }
             }
         }
     }
@@ -993,4 +1016,3 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 }
 
 private const val SliderHapticFeedback = HapticFeedbackConstants.KEYBOARD_TAP
-private val PanicCtaMinHeight = 64.dp

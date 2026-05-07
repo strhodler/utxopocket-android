@@ -166,6 +166,36 @@ class AddWalletViewModelTest {
     }
 
     @Test
+    fun submitFailureEmitsSnackbarMessageInsteadOfInlineFormError() = runTest {
+        walletRepository.validationResult = DescriptorValidationResult.Valid(
+            descriptor = "wpkh(test)",
+            changeDescriptor = null,
+            type = DescriptorType.P2WPKH,
+            hasWildcard = true
+        )
+        walletRepository.creationResult = WalletCreationResult.Failure(
+            "This descriptor is already registered for the selected network."
+        )
+
+        viewModel.onDescriptorChanged("wpkh(test)")
+        viewModel.onWalletNameChanged("My wallet")
+        advanceTimeBy(400)
+
+        val events = mutableListOf<AddWalletEvent>()
+        val job = launch { viewModel.events.collect { events.add(it) } }
+
+        viewModel.submit()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.formError)
+        assertEquals(
+            AddWalletEvent.ShowMessage("This descriptor is already registered for the selected network."),
+            events.firstOrNull()
+        )
+        job.cancel()
+    }
+
+    @Test
     fun submitShowsGenericErrorWhenValidationReasonBlank() = runTest {
         walletRepository.validationResult = DescriptorValidationResult.Invalid("")
 

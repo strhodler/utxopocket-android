@@ -596,7 +596,8 @@
     <string name="node_custom_transport_tor_supporting">En modo Tor, los nodos personalizados usan endpoints .onion a través de Tor. Al cambiar entre presets u onions, Tor se mantiene activo hasta que te desconectes.</string>
     <string name="node_custom_transport_local_label">Transporte directo local</string>
     <string name="node_custom_transport_local_supporting">Local Direct usa Electrum TCP en claro solo con literales IP privadas/locales. No hay fallback a Tor.</string>
-    <string name="node_custom_network_hint">Red actual de la app: %1$s. La red del nodo y la app deben coincidir.</string>
+    <string name="node_custom_network_title">Red actual de la app: %1$s</string>
+    <string name="node_custom_network_hint">La red del nodo y la app deben coincidir.</string>
 <string name="settings_language_label">Idioma</string>
     <string name="settings_language_value_en">Inglés</string>
     <string name="settings_language_value_es">Español</string>
@@ -790,6 +791,7 @@
     <string name="settings_node_selection_feedback">Cambiando conexión a %1$s</string>
 
     <!-- Settings: panic wipe -->
+    <string name="settings_danger_zone_title">Zona de peligro</string>
 <string name="settings_panic_action">Borrar todos los datos de billeteras</string>
     <string name="settings_panic_confirm_title">¿Borrar todos los datos de billeteras?</string>
     <string name="settings_panic_confirm_message">Esto eliminará permanentemente cada billetera y el estado de sincronización en caché almacenado localmente.</string>

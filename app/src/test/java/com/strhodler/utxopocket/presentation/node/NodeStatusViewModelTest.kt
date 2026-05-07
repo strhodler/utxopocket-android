@@ -67,6 +67,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -408,6 +409,8 @@ class NodeStatusViewModelTest {
             it.copy(connectionMode = ConnectionMode.LOCAL_DIRECT)
         }
         advanceUntilIdle()
+        val events = mutableListOf<NodeStatusViewModel.NodeStatusEvent>()
+        val job = launch { viewModel.events.collect { events.add(it) } }
 
         viewModel.onAddCustomNodeClicked()
         viewModel.onCustomNodeQrParsed(
@@ -416,9 +419,13 @@ class NodeStatusViewModelTest {
                 port = "50001"
             )
         )
+        advanceUntilIdle()
 
         val error = viewModel.uiState.value.customNodeError.orEmpty()
+        val message = events.mapNotNull { it.textOrNull() }.firstOrNull().orEmpty()
         assertTrue(error.contains("private/local", ignoreCase = true))
+        assertTrue(message.contains("private/local", ignoreCase = true))
+        job.cancel()
     }
 
     @Test
@@ -427,6 +434,8 @@ class NodeStatusViewModelTest {
             it.copy(connectionMode = ConnectionMode.TOR_DEFAULT)
         }
         advanceUntilIdle()
+        val events = mutableListOf<NodeStatusViewModel.NodeStatusEvent>()
+        val job = launch { viewModel.events.collect { events.add(it) } }
 
         viewModel.onAddCustomNodeClicked()
         viewModel.onCustomNodeQrParsed(
@@ -436,9 +445,13 @@ class NodeStatusViewModelTest {
                 useSsl = false
             )
         )
+        advanceUntilIdle()
 
         val error = viewModel.uiState.value.customNodeError.orEmpty()
+        val message = events.mapNotNull { it.textOrNull() }.firstOrNull().orEmpty()
         assertTrue(error.contains(".onion", ignoreCase = true))
+        assertTrue(message.contains(".onion", ignoreCase = true))
+        job.cancel()
     }
 
     @Test
@@ -447,6 +460,8 @@ class NodeStatusViewModelTest {
             it.copy(connectionMode = ConnectionMode.LOCAL_DIRECT)
         }
         advanceUntilIdle()
+        val events = mutableListOf<NodeStatusViewModel.NodeStatusEvent>()
+        val job = launch { viewModel.events.collect { events.add(it) } }
 
         viewModel.onAddCustomNodeClicked()
         viewModel.onCustomNodeQrParsed(
@@ -456,9 +471,13 @@ class NodeStatusViewModelTest {
                 useSsl = false
             )
         )
+        advanceUntilIdle()
 
         val error = viewModel.uiState.value.customNodeError.orEmpty()
+        val message = events.mapNotNull { it.textOrNull() }.firstOrNull().orEmpty()
         assertTrue(error.contains("private/local", ignoreCase = true))
+        assertTrue(message.contains("private/local", ignoreCase = true))
+        job.cancel()
     }
 
     @Test
@@ -472,6 +491,8 @@ class NodeStatusViewModelTest {
             detectedNetwork = BitcoinNetwork.TESTNET
         )
         advanceUntilIdle()
+        val events = mutableListOf<NodeStatusViewModel.NodeStatusEvent>()
+        val job = launch { viewModel.events.collect { events.add(it) } }
 
         viewModel.onAddCustomNodeClicked()
         viewModel.onNewCustomOnionChanged("192.168.8.225")
@@ -480,9 +501,13 @@ class NodeStatusViewModelTest {
         advanceUntilIdle()
 
         val error = viewModel.uiState.value.customNodeError.orEmpty()
+        val message = events.mapNotNull { it.textOrNull() }.firstOrNull().orEmpty()
         assertTrue(error.contains("testnet4", ignoreCase = true))
         assertTrue(error.contains("testnet", ignoreCase = true))
+        assertTrue(message.contains("testnet4", ignoreCase = true))
+        assertTrue(message.contains("testnet", ignoreCase = true))
         assertTrue(nodeConfigurationRepository.nodeConfig.value.customNodes.isEmpty())
+        job.cancel()
     }
 
     @Test
@@ -494,6 +519,8 @@ class NodeStatusViewModelTest {
             "Failed to connect to tcp://192.168.1.77:50001"
         )
         advanceUntilIdle()
+        val events = mutableListOf<NodeStatusViewModel.NodeStatusEvent>()
+        val job = launch { viewModel.events.collect { events.add(it) } }
 
         viewModel.onAddCustomNodeClicked()
         viewModel.onNewCustomOnionChanged("192.168.1.77")
@@ -502,9 +529,14 @@ class NodeStatusViewModelTest {
         advanceUntilIdle()
 
         val error = viewModel.uiState.value.customNodeError.orEmpty()
+        val message = events.mapNotNull { it.textOrNull() }.firstOrNull().orEmpty()
         assertFalse(error.contains("192.168.1.77"))
         assertFalse(error.contains("50001"))
         assertTrue(error.contains("[redacted]"))
+        assertFalse(message.contains("192.168.1.77"))
+        assertFalse(message.contains("50001"))
+        assertTrue(message.contains("[redacted]"))
+        job.cancel()
     }
 
     @Test
@@ -532,6 +564,11 @@ class NodeStatusViewModelTest {
     @Test
     fun eventsAreExposedAsReadOnlyFlow() {
         assertFalse(viewModel.events is MutableSharedFlow<*>)
+    }
+
+    private fun NodeStatusViewModel.NodeStatusEvent.textOrNull(): String? = when (this) {
+        is NodeStatusViewModel.NodeStatusEvent.Info -> null
+        is NodeStatusViewModel.NodeStatusEvent.Message -> message
     }
 
     private class TestAppPreferencesRepository : AppPreferencesRepository {

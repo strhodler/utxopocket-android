@@ -283,7 +283,8 @@ class AddWalletViewModel @Inject constructor(
                 }
 
                 is WalletCreationResult.Failure -> {
-                    _uiState.update { it.copy(isSaving = false, formError = result.reason) }
+                    _uiState.update { it.copy(isSaving = false, formError = null) }
+                    _events.emit(AddWalletEvent.ShowMessage(result.reason))
                 }
             }
         }
