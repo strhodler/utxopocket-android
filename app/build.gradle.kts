@@ -63,6 +63,8 @@ android {
     lint {
         baseline = file("lint-baseline.xml")
         checkReleaseBuilds = true
+        // Gradle wrapper upgrades are deliberate release decisions, not CI-blocking lint drift.
+        disable += "AndroidGradlePluginVersion"
         warningsAsErrors = true
         abortOnError = true
     }
