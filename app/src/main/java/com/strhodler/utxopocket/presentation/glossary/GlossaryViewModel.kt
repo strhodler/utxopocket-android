@@ -1,7 +1,7 @@
 package com.strhodler.utxopocket.presentation.glossary
 
 import androidx.lifecycle.ViewModel
-import com.strhodler.utxopocket.data.glossary.GlossaryRepository
+import com.strhodler.utxopocket.domain.repository.GlossaryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.Normalizer
 import java.util.Locale

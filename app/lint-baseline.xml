@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.2.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.2.1)" variant="all" version="9.2.1">
+
+    <issue
+        id="OldTargetApi"
+        message="Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the `android.os.Build.VERSION_CODES` javadoc for details."
+        errorLine1="        targetSdk = 36"
+        errorLine2="        ~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="28"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="NonObservableLocale"
+        message="Reading locale in a non-observable way in a composable function"
+        errorLine1="                            Text(text = label.uppercase(Locale.getDefault()))"
+        errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/strhodler/utxopocket/presentation/components/DismissibleSnackbarHost.kt"
+            line="50"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="NonObservableLocale"
+        message="Reading locale in a non-observable way in a composable function"
+        errorLine1="                Locale.getDefault(),"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/strhodler/utxopocket/presentation/wallets/detail/UtxoAnalysisDistributionComponents.kt"
+            line="173"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="LockedOrientationActivity"
+        message="Expecting `android:screenOrientation=&quot;unspecified&quot;` or `&quot;fullSensor&quot;` for this activity so the user can use the application in any orientation and provide a great experience on Chrome OS devices"
+        errorLine1="            android:screenOrientation=&quot;portrait&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="34"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="LockedOrientationActivity"
+        message="Expecting `android:screenOrientation=&quot;unspecified&quot;` or `&quot;fullSensor&quot;` for this activity so the user can use the application in any orientation and provide a great experience on Chrome OS devices"
+        errorLine1="            android:screenOrientation=&quot;portrait&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="73"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="LockedOrientationActivity"
+        message="Expecting `android:screenOrientation=&quot;unspecified&quot;` or `&quot;fullSensor&quot;` for this activity so the user can use the application in any orientation and provide a great experience on Chrome OS devices"
+        errorLine1="            android:screenOrientation=&quot;portrait&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="78"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.patrykandpatrick.vico:compose than 2.4.4 is available: 3.1.0"
+        errorLine1="vico = &quot;2.4.4&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/Documents/GitHub/utxopocket-android/gradle/libs.versions.toml"
+            line="9"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.github.mhiew:android-pdf-viewer than 3.2.0-beta.1 is available: 3.2.0-beta.3"
+        errorLine1="androidPdfViewer = &quot;3.2.0-beta.1&quot;"
+        errorLine2="                   ~~~~~~~~~~~~~~">
+        <location
+            file="$HOME/Documents/GitHub/utxopocket-android/gradle/libs.versions.toml"
+            line="37"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="SourceLockedOrientationActivity"
+        message="You should not lock orientation of your activities, so that you can support a good user experience for any device or orientation"
+        errorLine1="        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/strhodler/utxopocket/presentation/wallets/detail/TransactionVisualizerRoute.kt"
+            line="222"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="Aligned16KB"
+        message="The native library `arm64-v8a/libmodft2.so` (from `com.github.barteksc:pdfium-android:1.9.0`) is not 16 KB aligned">
+        <location
+            file="$GRADLE_USER_HOME/caches/9.4.1/transforms/805cec4cef2562199570e06caa9d1e2b/transformed/pdfium-android-1.9.0/jni/arm64-v8a/libmodft2.so"/>
+    </issue>
+
+    <issue
+        id="Aligned16KB"
+        message="The native library `arm64-v8a/libmodft2.so` (from `com.github.barteksc:pdfium-android:1.9.0`) is not 16 KB aligned">
+        <location
+            file="$GRADLE_USER_HOME/caches/9.4.1/transforms/805cec4cef2562199570e06caa9d1e2b/transformed/pdfium-android-1.9.0/jni/arm64-v8a/libmodft2.so"/>
+    </issue>
+
+    <issue
+        id="Aligned16KB"
+        message="The native library `arm64-v8a/libsqlcipher.so` (from `net.zetetic:android-database-sqlcipher:4.5.4`) is not 16 KB aligned"
+        errorLine1="sqlcipher = { group = &quot;net.zetetic&quot;, name = &quot;android-database-sqlcipher&quot;, version.ref = &quot;sqlcipher&quot; }"
+        errorLine2="             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="$HOME/Documents/GitHub/utxopocket-android/gradle/libs.versions.toml"
+            line="74"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="Aligned16KB"
+        message="The native library `arm64-v8a/libsqlcipher.so` (from `net.zetetic:android-database-sqlcipher:4.5.4`) is not 16 KB aligned">
+        <location
+            file="$GRADLE_USER_HOME/caches/9.4.1/transforms/9755cc6a9c3a9dbdf18b3cb0e88186cf/transformed/android-database-sqlcipher-4.5.4/jni/arm64-v8a/libsqlcipher.so"/>
+    </issue>
+
+    <issue
+        id="DiscouragedApi"
+        message="Fixed screen orientations will be ignored in most cases, starting from Android 16. Android is moving toward a model where apps are expected to adapt to various orientations, display sizes, and aspect ratios."
+        errorLine1="            android:screenOrientation=&quot;portrait&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="34"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="DiscouragedApi"
+        message="Fixed screen orientations will be ignored in most cases, starting from Android 16. Android is moving toward a model where apps are expected to adapt to various orientations, display sizes, and aspect ratios."
+        errorLine1="            android:screenOrientation=&quot;portrait&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="73"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="DiscouragedApi"
+        message="Fixed screen orientations will be ignored in most cases, starting from Android 16. Android is moving toward a model where apps are expected to adapt to various orientations, display sizes, and aspect ratios."
+        errorLine1="            android:screenOrientation=&quot;portrait&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="78"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="PermissionImpliesUnsupportedChromeOsHardware"
+        message="Permission exists without corresponding hardware `&lt;uses-feature android:name=&quot;android.hardware.camera&quot; android:required=&quot;false&quot; />` tag"
+        errorLine1="    &lt;uses-permission android:name=&quot;android.permission.CAMERA&quot; />"
+        errorLine2="     ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="9"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/strhodler/utxopocket/UtxoPocketApp.kt"
+            line="21"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="This folder configuration (`v26`) is unnecessary; `minSdkVersion` is 28. Merge all the resources in this folder into `mipmap-anydpi`.">
+        <location
+            file="src/main/res/mipmap-anydpi-v26"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    var duressTapCount by rememberSaveable { mutableStateOf(0) }"
+        errorLine2="                                             ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/strhodler/utxopocket/presentation/settings/SecuritySettingsRoute.kt"
+            line="124"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="        mutableStateOf(state.pinAutoLockTimeoutMinutes.toFloat())"
+        errorLine2="        ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/strhodler/utxopocket/presentation/settings/SecuritySettingsRoute.kt"
+            line="665"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="        mutableStateOf(state.pinAutoLockTimeoutMinutes)"
+        errorLine2="        ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/strhodler/utxopocket/presentation/settings/SecuritySettingsRoute.kt"
+            line="668"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="        mutableStateOf(state.connectionIdleTimeoutMinutes.toFloat())"
+        errorLine2="        ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/strhodler/utxopocket/presentation/settings/SecuritySettingsRoute.kt"
+            line="676"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="        mutableStateOf(state.connectionIdleTimeoutMinutes)"
+        errorLine2="        ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/strhodler/utxopocket/presentation/settings/SecuritySettingsRoute.kt"
+            line="679"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var bottomBarHeightPx by remember { mutableStateOf(0f) }"
+        errorLine2="                                        ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/strhodler/utxopocket/presentation/wallets/detail/WalletDetailRoute.kt"
+            line="187"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var bottomBarVisibleHeightPx by remember { mutableStateOf(0f) }"
+        errorLine2="                                               ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/strhodler/utxopocket/presentation/wallets/detail/WalletDetailRoute.kt"
+            line="188"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var barHeightPx by remember { mutableStateOf(0f) }"
+        errorLine2="                                  ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/strhodler/utxopocket/presentation/wallets/detail/WalletDetailRoute.kt"
+            line="839"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var gapSliderValue by rememberSaveable(state.gap) { mutableStateOf(state.gap.toFloat()) }"
+        errorLine2="                                                        ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/strhodler/utxopocket/presentation/wallets/sync/WalletSyncSettingsRoute.kt"
+            line="151"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    var gapHapticStep by remember { mutableStateOf(state.gap) }"
+        errorLine2="                                    ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/strhodler/utxopocket/presentation/wallets/sync/WalletSyncSettingsRoute.kt"
+            line="152"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableLongStateOf` instead of `mutableStateOf`"
+        errorLine1="        mutableStateOf("
+        errorLine2="        ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/strhodler/utxopocket/presentation/wallets/WalletsScreen.kt"
+            line="1064"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.tor_connect_action` appears to be unused"
+        errorLine1="&lt;string name=&quot;tor_connect_action&quot;>Connect Tor&lt;/string>"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="584"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="MonochromeLauncherIcon"
+        message="The application adaptive icon is missing a monochrome tag"
+        errorLine1="&lt;adaptive-icon xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
+        errorLine2="^">
+        <location
+            file="src/main/res/mipmap-anydpi-v26/ic_launcher.xml"
+            line="2"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="MonochromeLauncherIcon"
+        message="The application adaptive roundIcon is missing a monochrome tag"
+        errorLine1="&lt;adaptive-icon xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;>"
+        errorLine2="^">
+        <location
+            file="src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml"
+            line="2"
+            column="1"/>
+    </issue>
+
+</issues>

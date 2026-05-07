@@ -1,5 +1,8 @@
 package com.strhodler.utxopocket.data.node
 
+import com.strhodler.utxopocket.domain.node.EndpointKind
+import com.strhodler.utxopocket.domain.node.NodeEndpointClassifier
+import com.strhodler.utxopocket.tor.sanitization.TorTextSanitizer
 import org.bitcoindevkit.ElectrumException
 import javax.net.ssl.SSLHandshakeException
 
@@ -22,14 +25,28 @@ fun Throwable.toTorAwareMessage(
     endpoint: String? = null,
     usedTor: Boolean = true
 ): String {
+    val sanitizedDefault = TorTextSanitizer.sanitizeForPublicDisplay(
+        defaultMessage.trim().ifBlank { "Electrum connection failed" }
+    )
     val base = if (usedTor) {
-        torAwareHint() ?: defaultMessage
+        torAwareHint() ?: sanitizedDefault
     } else {
-        defaultMessage
+        sanitizedDefault
     }
+    val sanitizedBase = TorTextSanitizer.sanitizeForPublicDisplay(base)
     return if (endpoint != null) {
-        "$base (endpoint: $endpoint)"
+        "$sanitizedBase (${endpointTypeLabel(endpoint)})"
     } else {
-        base
+        sanitizedBase
+    }
+}
+
+private fun endpointTypeLabel(endpoint: String): String {
+    val normalized = runCatching { NodeEndpointClassifier.normalize(endpoint) }.getOrNull()
+    return when (normalized?.kind) {
+        EndpointKind.ONION -> "onion endpoint"
+        EndpointKind.LOCAL -> "local endpoint"
+        EndpointKind.PUBLIC -> "public endpoint"
+        null -> "endpoint hidden"
     }
 }

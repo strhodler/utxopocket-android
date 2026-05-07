@@ -1,71 +1,52 @@
 package com.strhodler.utxopocket.data.wiki
 
-import com.strhodler.utxopocket.presentation.wiki.WikiCategory
-import com.strhodler.utxopocket.presentation.wiki.WikiContent
-import com.strhodler.utxopocket.presentation.wiki.WikiTopic
+import com.strhodler.utxopocket.domain.model.WikiCategory
+import com.strhodler.utxopocket.domain.model.WikiTopic
+import com.strhodler.utxopocket.domain.repository.WikiRepository
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
-interface WikiRepository {
-    fun categories(): List<WikiCategory>
-    fun topicById(id: String): WikiTopic?
-    fun keywordSuggestions(limit: Int = DEFAULT_SUGGESTION_LIMIT): List<String>
-
-    companion object {
-        const val DEFAULT_SUGGESTION_LIMIT = 12
-    }
-}
-
 @Singleton
-class DefaultWikiRepository @Inject constructor(
-    markdownWikiDataSource: MarkdownWikiDataSource
+class DefaultWikiRepository private constructor(
+    markdownTopics: List<MarkdownWikiDataSource.MarkdownTopic>
 ) : WikiRepository {
+
+    @Inject
+    constructor(markdownWikiDataSource: MarkdownWikiDataSource) : this(
+        markdownTopics = markdownWikiDataSource.loadTopics()
+    )
 
     private val catalog: Catalog
 
     init {
-        val fallbackCategories = WikiContent.categories
-        val categoryBuilders = fallbackCategories.associate { category ->
-            category.id to CategoryAccumulator(
-                id = category.id,
-                title = category.title,
-                description = category.description,
-                topics = category.topics.toMutableList()
-            )
-        }.toMutableMap()
-
-        val markdownTopics = markdownWikiDataSource.loadTopics()
-        val seenIds = categoryBuilders.values.flatMap { it.topics }.map { it.id }.toMutableSet()
+        val categoryBuilders = mutableMapOf<String, CategoryAccumulator>()
 
         markdownTopics.forEach { markdown ->
-            val topicId = markdown.topic.id
-            if (seenIds.contains(topicId)) {
-                replaceExistingTopic(categoryBuilders, markdown.topic)
-            } else {
-                seenIds += topicId
-                val accumulator = categoryBuilders.getOrPut(markdown.categoryId) {
-                    CategoryAccumulator(
-                        id = markdown.categoryId,
-                        title = markdown.categoryTitle ?: markdown.categoryId,
-                        description = markdown.categoryDescription.orEmpty(),
-                        topics = mutableListOf()
-                    )
-                }
-                if (!markdown.categoryTitle.isNullOrBlank()) {
-                    accumulator.title = markdown.categoryTitle
-                }
-                if (!markdown.categoryDescription.isNullOrBlank()) {
-                    accumulator.description = markdown.categoryDescription
-                }
-                accumulator.topics += markdown.topic
+            removeTopicById(categoryBuilders, markdown.topic.id)
+
+            val accumulator = categoryBuilders.getOrPut(markdown.categoryId) {
+                CategoryAccumulator(
+                    id = markdown.categoryId,
+                    title = markdown.categoryTitle ?: markdown.categoryId,
+                    description = markdown.categoryDescription.orEmpty(),
+                    topics = mutableListOf()
+                )
             }
+            if (!markdown.categoryTitle.isNullOrBlank()) {
+                accumulator.title = markdown.categoryTitle
+            }
+            if (!markdown.categoryDescription.isNullOrBlank()) {
+                accumulator.description = markdown.categoryDescription
+            }
+            accumulator.topics += markdown.topic
         }
 
         val mergedCategories = categoryBuilders.values
             .map { accumulator ->
                 accumulator.toCategory()
             }
+            .filter { it.topics.isNotEmpty() }
             .sortedBy { it.title.lowercase(Locale.ROOT) }
 
         val topicsById = mergedCategories
@@ -93,16 +74,12 @@ class DefaultWikiRepository @Inject constructor(
     override fun keywordSuggestions(limit: Int): List<String> =
         catalog.keywordSuggestions.take(limit)
 
-    private fun replaceExistingTopic(
+    private fun removeTopicById(
         builders: MutableMap<String, CategoryAccumulator>,
-        topic: WikiTopic
+        topicId: String
     ) {
         for (accumulator in builders.values) {
-            val index = accumulator.topics.indexOfFirst { it.id == topic.id }
-            if (index >= 0) {
-                accumulator.topics[index] = topic
-                return
-            }
+            accumulator.topics.removeAll { it.id == topicId }
         }
     }
 
@@ -124,5 +101,11 @@ class DefaultWikiRepository @Inject constructor(
             description = description,
             topics = topics.toList()
         )
+    }
+
+    companion object {
+        internal fun fromMarkdownTopics(
+            markdownTopics: List<MarkdownWikiDataSource.MarkdownTopic>
+        ): DefaultWikiRepository = DefaultWikiRepository(markdownTopics)
     }
 }

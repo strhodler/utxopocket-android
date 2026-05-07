@@ -8,6 +8,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.tor.TorRuntimeManager.ConnectionState
+import com.strhodler.utxopocket.tor.sanitization.TorTextSanitizer
 
 object TorNotificationBuilder {
 
@@ -25,14 +26,19 @@ object TorNotificationBuilder {
             ConnectionState.IDLE -> context.getString(R.string.tor_notification_title_idle)
         }
 
-        val displayContent = when {
-            errorMessage?.isNotBlank() == true -> context.getString(
+        val sanitizedError = errorMessage
+            ?.takeIf { it.isNotBlank() }
+            ?.let(TorTextSanitizer::sanitizeForPublicDisplay)
+
+        val baseContent = when {
+            sanitizedError != null -> context.getString(
                 R.string.tor_notification_content_error,
-                errorMessage
+                sanitizedError
             )
             contentText.isBlank() -> context.getString(R.string.tor_notification_content_waiting)
             else -> contentText
         }
+        val displayContent = TorTextSanitizer.sanitizeForPublicDisplay(baseContent)
 
         val builder = NotificationCompat.Builder(context, TorServiceActions.TOR_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_tor_notification)

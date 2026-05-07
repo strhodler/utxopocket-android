@@ -6,7 +6,7 @@ category_id: privacy-toolkit
 category_title: Privacy toolkit
 category_description: Practical guides to reduce on-chain exposure and keep compartments isolated.
 related: [descriptors-advanced, descriptor-maps-and-recovery, bip389-multipath-practical]
-glossary_refs: [descriptor, descriptor-checksum, bip-389]
+glossary_refs: [descriptor, descriptor-checksum, multipath]
 keywords: [descriptor, bip389, watch-only]
 ---
 

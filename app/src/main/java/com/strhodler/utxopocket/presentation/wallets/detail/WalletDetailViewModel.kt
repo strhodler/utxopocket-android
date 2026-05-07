@@ -5,22 +5,19 @@ package com.strhodler.utxopocket.presentation.wallets.detail
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.annotation.StringRes
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
+import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.TorStatus
-import com.strhodler.utxopocket.domain.model.TransactionHealthResult
-import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
 import com.strhodler.utxopocket.domain.model.TransactionType
-import com.strhodler.utxopocket.domain.model.UtxoAnalysisContext
-import com.strhodler.utxopocket.domain.model.UtxoHealthResult
-import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
-import com.strhodler.utxopocket.domain.model.WalletHealthResult
-import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletColor
+import com.strhodler.utxopocket.domain.model.WalletDetailTransactionFilter
+import com.strhodler.utxopocket.domain.model.WalletDetailUtxoFilter
 import com.strhodler.utxopocket.domain.model.WalletDetail
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
@@ -36,25 +33,29 @@ import com.strhodler.utxopocket.domain.model.UtxoAgeBucketSlice
 import com.strhodler.utxopocket.domain.model.UtxoAgeHistogram
 import com.strhodler.utxopocket.domain.model.UtxoHoldWaves
 import com.strhodler.utxopocket.domain.model.UtxoBucketDistribution
-import com.strhodler.utxopocket.domain.model.UtxoBucketSlice
 import com.strhodler.utxopocket.domain.model.UtxoSizeBucket
 import com.strhodler.utxopocket.domain.model.UtxoSpendabilityBucket
 import com.strhodler.utxopocket.domain.service.UtxoVisualizationCalculator
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
+import com.strhodler.utxopocket.domain.model.UtxoCanvasSnapshot
+import com.strhodler.utxopocket.domain.model.UtxoCollectionColor
 import com.strhodler.utxopocket.domain.model.UtxoTreemapColorMode
 import com.strhodler.utxopocket.domain.model.UtxoTreemapData
+import com.strhodler.utxopocket.domain.model.DuressSessionState
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
-import com.strhodler.utxopocket.domain.repository.TransactionHealthRepository
-import com.strhodler.utxopocket.domain.repository.UtxoHealthRepository
-import com.strhodler.utxopocket.domain.repository.WalletHealthRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
-import com.strhodler.utxopocket.domain.service.TorManager
-import com.strhodler.utxopocket.domain.service.TransactionHealthAnalyzer
-import com.strhodler.utxopocket.domain.service.UtxoHealthAnalyzer
-import com.strhodler.utxopocket.domain.service.WalletHealthAggregator
+import com.strhodler.utxopocket.domain.repository.UtxoCanvasRepository
+import com.strhodler.utxopocket.domain.repository.WalletLabelRepository
+import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
+import com.strhodler.utxopocket.domain.repository.WalletDetailPreferencesRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncPreferencesRepository
+import com.strhodler.utxopocket.common.logging.SecureLog
+import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
+import com.strhodler.utxopocket.domain.service.DuressManager
 import com.strhodler.utxopocket.domain.service.UtxoTreemapCalculator
-import com.strhodler.utxopocket.data.utxohealth.DefaultUtxoHealthAnalyzer
+import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.components.BalancePoint
 import com.strhodler.utxopocket.presentation.components.toWalletBalancePoints
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
@@ -62,7 +63,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
-import androidx.paging.filter
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -81,17 +81,19 @@ import kotlin.math.min
 @HiltViewModel
 class WalletDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val walletRepository: WalletRepository,
-    private val torManager: TorManager,
+    private val walletReadRepository: WalletReadRepository,
+    private val walletSyncRepository: WalletSyncRepository,
+    private val walletProvisioningRepository: WalletProvisioningRepository,
+    private val walletLabelRepository: WalletLabelRepository,
+    private val connectionOrchestrator: ConnectionOrchestrator,
     private val appPreferencesRepository: AppPreferencesRepository,
-    private val transactionHealthAnalyzer: TransactionHealthAnalyzer,
-    private val transactionHealthRepository: TransactionHealthRepository,
-    private val utxoHealthRepository: UtxoHealthRepository,
-    private val walletHealthRepository: WalletHealthRepository,
-    private val walletHealthAggregator: WalletHealthAggregator,
+    private val duressManager: DuressManager,
+    private val canvasRepository: UtxoCanvasRepository,
     private val incomingTxCoordinator: IncomingTxCoordinator,
     private val utxoVisualizationCalculator: UtxoVisualizationCalculator,
-    private val utxoTreemapCalculator: UtxoTreemapCalculator
+    private val utxoTreemapCalculator: UtxoTreemapCalculator,
+    private val walletDetailPreferencesRepository: WalletDetailPreferencesRepository,
+    private val walletSyncPreferencesRepository: WalletSyncPreferencesRepository
 ) : ViewModel() {
 
     val initialWalletName: String? =
@@ -101,11 +103,8 @@ class WalletDetailViewModel @Inject constructor(
         ?: savedStateHandle.get<String>(WalletsNavigation.WalletIdArg)?.toLongOrNull()
         ?: error("Wallet id is required")
 
-    private val storedTransactionHealthState = transactionHealthRepository.stream(walletId)
-    private val storedUtxoHealthState = utxoHealthRepository.stream(walletId)
-    private val storedWalletHealthState = walletHealthRepository.stream(walletId)
-    private val utxoHealthAnalyzer: UtxoHealthAnalyzer = DefaultUtxoHealthAnalyzer()
     private val transactionSortState = MutableStateFlow(WalletTransactionSort.NEWEST_FIRST)
+    private val showPendingState = MutableStateFlow(false)
     private val utxoSortState = MutableStateFlow(WalletUtxoSort.LARGEST_AMOUNT)
     private val transactionLabelFilterState = MutableStateFlow(TransactionLabelFilter())
     private val utxoLabelFilterState = MutableStateFlow(UtxoLabelFilter())
@@ -116,18 +115,21 @@ class WalletDetailViewModel @Inject constructor(
     private val selectedBalanceRangeState = MutableStateFlow(BalanceRange.All)
     private val showBalanceChartState = MutableStateFlow(false)
     private val balanceHistoryReducer = BalanceHistoryReducer()
+    private val uiReducer = WalletDetailUiReducer(
+        utxoVisualizationCalculator = utxoVisualizationCalculator,
+        utxoTreemapCalculator = utxoTreemapCalculator
+    )
     private val _events = MutableSharedFlow<WalletDetailEvent>()
     val events: SharedFlow<WalletDetailEvent> = _events
     private var lastSyncing = false
     private var syncStartTxCount: Int? = null
     private var syncStartWalletName: String? = null
-
     val pagedTransactions: Flow<PagingData<WalletTransaction>> = combine(
         transactionSortState,
         transactionLabelFilterState
     ) { sort, filter -> sort to filter }
         .flatMapLatest { (sort, filter) ->
-            walletRepository.pageWalletTransactions(
+            walletReadRepository.pageWalletTransactions(
                 id = walletId,
                 sort = sort,
                 showLabeled = filter.showLabeled,
@@ -143,7 +145,7 @@ class WalletDetailViewModel @Inject constructor(
         utxoLabelFilterState
     ) { sort, filter -> sort to filter }
         .flatMapLatest { (sort, filter) ->
-            walletRepository.pageWalletUtxos(
+            walletReadRepository.pageWalletUtxos(
                 id = walletId,
                 sort = sort,
                 showLabeled = filter.showLabeled,
@@ -154,112 +156,44 @@ class WalletDetailViewModel @Inject constructor(
         }
         .cachedIn(viewModelScope)
 
-    private val baseState = combine(
-        walletRepository.observeWalletDetail(walletId),
-        walletRepository.observeNodeStatus(),
-        walletRepository.observeSyncStatus(),
-        torManager.status,
+    private val baseStateCoreInputs = combine(
+        walletReadRepository.observeWalletDetail(walletId),
+        canvasRepository.observeCanvasSnapshot(walletId),
+        walletSyncRepository.observeSyncStatus(),
+        connectionOrchestrator.snapshot
+    ) { detail, canvasSnapshot, syncStatus, connectionSnapshot ->
+        BaseStateCoreInputs(
+            detail = detail,
+            canvasSnapshot = canvasSnapshot,
+            nodeSnapshot = connectionSnapshot.nodeStatus,
+            syncStatus = syncStatus,
+            torStatus = connectionSnapshot.torStatus
+        )
+    }
+
+    private val baseStatePreferenceInputs = combine(
         appPreferencesRepository.balanceUnit,
         appPreferencesRepository.balancesHidden,
         appPreferencesRepository.advancedMode,
         appPreferencesRepository.dustThresholdSats,
-        appPreferencesRepository.transactionHealthParameters,
-        appPreferencesRepository.transactionAnalysisEnabled,
-        storedTransactionHealthState,
-        appPreferencesRepository.utxoHealthEnabled,
-        appPreferencesRepository.utxoHealthParameters,
-        storedUtxoHealthState,
-        appPreferencesRepository.walletHealthEnabled,
-        storedWalletHealthState,
-        appPreferencesRepository.hapticsEnabled,
+        appPreferencesRepository.hapticsEnabled
+    ) { balanceUnit, balancesHidden, advancedMode, dustThreshold, hapticsEnabled ->
+        BaseStatePreferenceInputs(
+            balanceUnit = balanceUnit,
+            balancesHidden = balancesHidden,
+            advancedMode = advancedMode,
+            dustThreshold = dustThreshold,
+            hapticsEnabled = hapticsEnabled
+        )
+    }
+
+    private val baseState = combine(
+        baseStateCoreInputs,
+        baseStatePreferenceInputs,
         appPreferencesRepository.pinLockEnabled,
         appPreferencesRepository.pinShuffleEnabled
-    ) { values: Array<Any?> ->
-        val detail = values[0] as WalletDetail?
-        val nodeSnapshot = values[1] as NodeStatusSnapshot
-        val syncStatus = values[2] as SyncStatusSnapshot
-        val torStatus = values[3] as TorStatus
-        val balanceUnit = values[4] as BalanceUnit
-        val balancesHidden = values[5] as Boolean
-        val advancedMode = values[6] as Boolean
-        val dustThreshold = values[7] as Long
-        val transactionParameters = values[8] as TransactionHealthParameters
-        val transactionAnalysisEnabled = values[9] as Boolean
-        @Suppress("UNCHECKED_CAST")
-        val storedTransactionHealth = values[10] as List<TransactionHealthResult>
-        val utxoHealthEnabled = values[11] as Boolean
-        val utxoParameters = values[12] as UtxoHealthParameters
-        @Suppress("UNCHECKED_CAST")
-        val storedUtxoHealth = values[13] as List<UtxoHealthResult>
-        val walletHealthEnabled = values[14] as Boolean
-        val storedWalletHealth = values[15] as WalletHealthResult?
-        val hapticsEnabled = values[16] as Boolean
-        val pinLockEnabled = values[17] as Boolean
-        val pinShuffleEnabled = values[18] as Boolean
-        val transactionHealthMap = if (transactionAnalysisEnabled && detail != null) {
-            val computed = transactionHealthAnalyzer
-                .analyze(detail, dustThreshold, transactionParameters)
-                .transactions
-            val storedMap = storedTransactionHealth.associateBy { it.transactionId }
-            if (computed != storedMap) {
-                viewModelScope.launch {
-                    transactionHealthRepository.replace(walletId, computed.values)
-                }
-            }
-            computed
-        } else {
-            if (!transactionAnalysisEnabled && storedTransactionHealth.isNotEmpty()) {
-                viewModelScope.launch {
-                    transactionHealthRepository.clear(walletId)
-                }
-            }
-            emptyMap()
-        }
-        val utxoHealthMap = if (utxoHealthEnabled && detail != null) {
-            val computed = detail.utxos.associate { utxo ->
-                utxoKey(utxo.txid, utxo.vout) to utxoHealthAnalyzer.analyze(
-                    utxo = utxo,
-                    context = UtxoAnalysisContext(
-                        dustThresholdUser = dustThreshold,
-                        parameters = utxoParameters
-                    )
-                )
-            }
-            val storedMap = storedUtxoHealth.associateBy { utxoKey(it.txid, it.vout) }
-            if (computed != storedMap) {
-                viewModelScope.launch {
-                    utxoHealthRepository.replace(walletId, computed.values)
-                }
-            }
-            computed
-        } else {
-            if (!utxoHealthEnabled && storedUtxoHealth.isNotEmpty()) {
-                viewModelScope.launch {
-                    utxoHealthRepository.clear(walletId)
-                }
-            }
-            emptyMap()
-        }
-        val walletHealth = if (walletHealthEnabled && detail != null) {
-            val computed = walletHealthAggregator.aggregate(
-                walletId = walletId,
-                transactions = transactionHealthMap.values,
-                utxos = utxoHealthMap.values
-            )
-            if (storedWalletHealth != computed) {
-                viewModelScope.launch {
-                    walletHealthRepository.upsert(computed)
-                }
-            }
-            computed
-        } else {
-            if (!walletHealthEnabled && storedWalletHealth != null) {
-                viewModelScope.launch {
-                    walletHealthRepository.clear(walletId)
-                }
-            }
-            null
-        }
+    ) { coreInputs, preferenceInputs, pinLockEnabled, pinShuffleEnabled ->
+        val detail = coreInputs.detail
         val balanceHistoryPoints = detail?.let { walletDetail ->
             if (walletDetail.transactions.isEmpty()) {
                 emptyList()
@@ -277,20 +211,15 @@ class WalletDetailViewModel @Inject constructor(
         } ?: emptyList()
         BaseSnapshot(
             detail = detail,
-            nodeSnapshot = nodeSnapshot,
-            syncStatus = syncStatus,
-            torStatus = torStatus,
-            balanceUnit = balanceUnit,
-            balancesHidden = balancesHidden,
-            hapticsEnabled = hapticsEnabled,
-            advancedMode = advancedMode,
-            dustThresholdSats = dustThreshold,
-            transactionAnalysisEnabled = transactionAnalysisEnabled,
-            transactionHealth = if (transactionAnalysisEnabled) transactionHealthMap else emptyMap(),
-            utxoHealthEnabled = utxoHealthEnabled,
-            utxoHealth = if (utxoHealthEnabled) utxoHealthMap else emptyMap(),
-            walletHealthEnabled = walletHealthEnabled,
-            walletHealth = walletHealth,
+            canvasSnapshot = coreInputs.canvasSnapshot,
+            nodeSnapshot = coreInputs.nodeSnapshot,
+            syncStatus = coreInputs.syncStatus,
+            torStatus = coreInputs.torStatus,
+            balanceUnit = preferenceInputs.balanceUnit,
+            balancesHidden = preferenceInputs.balancesHidden,
+            hapticsEnabled = preferenceInputs.hapticsEnabled,
+            advancedMode = preferenceInputs.advancedMode,
+            dustThresholdSats = preferenceInputs.dustThreshold,
             balanceHistory = balanceHistoryPoints,
             pinLockEnabled = pinLockEnabled,
             pinShuffleEnabled = pinShuffleEnabled
@@ -305,60 +234,131 @@ class WalletDetailViewModel @Inject constructor(
             initialValue = emptyList()
         )
 
-    private val uiInputs = combine(
-        baseState,
-        transactionSortState,
-        utxoSortState,
-        selectedBalanceRangeState,
+    private val syncGap = walletSyncPreferencesRepository.observeGap(walletId)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = null
+        )
+
+    private val lightProjection = combine(
         showBalanceChartState,
-        incomingPlaceholders
-    ) { values: Array<Any?> ->
-        val baseSnapshot = values[0] as BaseSnapshot
-        val transactionSort = values[1] as WalletTransactionSort
-        val utxoSort = values[2] as WalletUtxoSort
-        val selectedRange = values[3] as BalanceRange
-        val showBalanceChart = values[4] as Boolean
-        @Suppress("UNCHECKED_CAST")
-        val placeholders = values[5] as List<IncomingTxPlaceholder>
-        UiInputs(
-            baseSnapshot = baseSnapshot,
-            transactionSort = transactionSort,
-            utxoSort = utxoSort,
-            selectedRange = selectedRange,
+        incomingPlaceholders,
+        syncGap
+    ) { showBalanceChart, placeholders, syncGapValue ->
+        LightProjection(
             showBalanceChart = showBalanceChart,
-            incomingPlaceholders = placeholders
+            incomingPlaceholders = placeholders,
+            syncGap = syncGapValue
         )
     }
 
-    val uiState: StateFlow<WalletDetailUiState> = combine(
-        uiInputs,
+    private val expensiveProjectionPrimary = combine(
+        baseState,
+        transactionSortState,
+        showPendingState,
+        utxoSortState,
+        selectedBalanceRangeState
+    ) { baseSnapshot, transactionSort, showPending, utxoSort, selectedRange ->
+        ExpensiveProjectionPrimary(
+            baseSnapshot = baseSnapshot,
+            transactionSort = transactionSort,
+            showPending = showPending,
+            utxoSort = utxoSort,
+            selectedRange = selectedRange
+        )
+    }
+
+    private val expensiveProjectionSecondary = combine(
         utxoLabelFilterState,
         transactionLabelFilterState,
         utxoHistogramModeState,
         utxoTreemapColorModeState,
-        utxoTreemapRangeState,
-        utxoTreemapRequestedState
-    ) { values: Array<Any?> ->
-        val inputs = values[0] as UiInputs
-        val utxoLabelFilter = values[1] as UtxoLabelFilter
-        val transactionLabelFilter = values[2] as TransactionLabelFilter
-        val utxoHistogramMode = values[3] as UtxoHistogramMode
-        val utxoTreemapColorMode = values[4] as UtxoTreemapColorMode
-        val utxoTreemapRange = values[5] as LongRange?
-        val utxoTreemapRequested = values[6] as Boolean
-        buildUiState(
-            baseSnapshot = inputs.baseSnapshot,
-            transactionSort = inputs.transactionSort,
-            utxoSort = inputs.utxoSort,
-            selectedRange = inputs.selectedRange,
+        utxoTreemapRangeState
+    ) { utxoLabelFilter,
+        transactionLabelFilter,
+        utxoHistogramMode,
+        utxoTreemapColorMode,
+        utxoTreemapRange ->
+        ExpensiveProjectionSecondary(
             utxoLabelFilter = utxoLabelFilter,
             transactionLabelFilter = transactionLabelFilter,
-            showBalanceChart = inputs.showBalanceChart,
-            incomingPlaceholders = inputs.incomingPlaceholders,
             utxoHistogramMode = utxoHistogramMode,
             utxoTreemapColorMode = utxoTreemapColorMode,
-            utxoTreemapRange = utxoTreemapRange,
+            utxoTreemapRange = utxoTreemapRange
+        )
+    }
+
+    private val expensiveProjectionInputs = combine(
+        expensiveProjectionPrimary,
+        expensiveProjectionSecondary,
+        utxoTreemapRequestedState
+    ) { primary, secondary, utxoTreemapRequested ->
+        ExpensiveProjectionInput(
+            baseSnapshot = primary.baseSnapshot,
+            transactionSort = primary.transactionSort,
+            showPending = primary.showPending,
+            utxoSort = primary.utxoSort,
+            selectedRange = primary.selectedRange,
+            utxoLabelFilter = secondary.utxoLabelFilter,
+            transactionLabelFilter = secondary.transactionLabelFilter,
+            utxoHistogramMode = secondary.utxoHistogramMode,
+            utxoTreemapColorMode = secondary.utxoTreemapColorMode,
+            utxoTreemapRange = secondary.utxoTreemapRange,
             utxoTreemapRequested = utxoTreemapRequested
+        )
+    }
+
+    private val expensiveProjection = expensiveProjectionInputs.map { input ->
+        val selectedRange = sanitizeBalanceRange(input.selectedRange)
+        val transactionSort = sanitizeTransactionSort(input.transactionSort)
+        val utxoSort = sanitizeUtxoSort(input.utxoSort)
+        val baseSnapshot = input.baseSnapshot
+        val displayBalancePoints = balanceHistoryReducer.pointsForRange(
+            points = baseSnapshot.balanceHistory,
+            range = selectedRange
+        )
+        uiReducer.reduce(
+            WalletDetailUiReducerInput(
+                detail = baseSnapshot.detail,
+                canvasSnapshot = baseSnapshot.canvasSnapshot,
+                nodeSnapshot = baseSnapshot.nodeSnapshot,
+                syncStatus = baseSnapshot.syncStatus,
+                torStatus = baseSnapshot.torStatus,
+                balanceUnit = baseSnapshot.balanceUnit,
+                balancesHidden = baseSnapshot.balancesHidden,
+                hapticsEnabled = baseSnapshot.hapticsEnabled,
+                advancedMode = baseSnapshot.advancedMode,
+                dustThresholdSats = baseSnapshot.dustThresholdSats,
+                balanceHistory = baseSnapshot.balanceHistory,
+                displayBalancePoints = displayBalancePoints,
+                pinLockEnabled = baseSnapshot.pinLockEnabled,
+                pinShuffleEnabled = baseSnapshot.pinShuffleEnabled,
+                transactionSort = transactionSort,
+                showPending = input.showPending,
+                utxoSort = utxoSort,
+                selectedRange = selectedRange,
+                utxoLabelFilter = input.utxoLabelFilter,
+                transactionLabelFilter = input.transactionLabelFilter,
+                showBalanceChart = false,
+                incomingPlaceholders = emptyList(),
+                syncGap = null,
+                utxoHistogramMode = input.utxoHistogramMode,
+                utxoTreemapColorMode = input.utxoTreemapColorMode,
+                utxoTreemapRange = input.utxoTreemapRange,
+                utxoTreemapRequested = input.utxoTreemapRequested
+            )
+        )
+    }
+
+    val uiState: StateFlow<WalletDetailUiState> = combine(
+        expensiveProjection,
+        lightProjection
+    ) { expensive, light ->
+        expensive.copy(
+            showBalanceChart = light.showBalanceChart,
+            incomingPlaceholders = light.incomingPlaceholders,
+            syncGap = light.syncGap ?: expensive.summary?.fullScanStopGap
         )
     }.stateIn(
         scope = viewModelScope,
@@ -366,233 +366,40 @@ class WalletDetailViewModel @Inject constructor(
         initialValue = WalletDetailUiState()
     )
 
-    private fun buildUiState(
-        baseSnapshot: BaseSnapshot,
-        transactionSort: WalletTransactionSort,
-        utxoSort: WalletUtxoSort,
-        selectedRange: BalanceRange,
-        utxoLabelFilter: UtxoLabelFilter,
-        transactionLabelFilter: TransactionLabelFilter,
-        showBalanceChart: Boolean,
-        incomingPlaceholders: List<IncomingTxPlaceholder>,
-        utxoHistogramMode: UtxoHistogramMode,
-        utxoTreemapColorMode: UtxoTreemapColorMode,
-        utxoTreemapRange: LongRange?,
-        utxoTreemapRequested: Boolean
-    ): WalletDetailUiState {
-        val detail = baseSnapshot.detail
-        val availableTransactionSorts = availableTransactionSorts(baseSnapshot.transactionAnalysisEnabled)
-        val resolvedTransactionSort = if (transactionSort in availableTransactionSorts) {
-            transactionSort
-        } else {
-            WalletTransactionSort.NEWEST_FIRST
-        }
-        if (resolvedTransactionSort != transactionSort) {
-            transactionSortState.value = resolvedTransactionSort
-        }
-        val availableUtxoSorts = availableUtxoSorts(baseSnapshot.utxoHealthEnabled)
-        val resolvedUtxoSort = if (utxoSort in availableUtxoSorts) {
-            utxoSort
-        } else {
-            WalletUtxoSort.LARGEST_AMOUNT
-        }
-        if (resolvedUtxoSort != utxoSort) {
-            utxoSortState.value = resolvedUtxoSort
-        }
-        return if (detail == null) {
-            balanceHistoryReducer.clear()
-            WalletDetailUiState(
-                isLoading = false,
-                isRefreshing = baseSnapshot.syncStatus.isRefreshing ||
-                    baseSnapshot.syncStatus.refreshingWalletIds.isNotEmpty() ||
-                    baseSnapshot.syncStatus.activeWalletId != null,
-                summary = null,
-                descriptor = null,
-                changeDescriptor = null,
-                balanceUnit = baseSnapshot.balanceUnit,
-                balancesHidden = baseSnapshot.balancesHidden,
-                hapticsEnabled = baseSnapshot.hapticsEnabled,
-                pinLockEnabled = baseSnapshot.pinLockEnabled,
-                pinShuffleEnabled = baseSnapshot.pinShuffleEnabled,
-                advancedMode = baseSnapshot.advancedMode,
-                nodeStatus = NodeStatus.Idle,
-                torStatus = baseSnapshot.torStatus,
-                errorMessage = WalletDetailError.NotFound,
-                dustThresholdSats = baseSnapshot.dustThresholdSats,
-                transactionAnalysisEnabled = baseSnapshot.transactionAnalysisEnabled,
-                transactionHealth = emptyMap(),
-                utxoHealthEnabled = baseSnapshot.utxoHealthEnabled,
-                utxoHealth = emptyMap(),
-                walletHealthEnabled = baseSnapshot.walletHealthEnabled,
-                walletHealth = null,
-                transactionSort = resolvedTransactionSort,
-                availableTransactionSorts = availableTransactionSorts,
-                utxoSort = resolvedUtxoSort,
-                availableUtxoSorts = availableUtxoSorts,
-                availableBalanceRanges = BALANCE_RANGE_OPTIONS,
-                selectedRange = selectedRange,
-                balanceHistory = emptyList(),
-                displayBalancePoints = emptyList(),
-                showBalanceChart = showBalanceChart,
-                utxoLabelFilter = utxoLabelFilter,
-                utxoFilterCounts = UtxoFilterCounts(),
-                transactionLabelFilter = transactionLabelFilter,
-                transactionFilterCounts = TransactionFilterCounts(),
-                incomingPlaceholders = incomingPlaceholders,
-                utxoAgeHistogram = EMPTY_UTXO_HISTOGRAM,
-                utxoHistogramMode = utxoHistogramMode,
-                utxoHoldWaves = EMPTY_UTXO_HOLD_WAVES
-            )
-        } else {
-            val summary = detail.summary
-            val snapshotMatchesNetwork = baseSnapshot.nodeSnapshot.network == summary.network
-            val syncSnapshot = baseSnapshot.syncStatus
-            val matchesSyncNetwork = syncSnapshot.network == summary.network
-            val isSyncing = matchesSyncNetwork &&
-                (syncSnapshot.activeWalletId == summary.id || syncSnapshot.refreshingWalletIds.contains(summary.id))
-            val balanceHistoryPoints = baseSnapshot.balanceHistory
-            val displayBalancePoints = balanceHistoryReducer.pointsForRange(
-                balanceHistoryPoints,
-                selectedRange
-            )
-            val reusedUtxos = detail.utxos.filter { it.addressReuseCount > 1 }
-            val reusedAddressCount = reusedUtxos
-                .mapNotNull { it.address }
-                .toSet()
-                .size
-                .takeIf { it > 0 }
-                ?: reusedUtxos.size
-            val reusedBalanceSats = reusedUtxos.sumOf { it.valueSats }
-            val changeUtxos = detail.utxos.filter { it.addressType == WalletAddressType.CHANGE }
-            val changeBalanceSats = changeUtxos.sumOf { it.valueSats }
-            val dustUtxos = if (baseSnapshot.dustThresholdSats > 0) {
-                detail.utxos.filter { it.valueSats <= baseSnapshot.dustThresholdSats }
-            } else {
-                emptyList()
-            }
-            val dustBalanceSats = dustUtxos.sumOf { it.valueSats }
-            val utxoFilterCounts = computeUtxoFilterCounts(detail.utxos)
-            val transactionFilterCounts = computeTransactionFilterCounts(detail.transactions)
-            val visibleTransactionsCount = detail.transactions.count { transactionLabelFilter.matches(it) }
-            val filteredUtxos = detail.utxos.filter { utxoLabelFilter.matches(it) }
-            val visibleUtxosCount = filteredUtxos.size
-            val filteredPlaceholders = incomingPlaceholders.filterNot { placeholder ->
-                detail.transactions.any { it.id == placeholder.txid }
-            }
-            if (filteredPlaceholders.size != incomingPlaceholders.size) {
-                incomingPlaceholders
-                    .filter { placeholder -> detail.transactions.any { it.id == placeholder.txid } }
-                    .forEach { resolved ->
-                    incomingTxCoordinator.markResolved(walletId, resolved.txid)
-                }
-            }
-            val histogram = utxoVisualizationCalculator.buildSnapshot(
-                utxos = filteredUtxos,
-                transactions = detail.transactions,
-                currentBlockHeight = baseSnapshot.nodeSnapshot.blockHeight
-            )
-            val holdWaves = utxoVisualizationCalculator.buildHoldWaves(histogram)
-            val spendabilityDistribution = buildSpendabilityDistribution(filteredUtxos)
-            val sizeDistribution = buildSizeDistribution(filteredUtxos)
-            val treemapRangeBounds = resolveTreemapRangeBounds(filteredUtxos)
-            val resolvedTreemapRange = resolveTreemapRange(treemapRangeBounds, utxoTreemapRange)
-            if (utxoTreemapRange != resolvedTreemapRange) {
-                utxoTreemapRangeState.value = resolvedTreemapRange
-            }
-            val treemapData = if (utxoTreemapRequested) {
-                utxoTreemapCalculator.calculate(
-                    utxos = filteredUtxos,
-                    transactions = detail.transactions,
-                    utxoHealth = if (baseSnapshot.utxoHealthEnabled) baseSnapshot.utxoHealth else emptyMap(),
-                    colorMode = UtxoTreemapColorMode.Age,
-                    availableRange = treemapRangeBounds,
-                    selectedRange = resolvedTreemapRange,
-                    dustThresholdSats = baseSnapshot.dustThresholdSats,
-                    currentBlockHeight = baseSnapshot.nodeSnapshot.blockHeight
-                )
-            } else {
-                emptyTreemapData(
-                    availableRange = treemapRangeBounds,
-                    selectedRange = resolvedTreemapRange,
-                    utxoCount = filteredUtxos.size,
-                    totalValue = filteredUtxos.sumOf { it.valueSats }
-                )
-            }
-            WalletDetailUiState(
-                isLoading = false,
-                isRefreshing = isSyncing,
-                summary = summary,
-                descriptor = detail.descriptor,
-                changeDescriptor = detail.changeDescriptor,
-                balanceUnit = baseSnapshot.balanceUnit,
-                balancesHidden = baseSnapshot.balancesHidden,
-                hapticsEnabled = baseSnapshot.hapticsEnabled,
-                pinLockEnabled = baseSnapshot.pinLockEnabled,
-                pinShuffleEnabled = baseSnapshot.pinShuffleEnabled,
-                advancedMode = baseSnapshot.advancedMode,
-                nodeStatus = if (snapshotMatchesNetwork) baseSnapshot.nodeSnapshot.status else NodeStatus.Idle,
-                torStatus = baseSnapshot.torStatus,
-                errorMessage = null,
-                dustThresholdSats = baseSnapshot.dustThresholdSats,
-                transactionAnalysisEnabled = baseSnapshot.transactionAnalysisEnabled,
-                transactionHealth = if (baseSnapshot.transactionAnalysisEnabled) baseSnapshot.transactionHealth else emptyMap(),
-                utxoHealthEnabled = baseSnapshot.utxoHealthEnabled,
-                utxoHealth = if (baseSnapshot.utxoHealthEnabled) baseSnapshot.utxoHealth else emptyMap(),
-                walletHealthEnabled = baseSnapshot.walletHealthEnabled,
-                walletHealth = baseSnapshot.walletHealth,
-                fullScanScheduled = summary.requiresFullScan,
-                fullScanStopGap = summary.fullScanStopGap,
-                lastFullScanTime = summary.lastFullScanTime,
-                balanceHistory = balanceHistoryPoints,
-                displayBalancePoints = displayBalancePoints,
-                showBalanceChart = showBalanceChart,
-                selectedRange = selectedRange,
-                reusedAddressCount = reusedAddressCount,
-                reusedBalanceSats = reusedBalanceSats,
-                changeUtxoCount = changeUtxos.size,
-                changeBalanceSats = changeBalanceSats,
-                dustUtxoCount = dustUtxos.size,
-                dustBalanceSats = dustBalanceSats,
-                transactionsCount = detail.transactions.size,
-                visibleTransactionsCount = visibleTransactionsCount,
-                utxosCount = detail.utxos.size,
-                visibleUtxosCount = visibleUtxosCount,
-                transactionSort = resolvedTransactionSort,
-                availableTransactionSorts = availableTransactionSorts,
-                utxoSort = resolvedUtxoSort,
-                availableUtxoSorts = availableUtxoSorts,
-                availableBalanceRanges = BALANCE_RANGE_OPTIONS,
-                utxoLabelFilter = utxoLabelFilter,
-                utxoFilterCounts = utxoFilterCounts,
-                transactionLabelFilter = transactionLabelFilter,
-                transactionFilterCounts = transactionFilterCounts,
-                incomingPlaceholders = filteredPlaceholders,
-                utxoAgeHistogram = histogram,
-                utxoHistogramMode = utxoHistogramMode,
-                utxoHoldWaves = holdWaves,
-                utxoSpendabilityDistribution = spendabilityDistribution,
-                utxoSizeDistribution = sizeDistribution,
-                utxoTreemap = treemapData,
-                utxoTreemapColorMode = utxoTreemapColorMode
-            )
+    fun updateTransactionSort(sort: WalletTransactionSort) {
+        val sanitized = sanitizeTransactionSort(sort)
+        if (transactionSortState.value == sanitized) return
+        transactionSortState.value = sanitized
+        viewModelScope.launch {
+            walletDetailPreferencesRepository.setTransactionSort(walletId, sanitized)
         }
     }
 
-    fun updateTransactionSort(sort: WalletTransactionSort) {
-        if (transactionSortState.value != sort) {
-            transactionSortState.value = sort
+    fun setShowPending(enabled: Boolean) {
+        if (showPendingState.value == enabled) return
+        showPendingState.value = enabled
+        viewModelScope.launch {
+            walletDetailPreferencesRepository.setShowPending(walletId, enabled)
         }
     }
 
     fun updateUtxoSort(sort: WalletUtxoSort) {
-        if (utxoSortState.value != sort) {
-            utxoSortState.value = sort
+        val sanitized = sanitizeUtxoSort(sort)
+        if (utxoSortState.value == sanitized) return
+        utxoSortState.value = sanitized
+        viewModelScope.launch {
+            walletDetailPreferencesRepository.setUtxoSort(walletId, sanitized)
         }
     }
 
     fun setUtxoLabelFilter(filter: UtxoLabelFilter) {
-        if (utxoLabelFilterState.value != filter) {
-            utxoLabelFilterState.value = filter
+        if (utxoLabelFilterState.value == filter) return
+        utxoLabelFilterState.value = filter
+        viewModelScope.launch {
+            walletDetailPreferencesRepository.setUtxoFilter(
+                walletId = walletId,
+                filter = filter.toPreferenceModel()
+            )
         }
     }
 
@@ -617,6 +424,56 @@ class WalletDetailViewModel @Inject constructor(
         }
     }
 
+    private fun sanitizeTransactionSort(sort: WalletTransactionSort): WalletTransactionSort {
+        val availableSorts = WalletTransactionSort.entries
+        return if (sort in availableSorts) sort else WalletTransactionSort.NEWEST_FIRST
+    }
+
+    private fun sanitizeUtxoSort(sort: WalletUtxoSort): WalletUtxoSort {
+        val availableSorts = WalletUtxoSort.entries
+        return if (sort in availableSorts) sort else WalletUtxoSort.LARGEST_AMOUNT
+    }
+
+    private fun sanitizeBalanceRange(range: BalanceRange): BalanceRange {
+        return if (range in BALANCE_RANGE_OPTIONS) range else BalanceRange.All
+    }
+
+    private fun TransactionLabelFilter.toPreferenceModel(): WalletDetailTransactionFilter {
+        return WalletDetailTransactionFilter(
+            showLabeled = showLabeled,
+            showUnlabeled = showUnlabeled,
+            showReceived = showReceived,
+            showSent = showSent
+        )
+    }
+
+    private fun UtxoLabelFilter.toPreferenceModel(): WalletDetailUtxoFilter {
+        return WalletDetailUtxoFilter(
+            showLabeled = showLabeled,
+            showUnlabeled = showUnlabeled,
+            showSpendable = showSpendable,
+            showNotSpendable = showNotSpendable
+        )
+    }
+
+    private fun WalletDetailTransactionFilter.toUiModel(): TransactionLabelFilter {
+        return TransactionLabelFilter(
+            showLabeled = showLabeled,
+            showUnlabeled = showUnlabeled,
+            showReceived = showReceived,
+            showSent = showSent
+        )
+    }
+
+    private fun WalletDetailUtxoFilter.toUiModel(): UtxoLabelFilter {
+        return UtxoLabelFilter(
+            showLabeled = showLabeled,
+            showUnlabeled = showUnlabeled,
+            showSpendable = showSpendable,
+            showNotSpendable = showNotSpendable
+        )
+    }
+
     fun requestUtxoTreemap() {
         if (!utxoTreemapRequestedState.value) {
             utxoTreemapRequestedState.value = true
@@ -624,24 +481,47 @@ class WalletDetailViewModel @Inject constructor(
     }
 
     fun setTransactionLabelFilter(filter: TransactionLabelFilter) {
-        if (transactionLabelFilterState.value != filter) {
-            transactionLabelFilterState.value = filter
+        if (transactionLabelFilterState.value == filter) return
+        transactionLabelFilterState.value = filter
+        viewModelScope.launch {
+            walletDetailPreferencesRepository.setTransactionFilter(
+                walletId = walletId,
+                filter = filter.toPreferenceModel()
+            )
         }
     }
 
     fun verifyPin(pin: String, onResult: (PinVerificationResult) -> Unit) {
         viewModelScope.launch {
-            val result = appPreferencesRepository.verifyPin(pin)
-            if (result is PinVerificationResult.Success) {
-                appPreferencesRepository.markPinUnlocked()
+            val duressActive = isDuressActive()
+            val result = if (duressActive) {
+                appPreferencesRepository.verifyPinIgnoringDuress(pin)
+            } else {
+                appPreferencesRepository.verifyPin(pin)
+            }
+            when (result) {
+                is PinVerificationResult.Success -> {
+                    appPreferencesRepository.markPinUnlocked()
+                }
+
+                is PinVerificationResult.DuressTriggered -> {
+                    if (!duressActive) {
+                        appPreferencesRepository.markPinUnlocked()
+                        duressManager.activateFake(result.decoyBalanceSats)
+                    }
+                }
+
+                else -> Unit
             }
             onResult(result)
         }
     }
 
+    private fun isDuressActive(): Boolean =
+        duressManager.state.value is DuressSessionState.FakeActive
+
     init {
-        observeBalanceRangePreference()
-        observeShowBalanceChartPreference()
+        observeWalletDetailPreferences()
         viewModelScope.launch {
             uiState.collect { state ->
                 val refreshing = state.isRefreshing
@@ -674,25 +554,129 @@ class WalletDetailViewModel @Inject constructor(
     }
 
     fun refresh() {
-        val summary = uiState.value.summary ?: return
+        requestManualSync(operation = SyncOperation.Refresh)
+    }
+
+    private fun requestManualSync(
+        operation: SyncOperation,
+        beforeEnqueue: (suspend (WalletSummary) -> Unit)? = null,
+        onSyncRequestResult: ((Result<Boolean>) -> Unit)? = null,
+        enqueueRequestedOperation: Boolean = true
+    ) {
+        val snapshot = uiState.value
+        val summary = snapshot.summary
+        if (summary == null) {
+            onSyncRequestResult?.invoke(Result.failure(IllegalStateException("Wallet not loaded")))
+            return
+        }
         viewModelScope.launch {
-            val hasNode = walletRepository.hasActiveNodeSelection(summary.network)
-            if (!hasNode) {
+            val beforeResult = runCatching {
+                beforeEnqueue?.invoke(summary)
+            }
+            if (beforeResult.isFailure) {
+                onSyncRequestResult?.invoke(beforeResult.map { false })
                 return@launch
             }
-            val syncStatus = walletRepository.observeSyncStatus().first()
+
+            syncBlockReason(snapshot.nodeStatus)?.let { blockedMessage ->
+                SecureLog.d(TAG) {
+                    "Sync blocked for wallet=${summary.id} nodeStatus=${snapshot.nodeStatus} operation=$operation"
+                }
+                _events.emit(WalletDetailEvent.SyncBlocked(blockedMessage))
+                onSyncRequestResult?.invoke(Result.success(true))
+                return@launch
+            }
+            val hasNode = walletSyncRepository.hasActiveNodeSelection(summary.network)
+            if (!hasNode) {
+                SecureLog.d(TAG) {
+                    "Sync request ignored: no active node selection for network=${summary.network} wallet=${summary.id}"
+                }
+                onSyncRequestResult?.invoke(Result.success(true))
+                return@launch
+            }
+            val syncStatus = walletSyncRepository.observeSyncStatus().first()
             val matchesNetwork = syncStatus.network == summary.network
+            val shouldEnqueue = if (enqueueRequestedOperation) {
+                val existingOperation = existingSyncOperation(
+                    walletId = summary.id,
+                    syncStatus = syncStatus,
+                    matchesNetwork = matchesNetwork
+                )
+                shouldEnqueueOperation(
+                    requestedOperation = operation,
+                    existingOperation = existingOperation
+                )
+            } else {
+                false
+            }
             val queuedOrRunning = matchesNetwork && (
                 syncStatus.isRefreshing ||
                     syncStatus.activeWalletId != null ||
                     syncStatus.refreshingWalletIds.isNotEmpty() ||
                     syncStatus.queuedWalletIds.isNotEmpty()
             )
-            walletRepository.refreshWallet(summary.id)
-            if (queuedOrRunning) {
-                _events.emit(WalletDetailEvent.RefreshQueued)
+            SecureLog.d(TAG) {
+                "Manual sync requested wallet=${summary.id} operation=$operation nodeStatus=${snapshot.nodeStatus} " +
+                    "syncNetwork=${syncStatus.network} active=${syncStatus.activeWalletId} " +
+                    "refreshing=${syncStatus.refreshingWalletIds} queued=${syncStatus.queuedWalletIds} " +
+                    "matchesNetwork=$matchesNetwork queuedOrRunning=$queuedOrRunning shouldEnqueue=$shouldEnqueue"
             }
+            if (shouldEnqueue) {
+                walletSyncRepository.refreshWallet(summary.id, operation)
+            }
+            val shouldEmitQueuedEvent = if (enqueueRequestedOperation) {
+                queuedOrRunning || !shouldEnqueue
+            } else {
+                queuedOrRunning
+            }
+            if (shouldEmitQueuedEvent) {
+                _events.emit(queuedEventFor(operation))
+            }
+            onSyncRequestResult?.invoke(Result.success(shouldEmitQueuedEvent))
         }
+    }
+
+    private fun existingSyncOperation(
+        walletId: Long,
+        syncStatus: SyncStatusSnapshot,
+        matchesNetwork: Boolean
+    ): SyncOperation? {
+        if (!matchesNetwork) return null
+        val isActiveWallet = syncStatus.activeWalletId == walletId ||
+            syncStatus.refreshingWalletIds.contains(walletId)
+        if (isActiveWallet) {
+            return syncStatus.activeOperation ?: SyncOperation.Refresh
+        }
+        return syncStatus.queuedOperationFor(walletId)
+    }
+
+    private fun shouldEnqueueOperation(
+        requestedOperation: SyncOperation,
+        existingOperation: SyncOperation?
+    ): Boolean {
+        return when {
+            existingOperation == null -> true
+            requestedOperation == SyncOperation.FullRescan &&
+                existingOperation != SyncOperation.FullRescan -> true
+
+            else -> false
+        }
+    }
+
+    private fun queuedEventFor(operation: SyncOperation): WalletDetailEvent = when (operation) {
+        SyncOperation.Refresh -> WalletDetailEvent.RefreshQueued
+        SyncOperation.FullRescan -> WalletDetailEvent.FullRescanQueued
+    }
+
+    @StringRes
+    private fun syncBlockReason(nodeStatus: NodeStatus): Int? = when (nodeStatus) {
+        NodeStatus.Idle -> R.string.wallet_detail_sync_blocked_offline
+        NodeStatus.Connecting -> R.string.wallet_detail_sync_blocked_connecting
+        NodeStatus.WaitingForTor -> R.string.wallet_detail_sync_blocked_waiting_tor
+        NodeStatus.Disconnecting -> R.string.wallet_detail_sync_blocked_disconnecting
+        NodeStatus.Offline -> R.string.wallet_detail_sync_blocked_offline
+        is NodeStatus.Error -> R.string.wallet_detail_sync_blocked_offline
+        else -> null
     }
 
     fun cycleBalanceDisplayMode() {
@@ -703,7 +687,7 @@ class WalletDetailViewModel @Inject constructor(
 
     fun deleteWallet(onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
-            runCatching { walletRepository.deleteWallet(walletId) }
+            runCatching { walletProvisioningRepository.deleteWallet(walletId) }
                 .onSuccess { onResult(true) }
                 .onFailure { onResult(false) }
         }
@@ -711,162 +695,163 @@ class WalletDetailViewModel @Inject constructor(
 
     fun updateWalletColor(color: WalletColor) {
         viewModelScope.launch {
-            walletRepository.updateWalletColor(walletId, color)
+            walletProvisioningRepository.updateWalletColor(walletId, color)
         }
     }
 
-    fun forceFullRescan(stopGap: Int, onResult: (Result<Unit>) -> Unit) {
-        viewModelScope.launch {
-            val result = runCatching { walletRepository.forceFullRescan(walletId, stopGap) }
-            result.onSuccess {
-                refresh()
-            }
-            onResult(result)
-        }
+    fun forceFullRescan(stopGap: Int, onResult: (Result<Boolean>) -> Unit) {
+        requestManualSync(
+            operation = SyncOperation.FullRescan,
+            beforeEnqueue = { summary ->
+                walletProvisioningRepository.forceFullRescan(summary.id, stopGap)
+            },
+            onSyncRequestResult = onResult,
+            enqueueRequestedOperation = false
+        )
     }
 
     fun renameWallet(name: String, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
-            val result = runCatching { walletRepository.renameWallet(walletId, name) }
+            val result = runCatching { walletProvisioningRepository.renameWallet(walletId, name) }
             onResult(result)
         }
     }
 
     fun exportLabels(onResult: (Result<WalletLabelExport>) -> Unit) {
         viewModelScope.launch {
-            val result = runCatching { walletRepository.exportWalletLabels(walletId) }
+            val result = runCatching { walletLabelRepository.exportWalletLabels(walletId) }
             onResult(result)
         }
     }
 
-    fun importLabels(payload: ByteArray, onResult: (Result<Bip329ImportResult>) -> Unit) {
+    fun importLabels(
+        payload: ByteArray,
+        overwriteExisting: Boolean,
+        onResult: (Result<Bip329ImportResult>) -> Unit
+    ) {
         viewModelScope.launch {
-            val result = runCatching { walletRepository.importWalletLabels(walletId, payload) }
+            val result = runCatching {
+                walletLabelRepository.importWalletLabels(
+                    walletId = walletId,
+                    payload = payload,
+                    overwriteExisting = overwriteExisting
+                )
+            }
             onResult(result)
         }
     }
 
-    private fun observeBalanceRangePreference() {
+    private fun observeWalletDetailPreferences() {
         viewModelScope.launch {
-            appPreferencesRepository.walletBalanceRange.collect { range ->
-                if (selectedBalanceRangeState.value != range) {
-                    selectedBalanceRangeState.value = range
+            walletDetailPreferencesRepository.observe(walletId).collect { preferences ->
+                val transactionSort = sanitizeTransactionSort(preferences.transactionSort)
+                if (transactionSortState.value != transactionSort) {
+                    transactionSortState.value = transactionSort
+                }
+
+                if (showPendingState.value != preferences.showPending) {
+                    showPendingState.value = preferences.showPending
+                }
+
+                val utxoSort = sanitizeUtxoSort(preferences.utxoSort)
+                if (utxoSortState.value != utxoSort) {
+                    utxoSortState.value = utxoSort
+                }
+
+                val transactionFilter = preferences.transactionFilter.toUiModel()
+                if (transactionLabelFilterState.value != transactionFilter) {
+                    transactionLabelFilterState.value = transactionFilter
+                }
+
+                val utxoFilter = preferences.utxoFilter.toUiModel()
+                if (utxoLabelFilterState.value != utxoFilter) {
+                    utxoLabelFilterState.value = utxoFilter
+                }
+
+                val selectedRange = sanitizeBalanceRange(preferences.balanceRange)
+                if (selectedBalanceRangeState.value != selectedRange) {
+                    selectedBalanceRangeState.value = selectedRange
+                }
+
+                if (showBalanceChartState.value != preferences.showBalanceChart) {
+                    showBalanceChartState.value = preferences.showBalanceChart
                 }
             }
         }
     }
 
     fun onBalanceRangeSelected(range: BalanceRange) {
-        if (selectedBalanceRangeState.value == range) return
-        selectedBalanceRangeState.value = range
+        val sanitized = sanitizeBalanceRange(range)
+        if (selectedBalanceRangeState.value == sanitized) return
+        selectedBalanceRangeState.value = sanitized
         viewModelScope.launch {
-            appPreferencesRepository.setWalletBalanceRange(range)
+            walletDetailPreferencesRepository.setBalanceRange(walletId, sanitized)
         }
     }
 
     fun setShowBalanceChart(show: Boolean) {
+        if (showBalanceChartState.value == show) return
         showBalanceChartState.value = show
         viewModelScope.launch {
-            appPreferencesRepository.setShowBalanceChart(show)
+            walletDetailPreferencesRepository.setShowBalanceChart(walletId, show)
         }
     }
 
-    private fun buildSpendabilityDistribution(
-        utxos: List<WalletUtxo>
-    ): UtxoBucketDistribution<UtxoSpendabilityBucket> {
-        if (utxos.isEmpty()) {
-            return EMPTY_UTXO_SPENDABILITY_DISTRIBUTION
-        }
-        val spendableUtxos = utxos.filter { it.spendable }
-        val notSpendableUtxos = utxos.filterNot { it.spendable }
-        val slices = listOf(
-            UtxoBucketSlice(
-                bucket = UtxoSpendabilityBucket.Spendable,
-                count = spendableUtxos.size,
-                valueSats = spendableUtxos.sumOf { it.valueSats }
-            ),
-            UtxoBucketSlice(
-                bucket = UtxoSpendabilityBucket.NotSpendable,
-                count = notSpendableUtxos.size,
-                valueSats = notSpendableUtxos.sumOf { it.valueSats }
-            )
-        ).filter { it.count > 0 }
-        return UtxoBucketDistribution(
-            slices = slices,
-            totalCount = utxos.size,
-            totalValueSats = utxos.sumOf { it.valueSats }
-        )
-    }
+    private data class BaseStateCoreInputs(
+        val detail: WalletDetail?,
+        val canvasSnapshot: UtxoCanvasSnapshot,
+        val nodeSnapshot: NodeStatusSnapshot,
+        val syncStatus: SyncStatusSnapshot,
+        val torStatus: TorStatus
+    )
 
-    private fun buildSizeDistribution(
-        utxos: List<WalletUtxo>
-    ): UtxoBucketDistribution<UtxoSizeBucket> {
-        if (utxos.isEmpty()) {
-            return EMPTY_UTXO_SIZE_DISTRIBUTION
-        }
-        val minValue = utxos.minOf { it.valueSats }
-        val maxValue = utxos.maxOf { it.valueSats }
-        val bounds = minValue..maxValue
-        val edges = (listOf(minValue) + TREEMAP_SHORTCUT_THRESHOLDS.filter { it in bounds } + listOf(maxValue))
-            .distinct()
-            .sorted()
-            .filter { it in bounds }
-        val ranges = edges.zipWithNext()
-            .mapNotNull { (start, end) ->
-                if (end <= start) return@mapNotNull null
-                start..end
-            }
-        val slices = ranges.mapNotNull { range ->
-            val bucketUtxos = utxos.filter { it.valueSats in range }
-            if (bucketUtxos.isEmpty()) return@mapNotNull null
-            UtxoBucketSlice(
-                bucket = UtxoSizeBucket(
-                    id = "range_${range.first}_${range.last}",
-                    range = range
-                ),
-                count = bucketUtxos.size,
-                valueSats = bucketUtxos.sumOf { it.valueSats }
-            )
-        }.ifEmpty {
-            listOf(
-                UtxoBucketSlice(
-                    bucket = UtxoSizeBucket(
-                        id = "range_${bounds.first}_${bounds.last}",
-                        range = bounds
-                    ),
-                    count = utxos.size,
-                    valueSats = utxos.sumOf { it.valueSats }
-                )
-            )
-        }
-        return UtxoBucketDistribution(
-            slices = slices,
-            totalCount = utxos.size,
-            totalValueSats = utxos.sumOf { it.valueSats }
-        )
-    }
+    private data class BaseStatePreferenceInputs(
+        val balanceUnit: BalanceUnit,
+        val balancesHidden: Boolean,
+        val advancedMode: Boolean,
+        val dustThreshold: Long,
+        val hapticsEnabled: Boolean
+    )
 
-    private fun observeShowBalanceChartPreference() {
-        viewModelScope.launch {
-            appPreferencesRepository.showBalanceChart.collect { show ->
-                if (showBalanceChartState.value != show) {
-                    showBalanceChartState.value = show
-                }
-            }
-        }
-    }
-
-    private data class UiInputs(
+    private data class ExpensiveProjectionPrimary(
         val baseSnapshot: BaseSnapshot,
         val transactionSort: WalletTransactionSort,
+        val showPending: Boolean,
+        val utxoSort: WalletUtxoSort,
+        val selectedRange: BalanceRange
+    )
+
+    private data class ExpensiveProjectionSecondary(
+        val utxoLabelFilter: UtxoLabelFilter,
+        val transactionLabelFilter: TransactionLabelFilter,
+        val utxoHistogramMode: UtxoHistogramMode,
+        val utxoTreemapColorMode: UtxoTreemapColorMode,
+        val utxoTreemapRange: LongRange?
+    )
+
+    private data class ExpensiveProjectionInput(
+        val baseSnapshot: BaseSnapshot,
+        val transactionSort: WalletTransactionSort,
+        val showPending: Boolean,
         val utxoSort: WalletUtxoSort,
         val selectedRange: BalanceRange,
+        val utxoLabelFilter: UtxoLabelFilter,
+        val transactionLabelFilter: TransactionLabelFilter,
+        val utxoHistogramMode: UtxoHistogramMode,
+        val utxoTreemapColorMode: UtxoTreemapColorMode,
+        val utxoTreemapRange: LongRange?,
+        val utxoTreemapRequested: Boolean
+    )
+
+    private data class LightProjection(
         val showBalanceChart: Boolean,
-        val incomingPlaceholders: List<IncomingTxPlaceholder>
+        val incomingPlaceholders: List<IncomingTxPlaceholder>,
+        val syncGap: Int?
     )
 
     private data class BaseSnapshot(
         val detail: WalletDetail?,
+        val canvasSnapshot: UtxoCanvasSnapshot,
         val nodeSnapshot: NodeStatusSnapshot,
         val syncStatus: SyncStatusSnapshot,
         val torStatus: TorStatus,
@@ -875,113 +860,27 @@ class WalletDetailViewModel @Inject constructor(
         val hapticsEnabled: Boolean,
         val advancedMode: Boolean,
         val dustThresholdSats: Long,
-        val transactionAnalysisEnabled: Boolean,
-        val transactionHealth: Map<String, TransactionHealthResult>,
-        val utxoHealthEnabled: Boolean,
-        val utxoHealth: Map<String, UtxoHealthResult>,
-        val walletHealthEnabled: Boolean,
-        val walletHealth: WalletHealthResult?,
         val balanceHistory: List<BalancePoint>,
         val pinLockEnabled: Boolean,
         val pinShuffleEnabled: Boolean
     )
 
-    private fun computeUtxoFilterCounts(utxos: List<WalletUtxo>): UtxoFilterCounts {
-        val labeled = utxos.count { !it.displayLabel.isNullOrBlank() }
-        val spendable = utxos.count { it.spendable }
-        return UtxoFilterCounts(
-            labeled = labeled,
-            unlabeled = utxos.size - labeled,
-            spendable = spendable,
-            notSpendable = utxos.size - spendable
-        )
-    }
-
-    private fun computeTransactionFilterCounts(transactions: List<WalletTransaction>): TransactionFilterCounts {
-        val labeled = transactions.count { !it.label.isNullOrBlank() }
-        val received = transactions.count { it.type == TransactionType.RECEIVED }
-        return TransactionFilterCounts(
-            labeled = labeled,
-            unlabeled = transactions.size - labeled,
-            received = received,
-            sent = transactions.size - received
-        )
-    }
-
-    private fun resolveTreemapRangeBounds(utxos: List<WalletUtxo>): LongRange {
-        if (utxos.isEmpty()) return 0L..0L
-        val minValue = utxos.minOf { it.valueSats }
-        val maxValue = utxos.maxOf { it.valueSats }
-        return minValue..maxValue
-    }
-
-    private fun resolveTreemapRange(
-        bounds: LongRange,
-        selected: LongRange?
-    ): LongRange {
-        if (bounds.first == 0L && bounds.last == 0L) return bounds
-        val desired = selected ?: bounds
-        val start = desired.first.coerceAtLeast(bounds.first)
-        val end = desired.last.coerceAtMost(bounds.last)
-        return if (start <= end) start..end else bounds
-    }
-
-    private fun emptyTreemapData(
-        availableRange: LongRange,
-        selectedRange: LongRange,
-        utxoCount: Int,
-        totalValue: Long
-    ): UtxoTreemapData = UtxoTreemapData(
-        tiles = emptyList(),
-        availableRange = availableRange,
-        selectedRange = selectedRange,
-        totalCount = utxoCount,
-        filteredCount = 0,
-        totalValueSats = totalValue,
-        filteredValueSats = 0,
-        aggregatedCount = 0
-    )
-
-    private fun availableTransactionSorts(analysisEnabled: Boolean): List<WalletTransactionSort> =
-        if (analysisEnabled) {
-            WalletTransactionSort.entries.toList()
-        } else {
-            WalletTransactionSort.entries.filterNot {
-                it == WalletTransactionSort.BEST_HEALTH || it == WalletTransactionSort.WORST_HEALTH
-            }
-        }
-
-    private fun availableUtxoSorts(analysisEnabled: Boolean): List<WalletUtxoSort> =
-        if (analysisEnabled) {
-            WalletUtxoSort.entries.toList()
-        } else {
-            WalletUtxoSort.entries.filterNot {
-                it == WalletUtxoSort.BEST_HEALTH || it == WalletUtxoSort.WORST_HEALTH
-            }
-        }
-
     private companion object {
-        private val TREEMAP_SHORTCUT_THRESHOLDS = listOf(
-            1_000L,
-            10_000L,
-            100_000L,
-            1_000_000L,
-            10_000_000L,
-            100_000_000L,
-            1_000_000_000L
-        )
-        private fun utxoKey(txid: String, vout: Int): String = "$txid:$vout"
+        private const val TAG = "WalletDetailViewModel"
     }
 }
 
 sealed interface WalletDetailEvent {
     data object RefreshQueued : WalletDetailEvent
+    data object FullRescanQueued : WalletDetailEvent
     data class SyncCompleted(val walletName: String, val newTransactions: Int) : WalletDetailEvent
+    data class SyncBlocked(@param:StringRes val messageRes: Int) : WalletDetailEvent
 }
 
 data class WalletDetailUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
+    val isQueued: Boolean = false,
     val summary: WalletSummary? = null,
     val descriptor: String? = null,
     val changeDescriptor: String? = null,
@@ -995,15 +894,11 @@ data class WalletDetailUiState(
     val torStatus: TorStatus = TorStatus.Stopped,
     val errorMessage: WalletDetailError? = null,
     val dustThresholdSats: Long = WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS,
-    val transactionAnalysisEnabled: Boolean = true,
-    val transactionHealth: Map<String, TransactionHealthResult> = emptyMap(),
-    val utxoHealthEnabled: Boolean = true,
-    val utxoHealth: Map<String, UtxoHealthResult> = emptyMap(),
-    val walletHealthEnabled: Boolean = false,
-    val walletHealth: WalletHealthResult? = null,
     val fullScanScheduled: Boolean = false,
     val fullScanStopGap: Int? = null,
     val lastFullScanTime: Long? = null,
+    val activeSyncOperation: SyncOperation? = null,
+    val queuedSyncOperation: SyncOperation? = null,
     val balanceHistory: List<BalancePoint> = emptyList(),
     val displayBalancePoints: List<BalancePoint> = emptyList(),
     val showBalanceChart: Boolean = false,
@@ -1021,6 +916,7 @@ data class WalletDetailUiState(
     val visibleUtxosCount: Int = 0,
     val transactionSort: WalletTransactionSort = WalletTransactionSort.NEWEST_FIRST,
     val availableTransactionSorts: List<WalletTransactionSort> = WalletTransactionSort.entries.toList(),
+    val showPending: Boolean = false,
     val utxoSort: WalletUtxoSort = WalletUtxoSort.LARGEST_AMOUNT,
     val availableUtxoSorts: List<WalletUtxoSort> = WalletUtxoSort.entries.toList(),
     val transactionLabelFilter: TransactionLabelFilter = TransactionLabelFilter(),
@@ -1028,13 +924,24 @@ data class WalletDetailUiState(
     val utxoLabelFilter: UtxoLabelFilter = UtxoLabelFilter(),
     val utxoFilterCounts: UtxoFilterCounts = UtxoFilterCounts(),
     val incomingPlaceholders: List<IncomingTxPlaceholder> = emptyList(),
+    val syncGap: Int? = null,
     val utxoAgeHistogram: UtxoAgeHistogram = EMPTY_UTXO_HISTOGRAM,
     val utxoHistogramMode: UtxoHistogramMode = UtxoHistogramMode.Count,
     val utxoHoldWaves: UtxoHoldWaves = EMPTY_UTXO_HOLD_WAVES,
+    val utxoTotalValueSats: Long = 0L,
     val utxoSpendabilityDistribution: UtxoBucketDistribution<UtxoSpendabilityBucket> = EMPTY_UTXO_SPENDABILITY_DISTRIBUTION,
     val utxoSizeDistribution: UtxoBucketDistribution<UtxoSizeBucket> = EMPTY_UTXO_SIZE_DISTRIBUTION,
     val utxoTreemap: UtxoTreemapData = UtxoTreemapData.Empty,
-    val utxoTreemapColorMode: UtxoTreemapColorMode = UtxoTreemapColorMode.DustRisk
+    val utxoTreemapColorMode: UtxoTreemapColorMode = UtxoTreemapColorMode.DustRisk,
+    val collections: List<WalletCollectionItem> = emptyList()
+)
+
+data class WalletCollectionItem(
+    val id: Long,
+    val name: String,
+    val color: UtxoCollectionColor,
+    val totalValueSats: Long,
+    val memberCount: Int
 )
 
 sealed interface WalletDetailError {
@@ -1107,7 +1014,10 @@ data class TransactionFilterCounts(
     val labeled: Int = 0,
     val unlabeled: Int = 0,
     val received: Int = 0,
-    val sent: Int = 0
+    val receivedAmountSats: Long = 0L,
+    val sent: Int = 0,
+    val sentAmountSats: Long = 0L,
+    val pending: Int = 0
 )
 
 enum class UtxoHistogramMode {
@@ -1115,7 +1025,7 @@ enum class UtxoHistogramMode {
     Value
 }
 
-private val EMPTY_UTXO_HISTOGRAM: UtxoAgeHistogram = UtxoAgeHistogram(
+internal val EMPTY_UTXO_HISTOGRAM: UtxoAgeHistogram = UtxoAgeHistogram(
     slices = UtxoAgeBucket.entries.map { bucket ->
         UtxoAgeBucketSlice(bucket = bucket, count = 0, valueSats = 0)
     },
@@ -1123,19 +1033,19 @@ private val EMPTY_UTXO_HISTOGRAM: UtxoAgeHistogram = UtxoAgeHistogram(
     totalValueSats = 0
 )
 
-private val EMPTY_UTXO_HOLD_WAVES: UtxoHoldWaves = UtxoHoldWaves(
+internal val EMPTY_UTXO_HOLD_WAVES: UtxoHoldWaves = UtxoHoldWaves(
     points = emptyList(),
     dataAvailable = false
 )
 
-private val EMPTY_UTXO_SPENDABILITY_DISTRIBUTION: UtxoBucketDistribution<UtxoSpendabilityBucket> =
+internal val EMPTY_UTXO_SPENDABILITY_DISTRIBUTION: UtxoBucketDistribution<UtxoSpendabilityBucket> =
     UtxoBucketDistribution(
         slices = emptyList(),
         totalCount = 0,
         totalValueSats = 0
     )
 
-private val EMPTY_UTXO_SIZE_DISTRIBUTION: UtxoBucketDistribution<UtxoSizeBucket> =
+internal val EMPTY_UTXO_SIZE_DISTRIBUTION: UtxoBucketDistribution<UtxoSizeBucket> =
     UtxoBucketDistribution(
         slices = emptyList(),
         totalCount = 0,

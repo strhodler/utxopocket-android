@@ -109,9 +109,9 @@ fun ConnectionStatusBanner(
 @Composable
 fun ActionableStatusBanner(
     title: String,
-    supporting: String? = null,
     icon: ImageVector,
     modifier: Modifier = Modifier,
+    supporting: String? = null,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
     contentColor: Color = MaterialTheme.colorScheme.onSurface,
     onClick: (() -> Unit)? = null,

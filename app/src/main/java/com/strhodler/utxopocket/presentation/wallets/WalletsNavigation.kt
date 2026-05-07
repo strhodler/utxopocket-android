@@ -2,11 +2,12 @@ package com.strhodler.utxopocket.presentation.wallets
 
 import android.net.Uri
 import com.strhodler.utxopocket.domain.model.WalletAddress
+import com.strhodler.utxopocket.presentation.wallets.detail.WalletDetailTab
 
 object WalletsNavigation {
     const val ListRoute: String = "wallets/list"
     const val AddRoute: String = "wallets/add"
-    const val DetailRoute: String = "wallets/detail/{walletId}?walletName={walletName}"
+    const val DetailRoute: String = "wallets/detail/{walletId}?walletName={walletName}&tab={tab}"
     const val DescriptorDetailRoute: String =
         "wallets/detail/{walletId}/descriptors?walletName={walletName}"
     const val ExportLabelsRoute: String = "wallets/detail/{walletId}/labels/export?walletName={walletName}"
@@ -17,6 +18,7 @@ object WalletsNavigation {
     const val WalletCreatedMessageKey: String = "wallets_created_message"
     const val WalletIdArg: String = "walletId"
     const val WalletNameArg: String = "walletName"
+    const val WalletTabArg: String = "tab"
     const val TransactionDetailRoute: String = "wallets/detail/{walletId}/transaction/{txId}"
     const val TransactionVisualizerRoute: String =
         "wallets/detail/{walletId}/transaction/{txId}/visualizer"
@@ -25,16 +27,23 @@ object WalletsNavigation {
     const val UtxoTxIdArg: String = "utxoTxId"
     const val UtxoVoutArg: String = "vout"
     const val UtxoVisualizerRoute: String = "wallets/detail/{walletId}/utxo-visualizer?walletName={walletName}"
+    const val UtxoCanvasRoute: String = "wallets/detail/{walletId}/utxo-canvas?walletName={walletName}"
+    const val UtxoCollectionRoute: String = "wallets/detail/{walletId}/utxo-collection/{collectionId}"
+    const val UtxoCollectionIdArg: String = "collectionId"
     const val AddressDetailRoute: String =
         "wallets/detail/{walletId}/address/{addressType}/{derivationIndex}?addressValue={addressValue}"
     const val ReceiveRoute: String = "wallets/detail/{walletId}/receive"
+    const val SyncSettingsRoute: String = "wallets/detail/{walletId}/sync?walletName={walletName}"
     const val AddressTypeArg: String = "addressType"
     const val AddressIndexArg: String = "derivationIndex"
     const val AddressValueArg: String = "addressValue"
 
     enum class NodeStatusTabDestination(val argValue: String) {
-        Overview("overview"),
         Management("management"),
+        Nodes("nodes"),
+        Details("details"),
+        Overview("overview"),
+        Connection("connection"),
         Tor("tor")
     }
 
@@ -43,9 +52,10 @@ object WalletsNavigation {
         return "$NodeStatusRoute?$NodeStatusTabArg=$tabValue"
     }
 
-    fun detailRoute(walletId: Long, walletName: String): String {
+    fun detailRoute(walletId: Long, walletName: String, initialTab: WalletDetailTab? = null): String {
         val encodedName = Uri.encode(walletName)
-        return "wallets/detail/$walletId?walletName=$encodedName"
+        val tabValue = (initialTab ?: WalletDetailTab.Transactions).name
+        return "wallets/detail/$walletId?walletName=$encodedName&tab=$tabValue"
     }
 
     fun descriptorDetailRoute(walletId: Long, walletName: String): String {
@@ -78,6 +88,14 @@ object WalletsNavigation {
         return "wallets/detail/$walletId/utxo-visualizer?walletName=$encodedName"
     }
 
+    fun utxoCanvasRoute(walletId: Long, walletName: String): String {
+        val encodedName = Uri.encode(walletName)
+        return "wallets/detail/$walletId/utxo-canvas?walletName=$encodedName"
+    }
+
+    fun utxoCollectionRoute(walletId: Long, collectionId: Long): String =
+        "wallets/detail/$walletId/utxo-collection/$collectionId"
+
     fun utxoDetailRoute(walletId: Long, txId: String, vout: Int): String {
         val encodedTxId = Uri.encode(txId)
         return "wallets/detail/$walletId/utxo/$encodedTxId/$vout"
@@ -89,4 +107,9 @@ object WalletsNavigation {
     }
 
     fun receiveRoute(walletId: Long): String = "wallets/detail/$walletId/receive"
+
+    fun syncSettingsRoute(walletId: Long, walletName: String): String {
+        val encodedName = Uri.encode(walletName)
+        return "wallets/detail/$walletId/sync?walletName=$encodedName"
+    }
 }

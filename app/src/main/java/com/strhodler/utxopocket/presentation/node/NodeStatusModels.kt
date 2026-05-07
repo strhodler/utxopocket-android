@@ -3,16 +3,21 @@ package com.strhodler.utxopocket.presentation.node
 import androidx.annotation.StringRes
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.PublicNode
 data class NodeStatusUiState(
     val preferredNetwork: BitcoinNetwork = BitcoinNetwork.DEFAULT,
+    val connectionMode: ConnectionMode = ConnectionMode.TOR_DEFAULT,
     val nodeConnectionOption: NodeConnectionOption = NodeConnectionOption.PUBLIC,
     val publicNodes: List<PublicNode> = emptyList(),
     val selectedPublicNodeId: String? = null,
+    val removedPublicNodeIds: Set<String> = emptySet(),
     val customNodes: List<CustomNode> = emptyList(),
     val selectedCustomNodeId: String? = null,
+    val showIncompatibleNodes: Boolean = false,
+    val pendingModeChange: ConnectionMode? = null,
     val isNodeConnected: Boolean = false,
     val isNodeActivating: Boolean = false,
     val networkLogsEnabled: Boolean = false,

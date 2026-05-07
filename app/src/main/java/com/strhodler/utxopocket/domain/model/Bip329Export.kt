@@ -20,6 +20,7 @@ data class Bip329ImportResult(
     val transactionLabelsApplied: Int,
     val utxoLabelsApplied: Int,
     val utxoSpendableUpdates: Int,
+    val queued: Int,
     val skipped: Int,
     val invalid: Int
 )

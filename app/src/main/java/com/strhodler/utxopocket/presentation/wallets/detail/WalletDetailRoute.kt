@@ -8,15 +8,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
@@ -26,7 +22,8 @@ import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.ShowChart
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material.icons.outlined.DataUsage
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -38,9 +35,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.BottomAppBarDefaults
 import androidx.compose.material3.BottomAppBarScrollBehavior
@@ -48,41 +43,34 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.TextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.strhodler.utxopocket.R
@@ -98,17 +86,18 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.strhodler.utxopocket.domain.repository.WalletNameAlreadyExistsException
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.SyncOperation
+import com.strhodler.utxopocket.presentation.wallets.sync.resolveSyncGap
 import kotlin.math.roundToInt
-import com.strhodler.utxopocket.presentation.pin.PinLockoutMessageType
+import com.strhodler.utxopocket.presentation.pin.DuressPromptBehavior
 import com.strhodler.utxopocket.presentation.pin.PinVerificationScreen
-import com.strhodler.utxopocket.presentation.pin.formatPinCountdownMessage
-import com.strhodler.utxopocket.presentation.pin.formatPinStaticError
+import com.strhodler.utxopocket.presentation.pin.PinPromptState
+import com.strhodler.utxopocket.presentation.pin.advancePinPromptStateCountdown
+import com.strhodler.utxopocket.presentation.pin.mapPinVerificationResultToPromptState
+import com.strhodler.utxopocket.presentation.pin.rememberPinPromptFormatter
 import kotlinx.coroutines.delay
 
 private const val WALLET_NAME_MAX_LENGTH = 64
-private const val FULL_SCAN_GAP_MAX = 500
-private const val FULL_SCAN_GAP_STEP = 10
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WalletDetailRoute(
@@ -116,14 +105,16 @@ fun WalletDetailRoute(
     onWalletDeleted: (String) -> Unit,
     onTransactionSelected: (String) -> Unit,
     onUtxoSelected: (String, Int) -> Unit,
+    onOpenCollection: (Long) -> Unit,
     onOpenReceive: (Long) -> Unit,
-    onOpenWikiTopic: (String) -> Unit,
-    onOpenGlossaryEntry: (String) -> Unit,
     walletId: Long,
     onOpenDescriptors: (Long, String) -> Unit,
     onOpenExportLabels: (Long, String) -> Unit,
     onOpenImportLabels: (Long, String) -> Unit,
     onOpenUtxoVisualizer: (Long, String) -> Unit,
+    onOpenUtxoCanvas: (Long, String) -> Unit,
+    onOpenSyncSettings: (Long, String) -> Unit,
+    initialTab: WalletDetailTab? = null,
     viewModel: WalletDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -141,14 +132,12 @@ fun WalletDetailRoute(
     var renameInProgress by remember { mutableStateOf(false) }
     var renameErrorMessage by remember { mutableStateOf<String?>(null) }
     var forceRescanInProgress by remember { mutableStateOf(false) }
-    var showFullRescanSheet by remember { mutableStateOf(false) }
-    var selectedFullRescanGap by rememberSaveable { mutableStateOf<Int?>(null) }
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val hapticFeedback = LocalHapticFeedback.current
     val view = LocalView.current
+    val resources = view.resources
     val coroutineScope = rememberCoroutineScope()
-    val resourcesState = rememberUpdatedState(context.resources)
     val showSnackbar = remember(coroutineScope, snackbarHostState) {
         { message: String, duration: SnackbarDuration ->
             coroutineScope.launch {
@@ -165,41 +154,59 @@ fun WalletDetailRoute(
         viewModel.events.collectLatest { event ->
             when (event) {
                 WalletDetailEvent.RefreshQueued -> {
-                    showSnackbar(context.getString(R.string.wallet_detail_refresh_enqueued), SnackbarDuration.Short)
+                    showSnackbar(resources.getString(R.string.wallet_detail_refresh_enqueued), SnackbarDuration.Short)
+                }
+                WalletDetailEvent.FullRescanQueued -> {
+                    showSnackbar(resources.getString(R.string.wallet_detail_full_rescan_enqueued), SnackbarDuration.Short)
                 }
                 is WalletDetailEvent.SyncCompleted -> {
                     val name = event.walletName.ifBlank { resolvedName.orEmpty() }
-                    val message = context.getString(
+                    val message = resources.getString(
                         R.string.wallet_detail_sync_completed_new_txs,
                         event.newTransactions,
-                        name.ifBlank { context.getString(R.string.wallet_detail_unknown_wallet_name) }
+                        name.ifBlank { resources.getString(R.string.wallet_detail_unknown_wallet_name) }
                     )
                     showSnackbar(message, SnackbarDuration.Short)
+                }
+                is WalletDetailEvent.SyncBlocked -> {
+                    showSnackbar(resources.getString(event.messageRes), SnackbarDuration.Short)
                 }
             }
         }
     }
     val deleteSuccessMessage = stringResource(id = R.string.wallet_detail_delete_success)
     val renameSuccessMessage = stringResource(id = R.string.wallet_detail_rename_success)
-    val renameBlankErrorText = context.getString(R.string.wallet_detail_rename_error_blank)
-    val renameExistsErrorText = context.getString(R.string.wallet_detail_rename_error_exists)
-    val renameGenericErrorText = context.getString(R.string.wallet_detail_rename_error_generic)
+    val renameBlankErrorText = resources.getString(R.string.wallet_detail_rename_error_blank)
+    val renameExistsErrorText = resources.getString(R.string.wallet_detail_rename_error_exists)
+    val renameGenericErrorText = resources.getString(R.string.wallet_detail_rename_error_generic)
     val forceRescanErrorMessage = stringResource(id = R.string.wallet_detail_force_rescan_failed)
+    val incorrectPinMessage = stringResource(id = R.string.pin_error_incorrect)
     val outerListState = rememberLazyListState()
-    val tabs = remember { WalletDetailTab.entries.toTypedArray() }
+    val allTabs = remember { WalletDetailTab.entries.toTypedArray() }
     val bottomBarScrollBehavior = BottomAppBarDefaults.exitAlwaysScrollBehavior()
     var bottomBarHeightPx by remember { mutableStateOf(0f) }
     var bottomBarVisibleHeightPx by remember { mutableStateOf(0f) }
     val density = LocalDensity.current
+    val hasIncomingPlaceholders = state.incomingPlaceholders.isNotEmpty()
+    val availableTabs = remember(hasIncomingPlaceholders) {
+        buildList {
+            add(WalletDetailTab.Transactions)
+            if (hasIncomingPlaceholders) {
+                add(WalletDetailTab.Incoming)
+            }
+            add(WalletDetailTab.Utxos)
+            add(WalletDetailTab.Collections)
+        }
+    }
     var selectedTab by rememberSaveable { mutableStateOf(WalletDetailTab.Transactions) }
-    val pagerState = rememberPagerState(initialPage = selectedTab.ordinal) { tabs.size }
+    var pendingInitialTab by rememberSaveable { mutableStateOf(initialTab) }
+    val pagerState = rememberPagerState(initialPage = 0) { availableTabs.size }
     val listStates = remember {
-        tabs.associateWith { LazyListState() }
+        allTabs.associateWith { LazyListState() }
     }
     var showDescriptorPinPrompt by remember { mutableStateOf(false) }
-    var descriptorPinError by remember { mutableStateOf<String?>(null) }
-    var descriptorPinLockoutExpiry by remember { mutableStateOf<Long?>(null) }
-    var descriptorPinLockoutType by remember { mutableStateOf<PinLockoutMessageType?>(null) }
+    var descriptorPinPromptState by remember { mutableStateOf(PinPromptState.idle()) }
+    var descriptorPinDuressTransitionInProgress by remember { mutableStateOf(false) }
     LaunchedEffect(resolvedName) {
         resolvedName?.let { topBarTitle = it }
     }
@@ -215,23 +222,19 @@ fun WalletDetailRoute(
         }
     }
 
-    LaunchedEffect(descriptorPinLockoutExpiry, descriptorPinLockoutType) {
-        val expiry = descriptorPinLockoutExpiry
-        val type = descriptorPinLockoutType
-        if (expiry == null || type == null) return@LaunchedEffect
+    val pinPromptFormatter = rememberPinPromptFormatter()
+    LaunchedEffect(descriptorPinPromptState.lockout) {
+        descriptorPinPromptState.lockout ?: return@LaunchedEffect
         while (true) {
-            val remaining = expiry - System.currentTimeMillis()
-            if (remaining <= 0L) {
-                descriptorPinError = null
-                descriptorPinLockoutExpiry = null
-                descriptorPinLockoutType = null
+            val updated = advancePinPromptStateCountdown(
+                state = descriptorPinPromptState,
+                nowMillis = System.currentTimeMillis(),
+                countdownMessageFor = pinPromptFormatter.countdownMessageFor
+            )
+            descriptorPinPromptState = updated
+            if (updated.lockout == null) {
                 break
             }
-            descriptorPinError = formatPinCountdownMessage(
-                resourcesState.value,
-                type,
-                remaining
-            )
             delay(1_000)
         }
     }
@@ -239,17 +242,30 @@ fun WalletDetailRoute(
     LaunchedEffect(state.pinLockEnabled) {
         if (!state.pinLockEnabled) {
             showDescriptorPinPrompt = false
-            descriptorPinError = null
-            descriptorPinLockoutExpiry = null
-            descriptorPinLockoutType = null
+            descriptorPinPromptState = PinPromptState.idle()
+            descriptorPinDuressTransitionInProgress = false
         }
     }
 
-    LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }
+    LaunchedEffect(availableTabs, pendingInitialTab) {
+        val desired = pendingInitialTab
+        when {
+            desired != null && desired in availableTabs -> {
+                selectedTab = desired
+                pendingInitialTab = null
+            }
+            selectedTab !in availableTabs -> {
+                selectedTab = availableTabs.firstOrNull() ?: WalletDetailTab.Transactions
+            }
+        }
+    }
+
+    LaunchedEffect(pagerState, availableTabs) {
+        snapshotFlow { pagerState.currentPage to pagerState.isScrollInProgress }
             .distinctUntilChanged()
-            .collect { page ->
-                val tab = tabs[page]
+            .collect { (page, isScrolling) ->
+                if (isScrolling) return@collect
+                val tab = availableTabs.getOrNull(page) ?: return@collect
                 if (selectedTab != tab) {
                     selectedTab = tab
                 }
@@ -257,8 +273,8 @@ fun WalletDetailRoute(
     }
 
     LaunchedEffect(selectedTab) {
-        val targetPage = selectedTab.ordinal
-        if (targetPage != pagerState.currentPage) {
+        val targetPage = availableTabs.indexOf(selectedTab)
+        if (targetPage >= 0 && targetPage != pagerState.currentPage) {
             pagerState.animateScrollToPage(targetPage)
         }
     }
@@ -355,9 +371,8 @@ fun WalletDetailRoute(
                         onClick = {
                             menuExpanded = false
                             if (state.pinLockEnabled) {
-                                descriptorPinError = null
-                                descriptorPinLockoutExpiry = null
-                                descriptorPinLockoutType = null
+                                descriptorPinPromptState = PinPromptState.idle()
+                                descriptorPinDuressTransitionInProgress = false
                                 showDescriptorPinPrompt = true
                             } else {
                                 onOpenDescriptors(walletId, displayTitle)
@@ -402,7 +417,7 @@ fun WalletDetailRoute(
                             menuExpanded = false
                             if (state.transactionsCount == 0) {
                                 showSnackbar(
-                                    context.getString(R.string.wallet_detail_import_no_transactions),
+                                    resources.getString(R.string.wallet_detail_import_no_transactions),
                                     SnackbarDuration.Short
                                 )
                                 return@DropdownMenuItem
@@ -411,7 +426,25 @@ fun WalletDetailRoute(
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text(text = stringResource(id = R.string.wallet_detail_menu_force_rescan)) },
+                        text = { Text(text = stringResource(id = R.string.wallet_detail_menu_sync_settings)) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Settings,
+                                contentDescription = null
+                            )
+                        },
+                        onClick = {
+                            menuExpanded = false
+                            val summary = state.summary ?: return@DropdownMenuItem
+                            onOpenSyncSettings(summary.id, displayTitle)
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            val summary = state.summary
+                            val gapValue = resolveSyncGap(state.syncGap, summary)
+                            Text(text = stringResource(id = R.string.wallet_detail_menu_force_rescan_gap, gapValue))
+                        },
                         enabled = !forceRescanInProgress && state.summary?.requiresFullScan != true && !state.isRefreshing,
                         leadingIcon = {
                             Icon(
@@ -422,14 +455,30 @@ fun WalletDetailRoute(
                         onClick = {
                             menuExpanded = false
                             val summary = state.summary
-                            if (forceRescanInProgress || summary?.requiresFullScan == true || summary == null || state.isRefreshing) {
+                            if (summary == null) {
                                 return@DropdownMenuItem
                             }
-                            val baseline = fullScanBaseline(summary.network)
-                            val initialGap = (summary.fullScanStopGap ?: baseline)
-                                .coerceIn(baseline, FULL_SCAN_GAP_MAX)
-                            selectedFullRescanGap = initialGap
-                            showFullRescanSheet = true
+                            val gapForRescan = resolveSyncGap(state.syncGap, summary)
+                            forceRescanInProgress = true
+                            viewModel.forceFullRescan(gapForRescan) { result ->
+                                forceRescanInProgress = false
+                                result.onSuccess {
+                                    queued ->
+                                    if (!queued) {
+                                        coroutineScope.launch {
+                                            val successMessage = resources.getString(
+                                                R.string.wallet_detail_force_rescan_started,
+                                                gapForRescan
+                                            )
+                                            snackbarHostState.showSnackbar(successMessage)
+                                        }
+                                    }
+                                }.onFailure {
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(forceRescanErrorMessage)
+                                    }
+                                }
+                            }
                         }
                     )
                     DropdownMenuItem(
@@ -494,14 +543,23 @@ fun WalletDetailRoute(
                 onRefreshRequested = viewModel::refresh,
                 onTransactionSelected = onTransactionSelected,
                 onUtxoSelected = onUtxoSelected,
+                onOpenCollection = onOpenCollection,
                 onBalanceRangeSelected = viewModel::onBalanceRangeSelected,
                 onCycleBalanceDisplay = cycleBalanceDisplay,
-                onOpenWikiTopic = onOpenWikiTopic,
+                onOpenUtxoCanvas = {
+                    val summary = state.summary ?: return@WalletDetailScreen
+                    val walletNameArg = summary.name.ifBlank { viewModel.initialWalletName }
+                        ?: summary.name
+                    onOpenUtxoCanvas(summary.id, walletNameArg)
+                },
+                onTogglePending = viewModel::setShowPending,
                 outerListState = outerListState,
                 selectedTab = selectedTab,
                 onTabSelected = { tab -> selectedTab = tab },
+                tabs = availableTabs,
                 pagerState = pagerState,
                 listStates = listStates,
+                incomingCount = state.incomingPlaceholders.size,
                 contentPadding = contentPadding,
                 topContentPadding = topContentPadding,
                 modifier = Modifier.fillMaxSize()
@@ -509,12 +567,13 @@ fun WalletDetailRoute(
             if (state.summary != null) {
                 WalletDetailBottomBar(
                     isRefreshing = state.isRefreshing,
+                    isQueued = state.isQueued,
+                    activeSyncOperation = state.activeSyncOperation,
+                    queuedSyncOperation = state.queuedSyncOperation,
                     hasChartData = state.displayBalancePoints.isNotEmpty(),
                     showBalanceChart = state.showBalanceChart,
                     onSyncClick = {
-                        if (!state.isRefreshing) {
-                            viewModel.refresh()
-                        }
+                        viewModel.refresh()
                     },
                     onToggleChart = { viewModel.setShowBalanceChart(!state.showBalanceChart) },
                     onReceiveClick = { onOpenReceive(walletId) },
@@ -533,106 +592,46 @@ fun WalletDetailRoute(
         }
     }
 
-    if (showFullRescanSheet) {
-        val summary = state.summary
-        if (summary != null) {
-            val baseline = fullScanBaseline(summary.network)
-            val gapValue = (selectedFullRescanGap ?: baseline)
-                .coerceIn(baseline, FULL_SCAN_GAP_MAX)
-            FullRescanBottomSheet(
-                network = summary.network,
-                gap = gapValue,
-                minGap = baseline,
-                maxGap = FULL_SCAN_GAP_MAX,
-                step = FULL_SCAN_GAP_STEP,
-                isSubmitting = forceRescanInProgress || state.isRefreshing,
-                onGapChanged = { newGap -> selectedFullRescanGap = newGap },
-                onConfirm = { gap ->
-                    if (forceRescanInProgress) return@FullRescanBottomSheet
-                    val normalizedGap = gap.coerceIn(baseline, FULL_SCAN_GAP_MAX)
-                    forceRescanInProgress = true
-                    viewModel.forceFullRescan(normalizedGap) { result ->
-                        forceRescanInProgress = false
-                        result.onSuccess {
-                            showFullRescanSheet = false
-                            coroutineScope.launch {
-                                val successMessage = context.getString(
-                                    R.string.wallet_detail_force_rescan_started,
-                                    normalizedGap
-                                )
-                                snackbarHostState.showSnackbar(successMessage)
-                            }
-                        }.onFailure {
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar(forceRescanErrorMessage)
-                            }
-                        }
-                    }
-                },
-                onLearnMore = {
-                    showFullRescanSheet = false
-                    onOpenGlossaryEntry("full-rescan")
-                },
-                onDismiss = {
-                    if (!forceRescanInProgress) {
-                        showFullRescanSheet = false
-                    }
-                }
-            )
-        } else {
-            showFullRescanSheet = false
-        }
-    }
-
     if (showDescriptorPinPrompt) {
         PinVerificationScreen(
             title = stringResource(id = R.string.wallet_detail_descriptor_pin_title),
             description = stringResource(id = R.string.wallet_detail_descriptor_pin_description),
-            errorMessage = descriptorPinError,
+            errorMessage = descriptorPinPromptState.errorMessage,
+            allowDismiss = !descriptorPinDuressTransitionInProgress,
             onDismiss = {
                 showDescriptorPinPrompt = false
-                descriptorPinError = null
-                descriptorPinLockoutExpiry = null
-                descriptorPinLockoutType = null
+                descriptorPinPromptState = PinPromptState.idle()
+                descriptorPinDuressTransitionInProgress = false
             },
             onPinVerified = { pin ->
-                val resources = resourcesState.value
+                if (descriptorPinDuressTransitionInProgress || descriptorPinPromptState.isVerifying) {
+                    return@PinVerificationScreen
+                }
+                descriptorPinPromptState = PinPromptState.verifying()
                 viewModel.verifyPin(pin) { result ->
                     when (result) {
                         PinVerificationResult.Success -> {
-                            descriptorPinError = null
-                            descriptorPinLockoutExpiry = null
-                            descriptorPinLockoutType = null
+                            descriptorPinDuressTransitionInProgress = false
+                            descriptorPinPromptState = PinPromptState.idle()
                             showDescriptorPinPrompt = false
                             onOpenDescriptors(walletId, displayTitle)
                         }
 
+                        is PinVerificationResult.DuressTriggered -> {
+                            descriptorPinDuressTransitionInProgress = true
+                            descriptorPinPromptState = PinPromptState.idle()
+                        }
+
                         PinVerificationResult.InvalidFormat,
-                        PinVerificationResult.NotConfigured -> {
-                            descriptorPinLockoutExpiry = null
-                            descriptorPinLockoutType = null
-                            descriptorPinError = formatPinStaticError(resources, result)
-                        }
-
-                        is PinVerificationResult.Incorrect -> {
-                            val expiresAt = System.currentTimeMillis() + result.lockDurationMillis
-                            descriptorPinLockoutType = PinLockoutMessageType.Incorrect
-                            descriptorPinLockoutExpiry = expiresAt
-                            descriptorPinError = formatPinCountdownMessage(
-                                resources,
-                                PinLockoutMessageType.Incorrect,
-                                result.lockDurationMillis
-                            )
-                        }
-
+                        PinVerificationResult.NotConfigured,
+                        is PinVerificationResult.Incorrect,
                         is PinVerificationResult.Locked -> {
-                            val expiresAt = System.currentTimeMillis() + result.remainingMillis
-                            descriptorPinLockoutType = PinLockoutMessageType.Locked
-                            descriptorPinLockoutExpiry = expiresAt
-                            descriptorPinError = formatPinCountdownMessage(
-                                resources,
-                                PinLockoutMessageType.Locked,
-                                result.remainingMillis
+                            descriptorPinDuressTransitionInProgress = false
+                            descriptorPinPromptState = mapPinVerificationResultToPromptState(
+                                result = result,
+                                nowMillis = System.currentTimeMillis(),
+                                formatter = pinPromptFormatter,
+                                duressBehavior = DuressPromptBehavior.ClearError
                             )
                         }
                     }
@@ -709,7 +708,7 @@ fun WalletDetailRoute(
                                         onWalletDeleted(deleteSuccessMessage)
                                     }
                                 } else {
-                                    deleteError = context.getString(R.string.wallet_detail_delete_error)
+                                    deleteError = resources.getString(R.string.wallet_detail_delete_error)
                                 }
                             }
                         }
@@ -823,6 +822,9 @@ private fun RenameWalletDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun WalletDetailBottomBar(
     isRefreshing: Boolean,
+    isQueued: Boolean,
+    activeSyncOperation: SyncOperation?,
+    queuedSyncOperation: SyncOperation?,
     hasChartData: Boolean,
     showBalanceChart: Boolean,
     onSyncClick: () -> Unit,
@@ -872,8 +874,8 @@ private fun WalletDetailBottomBar(
     ) {
         NavigationBarItem(
             selected = isRefreshing,
-            onClick = { if (!isRefreshing) onSyncClick() },
-            enabled = !isRefreshing,
+            onClick = { if (!isRefreshing && !isQueued) onSyncClick() },
+            enabled = !isRefreshing && !isQueued,
             icon = {
                 if (isRefreshing) {
                     CircularProgressIndicator(
@@ -889,10 +891,18 @@ private fun WalletDetailBottomBar(
             },
             label = {
                 Text(
-                    text = if (isRefreshing) {
-                        stringResource(id = R.string.wallets_state_syncing)
-                    } else {
-                        stringResource(id = R.string.wallet_detail_action_sync)
+                    text = when {
+                        isRefreshing -> if (activeSyncOperation == SyncOperation.FullRescan) {
+                            stringResource(id = R.string.wallets_state_full_rescan_syncing)
+                        } else {
+                            stringResource(id = R.string.wallets_state_syncing)
+                        }
+                        isQueued -> if (queuedSyncOperation == SyncOperation.FullRescan) {
+                            stringResource(id = R.string.wallets_state_full_rescan_queued)
+                        } else {
+                            stringResource(id = R.string.wallets_state_queued)
+                        }
+                        else -> stringResource(id = R.string.wallet_detail_action_sync)
                     },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -908,16 +918,16 @@ private fun WalletDetailBottomBar(
             enabled = hasChartData,
             icon = {
                 Icon(
-                    imageVector = Icons.Outlined.ShowChart,
+                    imageVector = Icons.AutoMirrored.Outlined.ShowChart,
                     contentDescription = null
                 )
             },
             label = {
                 Text(
                     text = if (showBalanceChart) {
-                        "Hide chart"
+                        stringResource(id = R.string.wallet_detail_action_hide_chart)
                     } else {
-                        "Show chart"
+                        stringResource(id = R.string.wallet_detail_action_show_chart)
                     },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -968,163 +978,4 @@ private fun WalletDetailBottomBar(
             modifier = Modifier.weight(1f)
         )
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun FullRescanBottomSheet(
-    network: BitcoinNetwork,
-    gap: Int,
-    minGap: Int,
-    maxGap: Int,
-    step: Int,
-    isSubmitting: Boolean,
-    onGapChanged: (Int) -> Unit,
-    onConfirm: (Int) -> Unit,
-    onLearnMore: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val configuration = LocalConfiguration.current
-    val maxSheetHeight = remember(configuration.screenHeightDp) {
-        configuration.screenHeightDp.dp * 0.9f
-    }
-    var sliderValue by remember(gap) { mutableStateOf(gap.toFloat()) }
-    LaunchedEffect(gap) {
-        sliderValue = gap.toFloat()
-    }
-    val valueRange = minGap.toFloat()..maxGap.toFloat()
-    val clampedGap = gap.coerceIn(minGap, maxGap)
-    val feedbackText = when {
-        clampedGap <= minGap -> stringResource(id = R.string.wallet_detail_full_rescan_feedback_fast)
-        clampedGap <= minGap + 150 -> stringResource(id = R.string.wallet_detail_full_rescan_feedback_balanced)
-        else -> stringResource(id = R.string.wallet_detail_full_rescan_feedback_deep)
-    }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { BottomSheetDefaults.DragHandle() }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = maxSheetHeight)
-                .navigationBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            Text(
-                text = stringResource(id = R.string.wallet_detail_full_rescan_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            val learnMoreLabel = stringResource(id = R.string.wallet_detail_full_rescan_learn_more)
-            val descriptionText = stringResource(
-                id = R.string.wallet_detail_full_rescan_description,
-                minGap,
-                maxGap,
-                learnMoreLabel
-            )
-            val linkColor = MaterialTheme.colorScheme.primary
-            val annotatedDescription = buildAnnotatedString {
-                val linkStart = descriptionText.indexOf(learnMoreLabel)
-                if (linkStart >= 0) {
-                    val before = descriptionText.substring(0, linkStart)
-                    val after = descriptionText.substring(linkStart + learnMoreLabel.length)
-                    append(before)
-                    pushStringAnnotation(tag = "learn_more", annotation = "learn_more")
-                    withStyle(
-                        SpanStyle(
-                            color = linkColor,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    ) {
-                        append(learnMoreLabel)
-                    }
-                    pop()
-                    append(after)
-                } else {
-                    append(descriptionText)
-                }
-            }
-            ClickableText(
-                text = annotatedDescription,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                ),
-                onClick = { offset ->
-                    annotatedDescription.getStringAnnotations(
-                        tag = "learn_more",
-                        start = offset,
-                        end = offset
-                    ).firstOrNull()?.let {
-                        onLearnMore()
-                    }
-                }
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = stringResource(
-                        id = R.string.wallet_detail_full_rescan_gap_value,
-                        clampedGap
-                    ),
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Slider(
-                    value = sliderValue,
-                    onValueChange = { newValue ->
-                        val stepped = ((newValue / step).roundToInt() * step)
-                            .coerceIn(minGap, maxGap)
-                        sliderValue = stepped.toFloat()
-                        if (stepped != clampedGap) {
-                            onGapChanged(stepped)
-                        }
-                    },
-                    valueRange = valueRange,
-                    enabled = !isSubmitting,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Text(
-                    text = feedbackText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(
-                    onClick = onDismiss,
-                    enabled = !isSubmitting,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(text = stringResource(id = R.string.wallet_detail_full_rescan_cancel))
-                }
-                Button(
-                    onClick = { onConfirm(clampedGap) },
-                    enabled = !isSubmitting,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    if (isSubmitting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text(text = stringResource(id = R.string.wallet_detail_full_rescan_cta))
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun fullScanBaseline(network: BitcoinNetwork): Int = when (network) {
-    BitcoinNetwork.MAINNET -> 200
-    BitcoinNetwork.TESTNET,
-    BitcoinNetwork.TESTNET4,
-    BitcoinNetwork.SIGNET -> 120
 }

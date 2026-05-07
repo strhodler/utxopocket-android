@@ -6,5 +6,4 @@ related: [watch-only-restoration, descriptor-maps-and-recovery]
 keywords: [watch-only, descriptors, monitoring]
 ---
 
-Watch‑only setups reduce risk by separating monitoring from signing. Accuracy relies on correct descriptors, origins, gap limits, and healthy connectivity to your backend.
-
+Watch‑only setups reduce risk by separating monitoring from signing. Accuracy relies on correct descriptors, origins, gap limits, and reliable connectivity to your backend.

@@ -29,12 +29,11 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -45,7 +44,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
@@ -58,22 +58,25 @@ fun WalletLabelExportRoute(
     onBack: () -> Unit,
     viewModel: WalletLabelsViewModel = hiltViewModel()
 ) {
-    val exportState by viewModel.exportState.collectAsState()
+    val exportState by viewModel.exportState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val screenWalletName = viewModel.walletName.ifBlank { stringResource(id = R.string.wallet_detail_title) }
+    val exportSavedMessageTemplate = stringResource(id = R.string.wallet_labels_export_saved)
+    val exportErrorMessage = stringResource(id = R.string.wallet_detail_export_error)
+    val exportReadyMessage = stringResource(id = R.string.wallet_detail_export_ready)
 
     val downloadLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         val export = (exportState as? LabelExportState.Ready)?.export ?: return@rememberLauncherForActivityResult
         if (uri == null) return@rememberLauncherForActivityResult
-        val success = writeBip329Labels(context, uri, export)
         coroutineScope.launch {
+            val success = writeBip329Labels(context, uri, export)
             snackbarHostState.showSnackbar(
                 message = if (success) {
-                    context.getString(R.string.wallet_labels_export_saved, export.fileName)
+                    String.format(exportSavedMessageTemplate, export.fileName)
                 } else {
-                    context.getString(R.string.wallet_detail_export_error)
+                    exportErrorMessage
                 },
                 duration = SnackbarDuration.Short,
                 withDismissAction = true
@@ -175,7 +178,7 @@ fun WalletLabelExportRoute(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        TabRow(selectedTabIndex = pagerState.currentPage) {
+                        PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
                             modes.forEachIndexed { index, mode ->
                                 val label = when (mode) {
                                     LabelQrMode.BBQR -> stringResource(id = R.string.wallet_labels_export_mode_bbqr)
@@ -251,10 +254,10 @@ fun WalletLabelExportRoute(
                     ) {
                         TextButton(
                             onClick = {
-                                shareBip329Labels(context, export)
                                 coroutineScope.launch {
+                                    val success = shareBip329Labels(context, export)
                                     snackbarHostState.showSnackbar(
-                                        message = context.getString(R.string.wallet_detail_export_ready),
+                                        message = if (success) exportReadyMessage else exportErrorMessage,
                                         duration = SnackbarDuration.Short,
                                         withDismissAction = true
                                     )

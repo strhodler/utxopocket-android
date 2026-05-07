@@ -1,5 +1,6 @@
 package com.strhodler.utxopocket.data.logs
 
+import com.strhodler.utxopocket.tor.sanitization.TorTextSanitizer
 import java.security.MessageDigest
 
 object NetworkLogSanitizer {
@@ -12,13 +13,22 @@ object NetworkLogSanitizer {
         return label to hash
     }
 
-    fun sanitizeMessage(error: Throwable, host: String?): String {
+    fun sanitizeMessage(error: Throwable, host: String?, endpoint: String? = null): String {
         val root = error.rootCause()
         val raw = (root.message ?: root.toString()).trim().ifBlank { root.javaClass.simpleName }
-        if (host.isNullOrBlank()) return raw
-        val sanitized = raw.replace(host, "[host]", ignoreCase = true)
-        val hostWithoutSuffix = host.substringBefore('.', host)
-        return sanitized.replace(hostWithoutSuffix, "[host]", ignoreCase = true)
+        var sanitized = raw
+        val endpointValue = endpoint?.trim().orEmpty()
+        if (endpointValue.isNotBlank()) {
+            sanitized = sanitized.replace(endpointValue, "[endpoint]", ignoreCase = true)
+            val endpointNoScheme = endpointValue.substringAfter("://", endpointValue).trimEnd('/')
+            sanitized = sanitized.replace(endpointNoScheme, "[endpoint]", ignoreCase = true)
+        }
+        if (!host.isNullOrBlank()) {
+            sanitized = sanitized.replace(host, "[host]", ignoreCase = true)
+            val hostWithoutSuffix = host.substringBefore('.', host)
+            sanitized = sanitized.replace(hostWithoutSuffix, "[host]", ignoreCase = true)
+        }
+        return TorTextSanitizer.sanitizeForPublicDisplay(sanitized)
     }
 
     fun Throwable.rootCause(): Throwable {

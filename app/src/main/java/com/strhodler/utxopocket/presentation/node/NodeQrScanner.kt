@@ -27,7 +27,10 @@ fun rememberNodeQrScanner(
             return@rememberLauncherForActivityResult
         }
         when (val parsed = parseNodeQrContent(contents)) {
-            is NodeQrParseResult.HostPort -> onParsed(parsed)
+            is NodeQrParseResult.HostPort -> {
+                onParsed(parsed)
+                onSuccess()
+            }
             is NodeQrParseResult.Onion -> {
                 onParsed(parsed)
                 onSuccess()

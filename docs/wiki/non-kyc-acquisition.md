@@ -5,7 +5,7 @@ summary: Practical steps to source bitcoin without handing over your identity an
 category_id: privacy-toolkit
 category_title: Privacy toolkit
 category_description: Practical guides to reduce on-chain exposure and keep compartments isolated.
-related: [bitcoin-privacy, utxo-basics, address-reuse-casebook]
+related: [watch-only-threat-model, utxo-lifecycle-audit, address-reuse-casebook]
 glossary_refs: [non-kyc, coin-control]
 keywords: [non-kyc, p2p, coin control, cash]
 ---

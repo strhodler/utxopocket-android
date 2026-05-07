@@ -9,8 +9,6 @@ import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
-import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
-import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import kotlinx.coroutines.flow.Flow
 
 interface AppPreferencesRepository {
@@ -26,25 +24,25 @@ interface AppPreferencesRepository {
     val walletBalanceRange: Flow<BalanceRange>
     val showBalanceChart: Flow<Boolean>
     val pinShuffleEnabled: Flow<Boolean>
+    val calculatorGateEnabled: Flow<Boolean>
     val advancedMode: Flow<Boolean>
     val pinAutoLockTimeoutMinutes: Flow<Int>
     val connectionIdleTimeoutMinutes: Flow<Int>
     val pinLastUnlockedAt: Flow<Long?>
     val dustThresholdSats: Flow<Long>
-    val transactionAnalysisEnabled: Flow<Boolean>
-    val utxoHealthEnabled: Flow<Boolean>
-    val walletHealthEnabled: Flow<Boolean>
-    val transactionHealthParameters: Flow<TransactionHealthParameters>
-    val utxoHealthParameters: Flow<UtxoHealthParameters>
     val networkLogsEnabled: Flow<Boolean>
     val networkLogsInfoSeen: Flow<Boolean>
     val blockExplorerPreferences: Flow<BlockExplorerPreferences>
+    val duressConfigured: Flow<Boolean>
 
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setPreferredNetwork(network: BitcoinNetwork)
     suspend fun setPin(pin: String)
     suspend fun clearPin()
+    suspend fun setDuressPin(pin: String)
+    suspend fun clearDuressPin()
     suspend fun verifyPin(pin: String): PinVerificationResult
+    suspend fun verifyPinIgnoringDuress(pin: String): PinVerificationResult
     suspend fun setPinAutoLockTimeoutMinutes(minutes: Int)
     suspend fun markPinUnlocked(timestampMillis: Long = System.currentTimeMillis())
     suspend fun setThemePreference(themePreference: ThemePreference)
@@ -57,16 +55,10 @@ interface AppPreferencesRepository {
     suspend fun setWalletBalanceRange(range: BalanceRange)
     suspend fun setShowBalanceChart(show: Boolean)
     suspend fun setPinShuffleEnabled(enabled: Boolean)
+    suspend fun setCalculatorGateEnabled(enabled: Boolean)
     suspend fun setAdvancedMode(enabled: Boolean)
     suspend fun setDustThresholdSats(thresholdSats: Long)
     suspend fun setConnectionIdleTimeoutMinutes(minutes: Int)
-    suspend fun setTransactionAnalysisEnabled(enabled: Boolean)
-    suspend fun setUtxoHealthEnabled(enabled: Boolean)
-    suspend fun setWalletHealthEnabled(enabled: Boolean)
-    suspend fun setTransactionHealthParameters(parameters: TransactionHealthParameters)
-    suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters)
-    suspend fun resetTransactionHealthParameters()
-    suspend fun resetUtxoHealthParameters()
     suspend fun setNetworkLogsEnabled(enabled: Boolean)
     suspend fun setNetworkLogsInfoSeen(seen: Boolean)
     suspend fun setBlockExplorerBucket(network: BitcoinNetwork, bucket: BlockExplorerBucket)

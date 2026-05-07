@@ -8,34 +8,34 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.BlockExplorerNetworkPreference
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
+import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
 import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
-import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
-import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
-import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
-import com.strhodler.utxopocket.domain.model.ThemeProfile
+import com.strhodler.utxopocket.domain.model.SyncOperation
+import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.ThemePreference
+import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletColor
 import com.strhodler.utxopocket.domain.model.WalletCreationRequest
 import com.strhodler.utxopocket.domain.model.WalletCreationResult
-import com.strhodler.utxopocket.domain.model.WalletDetail
-import com.strhodler.utxopocket.domain.model.WalletSummary
-import com.strhodler.utxopocket.domain.model.WalletLabelExport
-import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.WalletDefaults
+import com.strhodler.utxopocket.domain.model.WalletDetail
+import com.strhodler.utxopocket.domain.model.WalletLabelExport
+import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -46,11 +46,11 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -60,6 +60,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class AddWalletViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
@@ -73,7 +74,6 @@ class AddWalletViewModelTest {
         "wpkh([4ebcb1eb/84'/1'/0']tpubDC2Q4xK4XH72JGuTT792eTfxBibfTyyLCK3HYwdmJXJY1bKKvQ1y6Fgrd78EBYtFUJmZRAEBpuJp3SGMJ2QpYeaGmgQAfDGcTaqmYtD9uP6/1/*)#yepzsleq"
     private val sampleXpub =
         "xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9YwgmzM2dVn1EzvQnUnxekxXGr1XcsU8ZP8KX2HFqRSbuuSSMzdg3NofM8JrjVNewc19h"
-    private val scriptTypeRequiredMessage = "Select the script type that matches your wallet export."
 
     @BeforeTest
     fun setUp() {
@@ -81,7 +81,12 @@ class AddWalletViewModelTest {
         walletRepository = FakeWalletRepository()
         preferencesRepository = FakeAppPreferencesRepository()
         applicationScope = TestScope(dispatcher)
-        viewModel = AddWalletViewModel(walletRepository, preferencesRepository, applicationScope)
+        viewModel = AddWalletViewModel(
+            walletProvisioningRepository = walletRepository,
+            walletSyncRepository = walletRepository,
+            appPreferencesRepository = preferencesRepository,
+            applicationScope = applicationScope
+        )
     }
 
     @AfterTest
@@ -157,6 +162,36 @@ class AddWalletViewModelTest {
 
         assertFalse(walletRepository.lastAddWalletRequest?.sharedDescriptors ?: true)
         assertTrue(events.firstOrNull() is AddWalletEvent.WalletCreated)
+        job.cancel()
+    }
+
+    @Test
+    fun submitFailureEmitsSnackbarMessageInsteadOfInlineFormError() = runTest {
+        walletRepository.validationResult = DescriptorValidationResult.Valid(
+            descriptor = "wpkh(test)",
+            changeDescriptor = null,
+            type = DescriptorType.P2WPKH,
+            hasWildcard = true
+        )
+        walletRepository.creationResult = WalletCreationResult.Failure(
+            "This descriptor is already registered for the selected network."
+        )
+
+        viewModel.onDescriptorChanged("wpkh(test)")
+        viewModel.onWalletNameChanged("My wallet")
+        advanceTimeBy(400)
+
+        val events = mutableListOf<AddWalletEvent>()
+        val job = launch { viewModel.events.collect { events.add(it) } }
+
+        viewModel.submit()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.formError)
+        assertEquals(
+            AddWalletEvent.ShowMessage("This descriptor is already registered for the selected network."),
+            events.firstOrNull()
+        )
         job.cancel()
     }
 
@@ -266,7 +301,7 @@ class AddWalletViewModelTest {
     }
 
     @Test
-    fun extendedKeyDetectionRequiresManualScriptSelectionBeforeValidation() = runTest {
+    fun extendedKeyDetectionPrefillsScriptSelectionAndValidates() = runTest {
         val expectedDescriptor = "pkh($sampleXpub/0/*)"
         val expectedChange = "pkh($sampleXpub/1/*)"
         walletRepository.validationResult = DescriptorValidationResult.Valid(
@@ -282,10 +317,10 @@ class AddWalletViewModelTest {
         val initialState = viewModel.uiState.value
         assertEquals(WalletImportMode.EXTENDED_KEY, initialState.importMode)
         assertEquals(sampleXpub, initialState.extendedForm.extendedKey)
-        assertNull(initialState.extendedForm.scriptType)
-        assertEquals(scriptTypeRequiredMessage, initialState.extendedForm.errorMessage)
+        assertEquals(ExtendedKeyScriptType.P2PKH, initialState.extendedForm.scriptType)
+        assertNull(initialState.extendedForm.errorMessage)
         val dialog = assertNotNull(initialState.extendedDialog)
-        assertNull(dialog.selectedType)
+        assertEquals(ExtendedKeyScriptType.P2PKH, dialog.selectedType)
 
         viewModel.onExtendedDialogTypeSelected(ExtendedKeyScriptType.P2PKH)
         viewModel.onExtendedDialogConfirmed()
@@ -298,13 +333,13 @@ class AddWalletViewModelTest {
     }
 
     @Test
-    fun extendedKeyModeRequiresExtendedKeyButKeepsGlobalErrorClear() = runTest {
+    fun extendedKeyModeKeepsGlobalAndFieldErrorsClearUntilInput() = runTest {
         viewModel.onImportModeSelected(WalletImportMode.EXTENDED_KEY)
 
         val state = viewModel.uiState.value
         assertEquals(WalletImportMode.EXTENDED_KEY, state.importMode)
         assertNull(state.formError)
-        assertEquals("Extended public key is required for Extended Key import.", state.extendedForm.errorMessage)
+        assertNull(state.extendedForm.errorMessage)
     }
 
     @Test
@@ -344,39 +379,10 @@ class AddWalletViewModelTest {
     }
 }
 
-private class FakeWalletRepository : WalletRepository {
+private class FakeWalletRepository : WalletProvisioningRepository, WalletSyncRepository {
     var validationResult: DescriptorValidationResult = DescriptorValidationResult.Empty
     var creationResult: WalletCreationResult = WalletCreationResult.Failure("not set")
     var lastAddWalletRequest: WalletCreationRequest? = null
-
-    override fun observeWalletSummaries(network: BitcoinNetwork): Flow<List<WalletSummary>> =
-        flowOf(emptyList())
-
-    override fun observeWalletDetail(id: Long): Flow<WalletDetail?> = flowOf(null)
-
-    override fun pageWalletTransactions(
-        id: Long,
-        sort: WalletTransactionSort,
-        showLabeled: Boolean,
-        showUnlabeled: Boolean,
-        showReceived: Boolean,
-        showSent: Boolean
-    ): Flow<PagingData<WalletTransaction>> = flowOf(PagingData.empty())
-
-    override fun pageWalletUtxos(
-        id: Long,
-        sort: WalletUtxoSort,
-        showLabeled: Boolean,
-        showUnlabeled: Boolean,
-        showSpendable: Boolean,
-        showNotSpendable: Boolean
-    ): Flow<PagingData<WalletUtxo>> = flowOf(PagingData.empty())
-
-    override fun observeTransactionCount(id: Long): Flow<Int> = flowOf(0)
-
-    override fun observeUtxoCount(id: Long): Flow<Int> = flowOf(0)
-
-    override fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>> = flowOf(emptyMap())
 
     override fun observeNodeStatus(): Flow<NodeStatusSnapshot> =
         flowOf(
@@ -395,7 +401,7 @@ private class FakeWalletRepository : WalletRepository {
         )
 
     override suspend fun refresh(network: BitcoinNetwork) = Unit
-    override suspend fun refreshWallet(walletId: Long) = Unit
+    override suspend fun refreshWallet(walletId: Long, operation: SyncOperation) = Unit
     override suspend fun disconnect(network: BitcoinNetwork) = Unit
     override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
 
@@ -412,44 +418,11 @@ private class FakeWalletRepository : WalletRepository {
 
     override suspend fun deleteWallet(id: Long) = Unit
 
-    override suspend fun wipeAllWalletData() = Unit
-
     override suspend fun updateWalletColor(id: Long, color: WalletColor) = Unit
 
     override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
 
-    override suspend fun listUnusedAddresses(
-        walletId: Long,
-        type: WalletAddressType,
-        limit: Int
-    ): List<WalletAddress> = emptyList()
-
-    override suspend fun revealNextAddress(
-        walletId: Long,
-        type: WalletAddressType
-    ): WalletAddress? = null
-
-    override suspend fun markAddressAsUsed(walletId: Long, type: WalletAddressType, derivationIndex: Int) = Unit
-
-    override suspend fun getAddressDetail(
-        walletId: Long,
-        type: WalletAddressType,
-        derivationIndex: Int
-    ): WalletAddressDetail? = null
-
-    override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
-
-    override suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?) = Unit
-
-    override suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?) = Unit
-
     override suspend fun renameWallet(id: Long, name: String) = Unit
-
-    override suspend fun exportWalletLabels(walletId: Long): WalletLabelExport =
-        WalletLabelExport(fileName = "labels.jsonl", entries = emptyList())
-
-    override suspend fun importWalletLabels(walletId: Long, payload: ByteArray): Bip329ImportResult =
-        Bip329ImportResult(0, 0, 0, 0, 0)
 
     override fun setSyncForegroundState(isForeground: Boolean) = Unit
 }
@@ -466,17 +439,12 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val _walletBalanceRange = MutableStateFlow(BalanceRange.All)
     private val _showBalanceChart = MutableStateFlow(false)
     private val _hapticsEnabled = MutableStateFlow(false)
+    private val _calculatorGateEnabled = MutableStateFlow(false)
     private val _advancedMode = MutableStateFlow(false)
     private val _pinAutoLockTimeoutMinutes =
         MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
     private val _pinLastUnlockedAt = MutableStateFlow<Long?>(null)
     private val _dustThresholdSats = MutableStateFlow(WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS)
-    private val _transactionAnalysisEnabled = MutableStateFlow(true)
-    private val _utxoHealthEnabled = MutableStateFlow(true)
-    private val _walletHealthEnabled = MutableStateFlow(false)
-    private val _transactionHealthParameters =
-        MutableStateFlow(TransactionHealthParameters())
-    private val _utxoHealthParameters = MutableStateFlow(UtxoHealthParameters())
     private val _connectionIdleTimeoutMinutes = MutableStateFlow(
         AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES
     )
@@ -495,21 +463,17 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val walletBalanceRange: Flow<BalanceRange> = _walletBalanceRange
     override val showBalanceChart: Flow<Boolean> = _showBalanceChart
     override val pinShuffleEnabled: Flow<Boolean> = MutableStateFlow(false)
+    override val calculatorGateEnabled: Flow<Boolean> = _calculatorGateEnabled
     override val hapticsEnabled: Flow<Boolean> = _hapticsEnabled
     override val advancedMode: Flow<Boolean> = _advancedMode
     override val pinAutoLockTimeoutMinutes: Flow<Int> = _pinAutoLockTimeoutMinutes
     override val connectionIdleTimeoutMinutes: Flow<Int> = _connectionIdleTimeoutMinutes
     override val pinLastUnlockedAt: Flow<Long?> = _pinLastUnlockedAt
     override val dustThresholdSats: Flow<Long> = _dustThresholdSats
-    override val transactionAnalysisEnabled: Flow<Boolean> = _transactionAnalysisEnabled
-    override val utxoHealthEnabled: Flow<Boolean> = _utxoHealthEnabled
-    override val walletHealthEnabled: Flow<Boolean> = _walletHealthEnabled
-    override val transactionHealthParameters: Flow<TransactionHealthParameters> =
-        _transactionHealthParameters
-    override val utxoHealthParameters: Flow<UtxoHealthParameters> = _utxoHealthParameters
     override val networkLogsEnabled: Flow<Boolean> = _networkLogsEnabled
     override val networkLogsInfoSeen: Flow<Boolean> = _networkLogsInfoSeen
     override val blockExplorerPreferences: Flow<BlockExplorerPreferences> = blockExplorerPreferencesState
+    override val duressConfigured: Flow<Boolean> = MutableStateFlow(false)
 
     val currentNetwork: BitcoinNetwork
         get() = _preferredNetwork.value
@@ -524,9 +488,15 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun setPin(pin: String) = Unit
 
+    override suspend fun setDuressPin(pin: String) = Unit
+
+    override suspend fun clearDuressPin() = Unit
+
     override suspend fun clearPin() = Unit
 
     override suspend fun verifyPin(pin: String): PinVerificationResult = PinVerificationResult.NotConfigured
+
+    override suspend fun verifyPinIgnoringDuress(pin: String): PinVerificationResult = verifyPin(pin)
 
     override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) {
         _pinAutoLockTimeoutMinutes.value = minutes
@@ -578,6 +548,10 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun setPinShuffleEnabled(enabled: Boolean) = Unit
 
+    override suspend fun setCalculatorGateEnabled(enabled: Boolean) {
+        _calculatorGateEnabled.value = enabled
+    }
+
     override suspend fun setHapticsEnabled(enabled: Boolean) {
         _hapticsEnabled.value = enabled
     }
@@ -600,42 +574,6 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun setDustThresholdSats(thresholdSats: Long) {
         _dustThresholdSats.value = thresholdSats
-    }
-
-    override suspend fun setTransactionAnalysisEnabled(enabled: Boolean) {
-        _transactionAnalysisEnabled.value = enabled
-        if (!enabled) {
-            _walletHealthEnabled.value = false
-        }
-    }
-
-    override suspend fun setUtxoHealthEnabled(enabled: Boolean) {
-        _utxoHealthEnabled.value = enabled
-        if (!enabled) {
-            _walletHealthEnabled.value = false
-        }
-    }
-
-    override suspend fun setWalletHealthEnabled(enabled: Boolean) {
-        _walletHealthEnabled.value = enabled &&
-            _transactionAnalysisEnabled.value &&
-            _utxoHealthEnabled.value
-    }
-
-    override suspend fun setTransactionHealthParameters(parameters: TransactionHealthParameters) {
-        _transactionHealthParameters.value = parameters
-    }
-
-    override suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters) {
-        _utxoHealthParameters.value = parameters
-    }
-
-    override suspend fun resetTransactionHealthParameters() {
-        _transactionHealthParameters.value = TransactionHealthParameters()
-    }
-
-    override suspend fun resetUtxoHealthParameters() {
-        _utxoHealthParameters.value = UtxoHealthParameters()
     }
 
     override suspend fun setBlockExplorerBucket(network: BitcoinNetwork, bucket: BlockExplorerBucket) {

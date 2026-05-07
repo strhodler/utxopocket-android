@@ -3,6 +3,7 @@ package com.strhodler.utxopocket.data.preferences
 import android.content.Context
 import androidx.core.os.LocaleListCompat
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -17,6 +18,7 @@ import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.BlockExplorerCatalog
 import com.strhodler.utxopocket.domain.model.BlockExplorerNetworkPreference
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
+import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
@@ -28,17 +30,22 @@ import com.strhodler.utxopocket.domain.model.ThemePreference
 import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.WalletDefaults
 import android.util.Base64
+import com.strhodler.utxopocket.domain.model.DEFAULT_DURESS_DECOY_BALANCE_SATS
+import com.strhodler.utxopocket.domain.model.MAX_DURESS_DECOY_BALANCE_SATS
+import com.strhodler.utxopocket.domain.model.MIN_DURESS_DECOY_BALANCE_SATS
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
-import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
-import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
+import com.strhodler.utxopocket.di.DefaultDispatcher
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -49,10 +56,12 @@ import java.util.UUID
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import kotlin.math.min
+import kotlin.random.Random
 
 @Singleton
 class DefaultAppPreferencesRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
+    @param:DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher
 ) : AppPreferencesRepository, NodeConfigurationRepository {
 
     private val dataStore = context.userPreferencesDataStore
@@ -82,6 +91,11 @@ class DefaultAppPreferencesRepository @Inject constructor(
     override val pinLastUnlockedAt: Flow<Long?> =
         dataStore.data.map { prefs ->
             prefs[Keys.PIN_LAST_UNLOCKED_AT]?.takeIf { it > 0L }
+        }
+
+    override val duressConfigured: Flow<Boolean> =
+        dataStore.data.map { prefs ->
+            prefs[Keys.DURESS_PIN_HASH] != null && prefs[Keys.DURESS_PIN_SALT] != null
         }
 
     override val themePreference: Flow<ThemePreference> =
@@ -131,6 +145,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
     override val pinShuffleEnabled: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.PIN_SHUFFLE_ENABLED] ?: false }
 
+    override val calculatorGateEnabled: Flow<Boolean> =
+        dataStore.data.map { prefs -> prefs[Keys.CALCULATOR_GATE_ENABLED] ?: false }
+
     override val advancedMode: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.ADVANCED_MODE] ?: false }
 
@@ -148,55 +165,12 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs[Keys.DUST_THRESHOLD] ?: WalletDefaults.DEFAULT_DUST_THRESHOLD_SATS
         }
 
-    override val transactionAnalysisEnabled: Flow<Boolean> =
-        dataStore.data.map { prefs -> prefs[Keys.TRANSACTION_ANALYSIS_ENABLED] ?: false }
-
-    override val utxoHealthEnabled: Flow<Boolean> =
-        dataStore.data.map { prefs -> prefs[Keys.UTXO_HEALTH_ENABLED] ?: false }
-
-    override val walletHealthEnabled: Flow<Boolean> =
-        dataStore.data.map { prefs -> prefs[Keys.WALLET_HEALTH_ENABLED] ?: false }
-
     override val networkLogsEnabled: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.NETWORK_LOGS_ENABLED] ?: false }
     override val networkLogsInfoSeen: Flow<Boolean> =
         dataStore.data.map { prefs -> prefs[Keys.NETWORK_LOGS_INFO_SEEN] ?: false }
     override val blockExplorerPreferences: Flow<BlockExplorerPreferences> =
         dataStore.data.map { prefs -> prefs.toBlockExplorerPreferences() }
-
-    override val transactionHealthParameters: Flow<TransactionHealthParameters> =
-        dataStore.data.map { prefs ->
-            TransactionHealthParameters(
-                changeExposureHighRatio = prefs[Keys.TX_CHANGE_RATIO_HIGH]
-                    ?: TransactionHealthParameters.DEFAULT_CHANGE_EXPOSURE_HIGH_RATIO,
-                changeExposureMediumRatio = prefs[Keys.TX_CHANGE_RATIO_MEDIUM]
-                    ?: TransactionHealthParameters.DEFAULT_CHANGE_EXPOSURE_MEDIUM_RATIO,
-                lowFeeRateThresholdSatPerVb = prefs[Keys.TX_LOW_FEE_THRESHOLD]
-                    ?: TransactionHealthParameters.DEFAULT_LOW_FEE_RATE_THRESHOLD,
-                highFeeRateThresholdSatPerVb = prefs[Keys.TX_HIGH_FEE_THRESHOLD]
-                    ?: TransactionHealthParameters.DEFAULT_HIGH_FEE_RATE_THRESHOLD,
-                consolidationFeeRateThresholdSatPerVb = prefs[Keys.TX_CONSOLIDATION_FEE_THRESHOLD]
-                    ?: TransactionHealthParameters.DEFAULT_CONSOLIDATION_FEE_RATE_THRESHOLD,
-                consolidationHighFeeRateThresholdSatPerVb = prefs[Keys.TX_CONSOLIDATION_HIGH_FEE_THRESHOLD]
-                    ?: TransactionHealthParameters.DEFAULT_CONSOLIDATION_HIGH_FEE_RATE_THRESHOLD
-            )
-        }
-
-    override val utxoHealthParameters: Flow<UtxoHealthParameters> =
-        dataStore.data.map { prefs ->
-            UtxoHealthParameters(
-                addressReuseHighThreshold = prefs[Keys.UTXO_ADDRESS_REUSE_HIGH_THRESHOLD]
-                    ?: UtxoHealthParameters.DEFAULT_ADDRESS_REUSE_HIGH_THRESHOLD,
-                changeMinConfirmations = prefs[Keys.UTXO_CHANGE_MIN_CONFIRMATIONS]
-                    ?: UtxoHealthParameters.DEFAULT_CHANGE_MIN_CONFIRMATIONS,
-                longInactiveConfirmations = prefs[Keys.UTXO_LONG_INACTIVE_CONFIRMATIONS]
-                    ?: UtxoHealthParameters.DEFAULT_LONG_INACTIVE_CONFIRMATIONS,
-                highValueThresholdSats = prefs[Keys.UTXO_HIGH_VALUE_THRESHOLD]
-                    ?: UtxoHealthParameters.DEFAULT_HIGH_VALUE_THRESHOLD_SATS,
-                wellDocumentedValueThresholdSats = prefs[Keys.UTXO_WELL_DOCUMENTED_THRESHOLD]
-                    ?: UtxoHealthParameters.DEFAULT_WELL_DOCUMENTED_VALUE_THRESHOLD_SATS
-            )
-        }
 
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         dataStore.edit { prefs -> prefs[Keys.ONBOARDING_COMPLETED] = completed }
@@ -233,6 +207,35 @@ class DefaultAppPreferencesRepository @Inject constructor(
         }
     }
 
+    override suspend fun setDuressPin(pin: String) {
+        val normalised = pin.filter { it.isDigit() }
+        require(normalised.length == PIN_LENGTH) { "PIN must be $PIN_LENGTH digits" }
+        val snapshot = dataStore.data.first()
+        val normalHash = snapshot[Keys.PIN_HASH]
+        val normalSalt = snapshot[Keys.PIN_SALT]
+        val normalIterations = snapshot[Keys.PIN_KDF_ITERATIONS] ?: PIN_KDF_ITERATIONS
+        if (normalHash != null && normalSalt != null) {
+            val derivedNormalWithDuressPin = derivePinHash(
+                normalised,
+                decodeBase64(normalSalt),
+                normalIterations
+            )
+            val storedNormalHash = decodeBase64(normalHash)
+            require(!MessageDigest.isEqual(derivedNormalWithDuressPin, storedNormalHash)) {
+                "Duress PIN must differ from the app PIN"
+            }
+        }
+        val salt = generateSalt()
+        val derivedHash = derivePinHash(normalised, salt, PIN_KDF_ITERATIONS)
+        val now = System.currentTimeMillis()
+        dataStore.edit { prefs ->
+            prefs[Keys.DURESS_PIN_HASH] = derivedHash.toBase64()
+            prefs[Keys.DURESS_PIN_SALT] = salt.toBase64()
+            prefs[Keys.DURESS_PIN_KDF_ITERATIONS] = PIN_KDF_ITERATIONS
+            prefs[Keys.PIN_LAST_UNLOCKED_AT] = now
+        }
+    }
+
     override suspend fun clearPin() {
         dataStore.edit { prefs ->
             prefs.remove(Keys.PIN_HASH)
@@ -243,10 +246,36 @@ class DefaultAppPreferencesRepository @Inject constructor(
             prefs.remove(Keys.PIN_LAST_FAILURE)
             prefs[Keys.PIN_ENABLED] = false
             prefs.remove(Keys.PIN_LAST_UNLOCKED_AT)
+            prefs.remove(Keys.DURESS_PIN_HASH)
+            prefs.remove(Keys.DURESS_PIN_SALT)
+            prefs.remove(Keys.DURESS_PIN_KDF_ITERATIONS)
         }
     }
 
-    override suspend fun verifyPin(pin: String): PinVerificationResult {
+    override suspend fun clearDuressPin() {
+        val now = System.currentTimeMillis()
+        dataStore.edit { prefs ->
+            prefs.remove(Keys.DURESS_PIN_HASH)
+            prefs.remove(Keys.DURESS_PIN_SALT)
+            prefs.remove(Keys.DURESS_PIN_KDF_ITERATIONS)
+            prefs[Keys.PIN_LAST_UNLOCKED_AT] = now
+        }
+    }
+
+    override suspend fun verifyPin(pin: String): PinVerificationResult =
+        withContext(defaultDispatcher) {
+            verifyPinInternal(pin, allowDuress = true)
+        }
+
+    override suspend fun verifyPinIgnoringDuress(pin: String): PinVerificationResult =
+        withContext(defaultDispatcher) {
+            verifyPinInternal(pin, allowDuress = false)
+        }
+
+    private suspend fun verifyPinInternal(
+        pin: String,
+        allowDuress: Boolean
+    ): PinVerificationResult {
         val normalised = pin.filter { it.isDigit() }
         if (normalised.length != PIN_LENGTH) {
             return PinVerificationResult.InvalidFormat
@@ -276,6 +305,35 @@ class DefaultAppPreferencesRepository @Inject constructor(
                 prefs[Keys.PIN_LAST_UNLOCKED_AT] = now
             }
             return PinVerificationResult.Success
+        }
+
+        if (allowDuress) {
+            val duressHash = snapshot[Keys.DURESS_PIN_HASH]
+            val duressSalt = snapshot[Keys.DURESS_PIN_SALT]
+            val duressIterations = snapshot[Keys.DURESS_PIN_KDF_ITERATIONS] ?: PIN_KDF_ITERATIONS
+            val duressHashBytes = duressHash?.let(::decodeBase64)
+            val duressSaltBytes = duressSalt?.let(::decodeBase64)
+            val duressDerived = if (duressHashBytes != null && duressSaltBytes != null) {
+                derivePinHash(normalised, duressSaltBytes, duressIterations)
+            } else {
+                null
+            }
+            if (
+                duressHashBytes != null &&
+                duressDerived != null &&
+                MessageDigest.isEqual(duressDerived, duressHashBytes)
+            ) {
+                val decoyBalance = Random.nextLong(
+                    MIN_DURESS_DECOY_BALANCE_SATS,
+                    MAX_DURESS_DECOY_BALANCE_SATS + 1
+                )
+                dataStore.edit { prefs ->
+                    prefs[Keys.PIN_FAILED_ATTEMPTS] = 0
+                    prefs[Keys.PIN_LOCKED_UNTIL] = 0L
+                    prefs.remove(Keys.PIN_LAST_FAILURE)
+                }
+                return PinVerificationResult.DuressTriggered(decoyBalance)
+            }
         }
 
         val baselineAttempts =
@@ -376,6 +434,10 @@ class DefaultAppPreferencesRepository @Inject constructor(
         dataStore.edit { prefs -> prefs[Keys.PIN_SHUFFLE_ENABLED] = enabled }
     }
 
+    override suspend fun setCalculatorGateEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.CALCULATOR_GATE_ENABLED] = enabled }
+    }
+
     override suspend fun setAdvancedMode(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[Keys.ADVANCED_MODE] = enabled }
     }
@@ -387,77 +449,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
             } else {
                 prefs.remove(Keys.DUST_THRESHOLD)
             }
-        }
-    }
-
-    override suspend fun setTransactionAnalysisEnabled(enabled: Boolean) {
-        dataStore.edit { prefs ->
-            prefs[Keys.TRANSACTION_ANALYSIS_ENABLED] = enabled
-            if (!enabled) {
-                prefs[Keys.WALLET_HEALTH_ENABLED] = false
-            }
-        }
-    }
-
-    override suspend fun setUtxoHealthEnabled(enabled: Boolean) {
-        dataStore.edit { prefs ->
-            prefs[Keys.UTXO_HEALTH_ENABLED] = enabled
-            if (!enabled) {
-                prefs[Keys.WALLET_HEALTH_ENABLED] = false
-            }
-        }
-    }
-
-    override suspend fun setWalletHealthEnabled(enabled: Boolean) {
-        dataStore.edit { prefs ->
-            val txEnabled = prefs[Keys.TRANSACTION_ANALYSIS_ENABLED] ?: false
-            val utxoEnabled = prefs[Keys.UTXO_HEALTH_ENABLED] ?: false
-            prefs[Keys.WALLET_HEALTH_ENABLED] = enabled && txEnabled && utxoEnabled
-        }
-    }
-
-    override suspend fun setTransactionHealthParameters(parameters: TransactionHealthParameters) {
-        dataStore.edit { prefs ->
-            prefs[Keys.TX_CHANGE_RATIO_HIGH] = parameters.changeExposureHighRatio
-            prefs[Keys.TX_CHANGE_RATIO_MEDIUM] = parameters.changeExposureMediumRatio
-            prefs[Keys.TX_LOW_FEE_THRESHOLD] = parameters.lowFeeRateThresholdSatPerVb
-            prefs[Keys.TX_HIGH_FEE_THRESHOLD] = parameters.highFeeRateThresholdSatPerVb
-            prefs[Keys.TX_CONSOLIDATION_FEE_THRESHOLD] =
-                parameters.consolidationFeeRateThresholdSatPerVb
-            prefs[Keys.TX_CONSOLIDATION_HIGH_FEE_THRESHOLD] =
-                parameters.consolidationHighFeeRateThresholdSatPerVb
-        }
-    }
-
-    override suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters) {
-        dataStore.edit { prefs ->
-            prefs[Keys.UTXO_ADDRESS_REUSE_HIGH_THRESHOLD] = parameters.addressReuseHighThreshold
-            prefs[Keys.UTXO_CHANGE_MIN_CONFIRMATIONS] = parameters.changeMinConfirmations
-            prefs[Keys.UTXO_LONG_INACTIVE_CONFIRMATIONS] = parameters.longInactiveConfirmations
-            prefs[Keys.UTXO_HIGH_VALUE_THRESHOLD] = parameters.highValueThresholdSats
-            prefs[Keys.UTXO_WELL_DOCUMENTED_THRESHOLD] =
-                parameters.wellDocumentedValueThresholdSats
-        }
-    }
-
-    override suspend fun resetTransactionHealthParameters() {
-        dataStore.edit { prefs ->
-            prefs.remove(Keys.TX_CHANGE_RATIO_HIGH)
-            prefs.remove(Keys.TX_CHANGE_RATIO_MEDIUM)
-            prefs.remove(Keys.TX_LOW_FEE_THRESHOLD)
-            prefs.remove(Keys.TX_HIGH_FEE_THRESHOLD)
-            prefs.remove(Keys.TX_CONSOLIDATION_FEE_THRESHOLD)
-            prefs.remove(Keys.TX_CONSOLIDATION_HIGH_FEE_THRESHOLD)
-        }
-    }
-
-    override suspend fun resetUtxoHealthParameters() {
-        dataStore.edit { prefs ->
-            prefs.remove(Keys.UTXO_ADDRESS_REUSE_HIGH_THRESHOLD)
-            prefs.remove(Keys.UTXO_CHANGE_MIN_CONFIRMATIONS)
-            prefs.remove(Keys.UTXO_LONG_INACTIVE_CONFIRMATIONS)
-            prefs.remove(Keys.UTXO_HIGH_VALUE_THRESHOLD)
-            prefs.remove(Keys.UTXO_WELL_DOCUMENTED_THRESHOLD)
         }
     }
 
@@ -569,16 +560,22 @@ class DefaultAppPreferencesRepository @Inject constructor(
     }
 
     override val nodeConfig: Flow<NodeConfig> =
-        dataStore.data.map { prefs -> prefs.toNodeConfig() }
+        dataStore.data
+            .onStart { ensureNodePreferencesMigrationContract() }
+            .map { prefs -> prefs.toNodeConfig() }
 
-    override fun publicNodesFor(network: BitcoinNetwork): List<PublicNode> =
-        PUBLIC_NODES.filter { it.network == network }
+    override fun publicNodesFor(network: BitcoinNetwork, excludedIds: Set<String>): List<PublicNode> =
+        PUBLIC_NODES
+            .filter { it.network == network }
+            .filterNot { excludedIds.contains(it.id) }
 
     override suspend fun updateNodeConfig(mutator: (NodeConfig) -> NodeConfig) {
+        ensureNodePreferencesMigrationContract()
         dataStore.edit { prefs ->
             val current = prefs.toNodeConfig()
             val updated = mutator(current).normalised()
 
+            prefs[Keys.NODE_CONNECTION_MODE] = updated.connectionMode.name
             prefs[Keys.NODE_CONNECTION_OPTION] = updated.connectionOption.name
             updated.selectedPublicNodeId?.let {
                 prefs[Keys.NODE_SELECTED_PUBLIC_ID] = it
@@ -593,6 +590,15 @@ class DefaultAppPreferencesRepository @Inject constructor(
             } else {
                 prefs.remove(Keys.NODE_CUSTOM_LIST)
             }
+            BitcoinNetwork.entries.forEach { network ->
+                val removed = updated.removedPublicNodeIds[network].orEmpty()
+                val key = nodePublicRemovedKey(network)
+                if (removed.isEmpty()) {
+                    prefs.remove(key)
+                } else {
+                    prefs[key] = removed.joinToString(",")
+                }
+            }
 
             // Cleanup legacy fields
             prefs.remove(Keys.NODE_CUSTOM_HOST)
@@ -602,7 +608,86 @@ class DefaultAppPreferencesRepository @Inject constructor(
         }
     }
 
+    private suspend fun ensureNodePreferencesMigrationContract() {
+        dataStore.edit { prefs ->
+            if (!requiresNodePreferencesMigration(prefs)) {
+                return@edit
+            }
+            migrateNodePreferencesIfNeeded(prefs)
+        }
+    }
+
+    private fun requiresNodePreferencesMigration(prefs: Preferences): Boolean {
+        val storedVersion = prefs[Keys.NODE_SCHEMA_VERSION] ?: NODE_SCHEMA_VERSION_NONE
+        return storedVersion < NODE_SCHEMA_VERSION_CURRENT || hasLegacyNodeMarkers(prefs)
+    }
+
+    private fun hasLegacyNodeMarkers(prefs: Preferences): Boolean {
+        if (prefs[Keys.NODE_CUSTOM_HOST] != null) return true
+        if (prefs[Keys.NODE_CUSTOM_PORT] != null) return true
+        if (!prefs[Keys.NODE_CUSTOM_ONION].isNullOrBlank()) return true
+        if (!prefs[Keys.NODE_ADDRESS_OPTION].isNullOrBlank()) return true
+
+        val customNodesRaw = prefs[Keys.NODE_CUSTOM_LIST].orEmpty()
+        if (customNodesRaw.isBlank()) return false
+
+        return runCatching {
+            val array = JSONArray(customNodesRaw)
+            (0 until array.length()).any { index ->
+                val item = array.optJSONObject(index) ?: return@any false
+                val hasLegacyOnion = item.optString("onion").isNotBlank()
+                val hasEndpoint = item.optString("endpoint").isNotBlank()
+                hasLegacyOnion && !hasEndpoint
+            }
+        }.getOrDefault(false)
+    }
+
+    private fun migrateNodePreferencesIfNeeded(prefs: MutablePreferences) {
+        val migratedCustomNodes = migrateCustomNodesForSchemaV1(prefs)
+        if (migratedCustomNodes.isEmpty()) {
+            prefs.remove(Keys.NODE_CUSTOM_LIST)
+            prefs.remove(Keys.NODE_CUSTOM_SELECTED_ID)
+        } else {
+            prefs[Keys.NODE_CUSTOM_LIST] = encodeCustomNodes(migratedCustomNodes)
+            val selectedId = prefs[Keys.NODE_CUSTOM_SELECTED_ID]
+            if (selectedId != null && migratedCustomNodes.none { node -> node.id == selectedId }) {
+                prefs.remove(Keys.NODE_CUSTOM_SELECTED_ID)
+            }
+        }
+
+        prefs.remove(Keys.NODE_CUSTOM_HOST)
+        prefs.remove(Keys.NODE_CUSTOM_PORT)
+        prefs.remove(Keys.NODE_CUSTOM_ONION)
+        prefs.remove(Keys.NODE_ADDRESS_OPTION)
+        prefs[Keys.NODE_SCHEMA_VERSION] = NODE_SCHEMA_VERSION_CURRENT
+    }
+
+    private fun migrateCustomNodesForSchemaV1(prefs: Preferences): List<CustomNode> {
+        val fromCustomList = prefs[Keys.NODE_CUSTOM_LIST]
+            ?.let { raw -> decodeCustomNodes(raw, allowLegacyOnion = true) }
+            .orEmpty()
+        if (fromCustomList.isNotEmpty()) {
+            return fromCustomList
+        }
+
+        val legacyOnion = prefs[Keys.NODE_CUSTOM_ONION]
+        val legacyEndpoint = legacyOnion?.let(::normalizeLegacyOnionEndpoint)
+        return legacyEndpoint?.let { endpoint ->
+            listOf(
+                CustomNode(
+                    id = "legacy-onion-${legacyOnion.trim()}",
+                    endpoint = endpoint,
+                    name = legacyOnion.trim()
+                )
+            )
+        } ?: emptyList()
+    }
+
     private fun Preferences.toNodeConfig(): NodeConfig {
+        val connectionMode = this[Keys.NODE_CONNECTION_MODE]?.let {
+            runCatching { ConnectionMode.valueOf(it) }.getOrNull()
+        } ?: ConnectionMode.TOR_DEFAULT
+
         val connectionOption = this[Keys.NODE_CONNECTION_OPTION]?.let {
             runCatching { NodeConnectionOption.valueOf(it) }.getOrNull()
         } ?: NodeConnectionOption.PUBLIC
@@ -612,30 +697,35 @@ class DefaultAppPreferencesRepository @Inject constructor(
             ?: emptyList()
 
         val selectedCustomId = this[Keys.NODE_CUSTOM_SELECTED_ID]
-
-        val legacyNodes = if (customNodes.isEmpty()) {
-            legacyCustomNodes(
-                host = this[Keys.NODE_CUSTOM_HOST],
-                port = this[Keys.NODE_CUSTOM_PORT],
-                onion = this[Keys.NODE_CUSTOM_ONION]
-            )
-        } else {
-            emptyList()
+        val removedPublic = BitcoinNetwork.entries.associateWith { network ->
+            this[nodePublicRemovedKey(network)]?.split(",")
+                ?.filter { it.isNotBlank() }
+                ?.toSet()
+                .orEmpty()
         }
 
-        val combinedNodes = if (customNodes.isEmpty()) legacyNodes else customNodes
-
         return NodeConfig(
+            connectionMode = connectionMode,
             connectionOption = connectionOption,
             selectedPublicNodeId = this[Keys.NODE_SELECTED_PUBLIC_ID],
-            customNodes = combinedNodes,
-            selectedCustomNodeId = selectedCustomId
+            customNodes = customNodes,
+            selectedCustomNodeId = selectedCustomId,
+            removedPublicNodeIds = removedPublic
         ).normalised()
     }
 
     private fun NodeConfig.normalised(): NodeConfig {
         val sanitizedCustomNodes = customNodes
             .mapNotNull { node -> node.normalizedCopy() }
+        val sanitizedRemoved = BitcoinNetwork.entries.associateWith { network ->
+            removedPublicNodeIds[network].orEmpty()
+                .filter { id -> PUBLIC_NODES.any { it.network == network && it.id == id } }
+                .toSet()
+        }
+        val resolvedSelectedPublicId = selectedPublicNodeId?.takeIf { id ->
+            PUBLIC_NODES.any { it.id == id } &&
+                sanitizedRemoved.values.none { removed -> removed.contains(id) }
+        }
 
         val resolvedSelectedCustomId = selectedCustomNodeId?.takeIf { id ->
             sanitizedCustomNodes.any { it.id == id }
@@ -643,13 +733,16 @@ class DefaultAppPreferencesRepository @Inject constructor(
 
         return when (connectionOption) {
             NodeConnectionOption.PUBLIC -> copy(
+                selectedPublicNodeId = resolvedSelectedPublicId,
                 customNodes = sanitizedCustomNodes,
-                selectedCustomNodeId = null
+                selectedCustomNodeId = null,
+                removedPublicNodeIds = sanitizedRemoved
             )
 
             NodeConnectionOption.CUSTOM -> copy(
                 customNodes = sanitizedCustomNodes,
-                selectedCustomNodeId = resolvedSelectedCustomId
+                selectedCustomNodeId = resolvedSelectedCustomId,
+                removedPublicNodeIds = sanitizedRemoved
             )
         }
     }
@@ -668,7 +761,7 @@ class DefaultAppPreferencesRepository @Inject constructor(
         return array.toString()
     }
 
-    private fun decodeCustomNodes(raw: String): List<CustomNode> {
+    private fun decodeCustomNodes(raw: String, allowLegacyOnion: Boolean = false): List<CustomNode> {
         return runCatching {
             val array = JSONArray(raw)
             buildList {
@@ -683,7 +776,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
                     }
                     val resolvedEndpoint = when {
                         storedEndpoint.isNotBlank() -> sanitizeEndpoint(storedEndpoint)
-                        !onion.isNullOrBlank() -> buildLegacyOnionEndpoint(onion)
+                        allowLegacyOnion && !onion.isNullOrBlank() ->
+                            normalizeLegacyOnionEndpoint(onion)
+
                         else -> null
                     } ?: continue
 
@@ -704,10 +799,13 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val normalized = runCatching {
             NodeEndpointClassifier.normalize(endpoint)
         }.getOrNull() ?: return null
-        return normalized.takeIf { it.kind == EndpointKind.ONION }?.url
+        val isOnion = normalized.kind == EndpointKind.ONION
+        val isLocalLiteral =
+            normalized.kind == EndpointKind.LOCAL && NodeEndpointClassifier.isLocalIpLiteral(normalized.host)
+        return normalized.takeIf { isOnion || isLocalLiteral }?.url
     }
 
-    private fun buildLegacyOnionEndpoint(value: String): String? {
+    private fun normalizeLegacyOnionEndpoint(value: String): String? {
         if (value.isBlank()) return null
         val sanitized = value
             .removePrefix("ssl://")
@@ -721,25 +819,6 @@ class DefaultAppPreferencesRepository @Inject constructor(
             )
         }.getOrNull() ?: return null
         return normalized.takeIf { it.kind == EndpointKind.ONION }?.url
-    }
-
-    private fun legacyCustomNodes(
-        host: String?,
-        port: Int?,
-        onion: String?
-    ): List<CustomNode> {
-        val trimmedOnion = onion?.trim().orEmpty()
-        if (trimmedOnion.isBlank()) {
-            return emptyList()
-        }
-        val endpoint = buildLegacyOnionEndpoint(trimmedOnion) ?: return emptyList()
-        return listOf(
-            CustomNode(
-                id = "legacy-onion-$trimmedOnion",
-                endpoint = endpoint,
-                name = trimmedOnion
-            )
-        )
     }
 
     private fun purgePreferencesFile() {
@@ -830,6 +909,9 @@ class DefaultAppPreferencesRepository @Inject constructor(
     private fun blockExplorerRemovedKey(network: BitcoinNetwork, bucket: BlockExplorerBucket) =
         stringPreferencesKey("block_explorer_${network.name.lowercase()}_removed_${bucket.name.lowercase()}")
 
+    private fun nodePublicRemovedKey(network: BitcoinNetwork) =
+        stringPreferencesKey("node_public_removed_${network.name.lowercase()}")
+
     private object Keys {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val PREFERRED_NETWORK = stringPreferencesKey("preferred_network")
@@ -842,6 +924,11 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val PIN_LAST_FAILURE = longPreferencesKey("pin_last_failure")
         val PIN_AUTO_LOCK_MINUTES = intPreferencesKey("pin_auto_lock_minutes")
         val PIN_LAST_UNLOCKED_AT = longPreferencesKey("pin_last_unlocked_at")
+        val DURESS_PIN_HASH = stringPreferencesKey("duress_pin_hash")
+        val DURESS_PIN_SALT = stringPreferencesKey("duress_pin_salt")
+        val DURESS_PIN_KDF_ITERATIONS = intPreferencesKey("duress_pin_kdf_iterations")
+        val NODE_CONNECTION_MODE = stringPreferencesKey("node_connection_mode")
+        val NODE_SCHEMA_VERSION = intPreferencesKey("node_schema_version")
         val NODE_CONNECTION_OPTION = stringPreferencesKey("node_connection_option")
         val NODE_ADDRESS_OPTION = stringPreferencesKey("node_address_option")
         val NODE_SELECTED_PUBLIC_ID = stringPreferencesKey("node_selected_public_id")
@@ -859,30 +946,12 @@ class DefaultAppPreferencesRepository @Inject constructor(
         val WALLET_BALANCE_RANGE = stringPreferencesKey("wallet_balance_range")
         val SHOW_BALANCE_CHART = booleanPreferencesKey("show_balance_chart")
         val PIN_SHUFFLE_ENABLED = booleanPreferencesKey("pin_shuffle_enabled")
+        val CALCULATOR_GATE_ENABLED = booleanPreferencesKey("calculator_gate_enabled")
         val ADVANCED_MODE = booleanPreferencesKey("advanced_mode_enabled")
         val CONNECTION_IDLE_MINUTES = intPreferencesKey("connection_idle_minutes")
         val DUST_THRESHOLD = longPreferencesKey("dust_threshold_sats")
-        val TRANSACTION_ANALYSIS_ENABLED = booleanPreferencesKey("transaction_analysis_enabled")
-        val UTXO_HEALTH_ENABLED = booleanPreferencesKey("utxo_health_enabled")
-        val WALLET_HEALTH_ENABLED = booleanPreferencesKey("wallet_health_enabled")
         val NETWORK_LOGS_ENABLED = booleanPreferencesKey("network_logs_enabled")
         val NETWORK_LOGS_INFO_SEEN = booleanPreferencesKey("network_logs_info_seen")
-        val TX_CHANGE_RATIO_HIGH = doublePreferencesKey("tx_change_ratio_high")
-        val TX_CHANGE_RATIO_MEDIUM = doublePreferencesKey("tx_change_ratio_medium")
-        val TX_LOW_FEE_THRESHOLD = doublePreferencesKey("tx_low_fee_threshold")
-        val TX_HIGH_FEE_THRESHOLD = doublePreferencesKey("tx_high_fee_threshold")
-        val TX_CONSOLIDATION_FEE_THRESHOLD = doublePreferencesKey("tx_consolidation_fee_threshold")
-        val TX_CONSOLIDATION_HIGH_FEE_THRESHOLD =
-            doublePreferencesKey("tx_consolidation_high_fee_threshold")
-        val UTXO_ADDRESS_REUSE_HIGH_THRESHOLD =
-            intPreferencesKey("utxo_address_reuse_high_threshold")
-        val UTXO_CHANGE_MIN_CONFIRMATIONS =
-            intPreferencesKey("utxo_change_min_confirmations")
-        val UTXO_LONG_INACTIVE_CONFIRMATIONS =
-            intPreferencesKey("utxo_long_inactive_confirmations")
-        val UTXO_HIGH_VALUE_THRESHOLD = longPreferencesKey("utxo_high_value_threshold_sats")
-        val UTXO_WELL_DOCUMENTED_THRESHOLD =
-            longPreferencesKey("utxo_well_documented_value_threshold_sats")
     }
 
     private fun derivePinHash(pin: String, salt: ByteArray, iterations: Int): ByteArray {
@@ -920,6 +989,8 @@ class DefaultAppPreferencesRepository @Inject constructor(
         private const val PIN_BACKOFF_MAX_MS = 300_000L
         private const val PIN_BACKOFF_EXPONENT_CAP = 10
         private const val PIN_FAILURE_RESET_WINDOW_MS = 900_000L
+        private const val NODE_SCHEMA_VERSION_NONE = 0
+        private const val NODE_SCHEMA_VERSION_CURRENT = 1
         private val SECURE_RANDOM = SecureRandom()
         private const val DATA_STORE_DIRECTORY = "datastore"
         private const val DATA_STORE_FILE_NAME =

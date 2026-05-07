@@ -5,8 +5,8 @@ summary: Export, merge, and round‑trip wallet labels safely across apps withou
 category_id: privacy-toolkit
 category_title: Privacy toolkit
 category_description: Practical guides to reduce on‑chain exposure and keep compartments isolated.
-related: [provenance-labeling, utxo-segregation-playbook]
-glossary_refs: [bip-329]
+related: [encrypted-watch-only-backup, provenance-labeling, watch-only-restoration, utxo-segregation-playbook]
+glossary_refs: [bip-329, encrypted-backup]
 keywords: [labels, bip-329, provenance]
 ---
 
@@ -19,6 +19,11 @@ Labels preserve intent and provenance across tools. Clean exports prevent losing
 - Label transactions first: UtxoPocket now inherits those strings to every UTXO, lets you override a single coin, and exposes the BIP‑329 `spendable` flag so you can freeze/unfreeze coins just like in Sparrow.
 - When merging, prefer additive updates; keep a backup of prior label sets.
 - Re‑import (UtxoPocket supports JSONL import directly from the wallet menu) and verify that key UTXOs/transactions show expected labels plus spendable status.
+
+## BIP-329 vs encrypted `.ubak`
+- Use BIP‑329 JSONL when you need label interoperability across wallet apps.
+- Use encrypted `.ubak` when you need to restore UtxoPocket local watch-only state (wallet metadata, labels, collections, and selected preferences).
+- Do not treat `.ubak` as a cross-wallet label interchange format.
 
 ## Practical steps
 - Export from app A; inspect JSON for expected keys and redactions.

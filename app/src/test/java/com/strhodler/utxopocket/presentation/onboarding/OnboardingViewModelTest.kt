@@ -10,8 +10,6 @@ import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
-import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
-import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -19,17 +17,20 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class OnboardingViewModelTest {
 
-    private lateinit var dispatcher: StandardTestDispatcher
+    private lateinit var dispatcher: TestDispatcher
 
     @BeforeTest
     fun setUp() {
@@ -70,6 +71,7 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     private val balanceUnitValue = MutableStateFlow(BalanceUnit.SATS)
     private val balancesHiddenValue = MutableStateFlow(false)
     private val hapticsEnabledValue = MutableStateFlow(false)
+    private val calculatorGateEnabledValue = MutableStateFlow(false)
     private val connectionIdleTimeoutMinutesValue = MutableStateFlow(
         AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES
     )
@@ -88,22 +90,17 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override val walletBalanceRange: Flow<BalanceRange> = MutableStateFlow(BalanceRange.All)
     override val showBalanceChart: Flow<Boolean> = MutableStateFlow(false)
     override val pinShuffleEnabled: Flow<Boolean> = MutableStateFlow(false)
+    override val calculatorGateEnabled: Flow<Boolean> = calculatorGateEnabledValue
     override val advancedMode: Flow<Boolean> = MutableStateFlow(false)
     override val pinAutoLockTimeoutMinutes: Flow<Int> =
         MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
     override val connectionIdleTimeoutMinutes: Flow<Int> = connectionIdleTimeoutMinutesValue
     override val pinLastUnlockedAt: Flow<Long?> = MutableStateFlow(null)
     override val dustThresholdSats: Flow<Long> = MutableStateFlow(0L)
-    override val transactionAnalysisEnabled: Flow<Boolean> = MutableStateFlow(true)
-    override val utxoHealthEnabled: Flow<Boolean> = MutableStateFlow(true)
-    override val walletHealthEnabled: Flow<Boolean> = MutableStateFlow(false)
-    override val transactionHealthParameters: Flow<TransactionHealthParameters> =
-        MutableStateFlow(TransactionHealthParameters())
-    override val utxoHealthParameters: Flow<UtxoHealthParameters> =
-        MutableStateFlow(UtxoHealthParameters())
     override val networkLogsEnabled: Flow<Boolean> = networkLogsEnabledValue
     override val networkLogsInfoSeen: Flow<Boolean> = networkLogsInfoSeenValue
     override val blockExplorerPreferences: Flow<BlockExplorerPreferences> = blockExplorerPreferencesValue
+    override val duressConfigured: Flow<Boolean> = MutableStateFlow(false)
 
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         onboardingCompletedValue.value = completed
@@ -113,9 +110,15 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
 
     override suspend fun setPin(pin: String) = Unit
 
+    override suspend fun setDuressPin(pin: String) = Unit
+
+    override suspend fun clearDuressPin() = Unit
+
     override suspend fun clearPin() = Unit
 
     override suspend fun verifyPin(pin: String): PinVerificationResult = PinVerificationResult.NotConfigured
+
+    override suspend fun verifyPinIgnoringDuress(pin: String): PinVerificationResult = verifyPin(pin)
 
     override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) = Unit
 
@@ -164,24 +167,13 @@ private class FakeAppPreferencesRepository : AppPreferencesRepository {
     override suspend fun setWalletBalanceRange(range: BalanceRange) = Unit
     override suspend fun setShowBalanceChart(show: Boolean) = Unit
     override suspend fun setPinShuffleEnabled(enabled: Boolean) = Unit
+    override suspend fun setCalculatorGateEnabled(enabled: Boolean) {
+        calculatorGateEnabledValue.value = enabled
+    }
 
     override suspend fun setAdvancedMode(enabled: Boolean) = Unit
 
     override suspend fun setDustThresholdSats(thresholdSats: Long) = Unit
-
-    override suspend fun setTransactionAnalysisEnabled(enabled: Boolean) = Unit
-
-    override suspend fun setUtxoHealthEnabled(enabled: Boolean) = Unit
-
-    override suspend fun setWalletHealthEnabled(enabled: Boolean) = Unit
-
-    override suspend fun setTransactionHealthParameters(parameters: TransactionHealthParameters) = Unit
-
-    override suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters) = Unit
-
-    override suspend fun resetTransactionHealthParameters() = Unit
-
-    override suspend fun resetUtxoHealthParameters() = Unit
 
     override suspend fun setBlockExplorerBucket(network: BitcoinNetwork, bucket: BlockExplorerBucket) {
         updateBlockExplorerPrefs(network) { current -> current.copy(bucket = bucket) }

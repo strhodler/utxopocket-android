@@ -18,7 +18,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.OpenInNew
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -173,7 +173,7 @@ private fun AboutDeveloperContent(
 private fun DeveloperQrPreview(
     qrBitmap: ImageBitmap?,
     contentDescription: String,
-    modifier: Modifier = Modifier.fillMaxWidth()
+    modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier.aspectRatio(1f),
@@ -233,7 +233,7 @@ private fun DeveloperLinkItem(
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (onOpen != null) {
                     IconButton(onClick = onOpen) {
-                        Icon(imageVector = Icons.Outlined.OpenInNew, contentDescription = null)
+                        Icon(imageVector = Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null)
                     }
                 }
                 IconButton(onClick = { onCopy?.invoke() }) {

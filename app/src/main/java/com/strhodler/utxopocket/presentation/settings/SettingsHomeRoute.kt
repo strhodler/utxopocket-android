@@ -12,9 +12,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
+import com.strhodler.utxopocket.domain.model.BlockExplorerCatalog
 import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.navigation.SetPrimaryTopBar
 import com.strhodler.utxopocket.presentation.settings.model.SettingsUiState
@@ -24,6 +26,7 @@ fun SettingsRoute(
     onOpenInterfaceSettings: () -> Unit,
     onOpenWalletSettings: () -> Unit,
     onOpenSecuritySettings: () -> Unit,
+    onOpenBlockExplorerSettings: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -35,6 +38,7 @@ fun SettingsRoute(
         onOpenInterfaceSettings = onOpenInterfaceSettings,
         onOpenWalletSettings = onOpenWalletSettings,
         onOpenSecuritySettings = onOpenSecuritySettings,
+        onOpenBlockExplorerSettings = onOpenBlockExplorerSettings,
         modifier = Modifier.fillMaxSize()
     )
 }
@@ -45,6 +49,7 @@ private fun SettingsHomeScreen(
     onOpenInterfaceSettings: () -> Unit,
     onOpenWalletSettings: () -> Unit,
     onOpenSecuritySettings: () -> Unit,
+    onOpenBlockExplorerSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val languageLabel = rememberLanguageLabeler()
@@ -63,13 +68,29 @@ private fun SettingsHomeScreen(
             R.string.settings_security_pin_disabled
         }
     )
-    val walletHealthStatus = stringResource(
-        id = if (state.walletHealthEnabled) {
-            R.string.settings_wallet_health_on
-        } else {
-            R.string.settings_wallet_health_off
+    val walletSummary = stringResource(
+        id = R.string.settings_wallet_nav_description,
+        when {
+            state.incomingDetectionDialogEnabled -> stringResource(id = R.string.incoming_detection_dialog_label)
+            else -> stringResource(id = R.string.incoming_detection_title)
         }
     )
+    val blockExplorerSummary = if (state.blockExplorerEnabled) {
+        val bucketLabel = stringResource(
+            id = when (state.blockExplorerBucket) {
+                BlockExplorerBucket.NORMAL -> R.string.settings_block_explorer_bucket_normal
+                BlockExplorerBucket.ONION -> R.string.settings_block_explorer_bucket_onion
+            }
+        )
+        val presetName = blockExplorerPresetName(state)
+        stringResource(
+            id = R.string.settings_block_explorer_nav_description_enabled,
+            bucketLabel,
+            presetName
+        )
+    } else {
+        stringResource(id = R.string.settings_block_explorer_nav_description_disabled)
+    }
 
     Column(
         modifier = modifier
@@ -99,13 +120,48 @@ private fun SettingsHomeScreen(
             item {
                 SettingsNavigationRow(
                     title = stringResource(id = R.string.settings_section_wallet),
-                    supportingText = stringResource(
-                        id = R.string.settings_wallet_nav_description,
-                        walletHealthStatus
-                    ),
+                    supportingText = walletSummary,
                     onClick = onOpenWalletSettings
                 )
             }
+            item {
+                SettingsNavigationRow(
+                    title = stringResource(id = R.string.settings_section_block_explorer),
+                    supportingText = blockExplorerSummary,
+                    onClick = onOpenBlockExplorerSettings
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun blockExplorerPresetName(state: SettingsUiState): String {
+    val bucket = state.blockExplorerBucket
+    val presetId = when (bucket) {
+        BlockExplorerBucket.NORMAL -> state.blockExplorerNormalPresetId
+        BlockExplorerBucket.ONION -> state.blockExplorerOnionPresetId
+    }
+    val preset = BlockExplorerCatalog.resolvePreset(state.preferredNetwork, presetId, bucket)
+    return when {
+        preset == null -> stringResource(id = R.string.settings_block_explorer_default_label)
+        BlockExplorerCatalog.isCustomPreset(preset.id, bucket) -> {
+            val customName = when (bucket) {
+                BlockExplorerBucket.NORMAL -> state.blockExplorerNormalCustomNameInput
+                BlockExplorerBucket.ONION -> state.blockExplorerOnionCustomNameInput
+            }
+            if (customName.isNotBlank()) {
+                customName
+            } else {
+                stringResource(
+                    id = when (bucket) {
+                        BlockExplorerBucket.NORMAL -> R.string.settings_block_explorer_custom_name_label
+                        BlockExplorerBucket.ONION -> R.string.settings_block_explorer_custom_name_tor_label
+                    }
+                )
+            }
+        }
+
+        else -> preset.name
     }
 }

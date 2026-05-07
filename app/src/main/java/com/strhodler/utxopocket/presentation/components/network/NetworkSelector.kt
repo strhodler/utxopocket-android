@@ -46,7 +46,7 @@ fun networkLabel(network: BitcoinNetwork): String = when (network) {
 @Composable
 fun NetworkSelector(
     selectedNetwork: BitcoinNetwork,
-    modifier: Modifier = Modifier.fillMaxWidth(),
+    modifier: Modifier = Modifier,
     enabled: Boolean = true,
     interactionsLocked: Boolean = false,
     label: String = stringResource(id = R.string.network_select_title),
@@ -80,7 +80,9 @@ fun NetworkSelector(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
-        modifier = modifier
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(modifier)
             .alpha(itemAlpha)
             .clickable {
                 if (!enabled || interactionsLocked) {

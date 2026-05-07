@@ -6,7 +6,9 @@
 - _List bug fixes or UX polish items._
 
 ### Security
-- _Call out security/privacy hardening (PIN, Tor, SQLCipher, panic wipe, etc.)._
+- _Call out security/privacy hardening (connection mode policy: Tor default + optional Local Direct, no silent fallback, strict keystore-backed Tink fail-closed crypto path, PIN, Tor, SQLCipher, panic wipe, etc.)._
+- _If crypto/storage dependencies changed, state whether `androidx.security:security-crypto` is absent from `releaseRuntimeClasspath` and confirm active dependencies (`tink-android`, `sqlcipher`)._
+- _If backup flows changed, state whether `.ubak` scope and exclusions still hold (watch-only only, no PIN/duress secrets, no node policy import)._ 
 
 ### Known issues
 - _Document anything that still needs work or a follow-up issue._
@@ -35,6 +37,11 @@
   sha512sum -c UtxoPocket-vX.Y.Z.apk.sha512
   UtxoPocket-vX.Y.Z.apk: OK
   ```
+- **Backup flow checks (when backup code/UI changed):**
+  - Export encrypted `.ubak` successfully.
+  - Preview requires passphrase and shows expected wallet names/count.
+  - Import into clean local state restores wallets/labels/collections.
+  - Confirm PIN and duress PIN are reconfigured manually (not restored from backup).
 
 ## Artifacts
 - 📦 `UtxoPocket-vX.Y.Z.apk` / `.aab`
@@ -44,5 +51,5 @@
 
 ## References
 - Backlog items covered: _list issue numbers/links._
-- Docs updated: _README/strings/etc._
+- Docs updated: _README, SECURITY, getting-started, wiki, glossary, knowledge._
 - Security & privacy findings: _link to audit issue or note “no changes.”_

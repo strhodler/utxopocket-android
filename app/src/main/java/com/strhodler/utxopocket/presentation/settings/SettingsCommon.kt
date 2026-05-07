@@ -57,7 +57,7 @@ internal fun SettingsNavigationRow(
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     )
     if (showDivider) {
-        androidx.compose.material3.Divider(
+        androidx.compose.material3.HorizontalDivider(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(dividerPadding)

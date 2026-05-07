@@ -1,14 +1,11 @@
 package com.strhodler.utxopocket.presentation.node
 
-import android.content.res.Resources
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -17,14 +14,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -33,13 +25,11 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -50,10 +40,10 @@ import com.strhodler.utxopocket.domain.model.ElectrumServerInfo
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.presentation.StatusBarUiState
-import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
 import com.strhodler.utxopocket.presentation.common.SectionCard
 import com.strhodler.utxopocket.presentation.node.NodeContentSpacing
 import com.strhodler.utxopocket.presentation.tor.TorStatusActionUiState
+import com.strhodler.utxopocket.tor.sanitization.TorTextSanitizer
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -62,14 +52,12 @@ fun NodeOverviewContent(
     status: StatusBarUiState,
     torActionsState: TorStatusActionUiState,
     onRenewTorIdentity: () -> Unit,
-    onStartTor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val resources = LocalContext.current.resources
-    val isConnected = status.nodeStatus == NodeStatus.Synced
+    val isConnected = status.nodeStatus == NodeStatus.Synced ||
+        status.nodeStatus == NodeStatus.Disconnecting
     val nodeDetails = if (isConnected) {
         buildNodeDetails(
-            resources = resources,
             blockHeight = status.nodeBlockHeight,
             feeRate = status.nodeFeeRateSatPerVb,
             serverInfo = status.nodeServerInfo
@@ -113,6 +101,14 @@ fun NodeOverviewContent(
                 }
             }
         }
+        if (status.torRequired) {
+            NodeTorStatusSection(
+                status = status,
+                actionsState = torActionsState,
+                onRenewIdentity = onRenewTorIdentity,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -121,34 +117,29 @@ fun NodeTorStatusSection(
     status: StatusBarUiState,
     actionsState: TorStatusActionUiState,
     onRenewIdentity: () -> Unit,
-    onStartTor: () -> Unit,
     modifier: Modifier = Modifier
     ) {
-    val resources = LocalContext.current.resources
-    val latestLog = remember(status.torLog) { latestTorLogEntry(status.torLog) }
-    val proxyValue = remember(status.torStatus) {
-        (status.torStatus as? TorStatus.Running)?.let {
-            resources.getString(R.string.tor_overview_proxy_value, it.proxy.host, it.proxy.port)
-        } ?: resources.getString(R.string.tor_overview_proxy_unavailable)
+    val latestLog = remember(status.torLog) { latestSafeTorLogEntry(status.torLog) }
+    val displayTorStatus = if (!status.isNetworkOnline) TorStatus.Stopped else status.torStatus
+    val proxyValue = (displayTorStatus as? TorStatus.Running)?.let {
+        stringResource(id = R.string.tor_overview_proxy_value, it.proxy.host, it.proxy.port)
+    } ?: stringResource(id = R.string.tor_overview_proxy_unavailable)
+    val bootstrapValue = when (displayTorStatus) {
+        is TorStatus.Connecting -> stringResource(
+            id = R.string.tor_overview_bootstrap_percent_value,
+            displayTorStatus.progress.coerceIn(0, 100)
+        )
+        is TorStatus.Running -> stringResource(
+            id = R.string.tor_overview_bootstrap_percent_value,
+            100
+        )
+        else -> stringResource(id = R.string.tor_overview_bootstrap_pending)
     }
-    val bootstrapValue = remember(status.torStatus) {
-        when (status.torStatus) {
-            is TorStatus.Connecting -> resources.getString(
-                R.string.tor_overview_bootstrap_percent_value,
-                status.torStatus.progress.coerceIn(0, 100)
-            )
-            is TorStatus.Running -> resources.getString(R.string.tor_overview_bootstrap_complete)
-            else -> resources.getString(R.string.tor_overview_bootstrap_pending)
-        }
+    val statusLabel = when (displayTorStatus) {
+        is TorStatus.Running -> stringResource(id = R.string.tor_overview_status_connected)
+        is TorStatus.Connecting -> stringResource(id = R.string.tor_overview_status_connecting)
+        else -> stringResource(id = R.string.tor_overview_status_not_connected)
     }
-    val bootstrapSupporting = (status.torStatus as? TorStatus.Connecting)?.message?.takeIf { it.isNotBlank() }
-    val requirementMessage = if (status.torRequired) {
-        stringResource(id = R.string.node_overview_tor_required)
-    } else {
-        stringResource(id = R.string.node_overview_tor_optional)
-    }
-    val showDetails = status.torRequired || status.torStatus !is TorStatus.Stopped
-    val connectingStatus = status.torStatus as? TorStatus.Connecting
 
     SectionCard(
         modifier = modifier.fillMaxWidth(),
@@ -168,18 +159,32 @@ fun NodeTorStatusSection(
                 },
                 supportingContent = {
                     Text(
-                        text = requirementMessage,
+                        text = statusLabel,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                }
+            )
+        }
+        item {
+            HorizontalDivider()
+        }
+        item {
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.tor_overview_latest_event_label),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 },
-                trailingContent = {
-                    Box(
-                        modifier = Modifier.fillMaxHeight(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        TorStatusPill(status = status.torStatus)
-                    }
+                supportingContent = {
+                    Text(
+                        text = latestLog ?: stringResource(id = R.string.tor_overview_latest_event_empty),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             )
         }
@@ -212,58 +217,42 @@ fun NodeTorStatusSection(
             ListItem(
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 headlineContent = {
-                    Text(
-                        text = stringResource(id = R.string.tor_overview_bootstrap_label),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                },
-                supportingContent = {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.tor_overview_bootstrap_label),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Text(
                             text = bootstrapValue,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        bootstrapSupporting?.let {
-                            Text(
-                                text = it,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                },
-                trailingContent = (status.torStatus as? TorStatus.Connecting)?.let { connecting ->
-                    {
-                        LinearProgressIndicator(
-                            progress = (connecting.progress.coerceIn(0, 100) / 100f),
-                            modifier = Modifier.widthIn(min = 96.dp),
-                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                }
-            )
-        }
-        item {
-            HorizontalDivider()
-        }
-        item {
-            ListItem(
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                headlineContent = {
-                    Text(
-                        text = stringResource(id = R.string.tor_overview_latest_event_label),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 },
                 supportingContent = {
-                    Text(
-                        text = latestLog ?: stringResource(id = R.string.tor_overview_latest_event_empty),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(top = 12.dp)
+                    ) {
+                        when (val torStatus = displayTorStatus) {
+                            is TorStatus.Connecting -> LinearProgressIndicator(
+                                progress = { torStatus.progress.coerceIn(0, 100) / 100f },
+                                modifier = Modifier.fillMaxWidth(),
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                            is TorStatus.Running -> LinearProgressIndicator(
+                                progress = { 1f },
+                                modifier = Modifier.fillMaxWidth(),
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                            else -> Unit
+                        }
+                    }
                 }
             )
         }
@@ -272,28 +261,6 @@ fun NodeTorStatusSection(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(NodeContentSpacing)
             ) {
-                connectingStatus?.let { connecting ->
-                    connecting.message?.takeIf { it.isNotBlank() }?.let { message ->
-                        Text(
-                            text = message,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                    }
-                }
-
-                if (status.torRequired && status.torStatus !is TorStatus.Running) {
-                    ActionableStatusBanner(
-                        title = stringResource(id = R.string.node_overview_tor_required),
-                        supporting = stringResource(id = R.string.tor_connect_action),
-                        icon = Icons.Outlined.Info,
-                        onClick = if (actionsState.isStarting) null else onStartTor,
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
                 actionsState.errorMessageRes?.let { errorRes ->
                     Text(
                         text = stringResource(id = errorRes),
@@ -312,7 +279,6 @@ fun NodeTorStatusSection(
         torStatus = status.torStatus,
         actionsState = actionsState,
         onRenewIdentity = onRenewIdentity,
-        onStartTor = onStartTor,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 0.dp)
@@ -352,7 +318,6 @@ private fun TorActionButtons(
     torStatus: TorStatus,
     actionsState: TorStatusActionUiState,
     onRenewIdentity: () -> Unit,
-    onStartTor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -390,138 +355,10 @@ private fun TorActionButtons(
                 }
             }
 
-            is TorStatus.Connecting -> {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp
-                    )
-                    Text(
-                        text = stringResource(id = R.string.wallets_state_connecting),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
+            is TorStatus.Connecting -> Unit
 
             is TorStatus.Error,
-            TorStatus.Stopped -> {
-                TextButton(
-                    onClick = onStartTor,
-                    enabled = !actionsState.isStarting,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = TorCtaMinHeight),
-                    contentPadding = TorCtaContentPadding
-                ) {
-                    if (actionsState.isStarting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Outlined.PlayArrow,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    Text(
-                        text = stringResource(id = R.string.tor_connect_action),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(start = TorCtaIconSpacing)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TorStatusPill(
-    status: TorStatus,
-    modifier: Modifier = Modifier
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    val successContainer = colorScheme.tertiary
-    val successContent = colorScheme.onTertiary
-    val label: String
-    val containerColor: Color
-    val contentColor: Color
-    val leadingContent: (@Composable () -> Unit)?
-    when (status) {
-        is TorStatus.Running -> {
-            label = stringResource(id = R.string.tor_status_running)
-            containerColor = successContainer
-            contentColor = successContent
-            leadingContent = {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = contentColor
-                )
-            }
-        }
-
-        is TorStatus.Connecting -> {
-            label = status.message?.takeIf { it.isNotBlank() }
-                ?: stringResource(id = R.string.tor_status_connecting)
-            containerColor = colorScheme.surfaceVariant
-            contentColor = colorScheme.onSurfaceVariant
-            leadingContent = {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
-                    strokeWidth = 2.dp,
-                    color = contentColor
-                )
-            }
-        }
-
-        is TorStatus.Error -> {
-            label = status.message.ifBlank { stringResource(id = R.string.wallets_state_error) }
-            containerColor = colorScheme.errorContainer
-            contentColor = colorScheme.onErrorContainer
-            leadingContent = {
-                Icon(
-                    imageVector = Icons.Filled.ErrorOutline,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = contentColor
-                )
-            }
-        }
-
-        TorStatus.Stopped -> {
-            label = stringResource(id = R.string.tor_status_stopped)
-            containerColor = colorScheme.surfaceVariant
-            contentColor = colorScheme.onSurfaceVariant
-            leadingContent = null
-        }
-    }
-
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(999.dp),
-        color = containerColor,
-        contentColor = contentColor,
-        tonalElevation = 0.dp
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            leadingContent?.invoke()
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = contentColor
-            )
+            TorStatus.Stopped -> Unit
         }
     }
 }
@@ -538,7 +375,7 @@ private fun NodeDetailsList(
                 value = value
             )
             if (index < details.lastIndex) {
-                Divider(
+                HorizontalDivider(
                     modifier = Modifier.fillMaxWidth(),
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                 )
@@ -551,9 +388,9 @@ private fun NodeDetailsList(
 private fun NodeDetailListItem(
     label: String,
     value: String,
-    supportingText: String? = null,
-    modifier: Modifier = Modifier
-    ) {
+    modifier: Modifier = Modifier,
+    supportingText: String? = null
+) {
         ListItem(
             modifier = modifier.fillMaxWidth(),
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -585,29 +422,30 @@ private fun NodeDetailListItem(
     )
 }
 
-private fun latestTorLogEntry(log: String): String? =
+internal fun latestSafeTorLogEntry(log: String): String? =
     log.lineSequence()
         .map { it.trim() }
         .filter { it.isNotEmpty() }
         .lastOrNull()
+        ?.let(TorTextSanitizer::sanitizeForPublicDisplay)
 
+@Composable
 private fun buildNodeDetails(
-    resources: Resources,
     blockHeight: Long?,
     feeRate: Double?,
     serverInfo: ElectrumServerInfo?
 ): List<Pair<String, String>> {
-    val unknown = resources.getString(R.string.status_node_unknown_value)
+    val unknown = stringResource(id = R.string.status_node_unknown_value)
     return buildList {
         blockHeight?.let {
             add(
-                resources.getString(R.string.status_node_block_height_label) to
+                stringResource(id = R.string.status_node_block_height_label) to
                     buildBlockHeightValue(it, feeRate)
             )
         }
         serverInfo?.let { info ->
             add(
-                resources.getString(R.string.status_node_server_version_label) to
+                stringResource(id = R.string.status_node_server_version_label) to
                     (info.serverVersion.takeUnless { it.isNullOrBlank() } ?: unknown)
             )
             val protocolValue = when {
@@ -615,28 +453,28 @@ private fun buildNodeDetails(
                 info.protocolMin.isNullOrBlank() -> info.protocolMax ?: unknown
                 info.protocolMax.isNullOrBlank() -> info.protocolMin
                 info.protocolMin == info.protocolMax -> info.protocolMin
-                else -> resources.getString(
-                    R.string.status_node_protocol_range_value,
+                else -> stringResource(
+                    id = R.string.status_node_protocol_range_value,
                     info.protocolMin,
                     info.protocolMax
                 )
             }
-            add(resources.getString(R.string.status_node_protocol_label) to protocolValue)
+            add(stringResource(id = R.string.status_node_protocol_label) to protocolValue)
             add(
-                resources.getString(R.string.status_node_hash_function_label) to
+                stringResource(id = R.string.status_node_hash_function_label) to
                     (info.hashFunction.takeUnless { it.isNullOrBlank() } ?: unknown)
             )
             add(
-                resources.getString(R.string.status_node_genesis_hash_label) to
+                stringResource(id = R.string.status_node_genesis_hash_label) to
                     (info.genesisHash.takeUnless { it.isNullOrBlank() } ?: unknown)
             )
             val pruningValue = info.pruningHeight?.let { height ->
-                resources.getString(
-                    R.string.status_node_pruning_value,
+                stringResource(
+                    id = R.string.status_node_pruning_value,
                     NumberFormat.getIntegerInstance(Locale.getDefault()).format(height)
                 )
-            } ?: resources.getString(R.string.status_node_pruning_unknown)
-            add(resources.getString(R.string.status_node_pruning_label) to pruningValue)
+            } ?: stringResource(id = R.string.status_node_pruning_unknown)
+            add(stringResource(id = R.string.status_node_pruning_label) to pruningValue)
         }
     }
 }

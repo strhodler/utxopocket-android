@@ -44,24 +44,30 @@ data class WalletEntity(
     @ColumnInfo(name = "sync_tip_hash") val syncTipHash: String? = null,
     @ColumnInfo(name = "sync_applied") val syncApplied: Boolean = true,
     @ColumnInfo(name = "sync_started_at") val syncStartedAt: Long? = null,
-    @ColumnInfo(name = "sync_completed_at") val syncCompletedAt: Long? = null
+    @ColumnInfo(name = "sync_completed_at") val syncCompletedAt: Long? = null,
+    @ColumnInfo(name = "last_active_external_index") val lastActiveExternalIndex: Int? = null,
+    @ColumnInfo(name = "last_active_change_index") val lastActiveChangeIndex: Int? = null
 )
 
-fun WalletEntity.toDomain(): WalletSummary =
+fun WalletEntity.toDomain(utxoCount: Int? = null): WalletSummary =
     WalletSummary(
         id = id,
         name = name,
         balanceSats = balanceSats,
         transactionCount = transactionCount,
+        utxoCount = utxoCount ?: 0,
         network = BitcoinNetwork.valueOf(network),
         lastSyncStatus = lastSyncStatus.toNodeStatus(lastSyncError),
         lastSyncTime = lastSyncTime,
+        syncStartedAt = syncStartedAt,
         color = WalletColor.fromStorageKey(color),
         descriptorType = DescriptorType.fromDescriptorString(descriptor),
         requiresFullScan = requiresFullScan,
         fullScanStopGap = fullScanStopGap,
         sharedDescriptors = sharedDescriptors,
         lastFullScanTime = lastFullScanTime,
+        lastActiveExternal = lastActiveExternalIndex,
+        lastActiveChange = lastActiveChangeIndex,
         viewOnly = viewOnly,
         sortOrder = sortOrder
     )
@@ -156,7 +162,8 @@ data class WalletTransactionOutputEntity(
     @ColumnInfo(name = "address") val address: String?,
     @ColumnInfo(name = "is_mine") val isMine: Boolean,
     @ColumnInfo(name = "address_type") val addressType: String?,
-    @ColumnInfo(name = "derivation_path") val derivationPath: String?
+    @ColumnInfo(name = "derivation_path") val derivationPath: String?,
+    @ColumnInfo(name = "derivation_index") val derivationIndex: Int? = null
 )
 
 data class WalletTransactionWithRelations(
@@ -253,6 +260,22 @@ data class WalletUtxoEntity(
     @ColumnInfo(name = "derivation_index") val derivationIndex: Int? = null
 )
 
+@Entity(
+    tableName = "wallet_label_pending",
+    primaryKeys = ["wallet_id", "type", "ref", "key_path"],
+    indices = [Index("wallet_id")]
+)
+data class PendingBip329LabelEntity(
+    @ColumnInfo(name = "wallet_id") val walletId: Long,
+    @ColumnInfo(name = "type") val type: String,
+    @ColumnInfo(name = "ref") val ref: String,
+    @ColumnInfo(name = "label") val label: String? = null,
+    @ColumnInfo(name = "spendable") val spendable: Boolean? = null,
+    @ColumnInfo(name = "has_spendable") val hasSpendable: Boolean = false,
+    @ColumnInfo(name = "key_path") val keyPath: String = "",
+    @ColumnInfo(name = "overwrite_existing") val overwriteExisting: Boolean = true
+)
+
 fun WalletUtxoEntity.toDomain(): WalletUtxo =
     WalletUtxo(
         txid = txid,
@@ -300,7 +323,9 @@ fun WalletEntity.withSyncFailure(
 fun NodeStatus.toStorage(): Pair<String, String?> = when (this) {
     NodeStatus.Idle -> "IDLE" to null
     NodeStatus.Offline -> "OFFLINE" to null
+    NodeStatus.Disconnecting -> "DISCONNECTING" to null
     NodeStatus.Connecting -> "CONNECTING" to null
+    NodeStatus.Syncing -> "SYNCING" to null
     NodeStatus.WaitingForTor -> "WAITING_FOR_TOR" to null
     NodeStatus.Synced -> "SYNCED" to null
     is NodeStatus.Error -> "ERROR" to this.message
@@ -308,8 +333,10 @@ fun NodeStatus.toStorage(): Pair<String, String?> = when (this) {
 
 private fun String.toNodeStatus(error: String?): NodeStatus = when (uppercase()) {
     "CONNECTING" -> NodeStatus.Connecting
+    "DISCONNECTING" -> NodeStatus.Disconnecting
     "WAITING_FOR_TOR" -> NodeStatus.WaitingForTor
     "SYNCED" -> NodeStatus.Synced
+    "SYNCING" -> NodeStatus.Syncing
     "ERROR" -> NodeStatus.Error(error ?: "Unknown error")
     "OFFLINE" -> NodeStatus.Offline
     else -> NodeStatus.Idle

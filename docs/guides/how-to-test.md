@@ -92,7 +92,7 @@ You only need public data. These steps keep private keys offline.
    - Tap **Add wallet** → pick the correct network.  
    - Paste the receive + change descriptors (or the multipath descriptor).  
    - Toggle **Shared descriptors** on if another app also watches this wallet to keep the gap limit wide.  
-6. Confirm and wait for Tor + Electrum sync.  
+6. Confirm and wait for Electrum sync (Tor bootstraps first in default mode; Local Direct is optional and only for private/local IP literal custom nodes; no automatic fallback happens between modes).  
 7. Compare balances/UTXO counts with Sparrow. If they differ, double-check that you pasted the correct network descriptors and that shared mode matches your other watchers.
 
 > Tip: when testing on the same device, use Sparrows’s **QR** button to display the descriptor and scan it directly from UtxoPocket’s add-wallet screen.

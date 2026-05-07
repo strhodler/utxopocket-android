@@ -2,7 +2,6 @@ package com.strhodler.utxopocket.presentation.wallets.add
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.strhodler.utxopocket.common.encoding.Base58
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
 import com.strhodler.utxopocket.domain.model.ExtendedKeyScriptType
@@ -10,7 +9,8 @@ import com.strhodler.utxopocket.di.ApplicationScope
 import com.strhodler.utxopocket.domain.model.WalletCreationRequest
 import com.strhodler.utxopocket.domain.model.WalletCreationResult
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.ur.UniformResourceImportParser
 import com.strhodler.utxopocket.domain.ur.UniformResourceResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,18 +30,10 @@ import kotlinx.coroutines.launch
 
 private const val GENERIC_DESCRIPTOR_ERROR =
     "Invalid or malformed descriptor; review the imported descriptor or the compatibility wiki article."
-private const val EXTENDED_KEY_REQUIRED_ERROR =
-    "Extended public key is required for Extended Key import."
-private const val EXTENDED_KEY_DERIVATION_PATH_ERROR =
-    "Derivation path is invalid. Use m/84'/0'/0' style without account indexes higher than hardened."
-private const val EXTENDED_KEY_PREFIX_ERROR =
-    "Extended key prefix is not supported. Export an xpub/ypub/zpub style key."
-private const val EXTENDED_KEY_SCRIPT_TYPE_REQUIRED_ERROR =
-    "Select the script type that matches your wallet export."
-
 @HiltViewModel
 class AddWalletViewModel @Inject constructor(
-    private val walletRepository: WalletRepository,
+    private val walletProvisioningRepository: WalletProvisioningRepository,
+    private val walletSyncRepository: WalletSyncRepository,
     private val appPreferencesRepository: AppPreferencesRepository,
     @param:ApplicationScope private val applicationScope: CoroutineScope
 ) : ViewModel() {
@@ -270,8 +262,8 @@ class AddWalletViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, formError = null) }
-            val validation = currentState.validation as DescriptorValidationResult.Valid
-            val result = walletRepository.addWallet(
+            val validation = currentState.validation
+            val result = walletProvisioningRepository.addWallet(
                 WalletCreationRequest(
                     name = currentState.walletName.trim(),
                     descriptor = validation.descriptor.trim(),
@@ -285,13 +277,14 @@ class AddWalletViewModel @Inject constructor(
                 is WalletCreationResult.Success -> {
                     _uiState.update { it.copy(isSaving = false) }
                     applicationScope.launch {
-                        runCatching { walletRepository.refreshWallet(result.wallet.id) }
+                        runCatching { walletSyncRepository.refreshWallet(result.wallet.id) }
                     }
                     _events.emit(AddWalletEvent.WalletCreated(result.wallet))
                 }
 
                 is WalletCreationResult.Failure -> {
-                    _uiState.update { it.copy(isSaving = false, formError = result.reason) }
+                    _uiState.update { it.copy(isSaving = false, formError = null) }
+                    _events.emit(AddWalletEvent.ShowMessage(result.reason))
                 }
             }
         }
@@ -362,7 +355,7 @@ class AddWalletViewModel @Inject constructor(
         validationJob = viewModelScope.launch {
             _uiState.update { it.copy(isValidating = true) }
             delay(350)
-            val result = walletRepository.validateDescriptor(
+            val result = walletProvisioningRepository.validateDescriptor(
                 descriptor = current.descriptor,
                 changeDescriptor = current.changeDescriptor.ifBlankAsNull(),
                 network = current.network
@@ -699,70 +692,6 @@ class AddWalletViewModel @Inject constructor(
         return true
     }
 
-    private object CombinedDescriptorParser {
-        private val BRANCH_REGEX = Regex("^(.*)/(0|1)/\\*\\)(?:#([0-9a-z]+))?$", RegexOption.IGNORE_CASE)
-
-        fun split(rawValue: String): CombinedDescriptorSplit? {
-            val lines = rawValue
-                .lineSequence()
-                .map { it.trim() }
-                .filter { it.isNotEmpty() }
-                .toList()
-            if (lines.size != 2) return null
-            val first = parseBranch(lines[0]) ?: return null
-            val second = parseBranch(lines[1]) ?: return null
-            if (first.base != second.base) return null
-            return when {
-                first.branch == 0 && second.branch == 1 -> CombinedDescriptorSplit(first.original, second.original)
-                first.branch == 1 && second.branch == 0 -> CombinedDescriptorSplit(second.original, first.original)
-                else -> null
-            }
-        }
-
-        private fun parseBranch(line: String): BranchDescriptor? {
-            val match = BRANCH_REGEX.find(line) ?: return null
-            val base = match.groupValues[1]
-            val branch = match.groupValues[2].toInt()
-            return BranchDescriptor(
-                original = line.trim(),
-                base = base,
-                branch = branch
-            )
-        }
-    }
-
-    private data class BranchDescriptor(
-        val original: String,
-        val base: String,
-        val branch: Int
-    )
-
-    private data class CombinedDescriptorSplit(
-        val external: String,
-        val change: String
-    )
-
-    private object ExtendedKeyImportDetector {
-        private val EXTENDED_KEY_REGEX = Regex("^[A-Za-z0-9]+$")
-
-        fun detect(rawValue: String): ExtendedKeyDetection? {
-            val trimmed = rawValue.trim()
-            if (trimmed.isEmpty()) return null
-            if (trimmed.contains("\n")) return null
-            if (trimmed.length < 50) return null
-            if (!EXTENDED_KEY_REGEX.matches(trimmed)) return null
-            val lower = trimmed.lowercase()
-            val entry = KNOWN_EXTENDED_KEY_PREFIXES.entries.firstOrNull { lower.startsWith(it.key) } ?: return null
-            val metadata = entry.value
-            return ExtendedKeyDetection(
-                extendedKey = trimmed,
-                network = metadata.network,
-                derivationPath = metadata.defaultDerivationPath,
-                scriptType = metadata.scriptType
-            )
-        }
-    }
-
     private fun buildExtendedDialogState(detection: ExtendedKeyDetection): ExtendedKeyDialogState {
         return ExtendedKeyDialogState(
             extendedKey = detection.extendedKey,
@@ -785,271 +714,7 @@ class AddWalletViewModel @Inject constructor(
         }
     }
 
-    private object ExtendedKeyDescriptorBuilder {
-        fun build(formState: ExtendedKeyFormState): ExtendedKeyDescriptorBuildResult {
-            val extendedKey = formState.extendedKey.trim()
-            if (extendedKey.isEmpty()) {
-                return ExtendedKeyDescriptorBuildResult.Failure(ExtendedKeyBuilderError.MISSING_EXTENDED_KEY)
-            }
-            val sanitizedKey = extendedKey.replace("\\s".toRegex(), "")
-            val lower = sanitizedKey.lowercase()
-            val prefixEntry = KNOWN_EXTENDED_KEY_PREFIXES.entries.firstOrNull { lower.startsWith(it.key) }
-                ?: return ExtendedKeyDescriptorBuildResult.Failure(ExtendedKeyBuilderError.UNSUPPORTED_PREFIX)
-            val canonicalKey = convertExtendedKeyToCanonical(sanitizedKey, prefixEntry.value)
-                ?: return ExtendedKeyDescriptorBuildResult.Failure(ExtendedKeyBuilderError.UNSUPPORTED_PREFIX)
-
-            val scriptType = formState.scriptType
-                ?: return ExtendedKeyDescriptorBuildResult.Failure(ExtendedKeyBuilderError.MISSING_SCRIPT_TYPE)
-
-            val sanitizedFingerprint = sanitizeFingerprint(formState.masterFingerprint)
-            val pathResult = sanitizeDerivationPath(formState.derivationPath)
-            if (pathResult is PathValidationResult.Invalid) {
-                return ExtendedKeyDescriptorBuildResult.Failure(ExtendedKeyBuilderError.INVALID_DERIVATION_PATH)
-            }
-
-            val derivationPath = (pathResult as PathValidationResult.Valid).value
-            val keyExpression = buildKeyExpression(
-                extendedKey = canonicalKey,
-                fingerprint = sanitizedFingerprint,
-                derivationPath = derivationPath
-            )
-
-            val descriptor = wrapWithScript(
-                type = scriptType,
-                keyExpression = "$keyExpression/0/*"
-            )
-            val changeDescriptor = if (formState.includeChangeBranch) {
-                wrapWithScript(
-                    type = scriptType,
-                    keyExpression = "$keyExpression/1/*"
-                )
-            } else {
-                null
-            }
-
-            return ExtendedKeyDescriptorBuildResult.Success(
-                descriptor = descriptor,
-                changeDescriptor = changeDescriptor,
-                buildValues = ExtendedKeyBuildValues(
-                    extendedKey = canonicalKey,
-                    masterFingerprint = sanitizedFingerprint,
-                    derivationPath = derivationPath?.let { "m/$it" }
-                )
-            )
-        }
-
-        private fun convertExtendedKeyToCanonical(
-            extendedKey: String,
-            metadata: ExtendedKeyPrefixMetadata
-        ): String? {
-            val canonicalPrefix = metadata.canonicalPrefix
-            if (extendedKey.lowercase().startsWith(canonicalPrefix)) {
-                return extendedKey
-            }
-            val decoded = Base58.decode(extendedKey) ?: return null
-            if (decoded.size <= 4) return null
-            val payload = decoded.copyOfRange(0, decoded.size - 4)
-            val checksum = decoded.copyOfRange(decoded.size - 4, decoded.size)
-            val expectedChecksum = Base58.checksum(payload).copyOfRange(0, 4)
-            if (!checksum.contentEquals(expectedChecksum)) {
-                return null
-            }
-            val versionBytes = canonicalVersionBytes(canonicalPrefix) ?: return null
-            versionBytes.copyInto(
-                destination = payload,
-                destinationOffset = 0,
-                startIndex = 0,
-                endIndex = versionBytes.size
-            )
-            val newChecksum = Base58.checksum(payload).copyOfRange(0, 4)
-            val output = ByteArray(payload.size + newChecksum.size)
-            payload.copyInto(output, destinationOffset = 0)
-            newChecksum.copyInto(output, destinationOffset = payload.size)
-            return Base58.encode(output)
-        }
-
-        private fun canonicalVersionBytes(prefix: String): ByteArray? {
-            val version = CANONICAL_EXTENDED_KEY_VERSIONS[prefix] ?: return null
-            return byteArrayOf(
-                ((version ushr 24) and 0xFF).toByte(),
-                ((version ushr 16) and 0xFF).toByte(),
-                ((version ushr 8) and 0xFF).toByte(),
-                (version and 0xFF).toByte()
-            )
-        }
-
-        private fun wrapWithScript(type: ExtendedKeyScriptType, keyExpression: String): String {
-            return when (type) {
-                ExtendedKeyScriptType.P2PKH -> "pkh($keyExpression)"
-                ExtendedKeyScriptType.P2SH_P2WPKH -> "sh(wpkh($keyExpression))"
-                ExtendedKeyScriptType.P2WPKH -> "wpkh($keyExpression)"
-                ExtendedKeyScriptType.P2TR -> "tr($keyExpression)"
-            }
-        }
-
-        private fun buildKeyExpression(
-            extendedKey: String,
-            fingerprint: String?,
-            derivationPath: String?
-        ): String {
-            val origin = buildOrigin(fingerprint, derivationPath)
-            return buildString {
-                origin?.let { append(it) }
-                append(extendedKey)
-            }
-        }
-
-        private fun buildOrigin(fingerprint: String?, derivationPath: String?): String? {
-            if (fingerprint.isNullOrEmpty()) return null
-            val normalizedPath = derivationPath?.takeIf { it.isNotEmpty() }
-            return buildString {
-                append("[")
-                append(fingerprint.lowercase())
-                normalizedPath?.let {
-                    append("/")
-                    append(it)
-                }
-                append("]")
-            }
-        }
-
-        private fun sanitizeFingerprint(raw: String): String? {
-            val trimmed = raw.trim()
-            if (trimmed.isEmpty()) return null
-            val hex = trimmed.removePrefix("0x").removePrefix("0X")
-            val normalized = hex.filter { it.isDigit() || it.lowercaseChar() in 'a'..'f' }
-            if (normalized.isEmpty()) return null
-            return normalized.lowercase().padStart(8, '0').take(8)
-        }
-
-        private fun sanitizeDerivationPath(raw: String): PathValidationResult {
-            val trimmed = raw.trim()
-            if (trimmed.isEmpty()) return PathValidationResult.Valid(null)
-            var normalized = trimmed
-            if (normalized.startsWith("m/") || normalized.startsWith("M/")) {
-                normalized = normalized.substring(2)
-            }
-            if (normalized.isEmpty()) return PathValidationResult.Valid(null)
-            val segments = normalized.split("/")
-            if (segments.isEmpty()) return PathValidationResult.Valid(null)
-            val sanitizedSegments = mutableListOf<String>()
-            for (segment in segments) {
-                var token = segment.trim()
-                if (token.isEmpty()) return PathValidationResult.Invalid
-                var suffix = ""
-                when {
-                    token.endsWith("'") -> {
-                        token = token.dropLast(1)
-                        suffix = "'"
-                    }
-
-                    token.endsWith("h", ignoreCase = true) -> {
-                        token = token.dropLast(1)
-                        suffix = "'"
-                    }
-                }
-                if (token.isEmpty() || token.any { !it.isDigit() }) {
-                    return PathValidationResult.Invalid
-                }
-                sanitizedSegments += token + suffix
-            }
-            return PathValidationResult.Valid(sanitizedSegments.joinToString("/"))
-        }
-    }
-
-    private data class ExtendedKeyDetection(
-        val extendedKey: String,
-        val network: BitcoinNetwork?,
-        val derivationPath: String? = null,
-        val masterFingerprint: String? = null,
-        val includeChangeBranch: Boolean = true,
-        val scriptType: ExtendedKeyScriptType? = null
-    )
-
-    private data class ExtendedKeyPrefixMetadata(
-        val network: BitcoinNetwork,
-        val scriptType: ExtendedKeyScriptType,
-        val defaultDerivationPath: String,
-        val canonicalPrefix: String
-    )
-
-    private sealed class ExtendedKeyDescriptorBuildResult {
-        data class Success(
-            val descriptor: String,
-            val changeDescriptor: String?,
-            val buildValues: ExtendedKeyBuildValues
-        ) : ExtendedKeyDescriptorBuildResult()
-
-        data class Failure(val reason: ExtendedKeyBuilderError) : ExtendedKeyDescriptorBuildResult()
-    }
-
-    private data class ExtendedKeyBuildValues(
-        val extendedKey: String,
-        val masterFingerprint: String?,
-        val derivationPath: String?
-    )
-
-    private enum class ExtendedKeyBuilderError(val message: String, val showAsGlobal: Boolean) {
-        MISSING_EXTENDED_KEY(EXTENDED_KEY_REQUIRED_ERROR, false),
-        MISSING_SCRIPT_TYPE(EXTENDED_KEY_SCRIPT_TYPE_REQUIRED_ERROR, false),
-        INVALID_DERIVATION_PATH(EXTENDED_KEY_DERIVATION_PATH_ERROR, true),
-        UNSUPPORTED_PREFIX(EXTENDED_KEY_PREFIX_ERROR, true)
-    }
-
-    private sealed class PathValidationResult {
-        data class Valid(val value: String?) : PathValidationResult()
-        data object Invalid : PathValidationResult()
-    }
-
     companion object {
         private val ADDRESS_EXTRACTION_REGEX = Regex("addr\\(([^)]+)\\)")
-        private const val MAINNET_LEGACY_PATH = "44'/0'/0'"
-        private const val MAINNET_NESTED_SEGWIT_PATH = "49'/0'/0'"
-        private const val MAINNET_NATIVE_SEGWIT_PATH = "84'/0'/0'"
-        private const val TESTNET_LEGACY_PATH = "44'/1'/0'"
-        private const val TESTNET_NESTED_SEGWIT_PATH = "49'/1'/0'"
-        private const val TESTNET_NATIVE_SEGWIT_PATH = "84'/1'/0'"
-        private val CANONICAL_EXTENDED_KEY_VERSIONS = mapOf(
-            "xpub" to 0x0488B21E,
-            "tpub" to 0x043587CF
-        )
-        private val KNOWN_EXTENDED_KEY_PREFIXES = mapOf(
-            "xpub" to ExtendedKeyPrefixMetadata(
-                network = BitcoinNetwork.MAINNET,
-                scriptType = ExtendedKeyScriptType.P2PKH,
-                defaultDerivationPath = MAINNET_LEGACY_PATH,
-                canonicalPrefix = "xpub"
-            ),
-            "ypub" to ExtendedKeyPrefixMetadata(
-                network = BitcoinNetwork.MAINNET,
-                scriptType = ExtendedKeyScriptType.P2SH_P2WPKH,
-                defaultDerivationPath = MAINNET_NESTED_SEGWIT_PATH,
-                canonicalPrefix = "xpub"
-            ),
-            "zpub" to ExtendedKeyPrefixMetadata(
-                network = BitcoinNetwork.MAINNET,
-                scriptType = ExtendedKeyScriptType.P2WPKH,
-                defaultDerivationPath = MAINNET_NATIVE_SEGWIT_PATH,
-                canonicalPrefix = "xpub"
-            ),
-            "tpub" to ExtendedKeyPrefixMetadata(
-                network = BitcoinNetwork.TESTNET,
-                scriptType = ExtendedKeyScriptType.P2PKH,
-                defaultDerivationPath = TESTNET_LEGACY_PATH,
-                canonicalPrefix = "tpub"
-            ),
-            "upub" to ExtendedKeyPrefixMetadata(
-                network = BitcoinNetwork.TESTNET,
-                scriptType = ExtendedKeyScriptType.P2SH_P2WPKH,
-                defaultDerivationPath = TESTNET_NESTED_SEGWIT_PATH,
-                canonicalPrefix = "tpub"
-            ),
-            "vpub" to ExtendedKeyPrefixMetadata(
-                network = BitcoinNetwork.TESTNET,
-                scriptType = ExtendedKeyScriptType.P2WPKH,
-                defaultDerivationPath = TESTNET_NATIVE_SEGWIT_PATH,
-                canonicalPrefix = "tpub"
-            )
-        )
     }
 }

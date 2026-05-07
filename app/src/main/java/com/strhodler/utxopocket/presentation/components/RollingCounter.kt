@@ -190,8 +190,8 @@ private fun AnimatedDigit(
 fun RollingBalanceText(
     balanceSats: Long,
     unit: BalanceUnit,
-    hidden: Boolean = false,
     modifier: Modifier = Modifier,
+    hidden: Boolean = false,
     style: TextStyle = MaterialTheme.typography.displaySmall,
     digitSpacing: Dp = 0.dp,
     animationMillis: Int = 0,

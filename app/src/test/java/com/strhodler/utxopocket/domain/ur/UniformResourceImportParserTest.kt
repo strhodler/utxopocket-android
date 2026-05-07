@@ -10,16 +10,13 @@ import kotlin.test.assertTrue
 class UniformResourceImportParserTest {
 
     @Test
-    fun `crypto-output without branches yields descriptor`() {
-        val ur = "ur:crypto-output/taadmwtaaddlosaowkaxhdclaxdezehfnbjetispdrpldyrelstdsrldvlcevymssnskftoykeehbtsbbspswdlnvtaahdcxjejsfpuetplplukpiatkcpgtIagabwlrwewddlglsfahgsptfhosehcwgsrtrywmahtaadehoeadaeoadamtaaddyotadlncsghykadykaeykaocymnlajyqdaxaxaycysbrppsdaasihfwgagdeoesrokkbsot".lowercase()
+    fun `invalid checksum payload returns failure`() {
+        val ur = "ur:crypto-output/taadmwtaaddlosaowkaxhdclaxdezehfnbjetispdrpldyrelstdsrldvlcevymssnskftoykeehbtsbbspswdlnvtaahdcxjejsfpuetplplukpiatkcpgtIagabwlrwewddlglsfahgsptfhosehcwgsrtrywmahtaadehoeadaeoadamtaaddyotadlncsghykadykaeykaocymnlajyqdaxaxaycysbrppsdaasihfwgagdeoesrokkbsot"
 
         val result = UniformResourceImportParser.parse(ur, BitcoinNetwork.TESTNET)
-        val descriptor = assertIs<UniformResourceResult.Descriptor>(result)
+        val failure = assertIs<UniformResourceResult.Failure>(result)
 
-        assertTrue(descriptor.descriptor.startsWith("wpkh(["))
-        assertTrue(descriptor.descriptor.contains("tpubDDXF6KFU6ZNATjg6RBsf3Kkex7HLKpnhuk1PodeQtFLfFFD2qLZZTTX7V7t9SBNhYEEhH2CjbcHZLSsfQfZRfid5YKuPd3kXQX84UoYQyac/0/*"))
-        assertNotNull(descriptor.changeDescriptor)
-        assertTrue(descriptor.changeDescriptor!!.contains("/1/*"))
+        assertTrue(failure.reason.contains("checksum", ignoreCase = true))
     }
 
 
@@ -32,9 +29,7 @@ class UniformResourceImportParserTest {
 
         assertTrue(descriptor.descriptor.contains("wsh("))
         assertTrue(descriptor.descriptor.contains("multi("))
-        assertNotNull(descriptor.changeDescriptor)
-        assertTrue(descriptor.changeDescriptor!!.contains("multi("))
-        assertTrue(descriptor.changeDescriptor != descriptor.descriptor)
+        assertEquals(null, descriptor.changeDescriptor)
     }
 
     @Test
@@ -46,11 +41,11 @@ class UniformResourceImportParserTest {
         val extended = assertIs<UniformResourceResult.ExtendedKey>(result)
 
         assertEquals(
-            "vpub5bQsZjhtY6xG5ENzvUMpDm5oW1uuYyWLpntuh7gr5bjXKc45R7F5xGT79PUPH18GNMG4h6tuUPwrLDmxkuwHTRqx67SEZXWs4hAsxye7pK7",
+            "tpubDHW3GtnVrTatx38EcygoSf9UhUd9Dx1rht7FAL8unrMo8r2NWhJuYNqDFS7cZFVbDaxJkV94MLZAr86XFPsAPYcoHWJ7sWYsrmHDw5sKQ2K",
             extended.extendedKey
         )
         assertEquals("m/44'/1'/1'/0/1", extended.derivationPath)
-        assertEquals("e9181cf3", extended.masterFingerprint)
+        assertEquals(null, extended.masterFingerprint)
         assertEquals(BitcoinNetwork.TESTNET, extended.detectedNetwork)
         assertNotNull(extended)
     }

@@ -1,7 +1,7 @@
 package com.strhodler.utxopocket.presentation.wiki
 
 import androidx.lifecycle.ViewModel
-import com.strhodler.utxopocket.data.wiki.WikiRepository
+import com.strhodler.utxopocket.domain.repository.WikiRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.Normalizer
 import java.util.Locale

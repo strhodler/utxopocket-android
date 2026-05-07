@@ -15,7 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
@@ -78,6 +78,9 @@ fun UtxoVisualizerRoute(
                         histogram = state.utxoAgeHistogram,
                         spendabilityDistribution = state.utxoSpendabilityDistribution,
                         sizeDistribution = state.utxoSizeDistribution,
+                        collectionItems = state.collections,
+                        totalUtxoCount = state.utxosCount,
+                        totalUtxoValueSats = state.utxoTotalValueSats,
                         treemapData = state.utxoTreemap,
                         onTreemapRangeChange = viewModel::setUtxoTreemapRange,
                         onTreemapRequested = viewModel::requestUtxoTreemap,

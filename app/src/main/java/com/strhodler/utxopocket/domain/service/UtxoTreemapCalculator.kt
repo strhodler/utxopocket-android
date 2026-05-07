@@ -1,9 +1,7 @@
 package com.strhodler.utxopocket.domain.service
 
+import com.strhodler.utxopocket.domain.model.DustSeverity
 import com.strhodler.utxopocket.domain.model.UtxoAgeBucket
-import com.strhodler.utxopocket.domain.model.UtxoHealthIndicatorType
-import com.strhodler.utxopocket.domain.model.UtxoHealthResult
-import com.strhodler.utxopocket.domain.model.UtxoHealthSeverity
 import com.strhodler.utxopocket.domain.model.UtxoTreemapColor
 import com.strhodler.utxopocket.domain.model.UtxoTreemapColorMode
 import com.strhodler.utxopocket.domain.model.UtxoTreemapData
@@ -11,7 +9,7 @@ import com.strhodler.utxopocket.domain.model.UtxoTreemapEntry
 import com.strhodler.utxopocket.domain.model.UtxoTreemapTile
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletUtxo
-import android.util.Log
+import com.strhodler.utxopocket.common.logging.SecureLog
 import java.time.Duration
 import javax.inject.Inject
 import kotlin.math.abs
@@ -27,7 +25,6 @@ class UtxoTreemapCalculator @Inject constructor() {
     fun calculate(
         utxos: List<WalletUtxo>,
         transactions: List<WalletTransaction>,
-        utxoHealth: Map<String, UtxoHealthResult>,
         colorMode: UtxoTreemapColorMode,
         availableRange: LongRange,
         selectedRange: LongRange,
@@ -43,7 +40,6 @@ class UtxoTreemapCalculator @Inject constructor() {
                 UtxoTreemapColorMode.DustRisk -> UtxoTreemapColor.Dust(
                     detectDustSeverity(
                         utxo = utxo,
-                        utxoHealth = utxoHealth[utxoKey(utxo)],
                         dustThresholdSats = dustThresholdSats
                     )
                 )
@@ -88,10 +84,11 @@ class UtxoTreemapCalculator @Inject constructor() {
         val filteredValue = utxos.filter { it.valueSats in boundedRange }.sumOf { it.valueSats }
         val filteredCount = utxos.count { it.valueSats in boundedRange }
         val aggregatedCount = groups.filter { it.isAggregate }.sumOf { it.entries.size }
-        Log.d(
-            TAG,
-            "treemap calc: utxos=${utxos.size}, filtered=$filteredCount, tiles=${tiles.size}, bounds=$availableRange, selected=$boundedRange, total=$totalValue, filteredValue=$filteredValue, aggregated=$aggregatedCount"
-        )
+        SecureLog.d(TAG) {
+            "treemap calc: utxos=${utxos.size}, filtered=$filteredCount, tiles=${tiles.size}, " +
+                "bounds=$availableRange, selected=$boundedRange, total=$totalValue, " +
+                "filteredValue=$filteredValue, aggregated=$aggregatedCount"
+        }
         return UtxoTreemapData(
             tiles = tiles,
             availableRange = availableRange,
@@ -116,15 +113,10 @@ class UtxoTreemapCalculator @Inject constructor() {
 
     private fun detectDustSeverity(
         utxo: WalletUtxo,
-        utxoHealth: UtxoHealthResult?,
         dustThresholdSats: Long
-    ): UtxoHealthSeverity? {
-        val severity = utxoHealth?.indicators
-            ?.firstOrNull { it.type == UtxoHealthIndicatorType.DUST_UTXO }
-            ?.severity
-        if (severity != null) return severity
+    ): DustSeverity? {
         if (dustThresholdSats > 0 && utxo.valueSats <= dustThresholdSats) {
-            return UtxoHealthSeverity.LOW
+            return DustSeverity.LOW
         }
         return null
     }

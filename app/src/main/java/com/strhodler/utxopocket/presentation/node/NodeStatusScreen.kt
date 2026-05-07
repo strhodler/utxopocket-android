@@ -32,7 +32,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -43,6 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
+import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.presentation.StatusBarUiState
@@ -57,6 +59,7 @@ import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
 import com.strhodler.utxopocket.presentation.common.applyScreenPadding
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.components.ActionableStatusBanner
+import com.strhodler.utxopocket.presentation.motion.rememberLazyHeaderFadeAlpha
 import com.strhodler.utxopocket.presentation.tor.TorStatusActionUiState
 import java.text.DateFormat
 import java.util.Date
@@ -73,16 +76,21 @@ fun NodeStatusScreen(
     onInteractionBlocked: () -> Unit,
     onOpenNetworkLogs: () -> Unit,
     onNetworkSelected: (BitcoinNetwork) -> Unit,
+    onConnectionModeSelectionRequested: (ConnectionMode) -> Unit,
+    onShowIncompatibleNodesChanged: (Boolean) -> Unit,
     onPublicNodeSelected: (String) -> Unit,
+    onRemovePublicNode: (String) -> Unit,
+    onRestorePublicNodes: () -> Unit,
     onCustomNodeSelected: (String) -> Unit,
     onCustomNodeDetails: (String) -> Unit,
+    onRemoveCustomNode: (String) -> Unit,
     onAddCustomNodeClick: () -> Unit,
     initialTabIndex: Int,
     onDisconnect: () -> Unit,
-    onRenewTorIdentity: () -> Unit,
-    onStartTor: () -> Unit
+    onRenewTorIdentity: () -> Unit
 ) {
     val listState = rememberLazyListState()
+    val heroAlpha = rememberLazyHeaderFadeAlpha(listState)
     val tabs = remember { NodeStatusTab.values().toList() }
     val pagerState = rememberPagerState(
         initialPage = initialTabIndex.coerceIn(0, tabs.lastIndex),
@@ -107,6 +115,7 @@ fun NodeStatusScreen(
     val heroTitleOverride = remember(status.nodeStatus, selectedNodeName) {
         when (status.nodeStatus) {
             NodeStatus.Synced,
+            NodeStatus.Disconnecting,
             NodeStatus.Connecting,
             NodeStatus.WaitingForTor,
             NodeStatus.Offline,
@@ -115,7 +124,7 @@ fun NodeStatusScreen(
         }
     }
     LaunchedEffect(status.nodeStatus) {
-        if (status.nodeStatus == NodeStatus.Connecting) {
+        if (status.nodeStatus == NodeStatus.Connecting || status.nodeStatus == NodeStatus.Disconnecting) {
             listState.animateScrollToItem(0)
         }
     }
@@ -144,9 +153,12 @@ fun NodeStatusScreen(
             item("hero") {
                 NodeHeroHeader(
                     status = status,
+                    connectionMode = state.connectionMode,
                     nodeTitleOverride = heroTitleOverride,
                     selectedEndpoint = selectedNodeEndpoint,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer(alpha = heroAlpha)
                 )
             }
             stickyHeader {
@@ -188,14 +200,6 @@ fun NodeStatusScreen(
                     ) {
                         Spacer(modifier = Modifier.height(NodeContentSpacing))
                         when (tab) {
-                            NodeStatusTab.Overview -> NodeOverviewContent(
-                                status = status,
-                                torActionsState = torActionsState,
-                                onRenewTorIdentity = onRenewTorIdentity,
-                                onStartTor = onStartTor,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
                             NodeStatusTab.Management -> {
                                 if (state.networkLogsEnabled) {
                                     ActionableStatusBanner(
@@ -215,19 +219,31 @@ fun NodeStatusScreen(
                                     interactionsLocked = interactionsLocked,
                                     onInteractionBlocked = onInteractionBlocked,
                                     onNetworkSelected = onNetworkSelected,
-                                    onPublicNodeSelected = onPublicNodeSelected,
-                                    onCustomNodeSelected = onCustomNodeSelected,
-                                    onCustomNodeDetails = onCustomNodeDetails,
-                                    onAddCustomNodeClick = onAddCustomNodeClick,
-                                    onDisconnect = onDisconnect
+                                    onConnectionModeSelectionRequested = onConnectionModeSelectionRequested
                                 )
                             }
 
-                            NodeStatusTab.Tor -> NodeTorStatusSection(
+                            NodeStatusTab.Nodes -> NodeNodesContent(
+                                isNetworkOnline = status.isNetworkOnline,
+                                state = state,
+                                modifier = Modifier.fillMaxWidth(),
+                                interactionsLocked = interactionsLocked,
+                                onInteractionBlocked = onInteractionBlocked,
+                                onShowIncompatibleNodesChanged = onShowIncompatibleNodesChanged,
+                                onPublicNodeSelected = onPublicNodeSelected,
+                                onRemovePublicNode = onRemovePublicNode,
+                                onRestorePublicNodes = onRestorePublicNodes,
+                                onCustomNodeSelected = onCustomNodeSelected,
+                                onCustomNodeDetails = onCustomNodeDetails,
+                                onRemoveCustomNode = onRemoveCustomNode,
+                                onAddCustomNodeClick = onAddCustomNodeClick,
+                                onDisconnect = onDisconnect
+                            )
+
+                            NodeStatusTab.Details -> NodeOverviewContent(
                                 status = status,
-                                actionsState = torActionsState,
-                                onRenewIdentity = onRenewTorIdentity,
-                                onStartTor = onStartTor,
+                                torActionsState = torActionsState,
+                                onRenewTorIdentity = onRenewTorIdentity,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -242,8 +258,8 @@ enum class NodeStatusTab(
     @param:StringRes val labelRes: Int
 ) {
     Management(R.string.node_overview_tab_management),
-    Overview(R.string.node_overview_tab_status),
-    Tor(R.string.node_overview_tab_tor)
+    Nodes(R.string.node_overview_tab_nodes),
+    Details(R.string.node_overview_tab_status)
 }
 
 @Composable
@@ -253,7 +269,7 @@ private fun NodeStatusTabs(
     onTabSelected: (NodeStatusTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    TabRow(
+    PrimaryTabRow(
         selectedTabIndex = pagerState.currentPage,
         modifier = modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -272,18 +288,19 @@ private fun NodeStatusTabs(
 @Composable
 private fun NodeHeroHeader(
     status: StatusBarUiState,
+    connectionMode: ConnectionMode,
+    modifier: Modifier = Modifier,
     nodeTitleOverride: String? = null,
-    selectedEndpoint: String? = null,
-    modifier: Modifier = Modifier
+    selectedEndpoint: String? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val primaryContentColor = colorScheme.onSurface
     val secondaryContentColor = colorScheme.onSurfaceVariant
     val message = nodeStatusMessage(status.nodeStatus)
-    val headlineMessage = if (status.nodeStatus == NodeStatus.Connecting) {
-        "$message…"
-    } else {
-        message
+    val headlineMessage = when (status.nodeStatus) {
+        NodeStatus.Connecting,
+        NodeStatus.Disconnecting -> "$message…"
+        else -> message
     }
     val lastSync = status.nodeLastSync?.let { timestamp ->
         remember(timestamp) {
@@ -293,6 +310,8 @@ private fun NodeHeroHeader(
     val endpointLabel = when {
         status.nodeStatus == NodeStatus.Synced && !status.nodeEndpoint.isNullOrBlank() ->
             formatEndpoint(status.nodeEndpoint)
+        status.nodeStatus == NodeStatus.Disconnecting && !status.nodeEndpoint.isNullOrBlank() ->
+            formatEndpoint(status.nodeEndpoint)
         !selectedEndpoint.isNullOrBlank() -> formatEndpoint(selectedEndpoint)
         status.nodeStatus == NodeStatus.Idle -> stringResource(id = R.string.node_not_connected_label)
         else -> stringResource(id = R.string.node_reconnect_select_node)
@@ -301,14 +320,101 @@ private fun NodeHeroHeader(
         status.nodeStatus == NodeStatus.WaitingForTor ||
         status.nodeStatus is NodeStatus.Error
     val torStatus = status.torStatus
-    val torRunning = torStatus is TorStatus.Running
-    val torConnecting = torStatus is TorStatus.Connecting
+    val torModeActive = connectionMode == ConnectionMode.TOR_DEFAULT
+    val showTorOffline = torModeActive && !status.isNetworkOnline
+    val torRunning = torModeActive && torStatus is TorStatus.Running
+    val torConnecting = torModeActive && torStatus is TorStatus.Connecting
+    val effectiveTorBadgeStatus = if (showTorOffline) TorStatus.Stopped else torStatus
+    val secondaryBadgeLabel = when (connectionMode) {
+        ConnectionMode.TOR_DEFAULT -> if (showTorOffline) {
+            stringResource(id = R.string.wallets_state_offline)
+        } else {
+            torStatusMessage(torStatus)
+        }
+        ConnectionMode.LOCAL_DIRECT -> if (status.isNetworkOnline) {
+            stringResource(id = R.string.connection_mode_local_direct_label)
+        } else {
+            stringResource(id = R.string.wallets_state_offline)
+        }
+    }
+    val secondaryBadgeContainer = when (connectionMode) {
+        ConnectionMode.TOR_DEFAULT -> when (effectiveTorBadgeStatus) {
+            is TorStatus.Running -> colorScheme.tertiary
+            is TorStatus.Connecting -> colorScheme.surfaceVariant
+            else -> colorScheme.errorContainer
+        }
+        ConnectionMode.LOCAL_DIRECT -> if (status.isNetworkOnline) {
+            colorScheme.secondaryContainer
+        } else {
+            colorScheme.errorContainer
+        }
+    }
+    val secondaryBadgeContent = when (connectionMode) {
+        ConnectionMode.TOR_DEFAULT -> when (effectiveTorBadgeStatus) {
+            is TorStatus.Running -> colorScheme.onTertiary
+            is TorStatus.Connecting -> colorScheme.onSurfaceVariant
+            else -> colorScheme.onErrorContainer
+        }
+        ConnectionMode.LOCAL_DIRECT -> if (status.isNetworkOnline) {
+            colorScheme.onSecondaryContainer
+        } else {
+            colorScheme.onErrorContainer
+        }
+    }
+    val secondaryBadgeLeading: (@Composable () -> Unit)? = when (connectionMode) {
+        ConnectionMode.TOR_DEFAULT -> when (effectiveTorBadgeStatus) {
+            is TorStatus.Running -> {
+                {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = secondaryBadgeContent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            is TorStatus.Connecting -> {
+                {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = secondaryBadgeContent
+                    )
+                }
+            }
+            is TorStatus.Error,
+            TorStatus.Stopped -> {
+                {
+                    Icon(
+                        imageVector = Icons.Filled.ErrorOutline,
+                        contentDescription = null,
+                        tint = secondaryBadgeContent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+        ConnectionMode.LOCAL_DIRECT -> {
+            {
+                Icon(
+                    imageVector = if (status.isNetworkOnline) {
+                        Icons.Filled.Check
+                    } else {
+                        Icons.Filled.ErrorOutline
+                    },
+                    contentDescription = null,
+                    tint = secondaryBadgeContent,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
     val reconnectInfoMessage = when {
         showReconnect && !status.isNetworkOnline ->
             stringResource(id = R.string.node_reconnect_network_required)
-        showReconnect && torConnecting ->
+        showReconnect && torModeActive && torConnecting ->
             stringResource(id = R.string.node_reconnect_waiting_for_tor)
-        showReconnect && status.torRequired && !torRunning ->
+        showReconnect && torModeActive && status.torRequired && !torRunning ->
             stringResource(id = R.string.node_reconnect_tor_required)
         showReconnect && status.nodeEndpoint.isNullOrBlank() ->
             stringResource(id = R.string.node_reconnect_select_node)
@@ -327,7 +433,8 @@ private fun NodeHeroHeader(
         else -> colorScheme.onSurfaceVariant
     }
     val statusBadgeLeading: (@Composable () -> Unit)? = when (status.nodeStatus) {
-        NodeStatus.Connecting -> {
+        NodeStatus.Connecting,
+        NodeStatus.Disconnecting -> {
             {
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
@@ -380,24 +487,45 @@ private fun NodeHeroHeader(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            StatusBadge(
-                label = headlineMessage,
-                containerColor = statusChipContainer,
-                contentColor = statusChipContent,
-                leadingContent = statusBadgeLeading
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                StatusBadge(
+                    label = headlineMessage,
+                    containerColor = statusChipContainer,
+                    contentColor = statusChipContent,
+                    leadingContent = statusBadgeLeading
+                )
+                StatusBadge(
+                    label = secondaryBadgeLabel,
+                    containerColor = secondaryBadgeContainer,
+                    contentColor = secondaryBadgeContent,
+                    leadingContent = secondaryBadgeLeading
+                )
+            }
 
             Column(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                lastSync?.let {
-                    Text(
-                        text = stringResource(id = R.string.wallets_last_sync, it),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = secondaryContentColor,
-                        textAlign = TextAlign.Center
-                    )
+                when {
+                    !status.isNetworkOnline -> {
+                        Text(
+                            text = stringResource(id = R.string.node_status_no_internet_connection),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = secondaryContentColor,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    lastSync != null -> {
+                        Text(
+                            text = stringResource(id = R.string.wallets_last_sync, lastSync),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = secondaryContentColor,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
 
@@ -472,12 +600,22 @@ private fun StatusBadge(
 
 @Composable
 private fun nodeStatusMessage(status: NodeStatus): String = when (status) {
-    NodeStatus.Idle -> stringResource(id = R.string.wallets_state_idle)
-    NodeStatus.Offline -> stringResource(id = R.string.wallets_state_offline)
-    NodeStatus.Connecting -> stringResource(id = R.string.wallets_state_connecting)
-    NodeStatus.WaitingForTor -> stringResource(id = R.string.wallets_state_waiting_for_tor)
-    NodeStatus.Synced -> stringResource(id = R.string.wallets_state_synced)
-    is NodeStatus.Error -> stringResource(id = R.string.wallets_state_error)
+    NodeStatus.Idle -> stringResource(id = R.string.node_status_idle)
+    NodeStatus.Offline -> stringResource(id = R.string.node_status_offline)
+    NodeStatus.Disconnecting -> stringResource(id = R.string.node_status_disconnecting)
+    NodeStatus.Connecting -> stringResource(id = R.string.node_status_connecting)
+    NodeStatus.Syncing -> stringResource(id = R.string.node_status_connecting)
+    NodeStatus.WaitingForTor -> stringResource(id = R.string.node_status_waiting_for_tor)
+    NodeStatus.Synced -> stringResource(id = R.string.node_status_connected)
+    is NodeStatus.Error -> stringResource(id = R.string.node_status_error)
+}
+
+@Composable
+private fun torStatusMessage(status: TorStatus): String = when (status) {
+    is TorStatus.Running -> stringResource(id = R.string.tor_status_connected)
+    is TorStatus.Connecting -> stringResource(id = R.string.tor_status_connecting_label)
+    is TorStatus.Error -> stringResource(id = R.string.tor_status_error_label)
+    TorStatus.Stopped -> stringResource(id = R.string.tor_status_stopped_label)
 }
 
 private fun formatEndpoint(value: String): String =

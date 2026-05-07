@@ -1,15 +1,17 @@
 # === Android Studio & Gradle ===
 *.iml
 .gradle
+.gradle-local
 .gradle-cache
 .gradle-user
 /.kotlin/
 /local.properties
+/local.properties.windows
 /.idea
+/.vscode/
 .DS_Store
 /build/
 app/build/
-app/schemas/
 captures/
 .externalNativeBuild/
 .cxx/
@@ -29,6 +31,9 @@ output-metadata.json
 *.tmp
 *.swp
 *.bak
+.project
+.classpath
+.settings/
 
 # === Keystores & credentials ===
 *.jks
@@ -38,5 +43,14 @@ output-metadata.json
 *.gpg
 
 # === Misc ===
-AGENTS.md
 /local.properties.wsl
+context/
+.opencode/
+.agents/
+opencode.json
+/plans/
+/.worktrees/
+/worktrees/
+knowledge/
+skills-lock.json
+/docs/superpowers/

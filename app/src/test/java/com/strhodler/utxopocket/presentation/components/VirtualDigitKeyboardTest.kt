@@ -4,6 +4,8 @@ import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class VirtualDigitKeyboardTest {
 
@@ -19,5 +21,40 @@ class VirtualDigitKeyboardTest {
         assertEquals(3, lastRow.size)
         assertIs<DigitKey.Placeholder>(lastRow.first())
         assertEquals(DigitKey.Backspace, lastRow.last())
+    }
+
+    @Test
+    fun `long press consumes next click exactly once`() {
+        val triggeredState = markLongPressTriggered(BackspaceGestureState())
+
+        val (afterFirstClick, shouldEmitFirstClick) = consumeBackspaceClick(triggeredState)
+        val (_, shouldEmitSecondClick) = consumeBackspaceClick(afterFirstClick)
+
+        assertFalse(shouldEmitFirstClick)
+        assertTrue(shouldEmitSecondClick)
+    }
+
+    @Test
+    fun `normal click is emitted when long press was not triggered`() {
+        val (_, shouldEmitClick) = consumeBackspaceClick(BackspaceGestureState())
+
+        assertTrue(shouldEmitClick)
+    }
+
+    @Test
+    fun `keyboard layout remains fixed during same prompt session`() {
+        val initial = keyboardLayoutForPromptSession(
+            existingLayout = null,
+            shuffleDigits = true,
+            random = Random(7)
+        )
+
+        val reused = keyboardLayoutForPromptSession(
+            existingLayout = initial,
+            shuffleDigits = true,
+            random = Random(999)
+        )
+
+        assertTrue(initial === reused)
     }
 }

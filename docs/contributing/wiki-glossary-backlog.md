@@ -4,19 +4,18 @@ Date: 2025‑11‑07
 
 ## Purpose
 - Keep the public wiki/glossary aligned with best layer‑1 privacy practices from reputable sources.
-- Ensure every addition is rewritten in English with UtxoPocket’s voice (watch-only, descriptor-driven, Tor-by-default) and published as Markdown under `/docs`.
+- Ensure every addition is rewritten in English with UtxoPocket’s voice (watch-only, descriptor-driven, Tor-only) and published as Markdown under `/docs`.
 
 ## Current Coverage Snapshot
 - UTXO model, wallet types, keys & seeds, descriptor basics.
 - Tor usage, Electrum presets, PSBT primer.
 - Fee heuristics (RBF/CPFP basics) and labeling metadata.
-- Transaction / UTXO / Wallet Health pillars with on-device indicators.
 
 ## Opportunity Areas (L1 only)
 1. **Acquisition & sourcing** – Non-KYC flows, provenance tracking, stacks separation.  
 2. **Self-custody hygiene** – Seed lifecycle, passphrases, encrypted backups, Tor-enabled wallet discipline.  
 3. **UTXO segregation** – Coin control, BIP-329 labeling conventions, address reuse avoidance.  
-4. **Node trust model** – DIY vs plug-and-play, descriptor migration, health checks.  
+4. **Node trust model** – DIY vs plug-and-play, descriptor migration, backend checks.  
 5. **On-chain heuristics** – Toxic change, script fingerprints, poisoned outputs.  
 6. **Expanded glossary** – Standardness vs consensus, gap limit, dust, CIOH, etc.
 
@@ -29,7 +28,7 @@ Date: 2025‑11‑07
 ## Wiki Interlinking Strategy
 1. **Glossary links** – each topic references glossary slugs via frontmatter `glossary_refs`; renderer auto-links first occurrence per section.
 2. **Related topics** – frontmatter `related` holds 2–6 topic IDs; UI shows the cards at the end of each article.
-3. **Cross-ui entry points** – settings help icons → wallet health; health badges → relevant wiki sections.
+3. **Cross-ui entry points** – settings help icons → relevant wiki sections; timeline badges → related wiki topics.
 4. **Linting** – future check should fail on broken IDs, missing glossary refs, or unknown related topics.
 
 ## Leveraging External Interlinks
@@ -43,23 +42,23 @@ Date: 2025‑11‑07
 - Frontmatter template:
   ```yaml
   ---
-  id: wallet-health
-  title: Wallet Health Overview
+  id: descriptor-integrity
+  title: Descriptor integrity checks
   summary: "Short summary"
   category_id: privacy-toolkit
   category_title: Privacy toolkit
   category_description: "Optional longer blurb"
-  related: [utxo-health, transaction-health]
+  related: [watch-only-restoration, descriptors-advanced]
   glossary_refs: [gap-limit, cioh]
   keywords: [privacy, descriptor]
   ---
   ```
 - Body uses Markdown headings, bullet lists, and checklists. Avoid raw HTML; renderer converts basic Markdown to readable text (bullets/checklists already supported).
 - Migration plan:
-  1. New topics → Markdown only.
-  2. Existing Kotlin topics → migrate gradually; once converted, remove the Kotlin definition.
-  3. Loader (`MarkdownWikiDataSource` + `DefaultWikiRepository`) already merges Markdown topics with any legacy Kotlin entries.
-  4. Add lint/tests later to catch malformed frontmatter or broken references.
+  1. New topics -> Markdown only.
+  2. Runtime is markdown-only for wiki and glossary; no Kotlin fallback content remains in repositories.
+  3. Legacy article migration backlog is tracked in `plans/LATER-2026-03-13-p4-legacy-wiki-topic-migration-with-docs-steward.md`.
+  4. Keep tests and reference checks green to catch malformed frontmatter or broken `related`/`glossary_refs` links.
 
 ---
 
@@ -77,7 +76,7 @@ Date: 2025‑11‑07
 | ✅ | wiki `non-kyc-acquisition` | How to source bitcoin privately, separate stacks, and log provenance. Implemented in `/docs/wiki/non-kyc-acquisition.md`. | High | Related: `bitcoin-privacy`, `utxo-basics`; Glossary: `non-kyc`, `coin-control`. |
 | ✅ | wiki `self-custody-hygiene` | Watch-only self‑custody habits: seed lifecycle, passphrases, Tor‑enabled wallets, encrypted backups, label retention, checklist. Implemented in `/docs/wiki/self-custody-hygiene.md`. | High | Related: `keys-and-seeds`, `bitcoin-privacy`; Glossary: `seed-phrase`, `passphrase`, `tor`. |
 | ✅ | wiki `utxo-segregation-playbook` | Segregation rules for compartments, BIP‑329 labeling, coin control, address reuse warnings, and change hygiene. Implemented in `/docs/wiki/utxo-segregation-playbook.md`. | High | Related: `utxo-basics`, `labeling-metadata`; Glossary: `utxo`, `change-output`, `address-reuse`. |
-| ✅ | wiki `node-trust-model` | Summarize “Scrutinising your Bitcoin”: own-node trust model, DIY vs plug-and-play, descriptor migration, routine health checks, risk table. Implemented in `/docs/wiki/node-trust-model.md`. | Medium | Related: `electrum-servers`, `watch-only-restoration`; Glossary: `full-node`, `pruned-node`. |
+| ✅ | wiki `node-trust-model` | Summarize “Scrutinising your Bitcoin”: own-node trust model, DIY vs plug-and-play, descriptor migration, routine backend checks, risk table. Implemented in `/docs/wiki/node-trust-model.md`. | Medium | Related: `electrum-servers`, `watch-only-restoration`; Glossary: `full-node`, `pruned-node`. |
 | ✅ | glossary `address-reuse` | Definition covering deanonymization risk + pointer to the segregation article. Implemented in `/docs/glossary/address-reuse.md`. | Medium | References `utxo-segregation-playbook`. |
 | ✅ | glossary `full-node` | Definition framed for UtxoPocket (validating vs trusting third parties, descriptor rescans). Implemented in `/docs/glossary/full-node.md`. | Medium | References `node-trust-model`. |
 
@@ -92,12 +91,12 @@ Date: 2025‑11‑07
 | ✅ | wiki `fee-selection-playbook` | Read the mempool, pick target feerates by urgency, size vs. inputs tradeoffs, and replacement policies. Implemented in `/docs/wiki/fee-selection-playbook.md`. | High | Related: `rbf-cpfp-strategies`; Glossary: `feerate`, `mempool`. |
 | ✅ | wiki `descriptors-advanced` | Checksums, multipath (BIP‑389), policy descriptors, account maps, and recovery notes for watch‑only monitoring. Implemented in `/docs/wiki/descriptors-advanced.md`. | Medium | Related: `watch-only-restoration`; Glossary: `descriptor-checksum`. |
 | ✅ | glossary `standardness` | Policy rules used by nodes/relays distinct from consensus rules; link to the standardness article. Implemented in `/docs/glossary/standardness.md`. | Medium | References `transaction-standardness-vs-consensus`. |
-| ✅ | glossary `gap-limit` | Wallet scanning limit for address discovery; implications for watch-only rescans and related health checks. Implemented in `/docs/glossary/gap-limit.md`. | Medium | References `descriptors-advanced`. |
+| ✅ | glossary `gap-limit` | Wallet scanning limit for address discovery; implications for watch-only rescans and related verification checks. Implemented in `/docs/glossary/gap-limit.md`. | Medium | References `descriptors-advanced`. |
 | ✅ | glossary `toxic-change` | Change that links compartments or policies, and how to avoid it; link to change hygiene. Implemented in `/docs/glossary/toxic-change.md`. | Medium | References `change-output-hygiene`. |
 | ✅ | wiki `confirmation-policy` | Security model by confirmations: risk tiers, reorg awareness, and practical thresholds by use‑case. Implemented in `/docs/wiki/confirmation-policy.md`. | Medium | Related: `fee-selection-playbook`; Glossary: `confirmation`. |
 | ✅ | wiki `script-type-tradeoffs` | Privacy and efficiency tradeoffs among script types; mixing scripts in one wallet and how it leaks. Implemented in `/docs/wiki/script-type-tradeoffs.md`. | Medium | Related: `address-format-fingerprints`; Glossary: `script`. |
 | ✅ | wiki `provenance-labeling` | Label schema examples for BIP‑329 (source, intent, jurisdiction) and migration tips for legacy wallets. Implemented in `/docs/wiki/provenance-labeling.md`. | High | Related: `labeling-metadata`, `utxo-segregation-playbook`; Glossary: `bip-329`. |
-| ✅ | wiki `incoming-tx-detection` | Tor-only lightweight Electrum polling with user-tuned intervals, global dialog + placeholder UX, and receive-screen checks to advance addresses safely. Implemented in `/docs/wiki/incoming-tx-detection.md`. | High | Related: `electrum-servers`, `address-discovery-and-gap-limit`; Glossary: `electrum-server`, `tor`, `gap-limit`. |
+| ✅ | wiki `incoming-tx-detection` | Tor-only lightweight Electrum watcher for early incoming states, with placeholder UX reconciled only by canonical BDK sync and receive-screen checks to advance addresses safely. Implemented in `/docs/wiki/incoming-tx-detection.md`. | High | Related: `electrum-servers`, `address-discovery-and-gap-limit`; Glossary: `electrum-server`, `tor`, `gap-limit`. |
 | ✅ | wiki `descriptor-maps-and-recovery` | Maintaining descriptor maps, account origins, and checksums to guarantee reproducible watch‑only restores. Implemented in `/docs/wiki/descriptor-maps-and-recovery.md`. | Medium | Related: `descriptors-advanced`, `watch-only-restoration`; Glossary: `descriptor-checksum`. |
 | ✅ | wiki `compartment-migration` | Safe migration between descriptors/buckets without leaking links (timing, fees, change policy). Implemented in `/docs/wiki/compartment-migration.md`. | Medium | Related: `utxo-segregation-playbook`; Glossary: `compartment`. |
 | ✅ | wiki `pruned-vs-full-nodes` | Storage/bandwidth profiles, verification guarantees, and watch‑only scanning considerations. Implemented in `/docs/wiki/pruned-vs-full-nodes.md`. | Medium | Related: `node-trust-model`; Glossary: `pruned-node`, `full-node`. |
@@ -130,7 +129,7 @@ Date: 2025‑11‑07
 | ✅ | glossary `cioh` | Common‑Input Ownership Heuristic: assumption that all inputs belong to one entity; why merges leak identity; methods that break it. Implemented in `/docs/glossary/cioh.md`. | Medium | References `utxo-segregation-playbook`, `bip78-payjoin-overview`. |
 | ✅ | wiki `peel-chain-patterns` | How peel chains arise from repeated change reuse; how they leak clusters over time; mitigations (change quarantine, compartment rules, scheduled consolidation). Implemented in `/docs/wiki/peel-chain-patterns.md`. | Medium | Related: `change-output-hygiene`, `consolidation-strategy`; Glossary: `peel-chain`. |
 | ✅ | glossary `peel-chain` | A transaction pattern where a wallet repeatedly spends from one UTXO and peels change, creating a linkable chain. Implemented in `/docs/glossary/peel-chain.md`. | Low | References `peel-chain-patterns`. |
-| ✅ | wiki `electrum-servers` | Electrum server trust and privacy: why self‑hosting behind Tor matters, public server data exposure, server rotation risks, and basic health checks. Implemented in `/docs/wiki/electrum-servers.md`. | High | Related: `node-trust-model`, `why-tor`; Glossary: `electrum-server`. |
+| ✅ | wiki `electrum-servers` | Electrum server trust and privacy: why self‑hosting behind Tor matters, public server data exposure, server rotation risks, and baseline monitoring. Implemented in `/docs/wiki/electrum-servers.md`. | High | Related: `node-trust-model`, `why-tor`; Glossary: `electrum-server`. |
 | ✅ | glossary `electrum-server` | Indexing service for wallet queries; privacy tradeoffs vs. full validation; best practice is self‑hosted over Tor. Implemented in `/docs/glossary/electrum-server.md`. | Medium | References `electrum-servers`. |
 | ✅ | wiki `amount-analysis-heuristics` | What output amounts can reveal (exact purchase prices, round figures, dust), and how to minimize amount‑based fingerprinting in drafts. Implemented in `/docs/wiki/amount-analysis-heuristics.md`. | Low | Related: `fee-selection-playbook`, `change-output-hygiene`; Glossary: `dust`. |
 | ✅ | glossary `knapsack` | Coin selection approach; tradeoffs vs branch‑and‑bound; link to selection heuristics article. Implemented in `/docs/glossary/knapsack.md`. | Low | References `utxo-selection-heuristics`. |
@@ -156,3 +155,51 @@ Date: 2025‑11‑07
 | ✅ | glossary `key-origin` | BIP32 origin data (fingerprint and derivation path) embedded in descriptors/PSBTs to bind keys to their source and avoid mixups. Implemented in `/docs/glossary/key-origin.md`. | Medium | References `descriptor-maps-and-recovery`, `descriptors-advanced`. |
 | ✅ | glossary `vbytes` | Virtual byte unit used for fee calculation (weight/4, rounded); feerates are expressed in sats/vbyte. Implemented in `/docs/glossary/vbytes.md`. | Medium | References `fee-selection-playbook`, `rbf-cpfp-strategies`. |
 | ✅ | glossary `bridge` | Tor bridge or pluggable transport used to reach the Tor network from censored networks; helps hide node traffic and bootstrapping. Implemented in `/docs/glossary/bridge.md`. | Low | References `node-connectivity`, `electrum-servers`. |
+| ✅ | wiki `encrypted-watch-only-backup` | Operational guide for encrypted `.ubak` export/import, scope boundaries, preview checks, and fail-closed behavior. Implemented in `/docs/wiki/encrypted-watch-only-backup.md`. | High | Related: `watch-only-restoration`, `descriptor-maps-and-recovery`; Glossary: `encrypted-backup`, `backup-passphrase`, `backup-integrity`. |
+| ✅ | wiki `backup-recovery-drill` | Repeatable dry-run checklist to validate encrypted backup recovery before incidents. Implemented in `/docs/wiki/backup-recovery-drill.md`. | High | Related: `encrypted-watch-only-backup`, `self-custody-hygiene`; Glossary: `backup-integrity`, `backup-passphrase`. |
+| ✅ | glossary `encrypted-backup` | Definition of UtxoPocket encrypted `.ubak` backup scope and purpose. Implemented in `/docs/glossary/encrypted-backup.md`. | Medium | References `encrypted-watch-only-backup`. |
+| ✅ | glossary `backup-passphrase` | Definition and storage guidance for the passphrase required to unlock `.ubak` backups. Implemented in `/docs/glossary/backup-passphrase.md`. | Medium | References `encrypted-watch-only-backup`, `backup-recovery-drill`. |
+| ✅ | glossary `backup-integrity` | Definition of integrity checks before import (preview, schema/security validation, expected metadata). Implemented in `/docs/glossary/backup-integrity.md`. | Medium | References `encrypted-watch-only-backup`, `descriptor-maps-and-recovery`. |
+
+| ✅ | wiki `address-and-uri-standards` | Address and `bitcoin:` URI validation and sharing guidance. Implemented in `/docs/wiki/address-and-uri-standards.md`. | Medium | Related: `address-formats`, `tx-anatomy`; Glossary: `bech32`, `bech32m`. |
+| ✅ | wiki `address-formats` | Practical comparison of legacy, SegWit, and Taproot address families. Implemented in `/docs/wiki/address-formats.md`. | Medium | Related: `address-format-fingerprints`, `transaction-fees`; Glossary: `bech32`, `bech32m`. |
+| ✅ | wiki `backup-recovery` | Backup/recovery foundations and repeatable recovery process notes. Implemented in `/docs/wiki/backup-recovery.md`. | High | Related: `encrypted-watch-only-backup`, `backup-recovery-drill`; Glossary: `encrypted-backup`, `backup-integrity`. |
+| ✅ | wiki `bitcoin-dev-kit` | BDK role in watch-only descriptor wallets and sync flows. Implemented in `/docs/wiki/bitcoin-dev-kit.md`. | Medium | Related: `descriptors-101`, `wallet-syncing`; Glossary: `descriptor`, `psbt`. |
+| ✅ | wiki `bitcoin-future-tech` | Emerging protocol/policy directions evaluated for watch-only operators. Implemented in `/docs/wiki/bitcoin-future-tech.md`. | Low | Related: `miniscript`, `spending-policies`; Glossary: `taproot`, `policy-descriptor`. |
+| ✅ | wiki `bitcoin-networking` | Node relay and wallet metadata exposure basics. Implemented in `/docs/wiki/bitcoin-networking.md`. | Medium | Related: `node-connectivity`, `why-tor`; Glossary: `full-node`, `spv`. |
+| ✅ | wiki `bitcoin-privacy` | Core privacy model and common linkage failures. Implemented in `/docs/wiki/bitcoin-privacy.md`. | High | Related: `utxo-segregation-playbook`, `labeling-metadata`; Glossary: `anonymity-set`, `coin-control`. |
+| ✅ | wiki `block-and-pow` | Block ordering, proof-of-work security, and confirmation risk framing. Implemented in `/docs/wiki/block-and-pow.md`. | Medium | Related: `confirmation-policy`, `mempool-fees`; Glossary: `confirmation`. |
+| ✅ | wiki `coin-control` | Input selection control patterns for privacy/policy boundaries. Implemented in `/docs/wiki/coin-control.md`. | High | Related: `utxo-selection-heuristics`, `labeling-metadata`; Glossary: `coin-control`, `utxo`. |
+| ✅ | wiki `coin-selection-algos` | Practical behavior of knapsack/branch-and-bound style selectors. Implemented in `/docs/wiki/coin-selection-algos.md`. | Medium | Related: `coin-control`, `transaction-fees`; Glossary: `knapsack`, `branch-and-bound`. |
+| ✅ | wiki `descriptors-101` | Introductory descriptor structure, checksums, and branch mapping. Implemented in `/docs/wiki/descriptors-101.md`. | High | Related: `descriptors-advanced`, `watch-only-restoration`; Glossary: `descriptor`, `descriptor-checksum`. |
+| ✅ | wiki `hd-derivation` | HD tree/path basics and watch-only recovery correctness. Implemented in `/docs/wiki/hd-derivation.md`. | Medium | Related: `keys-and-seeds`, `address-discovery-and-gap-limit`; Glossary: `derivation-path`, `xpub`. |
+| ✅ | wiki `keys-and-seeds` | Key/seed role separation in watch-only architecture. Implemented in `/docs/wiki/keys-and-seeds.md`. | High | Related: `wallet-types`, `transaction-signing`; Glossary: `seed-phrase`, `watch-only`. |
+| ✅ | wiki `labeling-metadata` | Label schema discipline and metadata lifecycle guidance. Implemented in `/docs/wiki/labeling-metadata.md`. | High | Related: `provenance-labeling`, `label-export-bip329-workflows`; Glossary: `bip-329`, `compartment`. |
+| ✅ | wiki `mempool-fees` | Mempool congestion patterns and fee-pressure tactics. Implemented in `/docs/wiki/mempool-fees.md`. | Medium | Related: `transaction-fees`, `rbf-cpfp`; Glossary: `mempool`, `feerate`. |
+| ✅ | wiki `miniscript` | Miniscript policy model and watch-only analysis value. Implemented in `/docs/wiki/miniscript.md`. | Medium | Related: `spending-policies`, `descriptors-advanced`; Glossary: `miniscript`, `policy-descriptor`. |
+| ✅ | wiki `operational-hygiene` | Repeatable wallet operations checklist for reliability/privacy. Implemented in `/docs/wiki/operational-hygiene.md`. | High | Related: `operational-security`, `backup-recovery`; Glossary: `backup-integrity`, `tor`. |
+| ✅ | wiki `operational-security` | Threat-driven opsec controls for watch-only flows. Implemented in `/docs/wiki/operational-security.md`. | High | Related: `watch-only-threat-model`, `why-tor`; Glossary: `watch-only`, `tor`. |
+| ✅ | wiki `psbt-explained` | PSBT workflow from draft review to isolated signing. Implemented in `/docs/wiki/psbt-explained.md`. | High | Related: `psbt-airgap-basics`, `transaction-signing`; Glossary: `psbt`, `key-fingerprint`. |
+| ✅ | wiki `rbf-cpfp` | Fundamental fee-bump patterns and selection guidance. Implemented in `/docs/wiki/rbf-cpfp.md`. | Medium | Related: `rbf-cpfp-strategies`, `mempool-fees`; Glossary: `rbf`, `cpfp`. |
+| ✅ | wiki `spending-policies` | Policy matrices for approvals, confirmations, and boundaries. Implemented in `/docs/wiki/spending-policies.md`. | Medium | Related: `confirmation-policy`, `coin-control`; Glossary: `policy-descriptor`, `confirmation`. |
+| ✅ | wiki `testnet-faucets` | Responsible faucet usage for wallet QA drills. Implemented in `/docs/wiki/testnet-faucets.md`. | Low | Related: `testnet-regtest`, `wallet-syncing`; Glossary: `mempool`, `confirmation`. |
+| ✅ | wiki `testnet-regtest` | Practical comparison of testnet and regtest test loops. Implemented in `/docs/wiki/testnet-regtest.md`. | Low | Related: `testnet-faucets`, `wallet-syncing`; Glossary: `full-node`, `confirmation`. |
+| ✅ | wiki `tor-integration` | Tor routing requirements and fail-closed sync behavior. Implemented in `/docs/wiki/tor-integration.md`. | High | Related: `why-tor`, `tor-vs-vpn`; Glossary: `tor`, `bridge`. |
+| ✅ | wiki `tor-vs-vpn` | Transport threat-model comparison for wallet metadata privacy. Implemented in `/docs/wiki/tor-vs-vpn.md`. | Medium | Related: `why-tor`, `bitcoin-networking`; Glossary: `tor`. |
+| ✅ | wiki `transaction-fees` | Fee mechanics by weight/feerate and urgency. Implemented in `/docs/wiki/transaction-fees.md`. | Medium | Related: `mempool-fees`, `tx-anatomy`; Glossary: `feerate`, `vbytes`. |
+| ✅ | wiki `transaction-signing` | Secure signing lifecycle with watch-only review gates. Implemented in `/docs/wiki/transaction-signing.md`. | High | Related: `psbt-explained`, `keys-and-seeds`; Glossary: `psbt`, `seed-phrase`. |
+| ✅ | wiki `tx-anatomy` | Inputs/outputs/change structure for spend review. Implemented in `/docs/wiki/tx-anatomy.md`. | Medium | Related: `utxo-basics`, `transaction-fees`; Glossary: `utxo`, `outpoint`. |
+| ✅ | wiki `utxo-basics` | UTXO model essentials and operational implications. Implemented in `/docs/wiki/utxo-basics.md`. | High | Related: `tx-anatomy`, `coin-control`; Glossary: `utxo`, `change-output`. |
+| ✅ | wiki `utxopocket-overview` | Canonical product posture summary (watch-only, Tor default, no telemetry). Implemented in `/docs/wiki/utxopocket-overview.md`. | High | Related: `watch-only-threat-model`, `tor-integration`; Glossary: `watch-only`, `tor`. |
+| ✅ | wiki `wallet-syncing` | Descriptor discovery and backend sync behavior overview. Implemented in `/docs/wiki/wallet-syncing.md`. | High | Related: `address-discovery-and-gap-limit`, `watch-only-restoration`; Glossary: `gap-limit`, `full-rescan`. |
+| ✅ | wiki `wallet-types` | Trust-boundary comparison across wallet models. Implemented in `/docs/wiki/wallet-types.md`. | Medium | Related: `keys-and-seeds`, `transaction-signing`; Glossary: `watch-only`, `psbt`. |
+| ✅ | wiki `why-tor` | Privacy rationale for Tor transport in wallet operations. Implemented in `/docs/wiki/why-tor.md`. | High | Related: `tor-integration`, `electrum-servers`; Glossary: `tor`, `electrum-server`. |
+
+| ⏳ | wiki `bip340-schnorr-overview` | Explain Schnorr signatures and practical implications for multisig coordination, fee efficiency, and script privacy tradeoffs. Pending. | Medium | Related: `taproot-privacy-model`, `transaction-signing`; Glossary: `taproot`, `script-path`. |
+| ⏳ | wiki `timelocks-and-cltv-csv` | Intro to absolute/relative timelocks in spending policies, with watch-only review checkpoints. Pending. | Medium | Related: `spending-policies`, `policy-risk-register`; Glossary: `script`, `confirmation`. |
+| ⏳ | wiki `versionbits-softfork-signaling` | How miner signaling and activation windows work, and what wallet operators should monitor. Pending. | Low | Related: `bitcoin-future-tech`, `block-and-pow`; Glossary: `full-node`. |
+| ⏳ | wiki `compact-block-filters-basics` | Explain compact block filters and lightweight client verification tradeoffs. Pending. | Medium | Related: `bitcoin-networking`, `node-trust-model`; Glossary: `spv`, `full-node`. |
+| ⏳ | glossary `schnorr-signature` | Definition of BIP340 Schnorr signatures, aggregation context, and wallet interoperability notes. Pending. | Medium | References `bip340-schnorr-overview`, `taproot-privacy-model`. |
+| ⏳ | glossary `cltv` | Definition of CheckLockTimeVerify and policy use in delayed spending conditions. Pending. | Medium | References `timelocks-and-cltv-csv`, `spending-policies`. |
+| ⏳ | glossary `csv` | Definition of CheckSequenceVerify and relative timelock behavior in policy scripts. Pending. | Medium | References `timelocks-and-cltv-csv`, `spending-policies`. |
+| ⏳ | glossary `versionbits` | Definition of versionbits signaling and activation mechanics for soft forks. Pending. | Low | References `versionbits-softfork-signaling`, `bitcoin-future-tech`. |

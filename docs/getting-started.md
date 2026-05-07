@@ -30,17 +30,29 @@ Change:  wpkh([abcd1234/84h/1h/0h]tpub.../1/*)
 2. Select the target network (Mainnet/Testnet3/Testnet4/Signet) so the Electrum presets/stop-gap match.
 3. Paste the receive descriptor, then the change descriptor (or the multipath descriptor if applicable).
 4. Choose a color and label; toggle “Shared descriptors” on if another app also watches this wallet to increase the address gap.
-5. Confirm. Tor will bootstrap, Electrum will sync, and you will land on the wallet detail screen once data is cached.
+5. Confirm. In Tor mode (default), Tor will bootstrap before Electrum sync; in Local Direct mode, sync runs directly to your private/local IP literal node. In both modes, connection policy is fail-closed and does not auto-fallback. When you switch modes later, UtxoPocket clears the active node and stays idle until you explicitly activate a compatible node again.
 
 ## 5. Explore The UI
-- **Wallet list**: shows balance, transaction count, last sync time, and Tor/node status per wallet.
+- **Wallet list**: shows balance, transaction count, last sync time, and connection/node status per wallet.
 - **Wallet detail**: scroll through transactions, UTXOs, and the balance history chart. Tap a transaction/UTXO to inspect details or labels.
-- **Health analytics**: enable Transaction, UTXO, and Wallet Health from Settings → Privacy & analysis to surface scores and badges.
-- **Wiki & glossary**: open the in-app knowledge base (More → Wiki) for deeper explanations of descriptors, Tor usage, and coin control.
+- **Wiki & glossary**: open the in-app knowledge base (More → Wiki) for deeper explanations of descriptors, connection modes (Tor and Local Direct), and coin control.
 
-## 6. Tips & Troubleshooting
+## 6. Create An Encrypted Backup
+- Open `Settings -> Wallets -> Backups -> Encrypted backup` and export a `.ubak` file.
+- Use a strong backup passphrase and store it separately from the backup file.
+- During import, UtxoPocket requires passphrase unlock plus preview before confirmation.
+- Import replaces the current local wallets and related local metadata on that device.
+- PIN and duress PIN are not included in backups; configure them again after restore.
+- For operational guidance, see `docs/wiki/encrypted-watch-only-backup.md` and `docs/wiki/backup-recovery-drill.md`.
+
+## 7. Tips & Troubleshooting
 - If Tor is slow to start, leave the app in the foreground until the progress reaches 100%; renewing the identity (Settings → Tor → Renew) can help.
+- `More → Network` no longer has a manual `Connect Tor` button. Tor starts automatically only after you activate a Tor-compatible node in Tor mode.
+- Local Direct accepts only private/local IP literals (IPv4/IPv6). DNS names, `.local`, and hostnames are rejected.
+- When saving a custom node, UtxoPocket validates the Electrum genesis hash for the selected network and blocks save on mismatch.
 - Descriptor validation errors usually mean a missing wildcard (`*`) or a private key snippet—double-check the source wallet export.
-- To test panic wipe safely, use only testnet wallets; the action deletes all local data and you will need to re-import descriptors afterward.
+- Incoming detections can appear before a full wallet refresh as light placeholder states (`Unconfirmed (light)` / `Seen confirmed (light)`). The canonical transaction state is still finalized by successful BDK sync.
+- Placeholder rows do not expire by time; they clear only after a successful BDK sync includes the same txid.
+- To test panic wipe safely, use only testnet wallets; the action deletes all local data and you will need to restore from an encrypted backup or re-import descriptors afterward.
 
-You are now ready to monitor real watch-only wallets on mainnet. Keep descriptors safe, rotate Tor identities as needed, and use the health indicators to spot privacy or inventory issues early.
+You are now ready to monitor real watch-only wallets on mainnet. Keep descriptors safe, prefer Tor mode by default for stronger network privacy, and use Local Direct only with trusted private/local infrastructure.

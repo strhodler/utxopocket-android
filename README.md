@@ -1,121 +1,107 @@
-# UtxoPocket — privacy-first open-source watch-only wallet
+<div align="center">
+  <img src="app/src/main/ic_launcher-playstore.png" width="96" alt="UtxoPocket logo" />
 
-UtxoPocket is an open-source Android app for monitoring multiple Bitcoin wallets via descriptors. Bundled Electrum nodes and onion endpoints route through Tor by default, local data is encrypted, and the entire flow is designed to stay fast, accessible, and low friction. Custom nodes now accept onion endpoints only, so every sync stays behind Tor.
+  # UtxoPocket
 
----
+  Privacy-first Android watch-only wallet for Bitcoin descriptors, UTXOs, labels, and transaction flow inspection.
 
-## Value proposition
-- **Privacy by default**: embedded Tor, zero telemetry, no clearnet fallbacks for curated or custom onion nodes.
-- **Complete visibility**: clear dashboards plus wallet-level warnings whenever a sync misbehaves.
-- **UX with intent**: adaptive Compose UI grounded in Material Design 3 + Expressive motion/shape/type guidance, responsive loaders (e.g., Tor bootstrap progress), intentional micro-interactions.
-- **Reproducible & auditable**: deterministic build scripts and a strictly watch-only trust model.
+  [![Android Checks](https://img.shields.io/github/actions/workflow/status/strhodler/utxopocket-android/android-checks.yml?style=flat-square&label=Android%20checks)](https://github.com/strhodler/utxopocket-android/actions/workflows/android-checks.yml)
+  [![Latest Release](https://img.shields.io/github/v/release/strhodler/utxopocket-android?style=flat-square&label=Release)](https://github.com/strhodler/utxopocket-android/releases)
+  ![Kotlin](https://img.shields.io/badge/Kotlin-2.3-7f52ff?style=flat-square&logo=kotlin&logoColor=white)
+  ![JDK](https://img.shields.io/badge/JDK-21-437291?style=flat-square)
+  ![minSdk](https://img.shields.io/badge/minSdk-28-3ddc84?style=flat-square&logo=android&logoColor=white)
+  [![MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
-### Acknowledgements
-- Built with the [Hummingbird](https://github.com/sparrowwallet/hummingbird) UR toolkit by Sparrow Wallet (Apache-2.0).
+  [Install](#install) • [Features](#features) • [Security Model](#security-model) • [Build](#build-from-source) • [Documentation](#documentation)
+</div>
 
----
+UtxoPocket helps you monitor Bitcoin wallets from public descriptors without turning your phone into a signer. It focuses on wallet visibility, UTXO review, private Electrum connectivity, and local-first education for users who want to inspect their wallet state without exposing signing material.
 
-## Installation
-- Recommended: Install via [Obtainium](https://github.com/ImranR98/Obtainium) so updates track every tagged GitHub release. In Obtainium, add `https://github.com/strhodler/utxopocket-android`, pick the stable channel, and enable automatic download/notification to stay current.
-- Manual: Download the latest `.apk` plus the matching `.sha256`/`.sha512` files from `app/release/` (or the GitHub Releases page), verify the checksum, then sideload with `adb install` or your device’s package installer.
+> [!IMPORTANT]
+> UtxoPocket is watch-only by design. It never handles seeds, private keys, WIFs, `xprv`/`tprv` values, PSBT signing, transaction construction, or transaction finalization.
 
-### Verify downloads & keys
-Use both the published checksums and the signing certificate fingerprints before sideloading:
+> [!NOTE]
+> Tor is the default privacy boundary for bundled public Electrum presets and custom onion endpoints. `Local Direct` is an explicit opt-in mode for trusted private/local IP literal Electrum nodes only.
 
-- **Signer certificate fingerprints:**
-  ```bash
-  SHA-256: e5b195f0592cb546494df04722e9140e7dd92f4efd377ad8b159496d9bde9524
-  SHA-1: 79e2591f07d8f439964ad320a3b8d1a2e4a75047
-  ```
-- **Signature verification:**
-  ```bash
-  apksigner verify --print-certs UtxoPocket-vX.Y.Z.apk
+## Features
 
-  Signer #1 certificate DN: ST=Blockchain, L=Mempool, O=strhodler, OU=strhodler, CN=strhodler
-  Signer #1 certificate SHA-256 digest: e5b195f0592cb546494df04722e9140e7dd92f4efd377ad8b159496d9bde9524
-  Signer #1 certificate SHA-1 digest: 79e2591f07d8f439964ad320a3b8d1a2e4a75047
-  Signer #1 certificate MD5 digest: 918a3acf4d973633cc40a84949238536
-  ```
-- **Checksum validation:**
-  ```bash
-  sha256sum -c UtxoPocket-vX.Y.Z.apk.sha256
-  UtxoPocket-vX.Y.Z.apk: OK
+- Import public Bitcoin descriptors by paste or QR, including receive/change pairs and BIP-389 multipath exports.
+- Monitor multiple wallets across Mainnet, Testnet3, Testnet4, and Signet.
+- Inspect balances, transactions, UTXOs, labels, value bands, age, spendability, collections, and transaction flows.
+- Organize coins with UTXO Canvas collections, color tags, automatic Dust grouping, histograms, and treemap views.
+- Import and export BIP-329 labels, including QR-friendly workflows for portable wallet metadata.
+- Export encrypted watch-only `.ubak` backups for descriptors, labels, collections, and selected local preferences.
+- Use Tor-by-default Electrum sync, custom onion endpoints, or explicit `Local Direct` mode for trusted private/local infrastructure.
+- Keep wallet data local with SQLCipher/Tink-backed storage, optional PIN, duress PIN, calculator camouflage, and panic wipe.
+- Browse an offline Bitcoin wiki and glossary bundled into the app.
+- Run without analytics, crash reporters, ad SDKs, explorer lookups, or remote attribution services.
 
-  sha512sum -c UtxoPocket-vX.Y.Z.apk.sha512
-  UtxoPocket-vX.Y.Z.apk: OK
-  ```
-If any fingerprint or checksum deviates from the values above, treat the artifact as untrusted. The `keytool -list -v -keystore <keystore>.jks -alias <alias>` command prints the same signer fingerprints for reference. Android signing fingerprints are distinct from the maintainer’s PGP key (`BB15 B08E 943F 2391 D05E FC8F D9E9 1FB9 8800 D8FE`) in [`pubkey.asc`](pubkey.asc), used only for encrypted mail or detached signatures.
+## Install
 
----
+- Download the latest APK, checksums, and release notes from [GitHub Releases](https://github.com/strhodler/utxopocket-android/releases).
+- Or add this repository to [Obtainium](https://github.com/ImranR98/Obtainium) to follow tagged GitHub releases.
+- Verify release artifacts with the published checksums and signing certificate fingerprints before installing.
 
-## Core capabilities
-- Watch-only monitoring across multiple wallets with labels, UTXOs, and history.
-- Private-by-default networking over Tor with curated nodes and custom onion endpoints. Tor remains mandatory; direct LAN/IP hosts and SSL toggles have been removed to keep behavior consistent.
-- Multi-network support (Mainnet, Testnet3/4, Signet) with per-network presets.
-- On-device health insights for transactions and UTXOs to spot reuse, dust, and risk.
-- Per-wallet Analysis section with age distribution and hold-wave views to assess how long coins have been sitting and where value concentrates.
-- Fast onboarding and descriptor import (paste or QR), plus a searchable offline wiki.
-- Safety controls: PIN lock with backoff, panic wipe, and encrypted local storage.
-- Modern Compose UI (Material 3), responsive and accessible across screen sizes.
+Start with the [getting started guide](docs/getting-started.md) if this is your first descriptor-based watch-only wallet.
 
----
+## Security Model
 
-## Quick start
-- Install the latest release and verify it (fingerprints + checksums).
-- Open UtxoPocket and import your public descriptors (paste or scan QR).
-- Select a test network (Signet/Testnet) in onboarding to trial safely; switch to Mainnet when ready.
-- Connect via Tor, activate your preferred preset or onion node, and let the first sync complete; review wallet health.
+UtxoPocket treats privacy as a functional requirement:
 
----
+- Private material is rejected even if a parser accepts the descriptor format.
+- Tor mode fails closed if the Tor proxy is unavailable; there is no clearnet fallback while Tor mode is active.
+- `Local Direct` rejects DNS names, `.local`, public IPs, onion endpoints, and public presets.
+- Local data is encrypted, backups are passphrase protected, and panic wipe removes wallet, database, preference, Tor, cache, and key material artifacts.
+- Network/Tor diagnostics are local, optional, and sanitized.
 
-## Descriptor compatibility
-- Accepts standard public descriptors: `wpkh`, `sh(wpkh)`, `tr`, Miniscript (BDK‑supported), multisig `wsh(sortedmulti)`, and `addr(...)` exports.
-- Supports BIP‑389 multipath (`/<0;1>/*`) and change branches; requires wildcard derivation and rejects any private‑key material.
-- Full matrix and examples live in the project wiki; UtxoPocket remains strictly watch‑only.
+See [SECURITY.md](SECURITY.md) for the full threat model, storage design, permissions, backup semantics, and disclosure process.
 
----
+## Build From Source
 
-## Bitcoin standards supported
-- BIPs: 32/39 (HD), 43/44 (paths), 84/86 (SegWit/Taproot), 379 (Miniscript), 389 (multipath), 329 (labels). See the wiki for details.
-- BIP-329 workflows: label transactions, inherit labels to UTXOs, toggle spendable/frozen state, and import/export JSONL so Sparrow and other apps stay in sync.
+Requirements: JDK 21, Android SDK Platform 37, Android NDK 26+, and an ARM64 Android device or emulator for runtime testing.
 
----
+```bash
+git clone https://github.com/strhodler/utxopocket-android.git
+cd utxopocket-android
+```
 
-## Privacy & security
-- Watch-only by design; no private keys or signing on device.
-- Tor-backed networking for curated and custom onion nodes. Direct LAN/IP connectivity and SSL/TLS toggles were removed to enforce onion-only routing. See `SECURITY.md` for details and the privacy guarantees.
+Create an untracked `local.properties` file pointing to your Android SDK:
 
----
+```text
+sdk.dir=/absolute/path/to/Android/Sdk
+```
 
-## Technology stack
-- Build: Kotlin 2.2.21, JDK 21, AGP 8.13, Gradle VCs, KSP.
-- UI: Jetpack Compose (Material 3 + Expressive motion/shape/type APIs where adopted), Navigation, Vico charts; bundled fonts (SIL OFL).
-- Architecture: MVVM + Clean Architecture, coroutines/Flows, Hilt DI.
-- Data & privacy: Room + SQLCipher, EncryptedFile + EncryptedSharedPreferences, DataStore.
-- Bitcoin & networking: BDK 2.2.0, Tor + jtorctl, Electrum nodes, ZXing QR.
-- Testing: JUnit, coroutines test, Room testing, Compose UI tests.
+Build the debug APK and run the fast contributor checks:
 
-## Design system references
-- Material component patterns are mirrored locally in `misc/material-components-android-master` (catalog, theming, motion, layout specs) and the Material 3 Expressive notes live in `misc/material-expresive` (expressive components, motion physics, typography, shape, and color tactics).
-- Compose implementations should align with `UtxoPocketTheme` tokens (colors, typography, shapes) and the Expressive motion scheme before deviating with custom easing or radii.
+```bash
+./gradlew :app:assembleDebug
+./gradlew lintDebug :app:testDebugUnitTest
+```
 
----
+On Windows PowerShell, use `./gradlew.bat` or `.\gradlew.bat`. For device install flows, WSL notes, dependency verification, and troubleshooting, see [Project Setup For Contributors](docs/project-setup.md).
 
-## Credits & inspiration
-- [BDK (Bitcoin Dev Kit)](https://github.com/bitcoindevkit)
-- [Tor Project](https://github.com/torproject)
-- [Sentinel](https://code.samourai.io/wallet/sentinel-android)
-- [Ashigaru Wallet](https://ashigaru.rs/)
-- [Sparrow Wallet](https://github.com/sparrowwallet/sparrow)
-- [Hummingbird UR Toolkit](https://github.com/sparrowwallet/hummingbird)
+## Documentation
 
----
+| Topic | Link |
+| --- | --- |
+| User onboarding | [Getting Started With UtxoPocket](docs/getting-started.md) |
+| Contributor setup | [Project Setup For Contributors](docs/project-setup.md) |
+| Testing guide | [How to Test UtxoPocket](docs/guides/how-to-test.md) |
+| Connection reports | [Connection Troubleshooting & Reporting](docs/guides/connection-troubleshooting-reporting.md) |
+| Security posture | [SECURITY.md](SECURITY.md) |
+| Project docs index | [docs/README.md](docs/README.md) |
 
-Join telegram group: https://t.me/+6fel_1iKvQxmNzdk
+The in-app wiki and glossary are generated from Markdown under [`docs/wiki`](docs/wiki) and [`docs/glossary`](docs/glossary), then bundled as offline runtime assets.
 
----
+## Built With
 
-## License
-Released under the [MIT License](LICENSE). Third-party libraries bundled with UtxoPocket retain their original licenses.
+- [Kotlin](https://kotlinlang.org/), Gradle Kotlin DSL, Java 21, and a single Android `:app` module.
+- Jetpack Compose, Material 3, Navigation Compose, Lifecycle ViewModel, Hilt, Coroutines, and Flow.
+- Room, SQLCipher, Preferences DataStore, and Google Tink for local persistence and encryption.
+- [BDK Android](https://bitcoindevkit.org/) for descriptor parsing, watch-only wallet state, persistence, and Electrum sync.
+- Guardian Project `tor-android` plus pinned `jtorctl` for the embedded Tor runtime.
+- [Hummingbird UR Toolkit](https://github.com/sparrowwallet/hummingbird) for descriptor and label QR workflows.
 
----
+## Acknowledgements
+
+UtxoPocket is inspired by the privacy, descriptor, and watch-only workflows in [Sparrow Wallet](https://github.com/sparrowwallet/sparrow), [Sentinel](https://code.samourai.io/wallet/sentinel-android), and [Ashigaru Wallet](https://ashigaru.rs/).

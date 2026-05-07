@@ -1,7 +1,7 @@
 ---
 id: node-trust-model
 title: Node trust model
-summary: Run your own validating node behind Tor to minimize third‑party trust; understand DIY vs plug‑and‑play tradeoffs, descriptor migration, and routine health checks for watch‑only.
+summary: Run your own validating node behind Tor to minimize third‑party trust; understand DIY vs plug‑and‑play tradeoffs, descriptor migration, and routine backend checks for watch‑only.
 category_id: privacy-toolkit
 category_title: Privacy toolkit
 category_description: Practical guides to reduce on‑chain exposure and keep compartments isolated.
@@ -28,7 +28,7 @@ Wallet privacy and reliability depend on who answers your chain and mempool ques
 - Discovery and gap limits: Configure sensible gap limits; pruned nodes may constrain deep rescans. Plan periodic targeted rescans when adding historic descriptors.
 - Consistency: Ensure your wallet, node, and Electrum index agree on network, chain tip, and script policies. Mismatches create false negatives in balances and history.
 
-## Routine health checks
+## Routine checks
 - Chain sync: Headers and blocks fully synchronized; reorg handling tested.
 - Mempool view: Feerate buckets look plausible vs recent blocks; policy not excessively restrictive.
 - Tor connectivity: All wallet RPC and Electrum traffic routes via Tor; onion endpoints respond.
@@ -47,4 +47,4 @@ Wallet privacy and reliability depend on who answers your chain and mempool ques
 - [ ] Run an Electrum server you control and point UtxoPocket to it.
 - [ ] Maintain descriptor maps + checksums for reproducible restores.
 - [ ] Periodically verify discovery ranges and rescan when adding old descriptors.
-- [ ] Monitor node, mempool, and index health before important operations.
+- [ ] Monitor node, mempool, and index status before important operations.

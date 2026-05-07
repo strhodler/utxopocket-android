@@ -2,7 +2,6 @@ package com.strhodler.utxopocket.data.bdk
 
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.NodeTransport
-import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
 import com.strhodler.utxopocket.tor.TorProxyProvider
 import javax.inject.Inject
@@ -21,11 +20,6 @@ class BdkBlockchainFactory @Inject constructor(
 
     suspend fun endpointFor(network: BitcoinNetwork): ElectrumEndpoint =
         endpointProvider.endpointFor(network)
-
-    suspend fun rotatePublicEndpoint(
-        network: BitcoinNetwork,
-        failedNodeId: String?
-    ): PublicNode? = endpointProvider.rotateToNextPreset(network, failedNodeId)
 
     fun create(endpoint: ElectrumEndpoint, proxy: SocksProxyConfig?): ElectrumSession {
         val blockchain = ElectrumBlockchain(

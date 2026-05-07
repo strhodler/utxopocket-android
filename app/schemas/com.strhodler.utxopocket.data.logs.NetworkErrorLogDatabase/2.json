@@ -1,0 +1,125 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "48531e271980893c0a8a89242716da78",
+    "entities": [
+      {
+        "tableName": "network_error_logs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `timestamp` INTEGER NOT NULL, `appVersion` TEXT NOT NULL, `androidVersion` TEXT NOT NULL, `networkType` TEXT, `operation` TEXT NOT NULL, `endpointType` TEXT NOT NULL, `transport` TEXT NOT NULL, `hostMask` TEXT, `hostHash` TEXT, `port` INTEGER, `usedTor` INTEGER NOT NULL, `torBootstrapPercent` INTEGER, `errorKind` TEXT, `errorMessage` TEXT NOT NULL, `durationMs` INTEGER, `retryCount` INTEGER, `nodeSource` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "appVersion",
+            "columnName": "appVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "androidVersion",
+            "columnName": "androidVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "networkType",
+            "columnName": "networkType",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "operation",
+            "columnName": "operation",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endpointType",
+            "columnName": "endpointType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transport",
+            "columnName": "transport",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hostMask",
+            "columnName": "hostMask",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "hostHash",
+            "columnName": "hostHash",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "port",
+            "columnName": "port",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "usedTor",
+            "columnName": "usedTor",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "torBootstrapPercent",
+            "columnName": "torBootstrapPercent",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "errorKind",
+            "columnName": "errorKind",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "errorMessage",
+            "columnName": "errorMessage",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "durationMs",
+            "columnName": "durationMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "retryCount",
+            "columnName": "retryCount",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "nodeSource",
+            "columnName": "nodeSource",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '48531e271980893c0a8a89242716da78')"
+    ]
+  }
+}

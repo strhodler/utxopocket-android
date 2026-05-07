@@ -39,7 +39,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -48,7 +48,7 @@ import com.strhodler.utxopocket.R
 import com.strhodler.utxopocket.domain.model.AddressUsage
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletAddressRepository
 import com.strhodler.utxopocket.presentation.common.generateQrBitmap
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
@@ -107,7 +107,7 @@ fun AddressDetailRoute(
 @HiltViewModel
 class AddressDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val walletRepository: WalletRepository
+    private val walletAddressRepository: WalletAddressRepository
 ) : ViewModel() {
 
     private val walletId: Long =
@@ -140,7 +140,7 @@ class AddressDetailViewModel @Inject constructor(
             val previous = _uiState.value
             _uiState.value = previous.copy(isLoading = true, error = null)
             val detail = runCatching {
-                walletRepository.getAddressDetail(walletId, addressType, derivationIndex)
+                walletAddressRepository.getAddressDetail(walletId, addressType, derivationIndex)
             }.getOrNull()
             _uiState.value = if (detail != null) {
                 AddressDetailUiState(

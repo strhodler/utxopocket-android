@@ -6,7 +6,7 @@ Follow these steps to run UtxoPocket from source, reproduce the CI checks, and i
 - Linux, macOS, or Windows Subsystem for Linux.
 - Git, `adb`, and Java **21** (Temurin/OpenJDK). `java -version` should report 21.x.
 - Android Studio Koala (or newer) with:
-  - Android SDK Platform **36** + build tools (matches `compileSdk/targetSdk = 36`)
+  - Android SDK Platform **37** + build tools (matches `compileSdk`; `targetSdk` remains 36)
   - Android NDK **26+**
   - HAXM/ARM64 image support if you rely on emulators
 - Physical ARM64 device (Android 10+) or an ARM64 emulator (Tor binary does not include x86 builds).
@@ -28,31 +28,55 @@ Before opening a PR, run the fast feedback loop:
 ./gradlew lintDebug
 ./gradlew :app:testDebugUnitTest
 ```
-Touching Tor, networking, or Compose UI? also run:
+
+### 3.1 Dependency Verification Metadata
+This project uses Gradle dependency verification. When dependency versions change in `gradle/libs.versions.toml`, Gradle may fail with `Dependency verification failed` until `gradle/verification-metadata.xml` is updated.
+
+If the new artifacts are expected and trustworthy, regenerate the SHA-256 metadata:
+
 ```bash
-./gradlew :app:connectedDebugAndroidTest
+./gradlew --write-verification-metadata sha256 :app:assembleDebug :app:testDebugUnitTest
 ```
+
+On Windows PowerShell, use `./gradlew.bat` or `.\gradlew.bat` for the same command. Commit `gradle/verification-metadata.xml` together with the dependency version change.
 
 ## 4. Install The Debug Build
 ```bash
 adb devices             # ensure your target shows “device”
 ./gradlew :app:installDebug
 ```
-Launch the “UtxoPocket” icon, complete onboarding, and verify Tor bootstrap. Keep the device awake the first time so Electrum syncs without being backgrounded.
+Launch the “UtxoPocket” icon, complete onboarding, and verify initial connectivity (Tor bootstrap in default mode, or Local Direct only if explicitly selected). Keep the device awake the first time so Electrum syncs without being backgrounded.
+
+### 4.1 WSL + USB Devices
+On WSL, Gradle's `:app:installDebug` may not detect USB devices even when `adb.exe` from Windows does. Use this fallback flow:
+
+```bash
+./gradlew :app:assembleDebug
+"/mnt/c/Users/<windows-user>/AppData/Local/Android/Sdk/platform-tools/adb.exe" install -r "app/build/outputs/apk/debug/app-debug.apk"
+"/mnt/c/Users/<windows-user>/AppData/Local/Android/Sdk/platform-tools/adb.exe" shell am start -n com.strhodler.utxopocket/.presentation.MainActivity
+```
+
+If your Android SDK lives in another Windows profile, replace `<windows-user>` in the path.
 
 ## 5. Sanity Checklist
 - Switch network selector (Mainnet → Signet) and confirm presets change.
 - Import a testnet descriptor pair, sync, and confirm balance/UTXO lists populate.
-- Exercise the settings toggles (Transaction/UTXO/Wallet health) to ensure analytics run locally.
+- Trigger a full rescan from wallet detail after import and confirm the sync indicator completes.
+- If testing Local Direct, use a custom private/local IP literal endpoint only (no DNS/`.local`/hostnames), and verify custom-node save is blocked when Electrum genesis hash does not match the selected network.
 
 ## 6. IDE Tips
 - After dependency updates (`gradle/libs.versions.toml`), run “Sync Project with Gradle Files” inside Android Studio.
+- After dependency version updates, refresh `gradle/verification-metadata.xml` with the command in section **3.1 Dependency Verification Metadata** before syncing or building from a clean checkout.
 - Enable Kotlin official code style: `Settings → Editor → Code Style → Kotlin → Set from Predefined Style`.
 - Useful plugins: Kotlin, Compose Multiplatform, and Room/SQL helpers.
 
 ## 7. Troubleshooting
 - **Tor stuck** → ensure you are using an ARM64 image and that host firewalls allow outbound Tor connections. Inspect `adb logcat | grep TorRuntimeManager`.
+- **Local Direct endpoint rejected** → use only private/local IP literals (IPv4/IPv6), avoid DNS/`.local`/hostnames, and confirm the node network matches the selected app network.
 - **Descriptor rejected** → confirm it is public (tpub/zpub, no `xprv`) and includes `*` or BIP-389 multipath notation.
+- **Dependency verification failed** → if dependencies were intentionally updated, run `./gradlew --write-verification-metadata sha256 :app:assembleDebug :app:testDebugUnitTest` and commit the updated `gradle/verification-metadata.xml`. If no dependency update was intended, inspect the generated verification report before trusting new artifacts.
 - **Gradle cache issues** → run `./gradlew --stop && ./gradlew clean` or nuke `.gradle`/`.idea` directories when IDE sync drifts.
+- **No connected devices (WSL)** → if Linux `adb devices` is empty but `adb.exe devices` shows your phone, use the fallback commands from section **4.1 WSL + USB Devices**.
+- **Toolchain mismatch** → this project requires Java 21. If `java -version` is not 21.x, set `JAVA_HOME` to a JDK 21 installation.
 
 With the environment ready, follow the workflow in `CONTRIBUTING.md` (issue-first planning, `feature/<descriptor>` branches, lint/tests, documentation updates) and coordinate with reviewers/testers as needed.

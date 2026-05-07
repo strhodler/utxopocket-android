@@ -48,6 +48,18 @@ object VirtualDigitKeyboardDefaults {
     val maxKeySize = 76.dp
 }
 
+internal data class BackspaceGestureState(
+    val suppressNextClick: Boolean = false
+)
+
+internal fun markLongPressTriggered(state: BackspaceGestureState): BackspaceGestureState =
+    state.copy(suppressNextClick = true)
+
+internal fun consumeBackspaceClick(state: BackspaceGestureState): Pair<BackspaceGestureState, Boolean> {
+    val shouldEmitClick = !state.suppressNextClick
+    return BackspaceGestureState(suppressNextClick = false) to shouldEmitClick
+}
+
 private val DefaultKeyboardLayout = listOf(
     listOf(DigitKey.Number('1'), DigitKey.Number('2'), DigitKey.Number('3')),
     listOf(DigitKey.Number('4'), DigitKey.Number('5'), DigitKey.Number('6')),
@@ -68,6 +80,19 @@ fun shuffledDigitKeyboardLayout(random: Random = Random.Default): List<List<Digi
         DigitKey.Backspace
     )
     return numberRows + listOf(finalRow)
+}
+
+fun keyboardLayoutForPromptSession(
+    existingLayout: List<List<DigitKey>>?,
+    shuffleDigits: Boolean,
+    random: Random = Random.Default
+): List<List<DigitKey>> {
+    if (existingLayout != null) return existingLayout
+    return if (shuffleDigits) {
+        shuffledDigitKeyboardLayout(random)
+    } else {
+        defaultDigitKeyboardLayout()
+    }
 }
 
 @Composable
@@ -153,8 +178,8 @@ private fun DigitKeyboardButton(
     enabled: Boolean,
     hapticsEnabled: Boolean,
     onClick: () -> Unit,
-    onLongPress: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onLongPress: (() -> Unit)? = null
 ) {
     if (key == DigitKey.Placeholder) {
         Spacer(modifier = modifier.aspectRatio(1f))
@@ -179,13 +204,13 @@ private fun DigitKeyboardButton(
     val longPressTimeoutMs = ViewConfiguration.getLongPressTimeout().toLong()
     val interactionSource = remember { MutableInteractionSource() }
     var longPressJob: Job? by remember { mutableStateOf(null) }
-    var longPressTriggered by remember { mutableStateOf(false) }
+    var backspaceGestureState by remember { mutableStateOf(BackspaceGestureState()) }
 
     LaunchedEffect(interactionSource, enabled, onLongPress, hapticsEnabled) {
         interactionSource.interactions.collect { interaction ->
             when (interaction) {
                 is PressInteraction.Press -> {
-                    longPressTriggered = false
+                    backspaceGestureState = BackspaceGestureState()
                     longPressJob?.cancel()
                     if (enabled && onLongPress != null) {
                         longPressJob = launch {
@@ -194,7 +219,7 @@ private fun DigitKeyboardButton(
                                 view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                             }
                             onLongPress()
-                            longPressTriggered = true
+                            backspaceGestureState = markLongPressTriggered(backspaceGestureState)
                             longPressJob = null
                         }
                     }
@@ -211,16 +236,16 @@ private fun DigitKeyboardButton(
 
     Button(
         onClick = {
-            val shouldSkipClick = longPressTriggered
+            val (nextGestureState, shouldEmitClick) = consumeBackspaceClick(backspaceGestureState)
+            backspaceGestureState = nextGestureState
             longPressJob?.cancel()
             longPressJob = null
-            if (hapticsEnabled && !shouldSkipClick) {
+            if (hapticsEnabled && shouldEmitClick) {
                 view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
             }
-            if (!shouldSkipClick) {
+            if (shouldEmitClick) {
                 onClick()
             }
-            longPressTriggered = false
         },
         enabled = enabled,
         interactionSource = interactionSource,

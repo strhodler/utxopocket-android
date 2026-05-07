@@ -14,7 +14,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,7 +32,7 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -68,7 +67,6 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.rememberScrollState
@@ -81,7 +79,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -91,8 +89,9 @@ import com.strhodler.utxopocket.domain.model.BalanceUnit
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.presentation.format.formatBtc
+import com.strhodler.utxopocket.presentation.common.window.windowContainerHeightDp
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import com.strhodler.utxopocket.presentation.common.rememberCopyToClipboard
@@ -128,7 +127,7 @@ fun TransactionVisualizerRoute(
 @HiltViewModel
 class TransactionVisualizerViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    walletRepository: WalletRepository,
+    walletReadRepository: WalletReadRepository,
     appPreferencesRepository: AppPreferencesRepository
 ) : ViewModel() {
 
@@ -141,7 +140,7 @@ class TransactionVisualizerViewModel @Inject constructor(
             ?: error("Transaction id is required")
 
     val uiState: StateFlow<TransactionVisualizerUiState> = combine(
-        walletRepository.observeWalletDetail(walletId),
+        walletReadRepository.observeWalletDetail(walletId),
         appPreferencesRepository.balanceUnit,
         appPreferencesRepository.balancesHidden
     ) { detail, balanceUnit, balancesHidden ->
@@ -249,9 +248,9 @@ private fun TransactionVisualizerContent(
     var renderGraph by remember(graph) { mutableStateOf(graph) }
     var showDetails by remember { mutableStateOf(false) }
     var selectedNodeId by remember { mutableStateOf<String?>(null) }
-    val configuration = LocalConfiguration.current
-    val maxSheetHeight = remember(configuration.screenHeightDp) {
-        configuration.screenHeightDp.dp * 0.45f
+    val containerHeight = windowContainerHeightDp()
+    val maxSheetHeight = remember(containerHeight) {
+        containerHeight * 0.45f
     }
     val bottomSheetState = rememberStandardBottomSheetState(
         initialValue = SheetValue.Hidden,
@@ -342,7 +341,7 @@ private fun TransactionVisualizerContent(
             }
         }
     ) { innerPadding ->
-        BoxWithConstraints(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
@@ -782,7 +781,7 @@ private fun NodeInfoSheet(
                 }
             }
         }
-        Divider(
+        HorizontalDivider(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
@@ -792,7 +791,7 @@ private fun NodeInfoSheet(
             value = valueLabel
         )
         addressLabel?.let { formatted ->
-            Divider(
+            HorizontalDivider(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 8.dp)
@@ -803,7 +802,7 @@ private fun NodeInfoSheet(
             )
         }
         node.derivationPath?.let { path ->
-            Divider(
+            HorizontalDivider(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 8.dp)
@@ -876,7 +875,7 @@ private fun TransactionInfoSheet(
                 }
             }
         )
-        Divider(
+        HorizontalDivider(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
@@ -898,7 +897,7 @@ private fun TransactionInfoSheet(
                 )
             }
         )
-        Divider(
+        HorizontalDivider(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
@@ -918,7 +917,7 @@ private fun TransactionInfoSheet(
                 )
             }
         )
-        Divider(
+        HorizontalDivider(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
@@ -938,7 +937,7 @@ private fun TransactionInfoSheet(
                 )
             }
         )
-        Divider(
+        HorizontalDivider(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
@@ -995,7 +994,7 @@ private fun FeeInfoSheet(
                 )
             }
         )
-        Divider(
+        HorizontalDivider(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)

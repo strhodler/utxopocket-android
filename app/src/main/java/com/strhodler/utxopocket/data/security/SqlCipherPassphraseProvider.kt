@@ -3,10 +3,10 @@ package com.strhodler.utxopocket.data.security
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Base64
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
+import androidx.core.content.edit
 import com.strhodler.utxopocket.common.logging.SecureLog
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
 import java.security.SecureRandom
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,16 +23,6 @@ class SqlCipherPassphraseProvider @Inject constructor(
     fun obtainPassphrase(): ByteArray {
         readFromTink()?.let { return it }
 
-        val legacyPreferences = encryptedPreferencesOrNull()
-        val legacyExisting = legacyPreferences?.getString(KEY_PASSPHRASE, null)
-        if (legacyExisting != null) {
-            val decoded = Base64.decode(legacyExisting, Base64.NO_WRAP)
-            if (persistWithTink(decoded)) {
-                legacyPreferences.edit().remove(KEY_PASSPHRASE).commit()
-            }
-            return decoded
-        }
-
         val passphrase = generatePassphrase()
         persistPassphrase(passphrase)
         return passphrase
@@ -42,81 +32,109 @@ class SqlCipherPassphraseProvider @Inject constructor(
         ByteArray(PASSPHRASE_LENGTH_BYTES).also(secureRandom::nextBytes)
 
     fun persistPassphrase(passphrase: ByteArray) {
-        if (persistWithTink(passphrase)) {
-            clearLegacyPassphrase()
-        } else if (!persistWithLegacy(passphrase)) {
-            throw IllegalStateException("Unable to persist SQLCipher passphrase")
-        }
+        persistWithTink(passphrase)
+        clearLegacyPassphraseArtifacts()
     }
 
     fun clearPassphrase() {
         clearTinkPassphrase()
-        clearLegacyPassphrase()
+        clearLegacyPassphraseArtifacts()
     }
 
-    private fun encryptedPreferences(): SharedPreferences {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-
-        return EncryptedSharedPreferences.create(
-            context,
-            PREFS_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
-    }
-
-    private fun encryptedPreferencesOrNull(): SharedPreferences? =
-        runCatching { encryptedPreferences() }.getOrNull()
-
-    private fun persistWithLegacy(passphrase: ByteArray): Boolean {
-        val prefs = encryptedPreferencesOrNull() ?: return false
-        val encoded = Base64.encodeToString(passphrase, Base64.NO_WRAP)
-        val result = prefs.edit().putString(KEY_PASSPHRASE, encoded).commit()
-        SecureLog.d(TAG) { "Persisted SQLCipher passphrase with legacy EncryptedSharedPreferences (success=$result)" }
-        return result
+    fun clearAllCryptoArtifacts() {
+        clearPassphrase()
+        wipeSharedPreferencesFile(TinkCrypto.AEAD_KEYSET_PREFS_NAME)
+        wipeSharedPreferencesFile(TinkCrypto.STREAMING_KEYSET_PREFS_NAME)
     }
 
     private fun readFromTink(): ByteArray? {
-        val aead = tinkCrypto.aeadOrNull() ?: return null
+        val aead = tinkCrypto.requireAead()
         val ciphertext = tinkPreferences().getString(TINK_KEY_PASSPHRASE, null) ?: return null
-        val decoded = runCatching { Base64.decode(ciphertext, Base64.NO_WRAP) }.getOrNull() ?: return null
-        val decrypted = runCatching { aead.decrypt(decoded, TINK_ASSOCIATED_DATA) }.getOrNull()
-        if (decrypted != null) {
-            SecureLog.d(TAG) { "Loaded SQLCipher passphrase from Tink" }
+        val decoded = runCatching {
+            Base64.decode(ciphertext, Base64.NO_WRAP)
+        }.getOrElse { cause ->
+            throw IllegalStateException("Stored SQLCipher passphrase payload is invalid", cause)
         }
+        val decrypted = runCatching {
+            aead.decrypt(decoded, TINK_ASSOCIATED_DATA)
+        }.getOrElse { cause ->
+            throw IllegalStateException("Unable to decrypt SQLCipher passphrase from strict Tink store", cause)
+        }
+        SecureLog.d(TAG) { "Loaded SQLCipher passphrase from Tink" }
         return decrypted
     }
 
-    private fun persistWithTink(passphrase: ByteArray): Boolean {
-        val aead = tinkCrypto.aeadOrNull() ?: return false
-        val ciphertext = runCatching { aead.encrypt(passphrase, TINK_ASSOCIATED_DATA) }.getOrNull() ?: return false
+    private fun persistWithTink(passphrase: ByteArray) {
+        val aead = tinkCrypto.requireAead()
+        val ciphertext = runCatching {
+            aead.encrypt(passphrase, TINK_ASSOCIATED_DATA)
+        }.getOrElse { cause ->
+            throw IllegalStateException("Unable to encrypt SQLCipher passphrase with strict Tink store", cause)
+        }
         val encoded = Base64.encodeToString(ciphertext, Base64.NO_WRAP)
-        val result = tinkPreferences().edit().putString(TINK_KEY_PASSPHRASE, encoded).commit()
-        SecureLog.d(TAG) { "Persisted SQLCipher passphrase with Tink (success=$result)" }
-        return result
+        val prefs = tinkPreferences()
+        prefs.edit(commit = true) {
+            putString(TINK_KEY_PASSPHRASE, encoded)
+        }
+        val persisted = prefs.getString(TINK_KEY_PASSPHRASE, null) == encoded
+        if (!persisted) {
+            throw IllegalStateException("Unable to persist SQLCipher passphrase in strict Tink store")
+        }
+        SecureLog.d(TAG) { "Persisted SQLCipher passphrase with Tink (success=$persisted)" }
     }
 
     private fun tinkPreferences(): SharedPreferences =
         context.getSharedPreferences(TINK_PREFS_NAME, Context.MODE_PRIVATE)
 
-    private fun clearLegacyPassphrase() {
-        encryptedPreferencesOrNull()?.edit()?.remove(KEY_PASSPHRASE)?.commit()
+    private fun clearLegacyPassphraseArtifacts() {
+        runCatching { deleteSharedPreferencesCompat(PREFS_NAME) }
     }
+
+    private fun wipeSharedPreferencesFile(name: String) {
+        val prefs = context.getSharedPreferences(name, Context.MODE_PRIVATE)
+        prefs.edit(commit = true) {
+            clear()
+        }
+        if (prefs.all.isNotEmpty()) {
+            throw IllegalStateException("Unable to clear shared preferences for $name")
+        }
+        val deleted = deleteSharedPreferencesCompat(name)
+        val sharedPrefsFile = sharedPreferencesFile(name)
+        if (!deleted && sharedPrefsFile.exists()) {
+            throw IllegalStateException("Unable to delete shared preferences file for $name")
+        }
+    }
+
+    private fun deleteSharedPreferencesCompat(name: String): Boolean {
+        val deletedByApi = runCatching { context.deleteSharedPreferences(name) }.getOrDefault(false)
+        val file = sharedPreferencesFile(name)
+        return if (file.exists()) {
+            file.delete()
+        } else {
+            deletedByApi
+        }
+    }
+
+    private fun sharedPreferencesFile(name: String): File =
+        File(File(context.applicationInfo.dataDir, SHARED_PREFS_DIR), "$name.xml")
 
     private fun clearTinkPassphrase() {
-        tinkPreferences().edit().remove(TINK_KEY_PASSPHRASE).commit()
+        val prefs = tinkPreferences()
+        prefs.edit(commit = true) {
+            remove(TINK_KEY_PASSPHRASE)
+        }
+        if (prefs.contains(TINK_KEY_PASSPHRASE)) {
+            throw IllegalStateException("Unable to clear SQLCipher passphrase in strict Tink store")
+        }
     }
 
-    private companion object {
+    companion object {
         const val PREFS_NAME = "secure_store"
-        const val KEY_PASSPHRASE = "sqlcipher_passphrase"
         const val PASSPHRASE_LENGTH_BYTES = 64
         const val TINK_PREFS_NAME = "secure_store_tink"
         const val TINK_KEY_PASSPHRASE = "sqlcipher_passphrase_v2"
         val TINK_ASSOCIATED_DATA = "sqlcipher-passphrase".toByteArray(Charsets.UTF_8)
         const val TAG = "SqlCipherPassphrase"
+        private const val SHARED_PREFS_DIR = "shared_prefs"
     }
 }

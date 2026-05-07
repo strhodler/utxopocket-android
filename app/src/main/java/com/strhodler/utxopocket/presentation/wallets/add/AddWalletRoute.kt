@@ -5,10 +5,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
 
@@ -21,15 +21,15 @@ fun AddWalletRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
+    val walletCreatedMessage = stringResource(id = R.string.add_wallet_success_message)
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
                 is AddWalletEvent.WalletCreated -> {
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onWalletCreated(context.getString(R.string.add_wallet_success_message))
+                    onWalletCreated(walletCreatedMessage)
                 }
                 is AddWalletEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
             }

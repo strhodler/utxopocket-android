@@ -58,6 +58,7 @@ private fun PdfViewerScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    val genericPdfError = stringResource(id = R.string.pdf_viewer_error)
     val showSnackbar = remember(coroutineScope, snackbarHostState) {
         { message: String, duration: SnackbarDuration ->
             coroutineScope.launch {
@@ -71,7 +72,7 @@ private fun PdfViewerScreen(onBack: () -> Unit) {
     }
     val documentState by produceState<PdfDocumentState>(initialValue = PdfDocumentState.Loading, key1 = context) {
         value = runCatching { PdfDocumentState.Ready(preparePdfDocument(context)) }
-            .getOrElse { error -> PdfDocumentState.Error(error.message ?: context.getString(R.string.pdf_viewer_error)) }
+            .getOrElse { error -> PdfDocumentState.Error(error.message ?: genericPdfError) }
     }
     val cacheFile = (documentState as? PdfDocumentState.Ready)?.file
 
@@ -81,7 +82,7 @@ private fun PdfViewerScreen(onBack: () -> Unit) {
         actions = {
             if (cacheFile != null) {
                 IconButton(onClick = {
-                    cacheFile?.let { file ->
+                    cacheFile.let { file ->
                         shareOrDownloadPdf(context, file)?.let { message ->
                             showSnackbar(message.text, message.duration)
                         }

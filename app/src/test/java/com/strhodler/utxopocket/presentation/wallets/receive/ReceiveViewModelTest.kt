@@ -6,38 +6,61 @@ import com.strhodler.utxopocket.domain.model.AddressUsage
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.NodeStatus
 import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
+import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
+import com.strhodler.utxopocket.domain.model.WalletColor
 import com.strhodler.utxopocket.domain.model.WalletDetail
+import com.strhodler.utxopocket.domain.model.IncomingTxPlaceholder
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.WalletAddressRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
+import com.strhodler.utxopocket.domain.service.IncomingTxChecker
+import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
+import com.strhodler.utxopocket.domain.model.IncomingTxDetection
+import com.strhodler.utxopocket.domain.repository.IncomingTxPlaceholderRepository
 import com.strhodler.utxopocket.presentation.wallets.WalletsNavigation
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class ReceiveViewModelTest {
 
     private val repository = FakeWalletRepository()
+    private val incomingChecker = FakeIncomingTxChecker()
+    private val placeholderRepository = InMemoryIncomingTxPlaceholderRepository()
+    private val incomingCoordinator = IncomingTxCoordinator(
+        placeholderRepository = placeholderRepository,
+        ioDispatcher = UnconfinedTestDispatcher()
+    )
 
     @BeforeTest
     fun setUp() {
@@ -57,23 +80,25 @@ class ReceiveViewModelTest {
         repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
 
         val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertFalse(state.isLoading)
         assertEquals(primaryDetail, state.address)
+        observer.cancel()
     }
 
     @Test
     fun nextAddressAdvances() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(dispatcher)
-        repository.unusedAddresses = listOf(primaryAddress)
+        repository.unusedAddresses = listOf(primaryAddress, secondaryAddress)
         repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
         val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
         advanceUntilIdle()
 
-        repository.nextAddress = secondaryAddress
         repository.addressDetails[secondaryAddress.derivationIndex] = secondaryDetail
 
         viewModel.nextAddress()
@@ -82,6 +107,29 @@ class ReceiveViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(secondaryDetail, state.address)
         assertFalse(state.isAdvancing)
+        observer.cancel()
+    }
+
+    @Test
+    fun nextAddressPrefersSequentialUnusedAddressBeforeRevealingPastWindow() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        repository.unusedAddresses = listOf(primaryAddress, secondaryAddress)
+        repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
+        repository.addressDetails[secondaryAddress.derivationIndex] = secondaryDetail
+        repository.addressDetails[farAddress.derivationIndex] = farDetail
+        repository.nextAddress = farAddress
+        val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
+        advanceUntilIdle()
+
+        viewModel.nextAddress()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(secondaryDetail, state.address)
+        assertEquals(0, repository.revealNextAddressCalls)
+        observer.cancel()
     }
 
     @Test
@@ -91,17 +139,163 @@ class ReceiveViewModelTest {
         repository.unusedAddresses = emptyList()
 
         val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertFalse(state.isLoading)
         assertNull(state.address)
         assertIs<ReceiveError.NoAddress>(state.error)
+        observer.cancel()
     }
+
+    @Test
+    fun initialAddressListCancellationDoesNotBecomeError() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        repository.listUnusedThrowable = CancellationException("cancelled")
+
+        val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.error)
+        observer.cancel()
+    }
+
+    @Test
+    fun addressDetailCancellationDoesNotBecomeError() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        repository.unusedAddresses = listOf(primaryAddress)
+        repository.addressDetailThrowable = CancellationException("cancelled")
+
+        val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.error)
+        observer.cancel()
+    }
+
+    @Test
+    fun skipsPlaceholderAddressesOnInit() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        repository.unusedAddresses = listOf(primaryAddress, secondaryAddress)
+        repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
+        repository.addressDetails[secondaryAddress.derivationIndex] = secondaryDetail
+
+        placeholderRepository.setPlaceholders(
+            walletId = 1L,
+            placeholders = listOf(
+                IncomingTxPlaceholder(
+                    txid = "placeholder-tx",
+                    address = primaryAddress.value,
+                    amountSats = null,
+                    detectedAt = System.currentTimeMillis()
+                )
+            )
+        )
+
+        val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(secondaryDetail, state.address)
+        observer.cancel()
+    }
+
+    @Test
+    fun detectionAdvancesToNextAddress() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        repository.unusedAddresses = listOf(primaryAddress, secondaryAddress)
+        repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
+        val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
+        advanceUntilIdle()
+
+        repository.addressDetails[secondaryAddress.derivationIndex] = secondaryDetail
+
+        incomingCoordinator.onDetection(
+            IncomingTxDetection(
+                walletId = 1L,
+                address = primaryAddress.value,
+                derivationIndex = primaryAddress.derivationIndex,
+                txid = "txid-detect",
+                amountSats = null
+            )
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(secondaryDetail, state.address)
+        assertFalse(state.isAdvancing)
+        observer.cancel()
+    }
+
+    @Test
+    fun detectionMarksCurrentAddressUsedAndDoesNotReuseItOnRefresh() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        repository.unusedAddresses = listOf(primaryAddress, secondaryAddress, tertiaryAddress)
+        repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
+        repository.addressDetails[secondaryAddress.derivationIndex] = secondaryDetail
+        repository.addressDetails[tertiaryAddress.derivationIndex] = tertiaryDetail
+        val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
+        advanceUntilIdle()
+
+        incomingCoordinator.onDetection(
+            IncomingTxDetection(
+                walletId = 1L,
+                address = primaryAddress.value,
+                derivationIndex = primaryAddress.derivationIndex,
+                txid = "txid-mark-used",
+                amountSats = 1000L
+            )
+        )
+        advanceUntilIdle()
+
+        assertEquals(listOf(primaryAddress.derivationIndex), repository.markedAsUsed)
+        assertEquals(secondaryDetail, viewModel.uiState.value.address)
+
+        repository.unusedAddresses = listOf(primaryAddress, secondaryAddress, tertiaryAddress)
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertEquals(secondaryDetail, viewModel.uiState.value.address)
+        observer.cancel()
+    }
+
+    @Test
+    fun checkAddressRethrowsCancellationException() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
+        repository.unusedAddresses = listOf(primaryAddress)
+        repository.addressDetails[primaryAddress.derivationIndex] = primaryDetail
+        incomingChecker.throwable = CancellationException("cancelled")
+
+        val viewModel = createViewModel()
+        val observer = observeUiState(viewModel)
+        advanceUntilIdle()
+
+        assertFailsWith<CancellationException> {
+            viewModel.checkAddress()
+        }
+        observer.cancel()
+    }
+
+    private fun TestScope.observeUiState(viewModel: ReceiveViewModel): Job =
+        backgroundScope.launch {
+            viewModel.uiState.collect {}
+        }
 
     private fun createViewModel(): ReceiveViewModel {
         val handle = SavedStateHandle(mapOf(WalletsNavigation.WalletIdArg to 1L))
-        return ReceiveViewModel(handle, repository)
+        return ReceiveViewModel(handle, repository, repository, incomingChecker, incomingCoordinator)
     }
 
     private companion object {
@@ -116,6 +310,18 @@ class ReceiveViewModelTest {
             type = WalletAddressType.EXTERNAL,
             derivationPath = "m/84h/0h/0h/0/1",
             derivationIndex = 1
+        )
+        private val tertiaryAddress = WalletAddress(
+            value = "bc1qtertiary",
+            type = WalletAddressType.EXTERNAL,
+            derivationPath = "m/84h/0h/0h/0/2",
+            derivationIndex = 2
+        )
+        private val farAddress = WalletAddress(
+            value = "bc1qfar",
+            type = WalletAddressType.EXTERNAL,
+            derivationPath = "m/84h/0h/0h/0/77",
+            derivationIndex = 77
         )
         private val primaryDetail = WalletAddressDetail(
             value = primaryAddress.value,
@@ -137,13 +343,37 @@ class ReceiveViewModelTest {
             usage = AddressUsage.NEVER,
             usageCount = 0
         )
+        private val tertiaryDetail = WalletAddressDetail(
+            value = tertiaryAddress.value,
+            type = WalletAddressType.EXTERNAL,
+            derivationPath = tertiaryAddress.derivationPath,
+            derivationIndex = tertiaryAddress.derivationIndex,
+            scriptPubKey = "667788",
+            descriptor = "wpkh(...)",
+            usage = AddressUsage.NEVER,
+            usageCount = 0
+        )
+        private val farDetail = WalletAddressDetail(
+            value = farAddress.value,
+            type = WalletAddressType.EXTERNAL,
+            derivationPath = farAddress.derivationPath,
+            derivationIndex = farAddress.derivationIndex,
+            scriptPubKey = "778899",
+            descriptor = "wpkh(...)",
+            usage = AddressUsage.NEVER,
+            usageCount = 0
+        )
     }
 }
 
-private class FakeWalletRepository : WalletRepository {
+private class FakeWalletRepository : WalletReadRepository, WalletAddressRepository {
     var unusedAddresses: List<WalletAddress> = emptyList()
     var nextAddress: WalletAddress? = null
+    var listUnusedThrowable: Throwable? = null
+    var addressDetailThrowable: Throwable? = null
+    var revealNextAddressCalls = 0
     val addressDetails = mutableMapOf<Int, WalletAddressDetail>()
+    val markedAsUsed = mutableListOf<Int>()
     private val walletDetail = MutableStateFlow(
         WalletDetail(
             summary = WalletSummary(
@@ -164,12 +394,6 @@ private class FakeWalletRepository : WalletRepository {
     override fun observeWalletSummaries(network: BitcoinNetwork): Flow<List<WalletSummary>> = flowOf(emptyList())
 
     override fun observeWalletDetail(id: Long): Flow<WalletDetail?> = walletDetail
-
-    override fun observeNodeStatus(): Flow<NodeStatusSnapshot> =
-        flowOf(NodeStatusSnapshot(status = NodeStatus.Idle, network = BitcoinNetwork.TESTNET))
-
-    override fun observeSyncStatus(): Flow<SyncStatusSnapshot> =
-        flowOf(SyncStatusSnapshot(isRefreshing = false, network = BitcoinNetwork.TESTNET))
 
     override fun pageWalletTransactions(
         id: Long,
@@ -195,60 +419,60 @@ private class FakeWalletRepository : WalletRepository {
 
     override fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>> = flowOf(emptyMap())
 
-    override suspend fun refresh(network: BitcoinNetwork) = Unit
-
-    override suspend fun refreshWallet(walletId: Long) = Unit
-
-    override suspend fun disconnect(network: BitcoinNetwork) = Unit
-
-    override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
-
-    override suspend fun validateDescriptor(
-        descriptor: String,
-        changeDescriptor: String?,
-        network: BitcoinNetwork
-    ) = throw UnsupportedOperationException()
-
-    override suspend fun addWallet(request: com.strhodler.utxopocket.domain.model.WalletCreationRequest) =
-        throw UnsupportedOperationException()
-
-    override suspend fun deleteWallet(id: Long) = Unit
-
-    override suspend fun wipeAllWalletData() = Unit
-
-    override suspend fun updateWalletColor(id: Long, color: WalletColor) = Unit
-
-    override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
-
     override suspend fun listUnusedAddresses(
         walletId: Long,
         type: WalletAddressType,
         limit: Int
-    ): List<WalletAddress> = unusedAddresses
+    ): List<WalletAddress> {
+        listUnusedThrowable?.let { throw it }
+        return unusedAddresses
+    }
 
-    override suspend fun revealNextAddress(walletId: Long, type: WalletAddressType): WalletAddress? = nextAddress
+    override suspend fun revealNextAddress(walletId: Long, type: WalletAddressType): WalletAddress? {
+        revealNextAddressCalls++
+        return nextAddress
+    }
 
     override suspend fun getAddressDetail(
         walletId: Long,
         type: WalletAddressType,
         derivationIndex: Int
-    ): WalletAddressDetail? = addressDetails[derivationIndex]
+    ): WalletAddressDetail? {
+        addressDetailThrowable?.let { throw it }
+        return addressDetails[derivationIndex]
+    }
 
-    override suspend fun markAddressAsUsed(walletId: Long, type: WalletAddressType, derivationIndex: Int) = Unit
+    override suspend fun markAddressAsUsed(walletId: Long, type: WalletAddressType, derivationIndex: Int) {
+        markedAsUsed += derivationIndex
+    }
 
-    override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
+    override suspend fun highestUsedIndices(walletId: Long): Pair<Int?, Int?> = null to null
+}
 
-    override suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?) = Unit
+private class FakeIncomingTxChecker : IncomingTxChecker {
+    var detected = false
+    var throwable: Throwable? = null
+    override suspend fun manualCheck(
+        walletId: Long,
+        addresses: List<WalletAddressDetail>
+    ): Boolean {
+        throwable?.let { throw it }
+        return detected
+    }
+}
 
-    override suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?) = Unit
+private class InMemoryIncomingTxPlaceholderRepository : IncomingTxPlaceholderRepository {
+    private val state = MutableStateFlow<Map<Long, List<IncomingTxPlaceholder>>>(emptyMap())
+    override val placeholders: Flow<Map<Long, List<IncomingTxPlaceholder>>>
+        get() = state
 
-    override suspend fun renameWallet(id: Long, name: String) = Unit
-
-    override suspend fun exportWalletLabels(walletId: Long) =
-        throw UnsupportedOperationException()
-
-    override suspend fun importWalletLabels(walletId: Long, payload: ByteArray) =
-        throw UnsupportedOperationException()
-
-    override fun setSyncForegroundState(isForeground: Boolean) = Unit
+    override suspend fun setPlaceholders(walletId: Long, placeholders: List<IncomingTxPlaceholder>) {
+        state.value = state.value.toMutableMap().apply {
+            if (placeholders.isEmpty()) {
+                remove(walletId)
+            } else {
+                put(walletId, placeholders)
+            }
+        }
+    }
 }

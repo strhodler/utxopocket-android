@@ -19,7 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Refresh
@@ -42,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,19 +58,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.common.coroutines.runSuspendCatching
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.AddressUsage
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletSummary
-import com.strhodler.utxopocket.domain.repository.WalletRepository
-import com.strhodler.utxopocket.domain.service.IncomingTxWatcher
+import com.strhodler.utxopocket.domain.repository.WalletAddressRepository
+import com.strhodler.utxopocket.domain.repository.WalletReadRepository
+import com.strhodler.utxopocket.domain.service.IncomingTxChecker
 import com.strhodler.utxopocket.domain.service.IncomingTxCoordinator
 import com.strhodler.utxopocket.presentation.components.DismissibleSnackbarHost
 import com.strhodler.utxopocket.presentation.common.ScreenScaffoldInsets
@@ -88,6 +91,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 @Composable
 fun ReceiveRoute(
@@ -100,6 +104,7 @@ fun ReceiveRoute(
     var showDetailsSheet by remember { mutableStateOf(false) }
     var selectedDetail by remember { mutableStateOf<WalletAddressDetail?>(null) }
     val context = LocalContext.current
+    var lastAddressValue by remember { mutableStateOf<String?>(null) }
     val showSnackbar = remember(coroutineScope, snackbarHostState) {
         { message: String, duration: SnackbarDuration ->
             coroutineScope.launch {
@@ -116,6 +121,19 @@ fun ReceiveRoute(
         successMessage = stringResource(id = R.string.receive_copy_success),
         onShowMessage = { message -> showSnackbar(message, SnackbarDuration.Short) }
     )
+    val nextAddressReadyMessage = stringResource(id = R.string.receive_next_address_ready)
+    val checkAddressDetectedMessage = stringResource(id = R.string.receive_check_address_detected)
+    val checkAddressNoActivityMessage = stringResource(id = R.string.receive_check_address_no_activity)
+    val checkAddressNoAddressMessage = stringResource(id = R.string.receive_error_no_address)
+    val checkAddressErrorMessage = stringResource(id = R.string.receive_check_address_error)
+    LaunchedEffect(state.address?.value) {
+        val current = state.address?.value ?: return@LaunchedEffect
+        val previous = lastAddressValue
+        lastAddressValue = current
+        if (previous != null && previous != current) {
+            showSnackbar(nextAddressReadyMessage, SnackbarDuration.Short)
+        }
+    }
 
     SetSecondaryTopBar(
         title = stringResource(id = R.string.receive_title),
@@ -140,22 +158,21 @@ fun ReceiveRoute(
             },
             onCheckAddress = {
                 coroutineScope.launch {
-                    val resources = context.resources
                     when (viewModel.checkAddress()) {
                         ReceiveCheckResult.Detected -> showSnackbar(
-                            resources.getString(R.string.receive_check_address_detected),
+                            checkAddressDetectedMessage,
                             SnackbarDuration.Short
                         )
                         ReceiveCheckResult.NoActivity -> showSnackbar(
-                            resources.getString(R.string.receive_check_address_no_activity),
+                            checkAddressNoActivityMessage,
                             SnackbarDuration.Short
                         )
                         ReceiveCheckResult.NoAddress -> showSnackbar(
-                            resources.getString(R.string.receive_error_no_address),
+                            checkAddressNoAddressMessage,
                             SnackbarDuration.Short
                         )
                         ReceiveCheckResult.Error -> showSnackbar(
-                            resources.getString(R.string.receive_check_address_error),
+                            checkAddressErrorMessage,
                             SnackbarDuration.Short
                         )
                     }
@@ -190,8 +207,9 @@ fun ReceiveRoute(
 @HiltViewModel
 class ReceiveViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val walletRepository: WalletRepository,
-    private val incomingTxWatcher: IncomingTxWatcher,
+    private val walletReadRepository: WalletReadRepository,
+    private val walletAddressRepository: WalletAddressRepository,
+    private val incomingTxChecker: IncomingTxChecker,
     private val incomingTxCoordinator: IncomingTxCoordinator
 ) : ViewModel() {
 
@@ -200,7 +218,7 @@ class ReceiveViewModel @Inject constructor(
             ?: savedStateHandle.get<String>(WalletsNavigation.WalletIdArg)?.toLongOrNull()
             ?: error("Wallet id is required")
 
-    private val walletSummary: StateFlow<WalletSummary?> = walletRepository
+    private val walletSummary: StateFlow<WalletSummary?> = walletReadRepository
         .observeWalletDetail(walletId)
         .map { detail -> detail?.summary }
         .stateIn(
@@ -210,6 +228,7 @@ class ReceiveViewModel @Inject constructor(
         )
 
     private val internalState = MutableStateFlow(ReceiveInternalState())
+    private val reservedAddresses = MutableStateFlow<Set<String>>(emptySet())
 
     val uiState: StateFlow<ReceiveUiState> = combine(
         internalState,
@@ -235,6 +254,9 @@ class ReceiveViewModel @Inject constructor(
             incomingTxCoordinator.sheetTriggers.collect { detection ->
                 val current = internalState.value.address ?: return@collect
                 if (detection.walletId == walletId && detection.address == current.value) {
+                    reserveAddress(current.value)
+                    val derivationIndex = detection.derivationIndex ?: current.derivationIndex
+                    markAddressAsUsed(derivationIndex)
                     nextAddress()
                 }
             }
@@ -244,19 +266,22 @@ class ReceiveViewModel @Inject constructor(
     fun refresh() {
         viewModelScope.launch {
             internalState.update { it.copy(isLoading = true, isAdvancing = false, error = null) }
-            loadAddress(fetchAddress = ::fetchUnusedAddress)
+            loadAddress { fetchUnusedAddress() }
         }
     }
 
     fun nextAddress() {
         if (internalState.value.isAdvancing) return
+        val currentAddress = internalState.value.address?.value
         viewModelScope.launch {
             internalState.update { it.copy(isAdvancing = true, error = null) }
-            loadAddress {
-                walletRepository.revealNextAddress(
-                    walletId = walletId,
-                    type = WalletAddressType.EXTERNAL
+            val advanced = loadAddress {
+                fetchUnusedAddress(
+                    extraExcludedAddresses = setOfNotNull(currentAddress)
                 )
+            }
+            if (advanced && currentAddress != null) {
+                reserveAddress(currentAddress)
             }
         }
     }
@@ -265,26 +290,28 @@ class ReceiveViewModel @Inject constructor(
         val detail = internalState.value.address ?: return ReceiveCheckResult.NoAddress
         internalState.update { it.copy(isChecking = true) }
         return try {
-            val additional = walletRepository.listUnusedAddresses(
+            val additional = walletAddressRepository.listUnusedAddresses(
                 walletId = walletId,
                 type = WalletAddressType.EXTERNAL,
                 limit = 5
             )
                 .filter { it.derivationIndex != detail.derivationIndex }
                 .mapNotNull { address ->
-                    walletRepository.getAddressDetail(
+                    walletAddressRepository.getAddressDetail(
                         walletId = walletId,
                         type = WalletAddressType.EXTERNAL,
                         derivationIndex = address.derivationIndex
                     )
                 }
-            val detected = incomingTxWatcher.manualCheck(walletId, listOf(detail) + additional)
+            val detected = incomingTxChecker.manualCheck(walletId, listOf(detail) + additional)
             if (detected) {
                 nextAddress()
                 ReceiveCheckResult.Detected
             } else {
                 ReceiveCheckResult.NoActivity
             }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (t: Throwable) {
             ReceiveCheckResult.Error
         } finally {
@@ -293,26 +320,21 @@ class ReceiveViewModel @Inject constructor(
     }
 
     fun onAddressShared(address: WalletAddressDetail) {
+        reserveAddress(address.value)
         viewModelScope.launch {
-            runCatching {
-                walletRepository.markAddressAsUsed(
-                    walletId = walletId,
-                    type = WalletAddressType.EXTERNAL,
-                    derivationIndex = address.derivationIndex
-                )
-            }
+            markAddressAsUsed(address.derivationIndex)
         }
     }
 
-    private suspend fun loadAddress(fetchAddress: suspend () -> WalletAddress?) {
-        val addressResult = runCatching { fetchAddress() }
+    private suspend fun loadAddress(fetchAddress: suspend () -> WalletAddress?): Boolean {
+        val addressResult = runSuspendCatching { fetchAddress() }
         val address = addressResult.getOrNull()
         if (address == null) {
             setError(addressResult.exceptionOrNull())
-            return
+            return false
         }
-        val detailResult = runCatching {
-            walletRepository.getAddressDetail(
+        val detailResult = runSuspendCatching {
+            walletAddressRepository.getAddressDetail(
                 walletId = walletId,
                 type = WalletAddressType.EXTERNAL,
                 derivationIndex = address.derivationIndex
@@ -321,6 +343,7 @@ class ReceiveViewModel @Inject constructor(
         val detail = detailResult.getOrNull()
         if (detail == null) {
             setError(detailResult.exceptionOrNull())
+            return false
         } else {
             internalState.update {
                 it.copy(
@@ -330,15 +353,37 @@ class ReceiveViewModel @Inject constructor(
                     error = null
                 )
             }
+            return true
         }
     }
 
-    private suspend fun fetchUnusedAddress(): WalletAddress? =
-        walletRepository.listUnusedAddresses(
-            walletId = walletId,
-            type = WalletAddressType.EXTERNAL,
-            limit = 1
-        ).firstOrNull()
+    private suspend fun fetchUnusedAddress(
+        extraExcludedAddresses: Set<String> = emptySet()
+    ): WalletAddress? =
+        runSuspendCatching {
+            val excludedAddresses = excludedReceiveAddresses() + extraExcludedAddresses
+            val dynamicLimit = (excludedAddresses.size + 2).coerceAtLeast(1)
+            val unused = walletAddressRepository.listUnusedAddresses(
+                walletId = walletId,
+                type = WalletAddressType.EXTERNAL,
+                limit = dynamicLimit
+            )
+            unused.firstOrNull { address -> address.value !in excludedAddresses } ?: revealPastExcludedAddresses(excludedAddresses)
+        }.getOrNull()
+
+    private suspend fun revealPastExcludedAddresses(excludedAddresses: Set<String>): WalletAddress? {
+        val maxAttempts = (excludedAddresses.size + 3).coerceAtLeast(3)
+        repeat(maxAttempts) {
+            val next = walletAddressRepository.revealNextAddress(
+                walletId = walletId,
+                type = WalletAddressType.EXTERNAL
+            ) ?: return null
+            if (next.value !in excludedAddresses) {
+                return next
+            }
+        }
+        return null
+    }
 
     private fun setError(cause: Throwable?) {
         internalState.update {
@@ -348,6 +393,34 @@ class ReceiveViewModel @Inject constructor(
                 address = null,
                 error = if (cause == null) ReceiveError.NoAddress else ReceiveError.Generic
             )
+        }
+    }
+
+    private fun placeholderAddresses(): Set<String> =
+        incomingTxCoordinator.placeholders.value[walletId]
+            ?.map { it.address }
+            ?.toSet()
+            .orEmpty()
+
+    private fun reserveAddress(address: String) {
+        if (address.isBlank()) return
+        reservedAddresses.update { existing -> existing + address }
+    }
+
+    private fun excludedReceiveAddresses(): Set<String> =
+        placeholderAddresses() + reservedAddresses.value
+
+    private suspend fun markAddressAsUsed(derivationIndex: Int) {
+        try {
+            walletAddressRepository.markAddressAsUsed(
+                walletId = walletId,
+                type = WalletAddressType.EXTERNAL,
+                derivationIndex = derivationIndex
+            )
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Throwable) {
+            Unit
         }
     }
 }
@@ -480,7 +553,7 @@ private fun ReceiveContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding(),
-            leadingIcon = if (isAdvancing) null else Icons.Outlined.ArrowForward,
+            leadingIcon = if (isAdvancing) null else Icons.AutoMirrored.Outlined.ArrowForward,
             showProgress = isAdvancing
         )
     }

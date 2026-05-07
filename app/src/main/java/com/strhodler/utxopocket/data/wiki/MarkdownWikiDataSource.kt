@@ -1,8 +1,11 @@
 package com.strhodler.utxopocket.data.wiki
 
 import android.content.Context
-import com.strhodler.utxopocket.presentation.wiki.WikiSection
-import com.strhodler.utxopocket.presentation.wiki.WikiTopic
+import com.strhodler.utxopocket.data.content.markdown.FrontMatterParser
+import com.strhodler.utxopocket.data.content.markdown.MarkdownAssetTreeReader
+import com.strhodler.utxopocket.data.content.markdown.MarkdownFormattingSanitizer
+import com.strhodler.utxopocket.domain.model.WikiSection
+import com.strhodler.utxopocket.domain.model.WikiTopic
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.BufferedReader
 import javax.inject.Inject
@@ -15,7 +18,7 @@ class MarkdownWikiDataSource @Inject constructor(
 
     fun loadTopics(): List<MarkdownTopic> {
         val assetManager = context.assets
-        val markdownFiles = collectMarkdownFiles(assetManager.list(WIKI_ROOT) ?: emptyArray())
+        val markdownFiles = MarkdownAssetTreeReader.collectMarkdownFiles(assetManager, WIKI_ROOT)
         return markdownFiles.mapNotNull { relativePath ->
             val fullPath = if (relativePath.isEmpty()) WIKI_ROOT else "$WIKI_ROOT/$relativePath"
             runCatching {
@@ -24,22 +27,6 @@ class MarkdownWikiDataSource @Inject constructor(
                 parseMarkdownTopic(raw)
             }
         }
-    }
-
-    private fun collectMarkdownFiles(entries: Array<String>, prefix: String = ""): List<String> {
-        val assetManager = context.assets
-        val files = mutableListOf<String>()
-        entries.forEach { entry ->
-            val relativePath = if (prefix.isEmpty()) entry else "$prefix/$entry"
-            val assetPath = if (prefix.isEmpty()) "$WIKI_ROOT/$entry" else "$WIKI_ROOT/$relativePath"
-            val children = runCatching { assetManager.list(assetPath) }.getOrNull()
-            if (children != null && children.isNotEmpty()) {
-                files += collectMarkdownFiles(children, relativePath)
-            } else if (entry.endsWith(".md")) {
-                files += relativePath
-            }
-        }
-        return files
     }
 
     private fun parseMarkdownTopic(raw: String): MarkdownTopic? {
@@ -65,36 +52,11 @@ class MarkdownWikiDataSource @Inject constructor(
     }
 
     private fun splitFrontMatter(raw: String): Pair<List<String>, String>? {
-        val trimmed = raw.trim()
-        if (!trimmed.startsWith(FRONT_MATTER_DELIMITER)) {
-            return null
-        }
-        val lines = trimmed.lines()
-        val frontMatterLines = mutableListOf<String>()
-        var index = 1
-        while (index < lines.size) {
-            val line = lines[index]
-            if (line.trim() == FRONT_MATTER_DELIMITER) {
-                break
-            }
-            frontMatterLines += line
-            index++
-        }
-        if (index >= lines.size) {
-            return null
-        }
-        val body = lines.drop(index + 1).joinToString("\n").trim()
-        return frontMatterLines to body
+        return FrontMatterParser.split(raw)
     }
 
     private fun parseFrontMatter(lines: List<String>): FrontMatter? {
-        val map = mutableMapOf<String, String>()
-        lines.forEach { line ->
-            val parts = line.split(":", limit = 2)
-            if (parts.size == 2) {
-                map[parts[0].trim().lowercase()] = parts[1].trim()
-            }
-        }
+        val map = FrontMatterParser.parseKeyValue(lines)
         val id = map["id"]?.takeIf { it.isNotBlank() } ?: return null
         val title = map["title"]?.takeIf { it.isNotBlank() } ?: return null
         val summary = map["summary"]?.takeIf { it.isNotBlank() } ?: ""
@@ -118,10 +80,7 @@ class MarkdownWikiDataSource @Inject constructor(
     }
 
     private fun parseList(raw: String?): List<String> {
-        if (raw.isNullOrBlank()) return emptyList()
-        val trimmed = raw.removePrefix("[").removeSuffix("]")
-        return trimmed.split(",")
-            .mapNotNull { item -> item.trim().takeIf { it.isNotBlank() } }
+        return FrontMatterParser.parseList(raw)
     }
 
     private fun parseSections(body: String): List<WikiSection> {
@@ -202,14 +161,7 @@ class MarkdownWikiDataSource @Inject constructor(
     }
 
     private fun stripMarkdownFormatting(value: String): String {
-        var result = value
-        result = BOLD_ASTERISK_REGEX.replace(result) { match -> match.groupValues[1] }
-        result = BOLD_UNDERSCORE_REGEX.replace(result) { match -> match.groupValues[1] }
-        result = ITALIC_ASTERISK_REGEX.replace(result) { match -> match.groupValues[1] }
-        result = ITALIC_UNDERSCORE_REGEX.replace(result) { match -> match.groupValues[1] }
-        result = CODE_REGEX.replace(result) { match -> match.groupValues[1] }
-        result = LINK_REGEX.replace(result) { match -> match.groupValues[1] }
-        return result
+        return MarkdownFormattingSanitizer.stripInlineMarkdown(value)
     }
 
     private data class FrontMatter(
@@ -234,15 +186,8 @@ class MarkdownWikiDataSource @Inject constructor(
 
     companion object {
         private const val WIKI_ROOT = "wiki"
-        private const val FRONT_MATTER_DELIMITER = "---"
         private const val DEFAULT_CATEGORY_ID = "general"
         private val NUMERIC_BULLET_REGEX = Regex("^\\d+\\.\\s+.*")
         private val NUMERIC_PREFIX_REGEX = Regex("^\\d+\\.\\s+")
-        private val BOLD_ASTERISK_REGEX = Regex("\\*\\*(.*?)\\*\\*")
-        private val BOLD_UNDERSCORE_REGEX = Regex("__(.*?)__")
-        private val ITALIC_ASTERISK_REGEX = Regex("(?<!\\*)\\*(?!\\*)([^*]+?)\\*(?!\\*)")
-        private val ITALIC_UNDERSCORE_REGEX = Regex("(?<!_)_(?!_)([^_]+?)_(?!_)")
-        private val CODE_REGEX = Regex("`([^`]+)`")
-        private val LINK_REGEX = Regex("\\[(.*?)]\\((.*?)\\)")
     }
 }

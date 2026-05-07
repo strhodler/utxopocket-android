@@ -1,10 +1,14 @@
 package com.strhodler.utxopocket.tor
 
+import android.Manifest
 import android.app.Service
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationManagerCompat
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.common.logging.SecureLog
 import com.strhodler.utxopocket.di.ApplicationScope
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -42,15 +46,11 @@ class TorForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            TorServiceActions.ACTION_START, TorServiceActions.ACTION_INIT -> startTor()
-            TorServiceActions.ACTION_STOP -> stopTor()
-            TorServiceActions.ACTION_RENEW -> renewIdentity()
-            else -> {
-                if (!torRuntimeManager.isProcessRunning()) {
-                    startTor()
-                }
-            }
+        when (resolveTorServiceCommand(intent?.action)) {
+            TorServiceCommand.START -> startTor()
+            TorServiceCommand.STOP -> stopTor()
+            TorServiceCommand.RENEW -> renewIdentity()
+            TorServiceCommand.IGNORE -> Unit
         }
         return START_STICKY
     }
@@ -99,8 +99,20 @@ class TorForegroundService : Service() {
     }
 
     private fun notify(notification: android.app.Notification) {
-        NotificationManagerCompat.from(this)
-            .notify(TorServiceActions.TOR_NOTIFICATION_ID, notification)
+        if (!canPostTorNotification(Build.VERSION.SDK_INT, hasPostNotificationsPermission())) {
+            return
+        }
+        try {
+            NotificationManagerCompat.from(this)
+                .notify(TorServiceActions.TOR_NOTIFICATION_ID, notification)
+        } catch (error: SecurityException) {
+            SecureLog.wTor(TAG, error) { "Unable to post Tor foreground notification" }
+        }
+    }
+
+    private fun hasPostNotificationsPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+        return checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     }
 
     override fun onDestroy() {
@@ -110,3 +122,25 @@ class TorForegroundService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 }
+
+internal enum class TorServiceCommand {
+    START,
+    STOP,
+    RENEW,
+    IGNORE
+}
+
+internal fun resolveTorServiceCommand(action: String?): TorServiceCommand =
+    when (action) {
+        TorServiceActions.ACTION_START,
+        TorServiceActions.ACTION_INIT -> TorServiceCommand.START
+
+        TorServiceActions.ACTION_STOP -> TorServiceCommand.STOP
+        TorServiceActions.ACTION_RENEW -> TorServiceCommand.RENEW
+        else -> TorServiceCommand.IGNORE
+    }
+
+internal fun canPostTorNotification(sdkInt: Int, postNotificationsGranted: Boolean): Boolean =
+    sdkInt < Build.VERSION_CODES.TIRAMISU || postNotificationsGranted
+
+private const val TAG = "TorForegroundService"

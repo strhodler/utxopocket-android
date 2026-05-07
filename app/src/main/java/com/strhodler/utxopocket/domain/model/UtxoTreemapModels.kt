@@ -5,8 +5,14 @@ enum class UtxoTreemapColorMode {
     Age
 }
 
+enum class DustSeverity {
+    LOW,
+    MEDIUM,
+    HIGH
+}
+
 sealed interface UtxoTreemapColor {
-    data class Dust(val severity: UtxoHealthSeverity?) : UtxoTreemapColor
+    data class Dust(val severity: DustSeverity?) : UtxoTreemapColor
     data class Age(val bucket: UtxoAgeBucket) : UtxoTreemapColor
 }
 

@@ -20,9 +20,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.strhodler.utxopocket.R
+import com.strhodler.utxopocket.domain.model.WikiTopic
 import com.strhodler.utxopocket.presentation.navigation.SetSecondaryTopBar
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.AssistChip
@@ -112,7 +113,7 @@ private fun GlossaryDetailScreen(
 @Composable
 private fun GlossaryDetailContent(
     entry: GlossaryEntry,
-    relatedWiki: List<com.strhodler.utxopocket.presentation.wiki.WikiTopic>,
+    relatedWiki: List<WikiTopic>,
     onOpenWikiTopic: (String) -> Unit,
     paddingValues: PaddingValues,
     modifier: Modifier = Modifier

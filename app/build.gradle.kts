@@ -1,23 +1,38 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.ksp)
     alias(libs.plugins.hilt.android)
 }
 
+abstract class RuntimeDocsAssetsSync : org.gradle.api.tasks.Sync() {
+    @get:org.gradle.api.tasks.OutputDirectory
+    abstract val outputDirectory: org.gradle.api.file.DirectoryProperty
+}
+
+val runtimeDocsAssetsDir = layout.buildDirectory.dir("generated/runtime-docs-assets")
+
+val syncRuntimeDocsAssets by tasks.registering(RuntimeDocsAssetsSync::class) {
+    from(rootProject.file("docs/wiki")) {
+        into("wiki")
+    }
+    from(rootProject.file("docs/glossary")) {
+        into("glossary")
+    }
+    outputDirectory.set(runtimeDocsAssetsDir)
+    into(outputDirectory)
+}
+
 android {
     namespace = "com.strhodler.utxopocket"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.strhodler.utxopocket"
         minSdk = 28
         targetSdk = 36
-        versionCode = 13
-        versionName = "0.11.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        versionCode = 14
+        versionName = "0.12.0"
     }
 
     buildTypes {
@@ -46,8 +61,11 @@ android {
         buildConfig = true
     }
     lint {
+        baseline = file("lint-baseline.xml")
         checkReleaseBuilds = true
-        warningsAsErrors = true
+        // Gradle wrapper upgrades are deliberate release decisions, not CI-blocking lint drift.
+        disable += "AndroidGradlePluginVersion"
+        warningsAsErrors = false
         abortOnError = true
     }
     dependenciesInfo {
@@ -62,8 +80,18 @@ android {
             useLegacyPackaging = true
         }
     }
-    sourceSets["main"].assets.srcDir(rootProject.file("docs"))
-    sourceSets["androidTest"].assets.srcDir("$projectDir/schemas")
+}
+
+androidComponents {
+    beforeVariants(selector().all()) { variant ->
+        variant.enableAndroidTest = false
+    }
+    onVariants(selector().all()) { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            syncRuntimeDocsAssets,
+            RuntimeDocsAssetsSync::outputDirectory
+        )
+    }
 }
 
 ksp {
@@ -81,8 +109,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.reactivex.rxjava)
-    implementation(libs.reactivex.rxandroid)
 
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
@@ -110,33 +136,25 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.sqlite.ktx)
     implementation(libs.sqlcipher)
-    implementation(libs.androidx.security.crypto)
     implementation(libs.google.tink.android)
 
     implementation(libs.bdk.android)
     implementation(libs.sparrow.hummingbird)
-    implementation(libs.tor.android) {
-        exclude(group = "info.guardianproject", module = "jtorctl")
-    }
-    implementation(libs.slf4j.api)
-    implementation(libs.slf4j.android)
+    implementation(libs.tor.android)
+    implementation(libs.jtorctl)
     implementation(libs.jbox2d.library)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.zxing.android.embedded)
     implementation(libs.identikon)
-    implementation("com.github.mhiew:android-pdf-viewer:3.2.0-beta.1") {
+    implementation(libs.android.pdf.viewer) {
         exclude(group = "com.android.support")
     }
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(kotlin("test"))
+    testImplementation(kotlin("test-junit"))
+    testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.room.testing)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

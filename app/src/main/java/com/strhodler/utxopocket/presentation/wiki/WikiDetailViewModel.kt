@@ -2,9 +2,9 @@ package com.strhodler.utxopocket.presentation.wiki
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import com.strhodler.utxopocket.data.glossary.GlossaryRepository
-import com.strhodler.utxopocket.data.wiki.WikiRepository
-import com.strhodler.utxopocket.presentation.glossary.GlossaryEntry
+import com.strhodler.utxopocket.domain.model.GlossaryEntry
+import com.strhodler.utxopocket.domain.repository.GlossaryRepository
+import com.strhodler.utxopocket.domain.repository.WikiRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

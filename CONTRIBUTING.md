@@ -5,7 +5,7 @@ Thanks for helping keep this privacy-first watch-only wallet moving. This docume
 ## 1. Before You Start
 - **Discuss first**: open a GitHub issue (English only) or comment on an existing one before writing code. Use the issue to capture acceptance criteria, UX copy, and any design references.
 - **Stay watch-only**: never introduce private key handling. All descriptors must remain public (receive + change branches).
-- **Tooling**: install JDK 21, Android Studio (SDK 36 + NDK), and clone the repo following `docs/project-setup.md`.
+- **Tooling**: install JDK 21, Android Studio (SDK 37 + NDK), and clone the repo following `docs/project-setup.md`.
 
 ## 2. Branch & Commit Style
 - Branch from `main` using `feature/<descriptor>` (e.g., `feature/tor-bootstrap-toast`).
@@ -17,11 +17,16 @@ Thanks for helping keep this privacy-first watch-only wallet moving. This docume
 - MVVM + Clean Architecture. New features belong under `app/src/main/java/com/strhodler/utxopocket` within the existing module structure.
 - Kotlin style: JetBrains defaults (see IDE tips in `docs/project-setup.md`).
 - UI strings live in `app/src/main/res/values/strings.xml` (English source). Avoid inlined text.
-- Security-sensitive paths (Tor, PIN, SQLCipher) must keep parity with the guarantees documented in `README.md`. If behavior changes, update the docs in the same PR.
+- Security-sensitive paths (connection mode policy, Tor, Local Direct validation, PIN, SQLCipher) must keep parity with the guarantees documented in `README.md` and `SECURITY.md`. If behavior changes, update the docs in the same PR.
 
 ## 4. Documentation & Wiki
 - Every user-facing change must update the relevant docs in the same PR (README, `docs/` guides, wiki Markdown, release notes).
 - Mention any new onboarding copy, glossary entries, or wiki topics in the PR template so the docs team can audit terminology quickly.
+
+Canonical docs to keep in sync when behavior changes:
+- Root docs: `README.md`, `SECURITY.md`, `CONTRIBUTING.md`, `NOTICE`, `docs/project-setup.md`, `.github/RELEASE_TEMPLATE.md`.
+- User docs: `docs/getting-started.md`, `docs/guides/**`, `docs/wiki/**`, `docs/glossary/**`.
+- Internal docs: `knowledge/**` (English only).
 
 ### 4.1 Contributing Wiki/Glossary Content
 You can contribute articles to our built-in wiki (`/docs/wiki`) and glossary (`/docs/glossary`).
@@ -46,16 +51,22 @@ Files to read before submitting:
   3. For strings that intentionally remain English (brand names, technical terms), mark them with `translatable="false"` so Android Studio stops flagging them.
 - Keep character length and tone consistent with the source; prefer concise, neutral language. If nuance is unclear, leave a comment in the PR so the docs team can review.
 
+### 4.3 Local docs stewardship workflow
+- This repository includes a local docs subagent (`docs-steward`) and commands in `opencode.json`.
+- Run `docs-impact` after feature changes to produce a documentation impact report.
+- Run `docs-sync` to draft/sync canonical docs and `knowledge/**` updates.
+- Write docs as current behavior and guarantees; do not use changelog style in canonical docs.
+
 ## 5. Pull Request Checklist
 1. Reference the issue ID and summarize the change in English.
 2. Paste the output of the required Gradle commands.
-3. Note manual test steps (Tor bootstrap, panic wipe, descriptor import, etc.) so testers can reproduce them.
+3. Note manual test steps (Tor mode, Local Direct mode, panic wipe, descriptor import, etc.) so testers can reproduce them.
 4. Highlight any docs updated (`README.md`, `docs/...`, strings) and attach screenshots for UI tweaks.
 5. Confirm no private keys or telemetry were introduced.
 
 ## 7. Reporting Bugs & Security Concerns
 - File bugs via GitHub issues with repro steps, logs, and environment details.
-- Critical security findings (Tor offline, panic wipe failure, coverage < 80%) should also be tagged `security-alert`.
+- Critical security findings (Tor-mode failures, Local Direct validation/fail-closed regressions, panic wipe failure, coverage < 80%) should also be tagged `security-alert`.
 - For sensitive disclosures, reach out privately before filing a public issue.
 
 By following this workflow we keep development, QA, release, and documentation efforts aligned, ship reproducible builds, and maintain the open-source trust model outlined in the README. Happy contributing!

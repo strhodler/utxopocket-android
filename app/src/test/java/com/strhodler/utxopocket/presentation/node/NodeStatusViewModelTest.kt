@@ -1,5 +1,8 @@
 package com.strhodler.utxopocket.presentation.node
 
+import com.strhodler.utxopocket.domain.connection.ConnectionIntent
+import com.strhodler.utxopocket.domain.connection.ConnectionSnapshot
+import com.strhodler.utxopocket.domain.connection.ConnectionState
 import com.strhodler.utxopocket.domain.model.AppLanguage
 import com.strhodler.utxopocket.domain.model.BalanceRange
 import com.strhodler.utxopocket.domain.model.BalanceUnit
@@ -7,9 +10,16 @@ import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.BlockExplorerBucket
 import com.strhodler.utxopocket.domain.model.BlockExplorerNetworkPreference
 import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
+import com.strhodler.utxopocket.domain.model.Bip329ImportResult
+import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.domain.model.CustomNode
 import com.strhodler.utxopocket.domain.model.DescriptorType
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
+import com.strhodler.utxopocket.domain.model.NetworkEndpointType
+import com.strhodler.utxopocket.domain.model.NetworkErrorLog
+import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
+import com.strhodler.utxopocket.domain.model.NetworkNodeSource
+import com.strhodler.utxopocket.domain.model.NetworkTransport
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeConnectionTestResult
@@ -18,16 +28,11 @@ import com.strhodler.utxopocket.domain.model.NodeStatusSnapshot
 import com.strhodler.utxopocket.domain.model.PinVerificationResult
 import com.strhodler.utxopocket.domain.model.PublicNode
 import com.strhodler.utxopocket.domain.model.SocksProxyConfig
+import com.strhodler.utxopocket.domain.model.SyncOperation
 import com.strhodler.utxopocket.domain.model.SyncStatusSnapshot
-import com.strhodler.utxopocket.domain.model.ThemeProfile
 import com.strhodler.utxopocket.domain.model.ThemePreference
-import com.strhodler.utxopocket.domain.model.NetworkEndpointType
-import com.strhodler.utxopocket.domain.model.NetworkErrorLog
-import com.strhodler.utxopocket.domain.model.NetworkErrorLogEvent
-import com.strhodler.utxopocket.domain.model.NetworkNodeSource
-import com.strhodler.utxopocket.domain.model.NetworkTransport
-import com.strhodler.utxopocket.domain.model.TransactionHealthParameters
-import com.strhodler.utxopocket.domain.model.UtxoHealthParameters
+import com.strhodler.utxopocket.domain.model.ThemeProfile
+import com.strhodler.utxopocket.domain.model.TorStatus
 import com.strhodler.utxopocket.domain.model.WalletAddress
 import com.strhodler.utxopocket.domain.model.WalletAddressDetail
 import com.strhodler.utxopocket.domain.model.WalletAddressType
@@ -36,29 +41,33 @@ import com.strhodler.utxopocket.domain.model.WalletCreationRequest
 import com.strhodler.utxopocket.domain.model.WalletCreationResult
 import com.strhodler.utxopocket.domain.model.WalletDetail
 import com.strhodler.utxopocket.domain.model.WalletLabelExport
-import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.WalletSummary
 import com.strhodler.utxopocket.domain.model.WalletTransaction
 import com.strhodler.utxopocket.domain.model.WalletTransactionSort
 import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
-import com.strhodler.utxopocket.presentation.node.NodeStatusUiState
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
-import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
 import com.strhodler.utxopocket.domain.repository.NetworkErrorLogRepository
-import com.strhodler.utxopocket.domain.repository.WalletRepository
+import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
+import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
+import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
 import com.strhodler.utxopocket.domain.service.NodeConnectionTester
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -66,6 +75,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class NodeStatusViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
@@ -75,6 +85,7 @@ class NodeStatusViewModelTest {
     private lateinit var walletRepository: TestWalletRepository
     private lateinit var nodeConnectionTester: RecordingNodeConnectionTester
     private lateinit var networkErrorLogRepository: TestNetworkErrorLogRepository
+    private lateinit var connectionOrchestrator: TestConnectionOrchestrator
     private lateinit var viewModel: NodeStatusViewModel
 
     @BeforeTest
@@ -86,12 +97,14 @@ class NodeStatusViewModelTest {
         walletRepository = TestWalletRepository()
         nodeConnectionTester = RecordingNodeConnectionTester()
         networkErrorLogRepository = TestNetworkErrorLogRepository()
+        connectionOrchestrator = TestConnectionOrchestrator()
         viewModel = NodeStatusViewModel(
             appPreferencesRepository = preferencesRepository,
             nodeConfigurationRepository = nodeConfigurationRepository,
             nodeConnectionTester = nodeConnectionTester,
-            walletRepository = walletRepository,
-            networkErrorLogRepository = networkErrorLogRepository
+            walletSyncRepository = walletRepository,
+            networkErrorLogRepository = networkErrorLogRepository,
+            connectionOrchestrator = connectionOrchestrator
         )
     }
 
@@ -102,7 +115,7 @@ class NodeStatusViewModelTest {
     }
 
     @Test
-    fun disconnectNodeClearsSelectionsAndRefreshes() = runTest {
+    fun disconnectNodeClearsSelectionsAndSendsOrchestratorIntent() = runTest {
         nodeConfigurationRepository.updateNodeConfig {
             it.copy(
                 connectionOption = NodeConnectionOption.PUBLIC,
@@ -116,7 +129,414 @@ class NodeStatusViewModelTest {
 
         val updatedConfig = nodeConfigurationRepository.nodeConfig.value
         assertNull(updatedConfig.selectedPublicNodeId)
-        assertEquals(listOf(BitcoinNetwork.TESTNET), walletRepository.refreshCalls)
+        assertEquals(
+            listOf<ConnectionIntent>(ConnectionIntent.Disconnect),
+            connectionOrchestrator.intents
+        )
+    }
+
+    @Test
+    fun retryNodeConnectionSendsRetryIntent() = runTest {
+        viewModel.retryNodeConnection()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf<ConnectionIntent>(ConnectionIntent.Retry),
+            connectionOrchestrator.intents
+        )
+    }
+
+    @Test
+    fun removingActivePublicNodeWithFallbackRequestsReconnect() = runTest {
+        nodeConfigurationRepository.setPublicNodes(
+            BitcoinNetwork.TESTNET,
+            listOf(
+                PublicNode(
+                    id = "pub-a",
+                    displayName = "A",
+                    endpoint = "ssl://a:50002",
+                    network = BitcoinNetwork.TESTNET
+                ),
+                PublicNode(
+                    id = "pub-b",
+                    displayName = "B",
+                    endpoint = "ssl://b:50002",
+                    network = BitcoinNetwork.TESTNET
+                )
+            )
+        )
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionOption = NodeConnectionOption.PUBLIC, selectedPublicNodeId = "pub-a")
+        }
+        advanceUntilIdle()
+
+        viewModel.onRemovePublicNode("pub-a")
+        advanceUntilIdle()
+
+        assertEquals(ConnectionIntent.Start, connectionOrchestrator.intents.last())
+        assertEquals("pub-b", nodeConfigurationRepository.nodeConfig.value.selectedPublicNodeId)
+    }
+
+    @Test
+    fun removingLastActivePublicNodeRequestsDisconnect() = runTest {
+        nodeConfigurationRepository.setPublicNodes(
+            BitcoinNetwork.TESTNET,
+            listOf(
+                PublicNode(
+                    id = "pub-only",
+                    displayName = "Only",
+                    endpoint = "ssl://solo:50002",
+                    network = BitcoinNetwork.TESTNET
+                )
+            )
+        )
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionOption = NodeConnectionOption.PUBLIC, selectedPublicNodeId = "pub-only")
+        }
+        advanceUntilIdle()
+
+        viewModel.onRemovePublicNode("pub-only")
+        advanceUntilIdle()
+
+        assertEquals(ConnectionIntent.Disconnect, connectionOrchestrator.intents.last())
+        assertNull(nodeConfigurationRepository.nodeConfig.value.selectedPublicNodeId)
+    }
+
+    @Test
+    fun deletingActiveCustomNodeWithoutFallbackRequestsDisconnect() = runTest {
+        val custom = CustomNode(
+            id = "custom-1",
+            endpoint = "tcp://abc123def.onion:50001",
+            name = "Custom",
+            network = BitcoinNetwork.TESTNET
+        )
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(
+                connectionOption = NodeConnectionOption.CUSTOM,
+                customNodes = listOf(custom),
+                selectedCustomNodeId = custom.id
+            )
+        }
+        advanceUntilIdle()
+
+        viewModel.onDeleteCustomNode(custom.id)
+        advanceUntilIdle()
+
+        assertEquals(ConnectionIntent.Disconnect, connectionOrchestrator.intents.last())
+        assertNull(nodeConfigurationRepository.nodeConfig.value.selectedCustomNodeId)
+    }
+
+    @Test
+    fun confirmingLocalDirectModeClearsPublicSelectionAndForcesCustomOption() = runTest {
+        nodeConfigurationRepository.setPublicNodes(
+            BitcoinNetwork.TESTNET,
+            listOf(
+                PublicNode(
+                    id = "pub-a",
+                    displayName = "Preset A",
+                    endpoint = "ssl://preset-a:50002",
+                    network = BitcoinNetwork.TESTNET
+                )
+            )
+        )
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(
+                connectionMode = ConnectionMode.TOR_DEFAULT,
+                connectionOption = NodeConnectionOption.PUBLIC,
+                selectedPublicNodeId = "pub-a"
+            )
+        }
+        advanceUntilIdle()
+
+        viewModel.onConnectionModeSelectionRequested(ConnectionMode.LOCAL_DIRECT)
+        assertEquals(ConnectionMode.LOCAL_DIRECT, viewModel.uiState.value.pendingModeChange)
+
+        viewModel.onConfirmConnectionModeChange()
+        advanceUntilIdle()
+
+        val updated = nodeConfigurationRepository.nodeConfig.value
+        assertEquals(ConnectionMode.LOCAL_DIRECT, updated.connectionMode)
+        assertEquals(NodeConnectionOption.CUSTOM, updated.connectionOption)
+        assertNull(updated.selectedPublicNodeId)
+        assertNull(viewModel.uiState.value.pendingModeChange)
+    }
+
+    @Test
+    fun confirmingLocalDirectModeClearsAllSelectionsAndDisconnectsUntilExplicitSelection() = runTest {
+        val localCustom = CustomNode(
+            id = "local-custom",
+            endpoint = "tcp://192.168.1.10:50001",
+            name = "Local",
+            network = BitcoinNetwork.TESTNET
+        )
+        nodeConfigurationRepository.setPublicNodes(
+            BitcoinNetwork.TESTNET,
+            listOf(
+                PublicNode(
+                    id = "pub-a",
+                    displayName = "Preset A",
+                    endpoint = "ssl://preset-a:50002",
+                    network = BitcoinNetwork.TESTNET
+                )
+            )
+        )
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(
+                connectionMode = ConnectionMode.TOR_DEFAULT,
+                connectionOption = NodeConnectionOption.PUBLIC,
+                selectedPublicNodeId = "pub-a",
+                customNodes = listOf(localCustom),
+                selectedCustomNodeId = localCustom.id
+            )
+        }
+        advanceUntilIdle()
+
+        viewModel.onConnectionModeSelectionRequested(ConnectionMode.LOCAL_DIRECT)
+        viewModel.onConfirmConnectionModeChange()
+        advanceUntilIdle()
+
+        val updated = nodeConfigurationRepository.nodeConfig.value
+        assertEquals(ConnectionMode.LOCAL_DIRECT, updated.connectionMode)
+        assertEquals(NodeConnectionOption.CUSTOM, updated.connectionOption)
+        assertNull(updated.selectedPublicNodeId)
+        assertNull(updated.selectedCustomNodeId)
+        assertEquals(
+            listOf<ConnectionIntent>(ConnectionIntent.Disconnect),
+            connectionOrchestrator.intents
+        )
+        assertFalse(connectionOrchestrator.intents.contains(ConnectionIntent.Start))
+    }
+
+    @Test
+    fun confirmingTorDefaultModeClearsAllSelectionsAndDisconnectsUntilExplicitSelection() = runTest {
+        val localCustom = CustomNode(
+            id = "local-custom",
+            endpoint = "tcp://192.168.1.10:50001",
+            name = "Local",
+            network = BitcoinNetwork.TESTNET
+        )
+        nodeConfigurationRepository.setPublicNodes(
+            BitcoinNetwork.TESTNET,
+            listOf(
+                PublicNode(
+                    id = "pub-a",
+                    displayName = "Preset A",
+                    endpoint = "ssl://preset-a:50002",
+                    network = BitcoinNetwork.TESTNET
+                )
+            )
+        )
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(
+                connectionMode = ConnectionMode.LOCAL_DIRECT,
+                connectionOption = NodeConnectionOption.CUSTOM,
+                selectedPublicNodeId = "pub-a",
+                customNodes = listOf(localCustom),
+                selectedCustomNodeId = localCustom.id
+            )
+        }
+        advanceUntilIdle()
+
+        viewModel.onConnectionModeSelectionRequested(ConnectionMode.TOR_DEFAULT)
+        viewModel.onConfirmConnectionModeChange()
+        advanceUntilIdle()
+
+        val updated = nodeConfigurationRepository.nodeConfig.value
+        assertEquals(ConnectionMode.TOR_DEFAULT, updated.connectionMode)
+        assertEquals(NodeConnectionOption.PUBLIC, updated.connectionOption)
+        assertNull(updated.selectedPublicNodeId)
+        assertNull(updated.selectedCustomNodeId)
+        assertEquals(
+            listOf<ConnectionIntent>(ConnectionIntent.Disconnect),
+            connectionOrchestrator.intents
+        )
+        assertFalse(connectionOrchestrator.intents.contains(ConnectionIntent.Start))
+    }
+
+    @Test
+    fun selectingPublicNodeIsIgnoredInLocalDirectMode() = runTest {
+        nodeConfigurationRepository.setPublicNodes(
+            BitcoinNetwork.TESTNET,
+            listOf(
+                PublicNode(
+                    id = "pub-a",
+                    displayName = "Preset A",
+                    endpoint = "ssl://preset-a:50002",
+                    network = BitcoinNetwork.TESTNET
+                )
+            )
+        )
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(
+                connectionMode = ConnectionMode.LOCAL_DIRECT,
+                connectionOption = NodeConnectionOption.CUSTOM,
+                selectedPublicNodeId = null
+            )
+        }
+        advanceUntilIdle()
+
+        viewModel.onPublicNodeSelected("pub-a")
+        advanceUntilIdle()
+
+        assertNull(nodeConfigurationRepository.nodeConfig.value.selectedPublicNodeId)
+    }
+
+    @Test
+    fun qrHostPortUpdatesEditorInLocalDirectMode() = runTest {
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionMode = ConnectionMode.LOCAL_DIRECT)
+        }
+        advanceUntilIdle()
+
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onCustomNodeQrParsed(
+            NodeQrParseResult.HostPort(
+                host = "192.168.1.10",
+                port = "50001",
+                useSsl = false
+            )
+        )
+
+        val state = viewModel.uiState.value
+        assertEquals("192.168.1.10", state.newCustomOnion)
+        assertEquals("50001", state.newCustomPort)
+        assertNull(state.customNodeError)
+    }
+
+    @Test
+    fun qrOnionShowsModeErrorInLocalDirectMode() = runTest {
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionMode = ConnectionMode.LOCAL_DIRECT)
+        }
+        advanceUntilIdle()
+        val events = mutableListOf<NodeStatusViewModel.NodeStatusEvent>()
+        val job = launch { viewModel.events.collect { events.add(it) } }
+
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onCustomNodeQrParsed(
+            NodeQrParseResult.Onion(
+                host = "abc123.onion",
+                port = "50001"
+            )
+        )
+        advanceUntilIdle()
+
+        val error = viewModel.uiState.value.customNodeError.orEmpty()
+        val message = events.mapNotNull { it.textOrNull() }.firstOrNull().orEmpty()
+        assertTrue(error.contains("private/local", ignoreCase = true))
+        assertTrue(message.contains("private/local", ignoreCase = true))
+        job.cancel()
+    }
+
+    @Test
+    fun qrHostPortShowsModeErrorInTorDefaultMode() = runTest {
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionMode = ConnectionMode.TOR_DEFAULT)
+        }
+        advanceUntilIdle()
+        val events = mutableListOf<NodeStatusViewModel.NodeStatusEvent>()
+        val job = launch { viewModel.events.collect { events.add(it) } }
+
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onCustomNodeQrParsed(
+            NodeQrParseResult.HostPort(
+                host = "192.168.1.10",
+                port = "50001",
+                useSsl = false
+            )
+        )
+        advanceUntilIdle()
+
+        val error = viewModel.uiState.value.customNodeError.orEmpty()
+        val message = events.mapNotNull { it.textOrNull() }.firstOrNull().orEmpty()
+        assertTrue(error.contains(".onion", ignoreCase = true))
+        assertTrue(message.contains(".onion", ignoreCase = true))
+        job.cancel()
+    }
+
+    @Test
+    fun qrHostPortRejectsHostnameInLocalDirectMode() = runTest {
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionMode = ConnectionMode.LOCAL_DIRECT)
+        }
+        advanceUntilIdle()
+        val events = mutableListOf<NodeStatusViewModel.NodeStatusEvent>()
+        val job = launch { viewModel.events.collect { events.add(it) } }
+
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onCustomNodeQrParsed(
+            NodeQrParseResult.HostPort(
+                host = "umbrel.local",
+                port = "50001",
+                useSsl = false
+            )
+        )
+        advanceUntilIdle()
+
+        val error = viewModel.uiState.value.customNodeError.orEmpty()
+        val message = events.mapNotNull { it.textOrNull() }.firstOrNull().orEmpty()
+        assertTrue(error.contains("private/local", ignoreCase = true))
+        assertTrue(message.contains("private/local", ignoreCase = true))
+        job.cancel()
+    }
+
+    @Test
+    fun addCustomNodeShowsNetworkMismatchErrorAndSkipsPersist() = runTest {
+        preferencesRepository.setPreferredNetwork(BitcoinNetwork.TESTNET4)
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionMode = ConnectionMode.LOCAL_DIRECT)
+        }
+        nodeConnectionTester.nextResult = NodeConnectionTestResult.NetworkMismatch(
+            expectedNetwork = BitcoinNetwork.TESTNET4,
+            detectedNetwork = BitcoinNetwork.TESTNET
+        )
+        advanceUntilIdle()
+        val events = mutableListOf<NodeStatusViewModel.NodeStatusEvent>()
+        val job = launch { viewModel.events.collect { events.add(it) } }
+
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onNewCustomOnionChanged("192.168.8.225")
+        viewModel.onNewCustomPortChanged("50001")
+        viewModel.onTestAndAddCustomNode()
+        advanceUntilIdle()
+
+        val error = viewModel.uiState.value.customNodeError.orEmpty()
+        val message = events.mapNotNull { it.textOrNull() }.firstOrNull().orEmpty()
+        assertTrue(error.contains("testnet4", ignoreCase = true))
+        assertTrue(error.contains("testnet", ignoreCase = true))
+        assertTrue(message.contains("testnet4", ignoreCase = true))
+        assertTrue(message.contains("testnet", ignoreCase = true))
+        assertTrue(nodeConfigurationRepository.nodeConfig.value.customNodes.isEmpty())
+        job.cancel()
+    }
+
+    @Test
+    fun customNodeFailureRedactsEndpointFromDisplayedError() = runTest {
+        nodeConfigurationRepository.updateNodeConfig {
+            it.copy(connectionMode = ConnectionMode.LOCAL_DIRECT)
+        }
+        nodeConnectionTester.nextResult = NodeConnectionTestResult.Failure(
+            "Failed to connect to tcp://192.168.1.77:50001"
+        )
+        advanceUntilIdle()
+        val events = mutableListOf<NodeStatusViewModel.NodeStatusEvent>()
+        val job = launch { viewModel.events.collect { events.add(it) } }
+
+        viewModel.onAddCustomNodeClicked()
+        viewModel.onNewCustomOnionChanged("192.168.1.77")
+        viewModel.onNewCustomPortChanged("50001")
+        viewModel.onTestAndAddCustomNode()
+        advanceUntilIdle()
+
+        val error = viewModel.uiState.value.customNodeError.orEmpty()
+        val message = events.mapNotNull { it.textOrNull() }.firstOrNull().orEmpty()
+        assertFalse(error.contains("192.168.1.77"))
+        assertFalse(error.contains("50001"))
+        assertTrue(error.contains("[redacted]"))
+        assertFalse(message.contains("192.168.1.77"))
+        assertFalse(message.contains("50001"))
+        assertTrue(message.contains("[redacted]"))
+        job.cancel()
     }
 
     @Test
@@ -141,11 +561,22 @@ class NodeStatusViewModelTest {
         assertEquals("example123.onion:60001", nodeConnectionTester.lastNode?.name)
     }
 
+    @Test
+    fun eventsAreExposedAsReadOnlyFlow() {
+        assertFalse(viewModel.events is MutableSharedFlow<*>)
+    }
+
+    private fun NodeStatusViewModel.NodeStatusEvent.textOrNull(): String? = when (this) {
+        is NodeStatusViewModel.NodeStatusEvent.Info -> null
+        is NodeStatusViewModel.NodeStatusEvent.Message -> message
+    }
+
     private class TestAppPreferencesRepository : AppPreferencesRepository {
         private val _preferredNetwork = MutableStateFlow(BitcoinNetwork.TESTNET)
         private val _balanceUnit = MutableStateFlow(BalanceUnit.SATS)
         private val _balancesHidden = MutableStateFlow(false)
         private val _hapticsEnabled = MutableStateFlow(false)
+        private val _calculatorGateEnabled = MutableStateFlow(false)
         private val _connectionIdleTimeoutMinutes = MutableStateFlow(
             AppPreferencesRepository.DEFAULT_CONNECTION_IDLE_MINUTES
         )
@@ -166,22 +597,17 @@ class NodeStatusViewModelTest {
         override val walletBalanceRange: StateFlow<BalanceRange> = MutableStateFlow(BalanceRange.All)
         override val showBalanceChart: StateFlow<Boolean> = MutableStateFlow(false)
         override val pinShuffleEnabled: StateFlow<Boolean> = MutableStateFlow(false)
+        override val calculatorGateEnabled: StateFlow<Boolean> = _calculatorGateEnabled
         override val advancedMode: StateFlow<Boolean> = MutableStateFlow(false)
         override val pinAutoLockTimeoutMinutes: StateFlow<Int> =
             MutableStateFlow(AppPreferencesRepository.DEFAULT_PIN_AUTO_LOCK_MINUTES)
         override val connectionIdleTimeoutMinutes: StateFlow<Int> = _connectionIdleTimeoutMinutes
         override val pinLastUnlockedAt: StateFlow<Long?> = MutableStateFlow(null)
         override val dustThresholdSats: StateFlow<Long> = MutableStateFlow(0L)
-        override val transactionAnalysisEnabled: StateFlow<Boolean> = MutableStateFlow(true)
-        override val utxoHealthEnabled: StateFlow<Boolean> = MutableStateFlow(true)
-        override val walletHealthEnabled: StateFlow<Boolean> = MutableStateFlow(false)
-        override val transactionHealthParameters: StateFlow<TransactionHealthParameters> =
-            MutableStateFlow(TransactionHealthParameters())
-        override val utxoHealthParameters: StateFlow<UtxoHealthParameters> =
-            MutableStateFlow(UtxoHealthParameters())
         override val networkLogsEnabled: StateFlow<Boolean> = _networkLogsEnabled
         override val networkLogsInfoSeen: StateFlow<Boolean> = _networkLogsInfoSeen
         override val blockExplorerPreferences: StateFlow<BlockExplorerPreferences> = blockExplorerPreferencesState
+        override val duressConfigured: StateFlow<Boolean> = MutableStateFlow(false)
 
         override suspend fun setOnboardingCompleted(completed: Boolean) = Unit
 
@@ -190,8 +616,12 @@ class NodeStatusViewModelTest {
         }
 
         override suspend fun setPin(pin: String) = Unit
+        override suspend fun setDuressPin(pin: String) = Unit
+        override suspend fun clearDuressPin() = Unit
         override suspend fun clearPin() = Unit
         override suspend fun verifyPin(pin: String) = PinVerificationResult.NotConfigured
+
+        override suspend fun verifyPinIgnoringDuress(pin: String) = verifyPin(pin)
         override suspend fun setPinAutoLockTimeoutMinutes(minutes: Int) = Unit
         override suspend fun markPinUnlocked(timestampMillis: Long) = Unit
         override suspend fun setThemePreference(themePreference: ThemePreference) = Unit
@@ -228,14 +658,10 @@ class NodeStatusViewModelTest {
         override suspend fun setConnectionIdleTimeoutMinutes(minutes: Int) {
             _connectionIdleTimeoutMinutes.value = minutes
         }
-        override suspend fun setTransactionAnalysisEnabled(enabled: Boolean) = Unit
-        override suspend fun setUtxoHealthEnabled(enabled: Boolean) = Unit
-        override suspend fun setWalletHealthEnabled(enabled: Boolean) = Unit
         override suspend fun setPinShuffleEnabled(enabled: Boolean) = Unit
-        override suspend fun setTransactionHealthParameters(parameters: TransactionHealthParameters) = Unit
-        override suspend fun setUtxoHealthParameters(parameters: UtxoHealthParameters) = Unit
-        override suspend fun resetTransactionHealthParameters() = Unit
-        override suspend fun resetUtxoHealthParameters() = Unit
+        override suspend fun setCalculatorGateEnabled(enabled: Boolean) {
+            _calculatorGateEnabled.value = enabled
+        }
         override suspend fun setNetworkLogsEnabled(enabled: Boolean) {
             _networkLogsEnabled.value = enabled
         }
@@ -336,24 +762,22 @@ class NodeStatusViewModelTest {
 
     private class TestNodeConfigurationRepository : NodeConfigurationRepository {
         private val mutableConfig = MutableStateFlow(NodeConfig())
+        private val mutablePublicNodes = MutableStateFlow<Map<BitcoinNetwork, List<PublicNode>>>(emptyMap())
         override val nodeConfig: StateFlow<NodeConfig> = mutableConfig
 
-        override fun publicNodesFor(network: BitcoinNetwork): List<PublicNode> =
-            emptyList()
+        override fun publicNodesFor(network: BitcoinNetwork, excludedIds: Set<String>): List<PublicNode> =
+            mutablePublicNodes.value[network].orEmpty().filterNot { it.id in excludedIds }
 
         override suspend fun updateNodeConfig(mutator: (NodeConfig) -> NodeConfig) {
             mutableConfig.value = mutator(mutableConfig.value)
         }
+
+        fun setPublicNodes(network: BitcoinNetwork, nodes: List<PublicNode>) {
+            mutablePublicNodes.value = mutablePublicNodes.value + (network to nodes)
+        }
     }
 
-    private class TestWalletRepository : WalletRepository {
-        val refreshCalls = mutableListOf<BitcoinNetwork>()
-
-        override fun observeWalletSummaries(network: BitcoinNetwork): Flow<List<WalletSummary>> =
-            flowOf(emptyList())
-
-        override fun observeWalletDetail(id: Long): Flow<WalletDetail?> = flowOf(null)
-
+    private class TestWalletRepository : WalletSyncRepository {
         override fun observeNodeStatus(): Flow<NodeStatusSnapshot> =
             MutableStateFlow(
                 NodeStatusSnapshot(
@@ -370,105 +794,33 @@ class NodeStatusViewModelTest {
                 )
             )
 
-        override fun pageWalletTransactions(
-            id: Long,
-            sort: WalletTransactionSort,
-            showLabeled: Boolean,
-            showUnlabeled: Boolean,
-            showReceived: Boolean,
-            showSent: Boolean
-        ): Flow<androidx.paging.PagingData<WalletTransaction>> =
-            throw UnsupportedOperationException()
+        override suspend fun refresh(network: BitcoinNetwork) = Unit
 
-        override fun pageWalletUtxos(
-            id: Long,
-            sort: WalletUtxoSort,
-            showLabeled: Boolean,
-            showUnlabeled: Boolean,
-            showSpendable: Boolean,
-            showNotSpendable: Boolean
-        ): Flow<androidx.paging.PagingData<WalletUtxo>> =
-            throw UnsupportedOperationException()
-
-        override fun observeTransactionCount(id: Long): Flow<Int> = flowOf(0)
-
-        override fun observeUtxoCount(id: Long): Flow<Int> = flowOf(0)
-
-        override fun observeAddressReuseCounts(id: Long): Flow<Map<String, Int>> = flowOf(emptyMap())
-
-        override suspend fun refresh(network: BitcoinNetwork) {
-            refreshCalls += network
-        }
-
-        override suspend fun refreshWallet(walletId: Long) = Unit
+        override suspend fun refreshWallet(walletId: Long, operation: SyncOperation) = Unit
         override suspend fun disconnect(network: BitcoinNetwork) = Unit
         override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
-
-        override suspend fun validateDescriptor(
-            descriptor: String,
-            changeDescriptor: String?,
-            network: BitcoinNetwork
-        ): DescriptorValidationResult =
-            DescriptorValidationResult.Valid(
-                descriptor = descriptor,
-                changeDescriptor = changeDescriptor,
-                type = DescriptorType.OTHER,
-                hasWildcard = descriptor.contains("*")
-            )
-
-        override suspend fun addWallet(request: WalletCreationRequest): WalletCreationResult =
-            WalletCreationResult.Failure("not implemented")
-
-        override suspend fun deleteWallet(id: Long) = Unit
-
-        override suspend fun wipeAllWalletData() = Unit
-
-        override suspend fun updateWalletColor(id: Long, color: WalletColor) = Unit
-
-        override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
-
-        override suspend fun listUnusedAddresses(
-            walletId: Long,
-            type: WalletAddressType,
-            limit: Int
-        ): List<WalletAddress> = emptyList()
-
-        override suspend fun revealNextAddress(
-            walletId: Long,
-            type: WalletAddressType
-        ): WalletAddress? = null
-
-        override suspend fun getAddressDetail(
-            walletId: Long,
-            type: WalletAddressType,
-            derivationIndex: Int
-        ): WalletAddressDetail? = null
-
-        override suspend fun markAddressAsUsed(walletId: Long, type: WalletAddressType, derivationIndex: Int) = Unit
-
-        override suspend fun updateUtxoLabel(walletId: Long, txid: String, vout: Int, label: String?) = Unit
-
-        override suspend fun updateTransactionLabel(walletId: Long, txid: String, label: String?) = Unit
-
-        override suspend fun updateUtxoSpendable(walletId: Long, txid: String, vout: Int, spendable: Boolean?) = Unit
-
-        override suspend fun renameWallet(id: Long, name: String) = Unit
-
-        override suspend fun exportWalletLabels(walletId: Long): WalletLabelExport =
-            WalletLabelExport(fileName = "labels.jsonl", entries = emptyList())
-
-        override suspend fun importWalletLabels(walletId: Long, payload: ByteArray): Bip329ImportResult =
-            Bip329ImportResult(0, 0, 0, 0, 0)
 
         override fun setSyncForegroundState(isForeground: Boolean) = Unit
     }
 
     private class RecordingNodeConnectionTester : NodeConnectionTester {
         var lastNode: CustomNode? = null
+        var nextResult: NodeConnectionTestResult = NodeConnectionTestResult.Success()
 
         override suspend fun test(node: CustomNode): NodeConnectionTestResult {
             lastNode = node
-            return NodeConnectionTestResult.Success()
+            return nextResult
+        }
+    }
+
+    private class TestConnectionOrchestrator : ConnectionOrchestrator {
+        private val mutableSnapshot = MutableStateFlow(ConnectionSnapshot(state = ConnectionState.IDLE))
+        val intents = mutableListOf<ConnectionIntent>()
+
+        override val snapshot: StateFlow<ConnectionSnapshot> = mutableSnapshot
+
+        override fun onIntent(intent: ConnectionIntent) {
+            intents += intent
         }
     }
 
@@ -499,7 +851,7 @@ class NodeStatusViewModelTest {
                 hostHash = null,
                 port = null,
                 usedTor = event.usedTor,
-                torBootstrapPercent = event.torStatus?.progress,
+                torBootstrapPercent = (event.torStatus as? TorStatus.Connecting)?.progress,
                 errorKind = event.error::class.simpleName,
                 errorMessage = event.error.message ?: "",
                 durationMs = event.durationMs,
