@@ -1,0 +1,32 @@
+repository: https://github.com/strhodler/utxopocket-android
+pubkey: npub1dd3k7ku95jhpyh9y7pgx9qrh2ykvtfl5lnncqzzt2gyhgw0a04ysm4paad
+match: '^UtxoPocket-v[0-9]+\.[0-9]+\.[0-9]+\.apk$'
+
+name: UtxoPocket
+summary: Privacy-first Android watch-only wallet for Bitcoin descriptors and UTXO inspection.
+description: |
+  UtxoPocket helps you monitor Bitcoin wallets from public descriptors without turning your phone into a signer.
+
+  It focuses on wallet visibility, UTXO review, private Electrum connectivity, and local-first education for users who want to inspect their wallet state without exposing signing material.
+
+  UtxoPocket is watch-only by design. It never handles seeds, private keys, WIF values, xprv/tprv values, PSBT signing, transaction construction, or transaction finalization.
+
+  Features:
+  - Import public Bitcoin descriptors by paste or QR, including receive/change pairs and BIP-389 multipath exports.
+  - Monitor multiple wallets across Mainnet, Testnet3, Testnet4, and Signet.
+  - Inspect balances, transactions, UTXOs, labels, value bands, age, spendability, collections, and transaction flows.
+  - Import and export BIP-329 labels and encrypted watch-only backups.
+  - Use Tor-by-default Electrum sync, custom onion endpoints, or explicit Local Direct mode for trusted private/local infrastructure.
+  - Keep wallet data local with SQLCipher/Tink-backed storage, optional PIN, duress PIN, calculator camouflage, and panic wipe.
+  - Run without analytics, crash reporters, ad SDKs, explorer lookups, or remote attribution services.
+tags:
+  - bitcoin
+  - wallet
+  - privacy
+  - watch-only
+  - tools
+license: MIT
+website: https://github.com/strhodler/utxopocket-android
+icon: app/src/main/ic_launcher-store.png
+metadata_sources:
+  - github

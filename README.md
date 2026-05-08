@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="app/src/main/ic_launcher-playstore.png" width="96" alt="UtxoPocket logo" />
+  <img src="app/src/main/ic_launcher-store.png" width="96" alt="UtxoPocket logo" />
 
   # UtxoPocket
 
