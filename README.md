@@ -7,6 +7,7 @@
 
   [![Android Checks](https://img.shields.io/github/actions/workflow/status/strhodler/utxopocket-android/android-checks.yml?style=flat-square&label=Android%20checks)](https://github.com/strhodler/utxopocket-android/actions/workflows/android-checks.yml)
   [![Latest Release](https://img.shields.io/github/v/release/strhodler/utxopocket-android?style=flat-square&label=Release)](https://github.com/strhodler/utxopocket-android/releases)
+  [![Zapstore](https://img.shields.io/badge/Zapstore-Install-7c3aed?style=flat-square)](https://zapstore.dev/apps/com.strhodler.utxopocket)
   ![Kotlin](https://img.shields.io/badge/Kotlin-2.3-7f52ff?style=flat-square&logo=kotlin&logoColor=white)
   ![JDK](https://img.shields.io/badge/JDK-21-437291?style=flat-square)
   ![minSdk](https://img.shields.io/badge/minSdk-28-3ddc84?style=flat-square&logo=android&logoColor=white)
@@ -38,6 +39,7 @@ UtxoPocket helps you monitor Bitcoin wallets from public descriptors without tur
 
 ## Install
 
+- Install from [Zapstore](https://zapstore.dev/apps/com.strhodler.utxopocket).
 - Download the latest APK, checksums, and release notes from [GitHub Releases](https://github.com/strhodler/utxopocket-android/releases).
 - Or add this repository to [Obtainium](https://github.com/ImranR98/Obtainium) to follow tagged GitHub releases.
 - Verify release artifacts with the published checksums and signing certificate fingerprints before installing.
