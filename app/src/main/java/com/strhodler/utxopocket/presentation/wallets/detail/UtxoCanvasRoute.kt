@@ -688,7 +688,7 @@ private fun CollectionTileCard(
             Text(
                 text = collection.name,
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
