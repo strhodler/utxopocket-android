@@ -10,6 +10,7 @@ import com.strhodler.utxopocket.domain.model.UtxoStatus
 import com.strhodler.utxopocket.domain.model.WalletAddressType
 import com.strhodler.utxopocket.domain.model.WalletColor
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -33,6 +34,35 @@ class WalletDaoTest {
             .allowMainThreadQueries()
             .build()
         walletDao = requireNotNull(database).walletDao()
+    }
+
+    @Test
+    fun updateWalletSortOrderChangesObservedOrder() = runTest {
+        val firstId = insertWallet(id = 10L, name = "Alpha", network = BitcoinNetwork.TESTNET4, sortOrder = 0)
+        val secondId = insertWallet(id = 11L, name = "Beta", network = BitcoinNetwork.TESTNET4, sortOrder = 1)
+        val thirdId = insertWallet(id = 12L, name = "Gamma", network = BitcoinNetwork.TESTNET4, sortOrder = 2)
+
+        walletDao.updateWalletSortOrder(
+            id = firstId,
+            network = BitcoinNetwork.TESTNET4.name,
+            sortOrder = 2
+        )
+        walletDao.updateWalletSortOrder(
+            id = secondId,
+            network = BitcoinNetwork.TESTNET4.name,
+            sortOrder = 0
+        )
+        walletDao.updateWalletSortOrder(
+            id = thirdId,
+            network = BitcoinNetwork.TESTNET4.name,
+            sortOrder = 1
+        )
+
+        val orderedNames = walletDao.observeWalletsWithUtxoCount(BitcoinNetwork.TESTNET4.name)
+            .first()
+            .map { it.wallet.name }
+
+        assertEquals(listOf("Beta", "Gamma", "Alpha"), orderedNames)
     }
 
     @AfterTest
@@ -340,14 +370,19 @@ class WalletDaoTest {
         assertNull(transaction.blockHash)
     }
 
-    private suspend fun insertWallet(walletId: Long) {
+    private suspend fun insertWallet(
+        id: Long,
+        name: String = "test",
+        network: BitcoinNetwork = BitcoinNetwork.TESTNET,
+        sortOrder: Int = 0
+    ): Long {
         walletDao.upsert(
             WalletEntity(
-                id = walletId,
-                name = "test",
+                id = id,
+                name = name,
                 descriptor = "desc",
                 changeDescriptor = null,
-                network = BitcoinNetwork.TESTNET.name,
+                network = network.name,
                 balanceSats = 0,
                 transactionCount = 0,
                 lastSyncStatus = "IDLE",
@@ -357,8 +392,10 @@ class WalletDaoTest {
                 sharedDescriptors = false,
                 lastFullScanTime = null,
                 viewOnly = false,
-                color = WalletColor.DEFAULT.storageKey
+                color = WalletColor.DEFAULT.storageKey,
+                sortOrder = sortOrder
             )
         )
+        return id
     }
 }

@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.strhodler.utxopocket.data.db.UtxoPocketDatabase
 import com.strhodler.utxopocket.data.db.WalletDao
+import com.strhodler.utxopocket.data.db.WalletEntity
 import com.strhodler.utxopocket.domain.model.BitcoinNetwork
 import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
 import com.strhodler.utxopocket.domain.model.WalletCreationRequest
@@ -110,6 +111,40 @@ class WalletProvisioningManagerTest {
         assertEquals(0, walletDao.getAllWallets().size)
     }
 
+    @Test
+    fun reorderWalletsPersistsRequestedNetworkOrder() = runTest {
+        val manager = createManager(StandardTestDispatcher(testScheduler))
+        val firstId = insertWallet(name = "Alpha", network = BitcoinNetwork.TESTNET4, sortOrder = 0)
+        val secondId = insertWallet(name = "Beta", network = BitcoinNetwork.TESTNET4, sortOrder = 1)
+        val thirdId = insertWallet(name = "Gamma", network = BitcoinNetwork.TESTNET4, sortOrder = 2)
+
+        manager.reorderWallets(
+            network = BitcoinNetwork.TESTNET4,
+            orderedWalletIds = listOf(thirdId, firstId, secondId)
+        )
+
+        val orderedNames = walletDao.getWalletsSnapshot(BitcoinNetwork.TESTNET4.name).map { it.name }
+        assertEquals(listOf("Gamma", "Alpha", "Beta"), orderedNames)
+    }
+
+    @Test
+    fun reorderWalletsIgnoresStaleOrCrossNetworkIds() = runTest {
+        val manager = createManager(StandardTestDispatcher(testScheduler))
+        val testnetFirst = insertWallet(name = "Alpha", network = BitcoinNetwork.TESTNET4, sortOrder = 0)
+        val testnetSecond = insertWallet(name = "Beta", network = BitcoinNetwork.TESTNET4, sortOrder = 1)
+        val mainnetWallet = insertWallet(name = "Mainnet", network = BitcoinNetwork.MAINNET, sortOrder = 0)
+
+        manager.reorderWallets(
+            network = BitcoinNetwork.TESTNET4,
+            orderedWalletIds = listOf(mainnetWallet, testnetSecond, testnetFirst)
+        )
+
+        val testnetNames = walletDao.getWalletsSnapshot(BitcoinNetwork.TESTNET4.name).map { it.name }
+        val mainnetNames = walletDao.getWalletsSnapshot(BitcoinNetwork.MAINNET.name).map { it.name }
+        assertEquals(listOf("Alpha", "Beta"), testnetNames)
+        assertEquals(listOf("Mainnet"), mainnetNames)
+    }
+
     private fun createManager(dispatcher: CoroutineDispatcher): WalletProvisioningManager {
         return WalletProvisioningManager(
             walletDao = walletDao,
@@ -132,6 +167,25 @@ class WalletProvisioningManagerTest {
 
         override fun observeGap(walletId: Long): Flow<Int?> = flowOf(values[walletId])
     }
+
+    private suspend fun insertWallet(
+        name: String,
+        network: BitcoinNetwork,
+        sortOrder: Int
+    ): Long = walletDao.insert(
+        WalletEntity(
+            name = name,
+            descriptor = "wpkh([8e8074b3/84'/1'/0']tpub6ReadExample/0/*)",
+            changeDescriptor = "wpkh([8e8074b3/84'/1'/0']tpub6ReadExample/1/*)",
+            network = network.name,
+            balanceSats = 0L,
+            transactionCount = 0,
+            lastSyncStatus = "IDLE",
+            lastSyncError = null,
+            viewOnly = true,
+            sortOrder = sortOrder
+        )
+    )
 
     private companion object {
         private const val WATCH_ONLY_CHANGE_DESCRIPTOR =

@@ -424,6 +424,8 @@ private class FakeWalletRepository : WalletProvisioningRepository, WalletSyncRep
 
     override suspend fun renameWallet(id: Long, name: String) = Unit
 
+    override suspend fun reorderWallets(network: BitcoinNetwork, orderedWalletIds: List<Long>) = Unit
+
     override fun setSyncForegroundState(isForeground: Boolean) = Unit
 }
 

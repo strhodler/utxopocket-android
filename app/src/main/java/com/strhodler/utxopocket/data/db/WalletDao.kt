@@ -68,6 +68,9 @@ interface WalletDao {
     @Query("UPDATE wallets SET color = :color WHERE id = :id")
     suspend fun updateColor(id: Long, color: String)
 
+    @Query("UPDATE wallets SET sort_order = :sortOrder WHERE id = :id AND network = :network")
+    suspend fun updateWalletSortOrder(id: Long, network: String, sortOrder: Int): Int
+
     @Query(
         """
         UPDATE wallets

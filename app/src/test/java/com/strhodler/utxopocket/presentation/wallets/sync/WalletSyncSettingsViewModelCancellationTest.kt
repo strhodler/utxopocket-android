@@ -163,5 +163,7 @@ class WalletSyncSettingsViewModelCancellationTest {
         }
 
         override suspend fun renameWallet(id: Long, name: String) = Unit
+
+        override suspend fun reorderWallets(network: BitcoinNetwork, orderedWalletIds: List<Long>) = Unit
     }
 }

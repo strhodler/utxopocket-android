@@ -17,4 +17,5 @@ interface WalletProvisioningRepository {
     suspend fun updateWalletColor(id: Long, color: WalletColor)
     suspend fun forceFullRescan(walletId: Long, stopGap: Int)
     suspend fun renameWallet(id: Long, name: String)
+    suspend fun reorderWallets(network: BitcoinNetwork, orderedWalletIds: List<Long>)
 }

@@ -14,6 +14,7 @@ import com.strhodler.utxopocket.domain.model.BlockExplorerPreferences
 import com.strhodler.utxopocket.domain.model.Bip329ImportResult
 import com.strhodler.utxopocket.domain.model.ConnectionMode
 import com.strhodler.utxopocket.domain.model.CustomNode
+import com.strhodler.utxopocket.domain.model.DescriptorValidationResult
 import com.strhodler.utxopocket.domain.model.NodeConfig
 import com.strhodler.utxopocket.domain.model.NodeConnectionOption
 import com.strhodler.utxopocket.domain.model.NodeStatus
@@ -41,6 +42,7 @@ import com.strhodler.utxopocket.domain.model.WalletUtxo
 import com.strhodler.utxopocket.domain.model.WalletUtxoSort
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
+import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
 import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
@@ -71,6 +73,7 @@ class WalletsViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private lateinit var scope: TestScope
     private lateinit var walletRepository: TestWalletRepository
+    private lateinit var walletProvisioningRepository: TestWalletProvisioningRepository
     private lateinit var connectionOrchestrator: TestConnectionOrchestrator
     private lateinit var preferencesRepository: TestAppPreferencesRepository
     private lateinit var nodeConfigurationRepository: TestNodeConfigurationRepository
@@ -82,12 +85,14 @@ class WalletsViewModelTest {
         Dispatchers.setMain(dispatcher)
         scope = TestScope(dispatcher)
         walletRepository = TestWalletRepository()
+        walletProvisioningRepository = TestWalletProvisioningRepository()
         connectionOrchestrator = TestConnectionOrchestrator()
         preferencesRepository = TestAppPreferencesRepository()
         nodeConfigurationRepository = TestNodeConfigurationRepository()
         duressManager = DuressManager()
         viewModel = WalletsViewModel(
             walletReadRepository = walletRepository,
+            walletProvisioningRepository = walletProvisioningRepository,
             walletSyncRepository = walletRepository,
             connectionOrchestrator = connectionOrchestrator,
             appPreferencesRepository = preferencesRepository,
@@ -268,7 +273,65 @@ class WalletsViewModelTest {
         assertNull(viewModel.uiState.value.connectedNodeLabel)
         collection.cancel()
     }
+
+    @Test
+    fun reorderWalletsPersistsVisibleWalletOrderForSelectedNetwork() = runTest(dispatcher) {
+        val first = walletSummary(id = 1L, name = "First")
+        val second = walletSummary(id = 2L, name = "Second")
+        walletRepository.summaries.value = listOf(first, second)
+        val collection = backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceUntilIdle()
+
+        viewModel.reorderWallets(listOf(second, first))
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(BitcoinNetwork.TESTNET to listOf(2L, 1L)),
+            walletProvisioningRepository.reorderRequests
+        )
+        collection.cancel()
+    }
+
+    @Test
+    fun reorderWalletsIgnoresSingleWallet() = runTest(dispatcher) {
+        val collection = backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceUntilIdle()
+
+        viewModel.reorderWallets(listOf(walletSummary(id = 1L)))
+        advanceUntilIdle()
+
+        assertEquals(emptyList(), walletProvisioningRepository.reorderRequests)
+        collection.cancel()
+    }
+
+    @Test
+    fun reorderWalletsIgnoresDuressMode() = runTest(dispatcher) {
+        val first = walletSummary(id = 1L, name = "First")
+        val second = walletSummary(id = 2L, name = "Second")
+        walletRepository.summaries.value = listOf(first, second)
+        duressManager.activateFake()
+        advanceUntilIdle()
+
+        viewModel.reorderWallets(listOf(second, first))
+        advanceUntilIdle()
+
+        assertEquals(emptyList(), walletProvisioningRepository.reorderRequests)
+    }
 }
+
+private fun walletSummary(
+    id: Long,
+    name: String = "Wallet $id"
+) = WalletSummary(
+    id = id,
+    name = name,
+    balanceSats = 0L,
+    transactionCount = 0,
+    network = BitcoinNetwork.TESTNET,
+    lastSyncStatus = NodeStatus.Idle,
+    lastSyncTime = null,
+    viewOnly = true
+)
 
 private class TestWalletRepository : WalletReadRepository, WalletSyncRepository {
     val summaries = MutableStateFlow<List<WalletSummary>>(emptyList())
@@ -323,6 +386,31 @@ private class TestWalletRepository : WalletReadRepository, WalletSyncRepository 
     override suspend fun hasActiveNodeSelection(network: BitcoinNetwork): Boolean = true
 
     override fun setSyncForegroundState(isForeground: Boolean) = Unit
+}
+
+private class TestWalletProvisioningRepository : WalletProvisioningRepository {
+    val reorderRequests = mutableListOf<Pair<BitcoinNetwork, List<Long>>>()
+
+    override suspend fun validateDescriptor(
+        descriptor: String,
+        changeDescriptor: String?,
+        network: BitcoinNetwork
+    ): DescriptorValidationResult = throw UnsupportedOperationException()
+
+    override suspend fun addWallet(request: WalletCreationRequest): WalletCreationResult =
+        throw UnsupportedOperationException()
+
+    override suspend fun deleteWallet(id: Long) = Unit
+
+    override suspend fun updateWalletColor(id: Long, color: WalletColor) = Unit
+
+    override suspend fun forceFullRescan(walletId: Long, stopGap: Int) = Unit
+
+    override suspend fun renameWallet(id: Long, name: String) = Unit
+
+    override suspend fun reorderWallets(network: BitcoinNetwork, orderedWalletIds: List<Long>) {
+        reorderRequests += network to orderedWalletIds
+    }
 }
 
 private class TestConnectionOrchestrator : ConnectionOrchestrator {

@@ -22,6 +22,7 @@ import com.strhodler.utxopocket.domain.model.activeCustomNode
 import com.strhodler.utxopocket.domain.model.requiresTor
 import com.strhodler.utxopocket.domain.repository.AppPreferencesRepository
 import com.strhodler.utxopocket.domain.repository.NodeConfigurationRepository
+import com.strhodler.utxopocket.domain.repository.WalletProvisioningRepository
 import com.strhodler.utxopocket.domain.repository.WalletReadRepository
 import com.strhodler.utxopocket.domain.repository.WalletSyncRepository
 import com.strhodler.utxopocket.domain.service.ConnectionOrchestrator
@@ -47,6 +48,7 @@ private const val DURESS_FAKE_LAST_SYNC_OFFSET_MS = (2 * 60 * 60 * 1000L) + (37 
 @HiltViewModel
 class WalletsViewModel @Inject constructor(
     private val walletReadRepository: WalletReadRepository,
+    private val walletProvisioningRepository: WalletProvisioningRepository,
     private val walletSyncRepository: WalletSyncRepository,
     private val connectionOrchestrator: ConnectionOrchestrator,
     private val appPreferencesRepository: AppPreferencesRepository,
@@ -297,6 +299,17 @@ class WalletsViewModel @Inject constructor(
     fun cycleBalanceDisplayMode() {
         viewModelScope.launch {
             appPreferencesRepository.cycleBalanceDisplayMode()
+        }
+    }
+
+    fun reorderWallets(wallets: List<WalletSummary>) {
+        if (wallets.size < 2) return
+        if (duressState.value is DuressSessionState.FakeActive) return
+
+        val network = selectedNetwork.value
+        val orderedWalletIds = wallets.map { it.id }
+        viewModelScope.launch {
+            walletProvisioningRepository.reorderWallets(network, orderedWalletIds)
         }
     }
 

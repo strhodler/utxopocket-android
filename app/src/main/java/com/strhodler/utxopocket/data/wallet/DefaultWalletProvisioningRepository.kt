@@ -44,4 +44,7 @@ class DefaultWalletProvisioningRepository internal constructor(
 
     override suspend fun renameWallet(id: Long, name: String) =
         walletProvisioningManager.renameWallet(id, name)
+
+    override suspend fun reorderWallets(network: BitcoinNetwork, orderedWalletIds: List<Long>) =
+        walletProvisioningManager.reorderWallets(network, orderedWalletIds)
 }

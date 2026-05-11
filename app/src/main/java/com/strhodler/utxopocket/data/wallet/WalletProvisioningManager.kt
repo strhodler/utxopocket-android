@@ -124,6 +124,28 @@ internal class WalletProvisioningManager(
         walletDao.updateWalletName(id, trimmed)
     }
 
+    suspend fun reorderWallets(
+        network: BitcoinNetwork,
+        orderedWalletIds: List<Long>
+    ) = withContext(ioDispatcher) {
+        val requestedIds = orderedWalletIds.distinct()
+        if (requestedIds.size < 2) return@withContext
+
+        val networkName = network.name
+        database.withTransaction {
+            val currentIds = walletDao.getWalletsSnapshot(networkName).map { it.id }
+            if (requestedIds.toSet() != currentIds.toSet()) return@withTransaction
+
+            requestedIds.forEachIndexed { index, walletId ->
+                walletDao.updateWalletSortOrder(
+                    id = walletId,
+                    network = networkName,
+                    sortOrder = index
+                )
+            }
+        }
+    }
+
     private fun validateDescriptorInternal(
         descriptor: String,
         changeDescriptor: String?,

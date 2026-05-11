@@ -457,6 +457,8 @@ class WalletDetailSyncActionsTest {
 
         override suspend fun renameWallet(id: Long, name: String) = Unit
 
+        override suspend fun reorderWallets(network: BitcoinNetwork, orderedWalletIds: List<Long>) = Unit
+
         override suspend fun exportWalletLabels(walletId: Long): WalletLabelExport =
             WalletLabelExport(fileName = "labels.jsonl", entries = emptyList())
 
