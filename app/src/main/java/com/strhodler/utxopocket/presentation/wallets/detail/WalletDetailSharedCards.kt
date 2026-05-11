@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,6 +72,63 @@ internal fun ErrorItem(message: String?, modifier: Modifier = Modifier) {
     }
 }
 
+internal enum class UtxoDetailedCardColorRole {
+    SurfaceContainer,
+    ErrorContainerMuted,
+    OnSurface,
+    OnSurfaceVariant,
+    OnErrorContainer,
+    OnErrorContainerMuted,
+    Error,
+    OnError,
+    SecondaryContainer,
+    OnSecondaryContainer
+}
+
+internal data class UtxoDetailedCardColorRoles(
+    val container: UtxoDetailedCardColorRole,
+    val content: UtxoDetailedCardColorRole,
+    val supporting: UtxoDetailedCardColorRole,
+    val amount: UtxoDetailedCardColorRole,
+    val badgeContainer: UtxoDetailedCardColorRole,
+    val badgeContent: UtxoDetailedCardColorRole
+)
+
+internal fun utxoDetailedCardColorRoles(addressType: WalletAddressType?): UtxoDetailedCardColorRoles =
+    if (addressType == WalletAddressType.CHANGE) {
+        UtxoDetailedCardColorRoles(
+            container = UtxoDetailedCardColorRole.ErrorContainerMuted,
+            content = UtxoDetailedCardColorRole.OnErrorContainer,
+            supporting = UtxoDetailedCardColorRole.OnErrorContainerMuted,
+            amount = UtxoDetailedCardColorRole.Error,
+            badgeContainer = UtxoDetailedCardColorRole.Error,
+            badgeContent = UtxoDetailedCardColorRole.OnError
+        )
+    } else {
+        UtxoDetailedCardColorRoles(
+            container = UtxoDetailedCardColorRole.SurfaceContainer,
+            content = UtxoDetailedCardColorRole.OnSurface,
+            supporting = UtxoDetailedCardColorRole.OnSurfaceVariant,
+            amount = UtxoDetailedCardColorRole.OnSurface,
+            badgeContainer = UtxoDetailedCardColorRole.SecondaryContainer,
+            badgeContent = UtxoDetailedCardColorRole.OnSecondaryContainer
+        )
+    }
+
+@Composable
+private fun UtxoDetailedCardColorRole.toColor(): Color = when (this) {
+    UtxoDetailedCardColorRole.SurfaceContainer -> MaterialTheme.colorScheme.surfaceContainer
+    UtxoDetailedCardColorRole.ErrorContainerMuted -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.48f)
+    UtxoDetailedCardColorRole.OnSurface -> MaterialTheme.colorScheme.onSurface
+    UtxoDetailedCardColorRole.OnSurfaceVariant -> MaterialTheme.colorScheme.onSurfaceVariant
+    UtxoDetailedCardColorRole.OnErrorContainer -> MaterialTheme.colorScheme.onErrorContainer
+    UtxoDetailedCardColorRole.OnErrorContainerMuted -> MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.74f)
+    UtxoDetailedCardColorRole.Error -> MaterialTheme.colorScheme.error
+    UtxoDetailedCardColorRole.OnError -> MaterialTheme.colorScheme.onError
+    UtxoDetailedCardColorRole.SecondaryContainer -> MaterialTheme.colorScheme.secondaryContainer
+    UtxoDetailedCardColorRole.OnSecondaryContainer -> MaterialTheme.colorScheme.onSecondaryContainer
+}
+
 @Composable
 internal fun UtxoDetailedCard(
     utxo: WalletUtxo,
@@ -107,7 +165,13 @@ internal fun UtxoDetailedCard(
     } else {
         null
     }
-    val utxoCardColor = MaterialTheme.colorScheme.surfaceContainer
+    val colorRoles = remember(utxo.addressType) { utxoDetailedCardColorRoles(utxo.addressType) }
+    val utxoCardColor = colorRoles.container.toColor()
+    val utxoContentColor = colorRoles.content.toColor()
+    val utxoSupportingColor = colorRoles.supporting.toColor()
+    val amountColor = colorRoles.amount.toColor()
+    val badgeContainerColor = colorRoles.badgeContainer.toColor()
+    val badgeContentColor = colorRoles.badgeContent.toColor()
     val spendableIcon = if (utxo.spendable) Icons.Outlined.LockOpen else Icons.Outlined.Lock
     val spendableTint = if (utxo.spendable) {
         MaterialTheme.colorScheme.primary
@@ -119,7 +183,7 @@ internal fun UtxoDetailedCard(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = utxoCardColor,
-            contentColor = MaterialTheme.colorScheme.onSurface
+            contentColor = utxoContentColor
         ),
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -144,10 +208,15 @@ internal fun UtxoDetailedCard(
                     ) {
                         Text(
                             text = amountText,
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            color = amountColor
                         )
                         changeBadgeText?.let {
-                            CautionBadge(text = it)
+                            CautionBadge(
+                                text = it,
+                                containerColor = badgeContainerColor,
+                                contentColor = badgeContentColor
+                            )
                         }
                     }
                 }
@@ -164,7 +233,7 @@ internal fun UtxoDetailedCard(
                     Text(
                         text = confirmationText,
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = utxoSupportingColor
                     )
                 }
                 trailingContent?.let { content ->
@@ -193,7 +262,7 @@ internal fun UtxoDetailedCard(
                     Text(
                         text = stringResource(id = R.string.utxo_detail_address),
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = utxoSupportingColor
                     )
                     SelectionContainer {
                         Text(
@@ -212,7 +281,7 @@ internal fun UtxoDetailedCard(
                     Text(
                         text = stringResource(id = R.string.utxo_detail_txid),
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = utxoSupportingColor,
                         textAlign = TextAlign.End
                     )
                     SelectionContainer {
@@ -242,11 +311,15 @@ internal fun UtxoDetailedCard(
 }
 
 @Composable
-internal fun CautionBadge(text: String) {
+internal fun CautionBadge(
+    text: String,
+    containerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
+    contentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer
+) {
     Surface(
         shape = RoundedCornerShape(999.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        color = containerColor,
+        contentColor = contentColor
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
