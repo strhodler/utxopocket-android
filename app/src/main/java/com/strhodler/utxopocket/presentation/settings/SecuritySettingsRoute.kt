@@ -949,7 +949,20 @@ private fun SecuritySettingsScreen(
         }
 
         SectionCard(
-            title = stringResource(id = R.string.settings_danger_zone_title),
+            header = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 12.dp, top = 8.dp, end = 12.dp, bottom = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.settings_danger_zone_title),
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
             divider = false,
             colors = CardDefaults.elevatedCardColors(
                 containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.48f),
